@@ -1,0 +1,51 @@
+# Development stack: the Phase 0 exit criterion.
+#
+#   docker compose up --build
+#   open http://localhost:8080   -> sign in through the development issuer
+#
+# This builds WITHOUT the `prod` tag, so the image contains the development
+# OIDC issuer (mounted at /dev-idp/ on the app's own origin) and
+# SCRIOBH_OIDC_STUB=1 turns it on. The app refuses the issuer unless the base
+# URL is loopback, and the port is published on 127.0.0.1 only. Do not use this
+# file for anything other than a local try-out; see compose.prod.example.yaml.
+name: scriobh-dev
+
+services:
+  scriobh:
+    build:
+      context: .
+      args:
+        TAGS: ""
+        VERSION: dev
+    image: scriobh:dev
+    environment:
+      SCRIOBH_OIDC_STUB: "1"
+      # The container listens on :8080; the host port below is published to
+      # 127.0.0.1 only, which is what keeps the credential-free dev issuer private.
+      SCRIOBH_DEV_ALLOW_ANY_LISTEN: "1"
+      SCRIOBH_BASE_URL: http://localhost:8080
+      # Development only: let Git sync reach a Git server on this machine or the
+      # LAN. Production leaves private addresses refused (see docs/OPERATIONS.md).
+      SCRIOBH_GIT_ALLOW_PRIVATE: "1"
+      # SCRIOBH_LISTEN=:8080 and SCRIOBH_DATA_DIR=/data come from the image.
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - scriobh-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "/scriobh", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  scriobh-data:

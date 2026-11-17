@@ -1,0 +1,24 @@
+{{define "settings-backups"}}
+<section id="backups" aria-labelledby="h-backups">
+  <h2 id="h-backups">Backups</h2>
+  <p class="sub">A backup is one zip with every project, its history and the Markdown copy. Only administrators see this section. A backup is also taken on a schedule, unless an administrator turned that off.</p>
+  {{if .B.Problem}}<p class="field-error" role="alert">{{.B.Problem}}</p>{{end}}
+  <form method="post" action="/ui/settings/backups" class="form-actions"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn" type="submit">Back up now</button></form>
+  {{if eq .Saved "backup"}}<p class="saved" role="status">Backup taken.</p>{{end}}
+  {{if .B.Rows}}
+  <ul class="sessions">
+    {{range .B.Rows}}<li>
+      <div class="session-main"><span class="session-agent">{{.Kind}} backup</span><span class="session-when">{{.When}} &middot; {{.Size}}</span></div>
+      <a class="btn quiet" href="/api/v1/admin/backups/{{.ID}}" download aria-label="Download the {{.Kind}} backup from {{.When}}">Download</a>
+    </li>{{end}}
+  </ul>
+  {{else if not .B.Problem}}<p class="fine">There are no backups yet.</p>{{end}}
+  <div class="backup-notes">
+    <h3>Keep the secret key somewhere else</h3>
+    <p>A backup does not hold the secret key, on purpose: a file with the key and your data together would give away everything at once. Copy <code>secret.key</code> from the data folder, or keep the value of <code>SCRIOBH_SECRET_KEY</code>, in a different place from your backups. If you restore without it, nothing you wrote is lost and you stay signed in, but any saved password or key for a remote repository has to be entered again.</p>
+    <h3>Restoring</h3>
+    <p>Restoring is a command, because it needs the server stopped. Stop it, then run <code>scriobh restore &lt;file&gt;</code> with the path of a backup. If the data folder already holds data, add <code>--force</code>; the command first saves what is there as a backup of its own. With Docker: <code>docker compose run --rm scriobh restore /data/backups/&lt;name&gt;.zip --force</code>. Then start the server again.</p>
+    <p class="fine">A backup over 256 MB cannot be downloaded here. Copy it from the backups folder inside the data folder.</p>
+  </div>
+</section>
+{{end}}

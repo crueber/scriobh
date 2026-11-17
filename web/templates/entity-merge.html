@@ -1,0 +1,85 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/entities.css"}}">{{end}}
+{{define "crumb"}}{{template "ccrumb" (dict "C" .Data.Compendium "Here" "Merge")}}{{end}}
+{{define "tab-write"}}{{template "ctab-phone" ctabs .Data.Slug "entities"}}{{end}}
+{{define "ptabs"}}{{template "ctab-desktop" ctabs .Data.Slug "entities"}}{{end}}
+{{define "projmore"}}{{template "cmore" ctabs .Data.Slug "entities"}}{{end}}
+{{define "content"}}
+{{with .Data}}{{$src := .Source}}
+<div class="settings ents merge" id="merge">
+  <h1>Merge {{$src.Name}}</h1>
+  <p class="sub">Merging folds this {{$src.Kind}} into another, so the two become one. Nothing changes until you press Merge, and what you see below is exactly what Merge will do.</p>
+  {{if .Error}}<p class="field-error" role="alert">{{.Error}}</p>{{end}}
+
+  {{if not .Plan}}
+  <section aria-labelledby="h-pick">
+    <h2 id="h-pick">Merge into which one</h2>
+    <form class="ent-search" role="search" aria-label="Find an entity to merge" method="get" action="/c/{{.Slug}}/e/{{$src.ID}}/merge">
+      <div class="field"><label for="mg-q">Find the entity that stays</label><input id="mg-q" type="search" name="q" value="{{.Q}}" placeholder="A name or an alias" autocomplete="off"></div>
+      <button class="btn" type="submit">Find</button>
+    </form>
+    {{if .Candidates}}<ul class="ent-rows">{{range .Candidates}}<li class="ent-row">{{template "entity-swatch" .Color}}<div class="ent-main"><p class="ent-name"><a href="/c/{{$.Data.Slug}}/e/{{$src.ID}}/merge?into={{.ID}}">{{.Name}}</a> <span class="ent-kind">{{.KindLabel}}</span></p>{{if .Summary}}<p class="ent-sub">{{.Summary}}</p>{{end}}{{if .Aliases}}<p class="ent-aka">Also: {{range $i, $a := .Aliases}}{{if $i}}, {{end}}{{$a}}{{end}}</p>{{end}}</div></li>{{end}}</ul>
+    {{else}}<p class="fine">{{if .Q}}No other {{$src.Kind}} matches. Only entities of the same kind can be merged.{{else}}This Compendium has no other {{$src.Kind}} to merge into.{{end}}</p>{{end}}
+  </section>
+  {{else}}
+  {{with .Plan}}
+  <form class="form" method="post" action="/ui/entities/{{$src.ID}}/merge" id="merge-form">
+    <input type="hidden" name="_csrf" value="{{$.Data.CSRF}}"><input type="hidden" name="into" value="{{.TargetID}}"><input type="hidden" name="plan" value="{{$.Data.Fingerprint}}">
+    <section aria-labelledby="h-plan">
+      <h2 id="h-plan">What will happen</h2>
+      <ul class="plan">
+        <li><strong>{{.SourceName}}</strong> is folded into <strong><a href="/c/{{$.Data.Slug}}/e/{{.TargetID}}">{{.TargetName}}</a></strong>, which stays. {{.SourceName}} is removed, and its old address keeps leading to {{.TargetName}} for a year.</li>
+        {{if .NameAsAlias}}<li>The name &ldquo;{{.NameAsAlias}}&rdquo; is kept as an alias of {{.TargetName}}.</li>{{end}}
+        {{if .AliasesMoved}}<li>{{len .AliasesMoved}} {{plural (len .AliasesMoved) "alias moves" "aliases move"}} across: {{range $i, $a := .AliasesMoved}}{{if $i}}, {{end}}{{$a}}{{end}}.</li>{{end}}
+        {{if .AliasesDuplicate}}<li>{{len .AliasesDuplicate}} {{plural (len .AliasesDuplicate) "alias is" "aliases are"}} already {{.TargetName}}'s and are not copied: {{range $i, $a := .AliasesDuplicate}}{{if $i}}, {{end}}{{$a}}{{end}}.</li>{{end}}
+        {{range .AliasesBlocked}}<li>The alias &ldquo;{{.Alias}}&rdquo; is dropped, because <a href="/c/{{$.Data.Slug}}/e/{{.EntityID}}">{{.Name}}</a> uses it as its {{.Via}}.</li>{{end}}
+        {{if .FieldsTaken}}<li>{{len .FieldsTaken}} {{plural (len .FieldsTaken) "field only the first had is" "fields only the first had are"}} copied across: {{range $i, $a := .FieldsTaken}}{{if $i}}, {{end}}{{$a}}{{end}}.</li>{{end}}
+        <li>The summary is kept from the {{.SummaryFrom}}. The notes are {{if eq .BodyFrom "both"}}joined, the first&rsquo;s below the other&rsquo;s{{else}}kept from the {{.BodyFrom}}{{end}}.</li>
+        {{if .RelationsRewired}}<li>{{.RelationsRewired}} {{plural .RelationsRewired "relationship is" "relationships are"}} moved to {{.TargetName}}.</li>{{end}}
+        {{if .RelationsDropped}}<li>{{len .RelationsDropped}} {{plural (len .RelationsDropped) "relationship is" "relationships are"}} dropped, because {{.TargetName}} already has it or it would relate {{.TargetName}} to itself.</li>{{end}}
+        {{if .OverridesMoved}}<li>{{.OverridesMoved}} {{plural .OverridesMoved "project's override moves" "projects' overrides move"}} to {{.TargetName}}.</li>{{end}}
+        {{if .OverridesDropped}}<li>{{.OverridesDropped}} {{plural .OverridesDropped "override is" "overrides are"}} discarded, as chosen below.</li>{{end}}
+        {{if .LinksMoved}}<li>{{.LinksMoved}} {{plural .LinksMoved "project link moves" "project links move"}} to {{.TargetName}}.</li>{{end}}
+        {{if .LinksDropped}}<li>{{.LinksDropped}} {{plural .LinksDropped "project link is" "project links are"}} dropped, because {{.TargetName}} already has it.</li>{{end}}
+        {{if .SceneRefsRepointed}}<li>{{.SceneRefsRepointed}} {{plural .SceneRefsRepointed "scene points" "scenes point"}} to {{.TargetName}} instead.</li>{{end}}
+        {{if .RedirectsRepointed}}<li>{{.RedirectsRepointed}} older {{plural .RedirectsRepointed "address now leads" "addresses now lead"}} to {{.TargetName}}.</li>{{end}}
+        {{range $k, $n := .Extra}}{{if $n}}<li>{{$n}} {{$k}} moved.</li>{{end}}{{end}}
+      </ul>
+    </section>
+
+    {{if .FieldConflicts}}<section aria-labelledby="h-fc"><h2 id="h-fc">Fields that differ</h2>
+      <p class="sub">Both hold a value. Choose the one that stays.</p>
+      {{range .FieldConflicts}}<fieldset class="choice"><legend>{{.Label}}</legend>
+        <label class="radio"><input type="radio" name="fc.{{.Key}}" value="target"{{if eq .Choice "target"}} checked{{end}}><span>Keep {{$.Data.Plan.TargetName}}&rsquo;s: <q>{{.Target}}</q></span></label>
+        <label class="radio"><input type="radio" name="fc.{{.Key}}" value="source"{{if eq .Choice "source"}} checked{{end}}><span>Take {{$.Data.Plan.SourceName}}&rsquo;s: <q>{{.Source}}</q></span></label>
+      </fieldset>{{end}}</section>{{end}}
+
+    {{if $.Data.Overrides}}<section aria-labelledby="h-oc"><h2 id="h-oc">Projects that changed both</h2>
+      <p class="sub">These books each changed both entities for themselves. Choose whose changes the book keeps.</p>
+      {{range $.Data.Overrides}}<fieldset class="choice"><legend>{{.ProjectName}}</legend>
+        <label class="radio"><input type="radio" name="fc.{{.Key}}" value="target"{{if eq .Choice "target"}} checked{{end}}><span>Keep its changes to {{$.Data.Plan.TargetName}}</span></label>
+        <label class="radio"><input type="radio" name="fc.{{.Key}}" value="source"{{if eq .Choice "source"}} checked{{end}}><span>Take its changes to {{$.Data.Plan.SourceName}}</span></label>
+      </fieldset>{{end}}</section>{{end}}
+
+    <section aria-labelledby="h-opt"><h2 id="h-opt">Choices</h2>
+      <fieldset class="choice"><legend>Summary</legend>
+        <label class="radio"><input type="radio" name="summary" value="target"{{if ne $.Data.Summary "source"}} checked{{end}}><span>Keep {{.TargetName}}&rsquo;s</span></label>
+        <label class="radio"><input type="radio" name="summary" value="source"{{if eq $.Data.Summary "source"}} checked{{end}}><span>Take {{.SourceName}}&rsquo;s</span></label></fieldset>
+      <fieldset class="choice"><legend>Notes</legend>
+        <label class="radio"><input type="radio" name="body" value="target"{{if and (ne $.Data.Body "source") (ne $.Data.Body "append")}} checked{{end}}><span>Keep {{.TargetName}}&rsquo;s</span></label>
+        <label class="radio"><input type="radio" name="body" value="source"{{if eq $.Data.Body "source"}} checked{{end}}><span>Take {{.SourceName}}&rsquo;s</span></label>
+        <label class="radio"><input type="radio" name="body" value="append"{{if eq $.Data.Body "append"}} checked{{end}}><span>Keep both, {{.SourceName}}&rsquo;s below</span></label></fieldset>
+      <label class="check"><input type="checkbox" name="no_alias" value="1"{{if $.Data.NoAlias}} checked{{end}}><span>Do not keep &ldquo;{{.SourceName}}&rdquo; as an alias</span></label>
+    </section>
+
+    <div class="form-actions">
+      <button class="btn" type="submit">Update the preview</button>
+      {{if $.Data.CanMerge}}<button class="btn solid" type="submit" name="do" value="merge">Merge {{.SourceName}} into {{.TargetName}}</button>
+      {{else}}<p class="fine" role="status">Choose an answer for each difference above to merge. The preview is unchanged until you do.</p>{{end}}
+      <a class="btn quiet" href="/c/{{$.Data.Slug}}/e/{{$src.ID}}">Cancel</a>
+    </div>
+  </form>
+  {{end}}
+  {{end}}
+</div>
+{{end}}
+{{end}}

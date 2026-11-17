@@ -1,0 +1,120 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/review.css"}}"><script src="{{asset "js/arm.js"}}" defer></script><script src="{{asset "js/when.js"}}" defer></script>{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "rq.title"}}</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "review" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "review" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "review" .Data.Project.Role}}{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}
+<div class="settings rq" id="rq">
+  <h1>{{$.T "rq.title"}}</h1>
+  <p class="sub">{{.Project.Title}}. {{$.T "rq.intro"}}</p>
+  {{if .Flash}}<p class="saved" role="status">{{.Flash}}</p>{{end}}
+  {{if .Error}}<p class="field-error" role="alert">{{.Error}}</p>{{end}}
+
+  <p class="rq-sum" id="rq-sum">
+    {{if eq .Total 1}}{{$.T "rq.open_one"}}{{else}}{{$.T "rq.open_many" "n" .Total}}{{end}}{{if .Orphaned}} {{$.T "rq.lost" "n" .Orphaned}}{{end}}
+    {{if eq .SugTotal 1}}{{$.T "rq.sug_one"}}{{else}}{{$.T "rq.sug_many" "n" .SugTotal}}{{end}}
+    <a href="{{.ReadURL}}">{{$.T "rq.read"}}</a>
+  </p>
+
+  {{if .Plan}}{{if eq .Plan.Kind "resolve"}}
+  <section class="rv-compose rq-plan" aria-labelledby="rq-plan-h" id="rq-plan">
+    <h2 id="rq-plan-h">{{$.T "rq.resolve_h"}}</h2>
+    <p>{{if eq .Plan.Count 1}}{{$.T "rq.resolve_one"}}{{else}}{{$.T "rq.resolve_many" "n" .Plan.Count}}{{end}} {{$.T "rq.resolve_note"}}</p>
+    <form method="post" action="/ui/projects/{{.ProjectID}}/review/resolve_all" class="form-actions">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="step" value="apply"><input type="hidden" name="expect_count" value="{{.Plan.Count}}">
+      <input type="hidden" name="doc" value="{{.Filter.Doc}}"><input type="hidden" name="author" value="{{.Filter.Author}}"><input type="hidden" name="kind" value="{{.Filter.Kind}}"><input type="hidden" name="state" value="{{.Filter.State}}">
+      <a class="btn quiet" href="/p/{{.Slug}}/review" autofocus data-first data-cancel>{{$.T "rq.cancel"}}</a>
+      {{if .Plan.Count}}<button class="btn solid" type="submit" data-hold>{{$.T "rq.resolve_go" "n" .Plan.Count}}</button>{{end}}
+    </form>
+  </section>
+  {{else}}
+  <section class="rv-compose rq-plan" aria-labelledby="rq-plan-h" id="rq-plan">
+    <h2 id="rq-plan-h">{{$.T "rq.accept_h" "title" .Plan.Title}}</h2>
+    <p>{{$.T "rq.accept_plan" "n" .Plan.Count "total" .Plan.Total}}</p>
+    {{if .Plan.Skipped}}<p class="rv-stale">{{$.T "rq.skipped" "n" (len .Plan.Skipped)}}</p>
+    <ul class="rv-plan">{{range .Plan.Skipped}}<li>{{if .Message}}{{.Message}}{{else}}{{.Reason}}{{end}}</li>{{end}}</ul>{{end}}
+    <form method="post" action="/ui/projects/{{.ProjectID}}/review/accept_all" class="form-actions">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="step" value="apply"><input type="hidden" name="document_id" value="{{.Plan.DocID}}">
+      {{range .Plan.IDs}}<input type="hidden" name="suggestion_id" value="{{.}}">{{end}}
+      <a class="btn quiet" href="/p/{{.Slug}}/review" autofocus data-first data-cancel>{{$.T "rq.cancel"}}</a>
+      {{if .Plan.Count}}<button class="btn solid" type="submit" data-hold>{{$.T "rq.accept_go" "n" .Plan.Count}}</button>{{end}}
+    </form>
+  </section>
+  {{end}}{{end}}
+
+  <section aria-labelledby="rq-c">
+    <h2 id="rq-c">{{$.T "rq.comments"}}</h2>
+    {{if .Chapters}}<nav class="rq-chapters" aria-label="{{$.T "rq.chapters"}}">
+      <a href="/p/{{.Slug}}/review"{{if not .Filter.Doc}} aria-current="page"{{end}}>{{$.T "rq.all"}}</a>
+      {{range .Chapters}}{{if .Open}}<a href="/p/{{$d.Slug}}/review?doc={{.DocumentID}}"{{if eq $d.Filter.Doc .DocumentID}} aria-current="page"{{end}}>{{if .Title}}{{.Title}}{{else}}{{$.T "rq.untitled"}}{{end}} <span class="rq-n">{{.Open}}</span></a>{{end}}{{end}}
+    </nav>{{end}}
+    <form class="rq-filter" method="get" action="/p/{{.Slug}}/review">
+      {{if .Filter.Doc}}<input type="hidden" name="doc" value="{{.Filter.Doc}}">{{end}}
+      <label for="rq-a">{{$.T "rq.by"}}</label>
+      <select id="rq-a" name="author"><option value="">{{$.T "rq.anyone"}}</option><option value="me"{{if eq .Filter.Author "me"}} selected{{end}}>{{$.T "rq.me"}}</option></select>
+      <label for="rq-k">{{$.T "rq.kind"}}</label>
+      <select id="rq-k" name="kind"><option value="">{{$.T "rq.any"}}</option><option value="comment"{{if eq .Filter.Kind "comment"}} selected{{end}}>{{$.T "rq.k_comment"}}</option><option value="question"{{if eq .Filter.Kind "question"}} selected{{end}}>{{$.T "rq.k_question"}}</option></select>
+      <label for="rq-s">{{$.T "rq.state"}}</label>
+      <select id="rq-s" name="state"><option value="">{{$.T "rq.any"}}</option><option value="active"{{if eq .Filter.State "active"}} selected{{end}}>{{$.T "rq.s_active"}}</option><option value="orphaned"{{if eq .Filter.State "orphaned"}} selected{{end}}>{{$.T "rq.s_lost"}}</option></select>
+      <button class="btn small" type="submit">{{$.T "rq.filter"}}</button>
+    </form>
+    {{if .Total}}
+    <form method="post" action="/ui/projects/{{.ProjectID}}/review/resolve_all" class="rq-all">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="step" value="preview">
+      <input type="hidden" name="doc" value="{{.Filter.Doc}}"><input type="hidden" name="author" value="{{.Filter.Author}}"><input type="hidden" name="kind" value="{{.Filter.Kind}}"><input type="hidden" name="state" value="{{.Filter.State}}">
+      <button class="btn" type="submit">{{if .AnyFilter}}{{$.T "rq.resolve_shown" "n" .Total}}{{else}}{{$.T "rq.resolve_all" "n" .Total}}{{end}}</button>
+      <span class="fine">{{$.T "rq.preview_first"}}</span>
+    </form>
+    {{end}}
+    {{if .More}}<p class="fine">{{$.T "rq.more" "n" (len .Groups)}}</p>{{end}}
+    {{range .Groups}}
+    <section class="rq-group" aria-labelledby="g-{{.DocID}}{{if not .DocID}}book{{end}}">
+      <h3 id="g-{{.DocID}}{{if not .DocID}}book{{end}}">{{.Title}} <span class="rq-n">{{.Open}}</span></h3>
+      {{if .Crumb}}<p class="fine">{{.Crumb}}</p>{{end}}
+      <ul class="rv-list">{{range .Threads}}
+        <li class="rv-card{{if .Orphan}} is-lost{{end}}" id="t-{{.ID}}">
+          <p class="rv-meta"><strong>{{.Author}}</strong> <time class="rv-when" datetime="{{.At}}" title="{{.When}}">{{.When}}</time>{{if ne .Kind "comment"}} <span class="rv-kind">{{if eq .Kind "question"}}{{$.T "rq.k_question"}}{{else}}{{$.T "rq.k_note"}}{{end}}</span>{{end}}{{if .Replies}} <span class="rv-kind">{{if eq .Replies 1}}{{$.T "rq.reply_one"}}{{else}}{{$.T "rq.reply_many" "n" .Replies}}{{end}}</span>{{end}}</p>
+          {{if .Orphan}}<p class="rv-where is-lost">{{$.T "rq.gone"}}</p>{{end}}
+          {{if .Quote}}<blockquote class="rv-quote">&ldquo;{{.Quote}}&rdquo;</blockquote>{{end}}
+          <p class="rv-body">{{.Body}}</p>
+          <div class="rv-actions">
+            {{if .ReadURL}}<a class="btn quiet small" href="{{.ReadURL}}">{{$.T "rq.in_context"}}</a>{{end}}
+            <form method="post" action="/ui/projects/{{$d.ProjectID}}/review/resolve"><input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="thread_id" value="{{.ID}}"><button class="btn quiet small" type="submit">{{$.T "rq.resolve"}}</button></form>
+          </div>
+        </li>{{end}}
+      </ul>
+    </section>
+    {{else}}<p class="fine" id="rq-none">{{if .AnyFilter}}{{$.T "rq.none_filtered"}}{{else}}{{$.T "rq.none"}}{{end}}</p>{{end}}
+  </section>
+
+  <section aria-labelledby="rq-s-h" id="rq-sug">
+    <h2 id="rq-s-h">{{$.T "rq.suggestions"}}</h2>
+    {{range .SugGroups}}{{$g := .}}
+    <div class="rq-group">
+      <h3>{{.Title}} <span class="rq-n">{{len .Sugs}}</span></h3>
+      <form method="post" action="/ui/projects/{{$d.ProjectID}}/review/accept_all" class="rq-all">
+        <input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="step" value="preview"><input type="hidden" name="document_id" value="{{.DocID}}">
+        {{range .Sugs}}<input type="hidden" name="suggestion_id" value="{{.ID}}">{{end}}
+        <button class="btn small" type="submit">{{$.T "rq.accept_all"}}</button> <a class="btn quiet small" href="/p/{{$d.Slug}}/read/{{.DocID}}">{{$.T "rq.in_context"}}</a>
+      </form>
+      <ul class="rv-list">{{range .Sugs}}
+        <li class="rv-card">
+          <p class="rv-meta"><strong>{{.Author}}</strong> <time class="rv-when" datetime="{{.At}}" title="{{.When}}">{{.When}}</time></p>
+          {{range .Changes}}<p class="rv-chg">{{if .Insert}}<ins class="rv-ins">{{.New}}</ins>{{else}}<del class="rv-del">{{.Old}}</del>{{if .New}} <ins class="rv-ins">{{.New}}</ins>{{end}}{{end}}</p>{{end}}
+          {{if .Note}}<p class="rv-body">{{.Note}}</p>{{end}}
+          {{if .Stale}}<p class="rv-stale">{{$.T "rq.stale"}}</p>{{end}}
+          <div class="rv-actions">
+            <form method="post" action="/ui/projects/{{$d.ProjectID}}/review/accept"><input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="suggestion_id" value="{{.ID}}"><button class="btn solid small" type="submit">{{$.T "rq.accept"}}</button></form>
+            <form method="post" action="/ui/projects/{{$d.ProjectID}}/review/reject"><input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="suggestion_id" value="{{.ID}}"><button class="btn quiet small" type="submit">{{$.T "rq.reject"}}</button></form>
+          </div>
+        </li>{{end}}
+      </ul>
+    </div>
+    {{else}}<p class="fine">{{$.T "rq.no_sug"}}</p>{{end}}
+  </section>
+</div>
+{{end}}
+{{end}}

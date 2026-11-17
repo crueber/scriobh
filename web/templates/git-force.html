@@ -1,0 +1,10 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/git.css"}}">{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="{{$.T "git.crumb"}}"><a href="/">{{template "icon" "chevron-left"}}<span>{{$.T "git.library"}}</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}/git?remote={{.Data.Remote.ID}}">{{$.T "git.title"}}</a></nav>
+{{end}}
+{{define "content"}}
+<section class="form-page" aria-labelledby="dialog-title">
+  <h1 class="sr-only">{{$.T "git.force.h1"}}</h1>
+  {{template "git-force" .Data}}
+</section>
+{{end}}

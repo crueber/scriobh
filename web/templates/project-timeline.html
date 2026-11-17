@@ -1,0 +1,70 @@
+{{define "head"}}
+<link rel="stylesheet" href="{{asset "css/timeline.css"}}">
+<script src="{{asset "js/timeline.js"}}" defer></script>
+{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">Timeline</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "timeline" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "timeline" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "timeline" .Data.Project.Role}}{{end}}
+
+{{define "content"}}
+{{with .Data}}
+<section class="tl settings" id="tl" data-project="{{.ID}}" data-kind="project" data-order="{{.Order}}" data-offset="{{.Offset}}" data-movable="{{.Movable}}" data-q="{{.OrderQuery}}">
+  <h1 id="tl-h" tabindex="-1">Timeline</h1>
+  <p class="sub">{{.Project.Title}}. The events of the story world and this book's own dated scenes, in the order things happen or the order this book tells them.</p>
+  {{if .Saved}}<p class="saved" role="status">{{.Saved}}</p>{{end}}
+  {{if .Hidden}}<p class="tl-note">This book draws on a Compendium that is not open to you, so its events are left out here.</p>{{end}}
+  {{if .Unplaced}}<p class="tl-note">{{.Unplaced}} {{plural .Unplaced "scene has" "scenes have"}} neither a story date nor an event, so {{plural .Unplaced "it is" "they are"}} not on this timeline yet. <a href="/p/{{.Slug}}/outline">Open the outline</a> to give {{plural .Unplaced "it" "them"}} a date.</p>{{end}}
+
+  <div class="tl-actions">
+    <nav class="tl-switch" aria-label="Order">
+      <a class="btn{{if eq .Order "story"}} solid{{end}}" href="?order=story"{{if eq .Order "story"}} aria-current="page"{{end}}>When it happens</a>
+      <a class="btn{{if eq .Order "narrative"}} solid{{end}}" href="?order=narrative"{{if eq .Order "narrative"}} aria-current="page"{{end}}>As the book tells it</a>
+    </nav>
+    <a class="btn" href="?check=1&amp;order={{.Order}}#tl-check" hx-get="/ui/projects/{{.ID}}/timeline/check" hx-target="#tl-check-body" hx-swap="innerHTML" hx-push-url="false">Check timeline</a>
+  </div>
+
+  <section id="tl-check" class="tl-panel" aria-labelledby="tl-check-h">
+    <h2 id="tl-check-h">Check timeline</h2>
+    <div id="tl-check-body" aria-live="polite">{{with .Check}}{{template "tl-check" .}}{{else}}<p class="fine">Look for contradictions between the events, the people in them and this book's scenes. Nothing is changed.</p>{{end}}</div>
+  </section>
+
+  <section id="tl-strip" class="tl-panel" aria-labelledby="tl-strip-h">
+    <h2 id="tl-strip-h">Over story time</h2>
+    {{if .Strip.Buckets}}<p class="fine">Solid blocks count events, outlined blocks count scenes with a date and no event. Choose a block to list what starts in it below.</p>{{end}}
+    {{template "tl-strip" .Strip}}
+  </section>
+
+  <section id="tl-events" aria-labelledby="tl-events-h">
+    <h2 id="tl-events-h">{{if eq .Order "narrative"}}As the book tells it{{else}}In the order things happen{{end}}</h2>
+    {{if eq .Order "narrative"}}
+    <p class="fine">This is the order the book reaches each event: scenes where they sit in the manuscript, each event where its first scene is. {{if .Explicit}}This book has its own order of events.{{else}}The order comes from the scenes, until you change it.{{end}} Only events move. Scenes never move here; to move a scene, reorder it in the outline.</p>
+    {{if .Explicit}}{{if .CanEdit}}<form class="tl-reset" method="post" action="/ui/projects/{{.ID}}/timeline/order"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="reset" value="1"><button class="btn small" type="submit">Go back to the order the scenes give</button></form>{{end}}{{end}}
+    {{else}}<p class="fine">Events and dated scenes by their story dates, earliest first, then those with no date. Switch to the book's own order to rearrange when it tells them.</p>{{end}}
+    {{if and .CanEdit (eq .Order "narrative") (not .Movable)}}<p class="tl-note">Moving is off while the list is filtered. Clear the filters to move events.</p>{{end}}
+    {{if .Error}}<p class="field-error" role="alert" id="tl-err">{{.Error}}</p>{{end}}
+    <form class="tl-filter" method="get" action="/p/{{.Slug}}/timeline#tl-events" aria-label="Filter the timeline">
+      <input type="hidden" name="order" value="{{.Order}}">
+      <div class="field"><label for="f-entity">Who or where</label>
+        <select id="f-entity" name="entity"><option value="">Anyone or anywhere</option>{{range .Entities}}<option value="{{.ID}}"{{if eq .ID $.Data.Filter.Entity}} selected{{end}}>{{.Name}}</option>{{end}}</select></div>
+      <div class="field"><label for="f-from">From</label>
+        <input id="f-from" name="from" type="text" autocomplete="off" spellcheck="false" placeholder="1998-04" value="{{.Filter.From}}" data-date aria-describedby="f-from-h"{{if eq .Field "from"}} aria-invalid="true"{{end}}></div>
+      <div class="field"><label for="f-to">To</label>
+        <input id="f-to" name="to" type="text" autocomplete="off" spellcheck="false" placeholder="1999" value="{{.Filter.To}}" data-date aria-describedby="f-to-h"{{if eq .Field "to"}} aria-invalid="true"{{end}}></div>
+      <div class="tl-fbtn"><button class="btn solid" type="submit">Show</button>{{if .Filtered}}<a class="btn quiet" href="/p/{{.Slug}}/timeline?order={{.Order}}#tl-events">Clear the filters</a>{{end}}</div>
+      <p class="hint tl-hint" id="f-from-h" role="status" data-hint>From: for example 1998, 1998-04 or 1998-04-12.</p>
+      <p class="hint tl-hint" id="f-to-h" role="status" data-hint>To: the same kinds of date.</p>
+    </form>
+    {{if .Rows}}<p class="fine tl-count">Showing {{.First}} to {{.Last}} of {{num .Total}}{{if .Filtered}} (of {{num .All}} in all){{end}}.</p>{{end}}
+    {{template "tl-ptable" .}}
+    {{if not .Rows}}
+      {{if .Filtered}}<p class="tl-empty">Nothing matches these filters. Widen the dates, or <a href="/p/{{.Slug}}/timeline?order={{.Order}}#tl-events">clear the filters</a>.</p>
+      {{else}}<p class="tl-empty">Nothing is on this timeline yet. It shows the events of the story world that this book uses, and any scene you give a story date. {{if .CanEdit}}Give a scene a date in the outline, or add events to the Compendium's timeline.{{else}}Anyone who can edit this book can give a scene a date.{{end}}</p>{{end}}
+    {{end}}
+    <div id="tl-live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+  </section>
+</section>
+{{end}}
+{{end}}

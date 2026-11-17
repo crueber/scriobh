@@ -1,0 +1,11 @@
+{{define "admin-tabs"}}{{$t := .T}}{{$tab := .Tab}}
+  <nav class="adm-tabs" aria-label="{{$t.T "adm.sections"}}">
+    <a href="/admin/users"{{if eq $tab "users"}} aria-current="page"{{end}}>{{$t.T "adm.t_users"}}</a>
+    <a href="/admin/quotas"{{if eq $tab "quotas"}} aria-current="page"{{end}}>{{$t.T "adm.t_quotas"}}</a>
+    <a href="/admin/diagnostics"{{if eq $tab "diagnostics"}} aria-current="page"{{end}}>{{$t.T "adm.t_diag"}}</a>
+    <a href="/admin/mail"{{if eq $tab "mail"}} aria-current="page"{{end}}>{{$t.T "adm.t_mail"}}</a>
+    <a href="/admin/pandoc"{{if eq $tab "pandoc"}} aria-current="page"{{end}}>{{$t.T "adm.t_pandoc"}}</a>
+    <a href="/settings#backups">{{$t.T "adm.t_backups"}}</a>
+    <a href="/settings/ai">{{$t.T "adm.t_ai"}}</a>
+  </nav>
+{{end}}

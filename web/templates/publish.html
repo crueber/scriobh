@@ -1,0 +1,188 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/git.css"}}"><link rel="stylesheet" href="{{asset "css/publish.css"}}"><script src="{{asset "js/arm.js"}}" defer></script><script src="{{asset "js/publish.js"}}" defer></script>{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="{{$.T "git.crumb"}}"><a href="/">{{template "icon" "chevron-left"}}<span>{{$.T "git.library"}}</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}/git">{{$.T "git.title"}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "git.pub.crumb"}}</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "git" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "git" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "git" .Data.Project.Role}}{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}
+<div class="settings git pub" id="pub">
+  <h1>{{$.T "git.publish.title"}}</h1>
+  <p class="sub">{{.Project.Title}}. {{$.T "git.publish.intro"}}</p>
+  <ol class="steps pub-steps" aria-label="{{$.T "git.pub.steps"}}">
+    <li data-done="{{if .Account}}true{{else}}false{{end}}"><span class="mark" aria-hidden="true"></span><span>{{$.T "git.pub.step1"}}</span></li>
+    <li data-done="{{if .Plan}}true{{else}}false{{end}}"><span class="mark" aria-hidden="true"></span><span>{{$.T "git.pub.step2"}}</span></li>
+    <li data-done="false"><span class="mark" aria-hidden="true"></span><span>{{$.T "git.pub.step3"}}</span></li>
+  </ol>
+  {{if .Flash}}<p class="saved" role="status" tabindex="-1" data-result>{{.Flash}}</p>{{end}}
+  {{if .Error}}<p class="field-error" role="alert" id="pub-error" tabindex="-1" data-result>{{.Error}}</p>{{end}}
+  {{if not .CanStore}}<p class="notice-line" role="note"><strong>{{$.T "git.banner.no_secret"}}</strong> {{$.T "git.hint.no_secret_key"}}</p>{{end}}
+  {{if ge .Remotes 5}}<p class="notice-line" role="note">{{$.T "git.remotes.limit" "n" 5}}</p>{{end}}
+
+  {{with .Plan}}
+  <section id="plan" class="pub-plan" aria-labelledby="h-plan" tabindex="-1" data-result>
+    <h2 id="h-plan">{{$.T "git.publish.plan_requests"}}</h2>
+    <p class="sub">{{$.T "git.pub.plan_sub"}}</p>
+    <ol class="plan-requests">{{range .Requests}}<li>{{if eq . "create_repository"}}{{$.T "git.publish.request_create_repository"}}{{else if eq . "register_remote"}}{{$.T "git.publish.request_register_remote"}}{{else}}{{$.T "git.publish.request_push"}}{{end}}</li>{{end}}</ol>
+    <dl class="facts git-facts">
+      <div><dt>{{$.T "git.pub.plan_repo"}}</dt><dd class="wrap">{{.Repository.FullName}} <span class="fine">{{.Repository.Host}}</span></dd></div>
+      <div><dt>{{$.T "git.publish.visibility"}}</dt><dd><strong>{{if eq .Repository.Visibility "public"}}{{$.T "git.pub.public_anyone"}}{{else}}{{$.T "git.pub.private_only"}}{{end}}</strong></dd></div>
+      <div><dt>{{$.T "git.remotes.audience"}}</dt><dd>{{if eq .Audience "public"}}{{$.T "git.audience.public.h"}}{{if .OnlyDone}}, {{$.T "git.remotes.only_done"}}{{end}}{{else}}{{$.T "git.audience.private.h"}}{{end}}</dd></div>
+      <div><dt>{{$.T "git.pub.plan_files_h"}}</dt><dd>{{$.T "git.publish.plan_files" "n" .FileCount "size" $d.Size}}</dd></div>
+      <div><dt>{{$.T "git.facts.branch"}}</dt><dd>{{.Branch}}{{if .PathPrefix}}, {{$.T "git.status.folder"}} {{.PathPrefix}}{{end}}</dd></div>
+      <div><dt>{{$.T "git.pub.plan_signing"}}</dt><dd>{{if .SignCommits}}{{$.T "git.signing.signs"}}{{else}}{{$.T "git.pub.unsigned"}}{{end}}</dd></div>
+    </dl>
+    <p class="fine">{{if eq .Audience "public"}}{{$.T "git.audience.public.d"}}{{else}}{{$.T "git.audience.private.d"}}{{end}}</p>
+    {{if .Registered}}<p class="fine">{{$.T "git.pub.already_registered"}}</p>{{end}}
+
+    <h3>{{$.T "git.publish.withheld"}}</h3>
+    {{if $d.Withheld}}<ul class="withheld">{{range $d.Withheld}}<li><strong class="wrap">{{if .Title}}{{.Title}}{{else}}{{.Path}}{{end}}</strong> <span class="fine">{{.Reason}}</span></li>{{end}}</ul>
+    {{else}}<p class="fine">{{if eq .Audience "public"}}{{$.T "git.pub.withheld_none_public"}}{{else}}{{$.T "git.pub.withheld_none_private"}}{{end}}</p>{{end}}
+
+    <details class="more"><summary>{{$.T "git.pub.files_list" "n" .FileCount}}</summary>
+      <ul class="plain files">{{range .Files}}<li><code class="wrap">{{.Path}}</code> <span class="fine">{{.Bytes}}</span></li>{{end}}</ul>
+      {{if gt .FileCount (len .Files)}}<p class="fine">{{$.T "git.pub.files_more" "n" (len .Files)}}</p>{{end}}
+    </details>
+
+    {{if .Findings}}<h3>{{$.T "git.sec.h"}}</h3><ul class="secrets">{{range .Findings}}<li><p><strong class="wrap">{{.Path}}</strong> {{$.T "git.sec.looks"}} {{.Rule}}</p></li>{{end}}</ul>{{end}}
+
+    {{if $d.Blockers}}
+    <div class="banner" data-tone="danger" role="alert"><p class="banner-head"><span class="mark" aria-hidden="true"></span><strong>{{$.T "git.publish.blockers"}}</strong></p>
+      <ul class="plain">{{range $d.Blockers}}<li>{{.Text}}</li>{{end}}</ul></div>
+    <p class="fine">{{$.T "git.pub.change_fields"}} <a href="#fields">{{$.T "git.pub.back_to_fields"}}</a></p>
+    {{else}}
+    <form class="form" method="post" action="/ui/projects/{{$d.Project.ID}}/publish/publish">
+      <input type="hidden" name="_csrf" value="{{$d.CSRF}}">
+      <input type="hidden" name="plan_token" value="{{.PlanToken}}">
+      <input type="hidden" name="account_id" value="{{$d.Account.ID}}"><input type="hidden" name="mode" value="{{$d.Mode}}">
+      <input type="hidden" name="owner" value="{{index $d.Values "owner"}}"><input type="hidden" name="name" value="{{index $d.Values "name"}}"><input type="hidden" name="description" value="{{index $d.Values "description"}}">
+      <input type="hidden" name="visibility" value="{{if eq (index $d.Values "visibility") "public"}}public{{else}}private{{end}}"><input type="hidden" name="branch" value="{{.Branch}}"><input type="hidden" name="path_prefix" value="{{.PathPrefix}}">
+      <input type="hidden" name="audience" value="{{.Audience}}">{{if .OnlyDone}}<input type="hidden" name="only_done" value="1">{{end}}{{if .IncludeNotes}}<input type="hidden" name="include_notes" value="1">{{end}}{{if .SignCommits}}<input type="hidden" name="sign_commits" value="1">{{end}}
+      <input type="hidden" name="push_mode" value="{{.PushMode}}">
+      {{if .NeedsConfirm}}<div class="field"><label for="pp-confirm">{{$.T "git.publish.confirm_public"}} <strong>{{.ConfirmWith}}</strong></label><input id="pp-confirm" type="text" name="confirm" autocomplete="off" spellcheck="false" data-confirm="{{.ConfirmWith}}" required{{if eq $d.Field "confirm"}} aria-invalid="true" aria-describedby="pub-error"{{end}}></div>{{end}}
+      <p class="fine">{{if .WillCreate}}{{$.T "git.pub.go_note_create"}}{{else}}{{$.T "git.pub.go_note_existing"}}{{end}}</p>
+      <div class="form-actions"><button class="btn solid" type="submit" data-confirm-submit>{{if .WillCreate}}{{$.T "git.publish.go"}}{{else}}{{$.T "git.publish.go_existing"}}{{end}}</button></div>
+    </form>
+    {{end}}
+  </section>
+  {{end}}
+
+  {{with .Incomplet}}
+  <section id="incomplete" class="pub-incomplete" aria-labelledby="h-inc" tabindex="-1" data-result>
+    <h2 id="h-inc">{{$.T "git.pub.incomplete_h"}}</h2>
+    <p role="alert">{{.Message}}</p>
+    <p>{{$.T "git.pub.incomplete_do" "repo" .Repository}}</p>
+    <dl class="facts git-facts"><div><dt>{{$.T "git.pub.inc_repo"}}</dt><dd>{{.Repository}}</dd></div><div><dt>{{$.T "git.pub.inc_remote"}}</dt><dd>{{if .Registered}}{{$.T "git.pub.inc_yes"}}{{else}}{{$.T "git.pub.inc_no"}}{{end}}</dd></div><div><dt>{{$.T "git.pub.inc_pushed"}}</dt><dd>{{$.T "git.pub.inc_nothing"}}</dd></div></dl>
+  </section>
+  {{end}}
+
+  <section id="pub-account" aria-labelledby="h-acc">
+    <h2 id="h-acc">{{$.T "git.publish.account"}}</h2>
+    {{if .Accounts}}
+    <ul class="accounts">{{range .Accounts}}
+      <li class="account{{if and $d.Account (eq $d.Account.ID .ID)}} is-on{{end}}">
+        <p class="account-name"><strong>{{.Login}}</strong> <span class="fine">{{if eq .Provider "github"}}{{$.T "git.publish.provider_github"}}{{else}}{{$.T "git.publish.provider_forgejo"}}{{end}}, {{.Host}}{{if .Label}}, {{.Label}}{{end}}</span></p>
+        <div class="row-actions">
+          {{if and $d.Account (eq $d.Account.ID .ID)}}<span class="fine" aria-current="true">{{$.T "git.pub.in_use"}}</span>{{else}}<a class="btn small" href="/p/{{$d.Slug}}/git/publish?account_id={{.ID}}#repo">{{$.T "git.pub.use"}}</a>{{end}}
+          <form method="post" action="/ui/projects/{{$d.Project.ID}}/publish/disconnect" data-arm="{{$.T "git.pub.disconnect_ask"}}" data-arm-ok="{{$.T "git.publish.account_disconnect"}}" data-arm-cancel="{{$.T "git.cancel"}}"><input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="account_id" value="{{.ID}}"><button class="btn quiet small danger-text" type="submit">{{$.T "git.publish.account_disconnect"}}</button></form>
+        </div>
+      </li>{{end}}
+    </ul>
+    {{end}}
+    <details class="more"{{if or (not .Accounts) (eq .Field "token") (eq .Field "host") (eq .Field "provider")}} open{{end}} id="connect">
+      <summary>{{$.T "git.publish.account_connect"}}</summary>
+      <p class="fine">{{$.T "git.publish.account_help"}}</p>
+      <form class="form" method="post" action="/ui/projects/{{.Project.ID}}/publish/connect" autocomplete="off">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <fieldset class="field radios"><legend>{{$.T "git.publish.provider"}}</legend>
+          <label class="check"><input type="radio" name="provider" value="github"{{if ne (index .Values "provider") "forgejo"}} checked{{end}}><span>{{$.T "git.publish.provider_github"}}</span></label>
+          <label class="check"><input type="radio" name="provider" value="forgejo"{{if eq (index .Values "provider") "forgejo"}} checked{{end}}><span>{{$.T "git.publish.provider_forgejo"}}</span></label>
+        </fieldset>
+        <div class="field"><label for="pc-host">{{$.T "git.publish.host"}}</label><input id="pc-host" type="text" name="host" value="{{index .Values "host"}}" autocomplete="off" spellcheck="false" aria-describedby="pc-host-h"><span class="hint" id="pc-host-h">{{$.T "git.publish.host_help"}} {{$.T "git.pub.host_github"}}</span></div>
+        <div class="field"><label for="pc-label">{{$.T "git.pub.label"}}</label><input id="pc-label" type="text" name="label" value="{{index .Values "label"}}" maxlength="80" autocomplete="off"></div>
+        <div class="field"><label for="pc-token">{{$.T "git.publish.token"}}</label><input id="pc-token" type="password" name="token" autocomplete="off" spellcheck="false" required aria-describedby="pc-token-h"{{if eq .Field "token"}} aria-invalid="true"{{end}}><span class="hint" id="pc-token-h">{{$.T "git.pub.token_hint"}}</span></div>
+        <div class="scopes">
+          <h3>{{$.T "git.pub.scopes_h"}}</h3>
+          <ul class="plain">
+            <li>{{$.T "git.pub.scopes_github"}}</li>
+            <li>{{$.T "git.pub.scopes_forgejo"}}</li>
+            <li>{{$.T "git.pub.scopes_what"}}</li>
+          </ul>
+        </div>
+        <div class="form-actions"><button class="btn solid" type="submit"{{if not .CanStore}} disabled{{end}}>{{$.T "git.publish.account_connect"}}</button></div>
+      </form>
+    </details>
+  </section>
+
+  {{if .Account}}
+  <section id="repo" aria-labelledby="h-repo">
+    <h2 id="h-repo">{{$.T "git.pub.repo_h"}}</h2>
+    <p class="sub">{{$.T "git.pub.repo_sub" "login" .Account.Login "host" .Account.Host}}</p>
+    <nav class="pub-mode" aria-label="{{$.T "git.pub.mode"}}">
+      <a href="/p/{{.Slug}}/git/publish?account_id={{.Account.ID}}&amp;mode=create#repo"{{if eq .Mode "create"}} aria-current="true"{{end}}>{{$.T "git.publish.mode_create"}}</a>
+      <a href="/p/{{.Slug}}/git/publish?account_id={{.Account.ID}}&amp;mode=existing#repo"{{if eq .Mode "existing"}} aria-current="true"{{end}}>{{$.T "git.publish.mode_existing"}}</a>
+    </nav>
+
+    {{if eq .Mode "existing"}}
+    <div class="pub-pick" id="pick">
+      <h3>{{$.T "git.publish.pick"}}</h3>
+      <form class="adm-filter" method="get" action="/p/{{.Slug}}/git/publish#pick" role="search" aria-label="{{$.T "git.pub.find"}}">
+        <input type="hidden" name="account_id" value="{{.Account.ID}}"><input type="hidden" name="mode" value="existing"><input type="hidden" name="page" value="{{.Page}}">
+        <label for="pr-q">{{$.T "git.pub.find"}}</label><input id="pr-q" name="q" type="search" value="{{.Query}}" autocomplete="off">
+        <button class="btn small" type="submit">{{$.T "git.pub.find_go"}}</button>
+      </form>
+      <p class="fine">{{$.T "git.pub.find_note"}}</p>
+      {{if .ReposErr}}<p class="field-error" role="alert">{{.ReposErr}}</p>{{end}}
+      {{with .Repos}}
+        {{if .Items}}<ul class="repos">{{range .Items}}
+          <li class="repo{{if .Archived}} is-off{{end}}">
+            <p><strong class="wrap">{{.FullName}}</strong> <span class="fine">{{if .Private}}{{$.T "git.pub.private"}}{{else}}{{$.T "git.pub.public"}}{{end}}{{if .Empty}}, {{$.T "git.pub.empty"}}{{else}}, {{$.T "git.pub.has_content"}}{{end}}{{if .Archived}}, {{$.T "git.pub.archived"}}{{end}}{{if .Fork}}, {{$.T "git.pub.fork"}}{{end}}</span></p>
+            {{if and .Empty (not .Archived)}}<a class="btn small" href="/p/{{$d.Slug}}/git/publish?account_id={{$d.Account.ID}}&amp;mode=existing&amp;owner={{.Owner}}&amp;name={{.Name}}&amp;page={{$d.Page}}{{if $d.Query}}&amp;q={{$d.Query}}{{end}}#fields" aria-label="{{$.T "git.pub.choose_this" "repo" .FullName}}">{{$.T "git.pub.choose"}}</a>{{end}}
+          </li>{{end}}
+        </ul>
+        {{else}}<p class="fine">{{$.T "git.pub.none_found"}}</p>{{end}}
+        <nav class="adm-pager" aria-label="{{$.T "git.pub.pages"}}">
+          {{if $d.PrevPage}}<a class="btn quiet small" rel="prev" href="/p/{{$d.Slug}}/git/publish?account_id={{$d.Account.ID}}&amp;mode=existing&amp;page={{$d.PrevPage}}{{if $d.Query}}&amp;q={{$d.Query}}{{end}}#pick">{{$.T "git.pub.prev"}}</a>{{end}}
+          <span class="fine">{{$.T "git.pub.page" "n" $d.Page}}</span>
+          {{if .NextPage}}<a class="btn quiet small" rel="next" href="/p/{{$d.Slug}}/git/publish?account_id={{$d.Account.ID}}&amp;mode=existing&amp;page={{.NextPage}}{{if $d.Query}}&amp;q={{$d.Query}}{{end}}#pick">{{$.T "git.pub.next"}}</a>{{end}}
+        </nav>
+        <p class="fine">{{$.T "git.pub.empty_only"}}</p>
+      {{end}}
+    </div>
+    {{end}}
+
+    <form class="form" id="fields" method="post" action="/ui/projects/{{.Project.ID}}/publish/plan">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="account_id" value="{{.Account.ID}}"><input type="hidden" name="mode" value="{{.Mode}}">
+      <div class="field-row">
+        <div class="field"><label for="pf-owner">{{$.T "git.publish.owner"}}</label><input id="pf-owner" type="text" name="owner" value="{{if index .Values "owner"}}{{index .Values "owner"}}{{else}}{{.Account.Login}}{{end}}" autocomplete="off" spellcheck="false" required aria-describedby="pf-owner-h"><span class="hint" id="pf-owner-h">{{$.T "git.pub.owner_hint"}}</span></div>
+        <div class="field"><label for="pf-name">{{$.T "git.publish.name"}}</label><input id="pf-name" type="text" name="name" value="{{index .Values "name"}}" autocomplete="off" spellcheck="false" required maxlength="100"{{if eq .Field "name"}} aria-invalid="true" aria-describedby="pub-error"{{end}}></div>
+      </div>
+      {{if eq .Mode "create"}}
+      <div class="field"><label for="pf-desc">{{$.T "git.publish.description"}}</label><input id="pf-desc" type="text" name="description" value="{{index .Values "description"}}" maxlength="350" autocomplete="off"></div>
+      <fieldset class="field radios" aria-describedby="pf-vis-h"><legend>{{$.T "git.publish.visibility"}}</legend>
+        <label class="check"><input type="radio" name="visibility" value="private"{{if ne (index .Values "visibility") "public"}} checked{{end}}><span>{{$.T "git.publish.visibility_private"}}</span></label>
+        <label class="check"><input type="radio" name="visibility" value="public"{{if eq (index .Values "visibility") "public"}} checked{{end}}><span>{{$.T "git.publish.visibility_public"}}</span></label>
+        <span class="hint" id="pf-vis-h">{{$.T "git.pub.visibility_hint"}}</span>
+      </fieldset>
+      {{else}}<input type="hidden" name="visibility" value="private">{{end}}
+      {{template "git-audience-fields" (dict "D" (dict "Pg" .Pg "Field" .Field) "Cur" (index .Values "audience") "Done" (eq (index .Values "only_done") "1") "Notes" (eq (index .Values "include_notes") "1") "P" "pf")}}
+      <div class="field-row">
+        <div class="field"><label for="pf-branch">{{$.T "git.facts.branch"}}</label><input id="pf-branch" type="text" name="branch" value="{{if index .Values "branch"}}{{index .Values "branch"}}{{else}}main{{end}}" autocomplete="off" spellcheck="false"></div>
+        <div class="field"><label for="pf-path">{{$.T "git.form.folder"}}</label><input id="pf-path" type="text" name="path_prefix" value="{{index .Values "path_prefix"}}" placeholder="{{$.T "git.form.optional"}}" autocomplete="off" spellcheck="false"></div>
+      </div>
+      <fieldset class="field radios"><legend>{{$.T "git.form.when"}}</legend>
+        {{$mode := "manual"}}{{if index .Values "push_mode"}}{{$mode = index .Values "push_mode"}}{{end}}
+        <label class="check"><input type="radio" name="push_mode" value="manual"{{if eq $mode "manual"}} checked{{end}}><span>{{$.T "git.form.when_manual"}}</span></label>
+        <label class="check"><input type="radio" name="push_mode" value="on_save"{{if eq $mode "on_save"}} checked{{end}}><span>{{$.T "git.form.when_save"}}</span></label>
+        <label class="check"><input type="radio" name="push_mode" value="interval"{{if eq $mode "interval"}} checked{{end}}><span>{{$.T "git.form.when_interval"}}</span></label>
+      </fieldset>
+      <label class="check"><input type="checkbox" name="sign_commits" value="1"{{if eq (index .Values "sign_commits") "1"}} checked{{end}}><span>{{$.T "git.publish.sign"}}</span></label>
+      <div class="form-actions"><button class="btn solid" type="submit">{{$.T "git.publish.plan"}}</button></div>
+    </form>
+  </section>
+  {{end}}
+
+</div>
+{{end}}
+{{end}}

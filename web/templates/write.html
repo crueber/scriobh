@@ -1,0 +1,213 @@
+{{define "head"}}
+<link rel="stylesheet" href="{{asset "css/write.css"}}">
+{{if .Data.Prefs.TypoAttrs}}<link rel="stylesheet" href="{{asset "css/typography.css"}}">{{end}}
+{{if .Data.Doc}}<link rel="stylesheet" href="{{asset "css/editor.css"}}">
+<link rel="stylesheet" href="{{asset "css/inspector.css"}}">
+<script src="{{asset "js/editor.js"}}" defer></script>
+<script src="{{asset "js/doc.js"}}" defer></script>
+<script src="{{asset "js/tree.js"}}" defer></script>
+{{if .Data.Find}}<script src="{{asset "js/jump.js"}}" defer></script>{{end}}
+{{if or .Data.Prefs.Typewriter .Data.Prefs.FocusDim}}<script src="{{asset "js/modes.js"}}" defer></script>{{end}}{{end}}
+{{end}}
+{{define "bodyclass"}} write{{end}}
+
+{{define "crumb"}}
+<nav class="crumb crumb-write" aria-label="Breadcrumb">
+  {{if .Data.Doc}}<button type="button" class="icon-btn tree-toggle" id="tree-toggle" aria-label="Open the manuscript" aria-controls="rail" aria-expanded="false">{{template "icon" "menu"}}</button>{{end}}
+  <a class="crumb-lib" href="/">{{template "icon" "chevron-left"}}<span>Library</span></a>
+  <span class="crumb-sep" aria-hidden="true">/</span>
+  <a class="crumb-project" href="/p/{{.Data.Slug}}"><span>{{.Data.Project.Title}}</span></a>{{if .Data.CanEdit}}<a class="ai-chip" href="/p/{{.Data.Slug}}/ai" data-state="{{.Data.AI.State}}" title="{{if .Data.AI.On}}The writing partner is on for this project. Open its AI page.{{else if eq .Data.AI.State "unavailable"}}AI is turned off for this server. Open this project's AI page.{{else}}The writing partner is off for this project. Open its AI page.{{end}}"><span class="ai-chip-box"><span class="ai-chip-l">{{if .Data.AI.On}}AI: {{if eq .Data.AI.Mode "local_only"}}local only{{else}}ask first{{end}}{{else if eq .Data.AI.State "unavailable"}}AI off: server{{else}}AI off{{end}}</span><span class="ai-chip-s">{{if .Data.AI.On}}AI {{if eq .Data.AI.Mode "local_only"}}local{{else}}on{{end}}{{else}}AI off{{end}}</span></span></a>{{end}}
+  {{range .Data.Crumbs}}<span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-part">{{if .Title}}{{.Title}}{{else}}Untitled{{end}}</span>{{end}}
+  {{if .Data.Doc}}<span class="crumb-sep" aria-hidden="true">/</span>
+  <button type="button" class="crumb-here" id="jump-open" aria-haspopup="dialog" title="Go to another chapter"><span id="crumb-title">{{if .Data.Doc.Title}}{{.Data.Doc.Title}}{{else}}Untitled{{end}}</span>{{template "icon" "chevron-down"}}</button>{{end}}
+</nav>
+{{end}}
+
+{{define "topbar-tools"}}
+{{if .Data.Doc}}<button type="button" class="icon-btn insp-open" id="ver-open" data-panel="versions" aria-label="Versions" aria-controls="inspector" aria-expanded="false" hidden>{{template "icon" "history"}}</button><button type="button" class="icon-btn insp-open" id="insp-open" data-panel="details" aria-label="Details" aria-controls="inspector" aria-expanded="false" hidden>{{template "icon" "info"}}</button><p class="savestate" id="save-state" data-state="saved" hidden><span class="savestate-dot" aria-hidden="true"></span><span id="save-word">Saved</span></p>{{end}}
+{{end}}
+
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug (docID .Data.Doc) "write"}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug (docID .Data.Doc) "write"}}{{if .Data.Sprint}}<button type="button" class="menu-item" id="sprint-open" popovertarget="sprint-menu" aria-haspopup="true">{{template "icon" "goals"}}<span>{{.T "studio.ui.sprint.open"}}</span></button>{{end}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug (docID .Data.Doc) "write"}}{{end}}
+
+{{define "rail"}}
+<aside class="rail" id="rail" aria-label="Manuscript">
+  <div class="rail-head">
+    <p id="rail-title" class="eyebrow">Manuscript</p>
+    {{if and .Data.CanEdit .Data.Doc}}<button type="button" class="icon-btn rail-add" id="add-btn" popovertarget="add-menu" aria-label="Add to the manuscript" aria-haspopup="menu">{{template "icon" "plus"}}</button>{{end}}
+    <button type="button" class="icon-btn rail-close" id="rail-close" aria-label="Close the manuscript">{{template "icon" "close"}}</button>
+  </div>
+  {{if .Data.Doc}}<div class="rail-filter"><input type="search" id="tree-filter" aria-label="Filter the manuscript by title" aria-controls="tree" placeholder="Filter titles" autocomplete="off" spellcheck="false"></div>{{end}}
+  <div id="tree-slot" class="tree-slot">{{template "tree" .Data.Tree}}</div>
+</aside>
+<div class="scrim" id="scrim" hidden></div>
+{{end}}
+
+{{define "inspector"}}{{if .Data.Doc}}{{with .Data}}
+{{$d := .Doc}}<aside class="inspector{{if .Inspector}} is-open pre{{end}}" id="inspector" aria-label="Details and versions" data-can-edit="{{.CanEdit}}">
+  <div class="insp-head">
+    <div class="insp-tabs" role="tablist" aria-label="Inspector">
+      <button type="button" role="tab" class="insp-tab" id="itab-details" aria-controls="ipanel-details" aria-selected="true">Details</button>
+      <button type="button" role="tab" class="insp-tab" id="itab-versions" aria-controls="ipanel-versions" aria-selected="false" tabindex="-1">Versions</button>
+      <button type="button" role="tab" class="insp-tab" id="itab-scene" aria-controls="ipanel-scene" aria-selected="false" tabindex="-1">In this scene</button>
+      <button type="button" role="tab" class="insp-tab" id="itab-alts" aria-controls="ipanel-alts" aria-selected="false" tabindex="-1">Alternatives</button>
+      {{if .CanEdit}}<button type="button" role="tab" class="insp-tab" id="itab-stash" aria-controls="ipanel-stash" aria-selected="false" tabindex="-1">Stash</button>
+      <button type="button" role="tab" class="insp-tab" id="itab-comments" aria-controls="ipanel-comments" aria-selected="false" tabindex="-1">{{$.T "review.comments"}}</button>
+      <button type="button" role="tab" class="insp-tab" id="itab-lab" aria-controls="ipanel-lab" aria-selected="false" tabindex="-1">Lab</button>{{if .AI.On}}
+      <button type="button" role="tab" class="insp-tab" id="itab-ai" aria-controls="ipanel-ai" aria-selected="false" tabindex="-1">AI</button>{{end}}{{end}}
+    </div>
+    <button type="button" class="icon-btn" id="insp-close" aria-label="Close the inspector">{{template "icon" "close"}}</button>
+  </div>
+  <div class="insp-body" id="ipanel-details" role="tabpanel" aria-labelledby="itab-details" tabindex="-1">
+    <form class="insp-form" id="insp-form" novalidate>
+      <div class="field"><label for="in-syn-s">Synopsis</label><textarea id="in-syn-s" name="synopsis_short" rows="2" maxlength="500"{{if not .CanEdit}} readonly{{end}}>{{.Doc.SynopsisShort}}</textarea><span class="field-error" data-err="synopsis_short" role="alert" hidden></span></div>
+      <div class="field"><label for="in-syn-l">Notes on this {{docKind .Doc.Kind}}</label><textarea id="in-syn-l" name="synopsis_long" rows="5"{{if not .CanEdit}} readonly{{end}}>{{.Doc.SynopsisLong}}</textarea><span class="field-error" data-err="synopsis_long" role="alert" hidden></span></div>
+      <div class="field-row">
+        <div class="field"><label for="in-status">Status</label><select id="in-status" name="status"{{if not .CanEdit}} disabled{{end}}>{{range $s := statuses}}<option value="{{$s}}"{{if eq $s $d.Status}} selected{{end}}>{{statusLabel $s}}</option>{{end}}</select></div>
+        <div class="field"><label for="in-target">Target words</label><input id="in-target" name="target_words" type="number" inputmode="numeric" min="0" step="100" value="{{if .Doc.TargetWords}}{{.Doc.TargetWords}}{{end}}" placeholder="None"{{if not .CanEdit}} readonly{{end}}><span class="field-error" data-err="target_words" role="alert" hidden></span></div>
+      </div>
+      <div class="field"><label for="in-pov">Point of view</label><input id="in-pov" name="pov" type="text" value="{{.Doc.Pov}}" maxlength="200" autocomplete="off"{{if not .CanEdit}} readonly{{end}}><span class="field-error" data-err="pov" role="alert" hidden></span></div>
+      <div class="field"><label for="in-loc">Location</label><input id="in-loc" name="location" type="text" value="{{.Doc.Location}}" maxlength="200" autocomplete="off"{{if not .CanEdit}} readonly{{end}}><span class="field-error" data-err="location" role="alert" hidden></span></div>
+      <div class="field-row">
+        <div class="field"><label for="in-sd">Story date</label><input id="in-sd" name="story_date" type="text" value="{{.Doc.StoryDate}}" maxlength="64" placeholder="2026-03-14" autocomplete="off"{{if not .CanEdit}} readonly{{end}}><span class="field-error" data-err="story_date" role="alert" hidden></span></div>
+        <div class="field"><label for="in-sde">Ends</label><input id="in-sde" name="story_date_end" type="text" value="{{.Doc.StoryDateEnd}}" maxlength="64" placeholder="Optional" autocomplete="off"{{if not .CanEdit}} readonly{{end}}><span class="field-error" data-err="story_date_end" role="alert" hidden></span></div>
+      </div>
+      <label class="check"><input id="in-compile" name="include_in_compile" type="checkbox"{{if .Doc.IncludeInCompile}} checked{{end}}{{if not .CanEdit}} disabled{{end}}><span>Include when the book is compiled</span></label>
+      <p class="insp-saved" id="insp-saved" role="status" aria-live="polite"></p>
+    </form>
+    <section class="insp-links" aria-labelledby="il-out-h"><h2 id="il-out-h">Links from here</h2><ul id="il-out" class="insp-list"></ul><p class="fine" id="il-out-empty" hidden>No links. Type two square brackets to link to a note.</p></section>
+    <section class="insp-links" aria-labelledby="il-in-h"><h2 id="il-in-h">Linked from</h2><ul id="il-in" class="insp-list"></ul><p class="fine" id="il-in-empty" hidden>Nothing links here yet.</p></section>
+    {{if .Similar}}<section class="insp-links sem-like" aria-labelledby="il-sem-h"><details id="sem-like"><summary id="il-sem-h">{{$.T "search.semantic.similar"}}</summary><div id="sem-like-body" hx-get="/ui/docs/{{.Doc.ID}}/similar" hx-trigger="toggle from:closest details once" hx-swap="innerHTML" aria-live="polite"><p class="fine">{{$.T "sem.like_loading"}}</p></div></details></section>{{end}}
+  </div>
+  <div class="insp-body" id="ipanel-versions" role="tabpanel" aria-labelledby="itab-versions" tabindex="-1" hidden></div>
+  <div class="insp-body" id="ipanel-scene" role="tabpanel" aria-labelledby="itab-scene" tabindex="-1" hidden></div>
+  <div class="insp-body" id="ipanel-alts" role="tabpanel" aria-labelledby="itab-alts" tabindex="-1" hidden></div>
+  {{if .CanEdit}}<div class="insp-body" id="ipanel-stash" role="tabpanel" aria-labelledby="itab-stash" tabindex="-1" hidden></div>
+  <div class="insp-body panel-rv" id="ipanel-comments" role="tabpanel" aria-labelledby="itab-comments" tabindex="-1" hidden data-css="{{asset "css/review.css"}}" data-arm="{{asset "js/arm.js"}}"></div>
+  <div id="rv-msg" hidden data-msg="{{json ($.Msgs "review.js.")}}"></div><div id="rv-live" class="sr-only" role="status" aria-live="polite"></div>
+  <div class="insp-body" id="ipanel-lab" role="tabpanel" aria-labelledby="itab-lab" tabindex="-1" hidden></div>{{if .AI.On}}
+  <div class="insp-body" id="ipanel-ai" role="tabpanel" aria-labelledby="itab-ai" tabindex="-1" hidden></div>{{end}}{{end}}
+</aside>
+{{end}}{{end}}{{end}}
+
+{{define "content"}}
+{{with .Data}}
+<div class="write" id="write" data-user="{{$.User.ID}}" data-project="{{.ProjectID}}" data-slug="{{.Slug}}" data-can-edit="{{.CanEdit}}" data-comments-src="{{asset "js/review.js"}}" data-compare-src="{{asset "js/compare.js"}}" data-link-src="{{asset "js/link.js"}}" data-rowmenu-src="{{asset "js/rowmenu.js"}}" data-autosave="{{.Prefs.AutosaveMS}}" data-counts="{{.Prefs.ShowCounts}}" data-typewriter="{{.Prefs.Typewriter}}" data-focusdim="{{.Prefs.FocusDim}}"{{if .Doc}} data-doc="{{.Doc.ID}}" data-rev="{{.Doc.Revision}}" data-updated="{{.Doc.UpdatedAt}}" data-guard="{{.Doc.Guard}}" data-words="{{.Doc.WordCount}}" data-readonly="{{.ReadOnly}}" data-versions-src="{{asset "js/versions.js"}}" data-scene-src="{{asset "js/scene.js"}}" data-alts-src="{{asset "js/altpanel.js"}}" data-stash-src="{{asset "js/stash.js"}}"{{if .CanEdit}} data-lab-src="{{asset "js/lab.js"}}" data-lab-css="{{asset "css/lab.css"}}" data-ai-css="{{asset "css/aiwrite.css"}}" data-ai="{{.AI.State}}"{{if .AI.On}} data-ai-src="{{asset "js/aipanel.js"}}" data-aicore-src="{{asset "js/ai.js"}}" data-aichat-src="{{asset "js/aichat.js"}}" data-aireviews-src="{{asset "js/aireviews.js"}}"{{end}}{{end}} data-ext="{{asset "js/inspector.js"}} {{asset "js/wiki.js"}} {{asset "js/today.js"}} {{asset "js/livewrite.js"}} {{asset "js/mentions.js"}} {{asset "js/attach.js"}} {{asset "js/format.js"}} {{asset "js/alts.js"}}{{if and .CanEdit .AI.On}} {{asset "js/aiboot.js"}}{{end}}{{if and .Sprint .Sprint.Running}} {{asset "js/sprint.js"}}{{end}}"{{if .Prev}} data-prev="/p/{{$.Data.Slug}}/d/{{.Prev.ID}}"{{end}}{{if .Next}} data-next="/p/{{$.Data.Slug}}/d/{{.Next.ID}}"{{end}}{{end}}>
+{{if .Doc}}
+  <div class="notices" id="notices"></div>
+  {{template "live-marker" (dict "Scope" "project" "ID" .ProjectID)}}
+  <div class="fmtbar" id="fmtbar" role="toolbar" aria-label="Formatting" aria-orientation="horizontal" hidden>
+    <div class="fmt-group" role="group" aria-label="Text">
+      <button type="button" class="tb tb-b" data-cmd="bold" aria-label="Bold" data-tip="Bold" data-keys="Mod+B" aria-pressed="false" tabindex="0">B</button>
+      <button type="button" class="tb tb-i" data-cmd="italic" aria-label="Italic" data-tip="Italic" data-keys="Mod+I" aria-pressed="false" tabindex="-1">I</button>
+      <button type="button" class="tb tb-s" data-cmd="strike" aria-label="Strikethrough" data-tip="Strikethrough" data-keys="Mod+Shift+X" aria-pressed="false" tabindex="-1">S</button>
+    </div>
+    <div class="fmt-group" role="group" aria-label="Headings">
+      <button type="button" class="tb" data-cmd="h1" aria-label="Heading 1" data-tip="Heading 1" data-keys="Mod+Alt+1" aria-pressed="false" tabindex="-1">H1</button>
+      <button type="button" class="tb" data-cmd="h2" aria-label="Heading 2" data-tip="Heading 2" data-keys="Mod+Alt+2" aria-pressed="false" tabindex="-1">H2</button>
+      <button type="button" class="tb" data-cmd="h3" aria-label="Heading 3" data-tip="Heading 3" data-keys="Mod+Alt+3" aria-pressed="false" tabindex="-1">H3</button>
+    </div>
+    <div class="fmt-group" role="group" aria-label="Blocks">
+      <button type="button" class="tb tb-quote" data-cmd="quote" aria-label="Quote" data-tip="Quote" aria-pressed="false" tabindex="-1">&ldquo;</button>
+      <button type="button" class="tb tb-bullet" data-cmd="bullet" aria-label="Bulleted list" data-tip="Bulleted list" aria-pressed="false" tabindex="-1">&bull;</button>
+      <button type="button" class="tb tb-number" data-cmd="ordered" aria-label="Numbered list" data-tip="Numbered list" aria-pressed="false" tabindex="-1">1.</button>
+      <button type="button" class="tb" data-cmd="task" aria-label="Task list" data-tip="Task list" aria-pressed="false" tabindex="-1">{{template "icon" "task"}}</button>
+    </div>
+    <div class="fmt-group" role="group" aria-label="Insert">
+      <button type="button" class="tb" data-cmd="code" aria-label="Code" data-tip="Code" aria-pressed="false" tabindex="-1">{{template "icon" "code"}}</button>
+      <button type="button" class="tb" data-cmd="link" aria-label="Link" data-tip="Link" data-keys="Mod+K" aria-pressed="false" tabindex="-1">{{template "icon" "link"}}</button>
+      <button type="button" class="tb" data-cmd="image" aria-label="Add an image or a file" data-tip="Add an image or a file" tabindex="-1">{{template "icon" "image"}}</button>
+      <button type="button" class="tb" data-cmd="scene_break" aria-label="Scene break" data-tip="Scene break" data-keys="Mod+Enter" tabindex="-1">{{template "icon" "scene-break"}}</button>
+    </div>
+    <div class="fmt-group" role="group" aria-label="Alternatives">
+      <button type="button" class="tb" data-cmd="alt" aria-label="Add an alternative" data-tip="Add an alternative" data-keys="Alt+Shift+A" tabindex="-1">{{template "icon" "alt"}}</button>
+      <button type="button" class="tb" data-cmd="ghost" aria-label="Ghost or revive the selection" data-tip="Ghost or revive the selection" data-keys="Alt+Shift+G" tabindex="-1">{{template "icon" "ghost"}}</button>
+      <button type="button" class="tb" data-cmd="stash" aria-label="Send the selection to the stash" data-tip="Send the selection to the stash" data-keys="Alt+Shift+S" tabindex="-1">{{template "icon" "stash"}}</button>
+    </div>
+    {{if .AI.On}}<div class="fmt-group" role="group" aria-label="Writing partner">
+      <button type="button" class="tb" data-cmd="ai" aria-label="Ask the writing partner about the selection" data-tip="Ask the writing partner" data-keys="Alt+Shift+I" tabindex="-1">{{template "icon" "ai"}}</button>
+    </div>{{end}}
+    <div class="fmt-group fmt-end" role="group" aria-label="View">
+      <button type="button" class="tb tb-word" data-cmd="source" aria-label="Markdown source" data-tip="Markdown source" data-keys="Mod+E" aria-pressed="false" tabindex="-1">Source</button>
+    </div>
+  </div>
+  <article class="paper" id="paper" lang="{{.Project.Language}}" dir="{{textdir .Project.Language}}" data-size="{{.Prefs.Size}}" data-measure="{{.Prefs.Measure}}" data-lh="{{.Prefs.LH}}" data-font="{{.Prefs.Font}}"{{.Prefs.TypoAttrs}} aria-labelledby="doc-title-h">
+    <header class="doc-head">
+      <p class="doc-meta eyebrow" id="doc-meta"><span>{{docKind .Doc.Kind}}{{if .Number}} {{.Number}}{{end}}</span>{{with .Parent}}<span aria-hidden="true"> &middot; </span><span class="sr-only">, in </span><span class="doc-parent">{{if .Title}}{{.Title}}{{else}}Untitled{{end}}</span>{{end}}<span aria-hidden="true"> &middot; </span><span class="sr-only">, </span><span id="meta-words">{{num .Doc.WordCount}} {{plural .Doc.WordCount "word" "words"}}</span></p>
+      <h1 class="doc-title" id="doc-title-h"><span class="title-static" id="title-static">{{if .Doc.Title}}{{.Doc.Title}}{{else}}Untitled{{end}}</span><span class="title-grow" id="title-grow" data-value="{{.Doc.Title}}" hidden><textarea id="doc-title" class="title-field" rows="1" maxlength="300" placeholder="Untitled" aria-label="Title" spellcheck="true" autocomplete="off">{{.Doc.Title}}</textarea></span></h1>
+      <p class="field-error" id="title-error" role="alert" hidden></p>
+    </header>
+    <pre id="doc-plain" class="doc-plain" aria-label="Text of {{if .Doc.Title}}{{.Doc.Title}}{{else}}this document{{end}}">
+{{.Doc.Content}}</pre>
+    <div id="editor" class="doc-editor" data-label="Document text" hidden></div>
+    {{if or .Prev .Next}}<nav class="doc-nav" aria-label="Neighbouring documents">
+      {{if .Prev}}<a class="doc-nav-link" rel="prev" href="/p/{{.Slug}}/d/{{.Prev.ID}}" aria-keyshortcuts="Alt+PageUp"><span class="doc-nav-dir">Previous</span><span class="doc-nav-title">{{.Prev.Title}}</span></a>{{else}}<span></span>{{end}}
+      {{if .Next}}<a class="doc-nav-link doc-nav-next" rel="next" href="/p/{{.Slug}}/d/{{.Next.ID}}" aria-keyshortcuts="Alt+PageDown"><span class="doc-nav-dir">Next</span><span class="doc-nav-title">{{.Next.Title}}</span></a>{{end}}
+    </nav>{{end}}
+  </article>
+  <div class="statusbar" id="statusbar" role="group" aria-label="Document status">
+    <span class="st" id="st-pos">Document {{.Position}} of {{.Count}}</span>
+    <button type="button" class="st st-btn" id="st-counts" aria-pressed="true" title="Show or hide counts" hidden><span id="st-words">{{num .Doc.WordCount}} {{plural .Doc.WordCount "word" "words"}}</span><span class="st-extra" id="st-chars"></span><span class="st-extra" id="st-read"></span><span class="st-extra" id="st-sel"></span></button>
+    <span class="st-spacer"></span>
+    {{if .Sprint}}<button type="button" class="st st-btn st-sprint" id="st-sprint" popovertarget="sprint-menu" aria-haspopup="true" title="{{$.T "studio.ui.sprint.tip"}}"{{if not .Sprint.Running}} hidden{{end}}><span class="sp-now" data-sprint-now>{{.Sprint.Text}}</span>{{range .Sprint.Sizers}}<span class="sp-sz" aria-hidden="true">{{.}}</span>{{end}}</button>{{end}}
+    <span class="st st-today" id="st-today" hidden></span>
+    <button type="button" class="st st-btn st-source" id="st-source" aria-pressed="false" hidden>Source <kbd data-mod-key="E">Ctrl E</kbd></button>
+  </div>
+  <div id="live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+{{else}}
+  <section class="paper empty-doc" aria-labelledby="empty-title">
+    <h1 id="empty-title" class="doc-title">{{.Project.Title}}</h1>
+    {{with .Undo}}<form method="post" action="/ui/docs/{{.ID}}/restore" class="undo-line"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><p>Moved &ldquo;{{.Title}}&rdquo; to the trash.</p><button class="btn" type="submit">Undo</button></form>{{end}}
+    <div class="empty">
+      <p>No chapters yet. Add one to begin.</p>
+      {{if .CanEdit}}<form method="post" action="/ui/projects/{{.ProjectID}}/docs" class="empty-form"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="kind" value="chapter"><button class="btn solid" type="submit">Add chapter</button></form>{{end}}
+    </div>
+  </section>
+{{end}}
+</div>
+{{end}}
+{{end}}
+
+{{define "dialogs"}}
+{{if .Data.Doc}}
+<dialog id="jump" class="sheet" aria-label="Go to a chapter">
+  <div class="sheet-field">{{template "icon" "search"}}<input id="jump-input" type="text" role="combobox" aria-expanded="true" aria-controls="jump-list" aria-autocomplete="list" aria-label="Find a chapter" placeholder="Find a chapter" autocomplete="off" spellcheck="false"></div>
+  <ul id="jump-list" class="sheet-list" role="listbox" aria-label="Chapters">
+    {{range .Data.Jump}}<li role="option" id="j-{{.ID}}" data-href="/p/{{$.Data.Slug}}/d/{{.ID}}" data-label="{{.Title}}"{{if .Current}} data-current{{end}}><span class="j-num">{{.Number}}</span><span class="j-title">{{.Title}}</span>{{if .Group}}<span class="j-group">{{.Group}}</span>{{end}}</li>
+    {{end}}
+  </ul>
+  <p class="sheet-empty" id="jump-empty" hidden>No chapter matches.</p>
+</dialog>
+{{with .Data.Sprint}}
+<div id="sprint-menu" class="menu sprint-menu" popover role="group" aria-label="{{$.T "studio.ui.sprint.h"}}" data-msg="{{json ($.Msgs "studio.js.")}}"{{if .Running}} data-sprint="{{.JSON}}"{{end}}>
+  <form method="post" action="/ui/studio/sprint/start" data-sprint="start" data-sprint-start data-lazy="{{asset "js/sprint.js"}}"{{if .Running}} hidden{{end}}>
+    <input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="project_id" value="{{$.Data.ProjectID}}">
+    <p class="menu-label">{{$.T "studio.ui.sprint.start_h"}}</p>
+    <button class="menu-item" type="submit" name="minutes" value="15"><span>{{$.T "studio.ui.sprint.m15"}}</span></button>
+    <button class="menu-item" type="submit" name="minutes" value="25"><span>{{$.T "studio.ui.sprint.m25"}}</span></button>
+    <button class="menu-item" type="submit" name="minutes" value="45"><span>{{$.T "studio.ui.sprint.m45"}}</span></button>
+    <button class="menu-item" type="submit" name="minutes" value="0"><span>{{$.T "studio.ui.sprint.m0"}}</span></button>
+    <label class="menu-label" for="sprint-custom">{{$.T "studio.ui.sprint.custom"}}</label>
+    <p class="sprint-custom"><input id="sprint-custom" type="number" name="custom" inputmode="numeric" min="1" max="240" step="1"><button class="btn small" type="submit" name="minutes" value="custom">{{$.T "studio.ui.sprint.custom_go"}}</button></p>
+  </form>
+  <div data-sprint-end{{if not .Running}} hidden{{end}}>
+    <p class="menu-label" data-sprint-line>{{.Text}}</p>
+    <form method="post" action="/ui/studio/sprint/stop" data-sprint="stop" data-lazy="{{asset "js/sprint.js"}}"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="menu-item" type="submit"><span>{{$.T "studio.ui.sprint.stop"}}</span></button></form>
+    <form method="post" action="/ui/studio/sprint/abandon" data-sprint="abandon" data-lazy="{{asset "js/sprint.js"}}"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="menu-item" type="submit"><span>{{$.T "studio.ui.sprint.abandon"}}</span></button></form>
+  </div>
+  <a class="menu-item" href="/studio/sprints"><span>{{$.T "studio.ui.sprint.stats"}}</span></a>
+</div>
+{{end}}
+{{if .Data.CanEdit}}
+<dialog id="row-menu" class="sheet" aria-label="Document actions"><div id="row-menu-body"></div></dialog>
+<div id="add-menu" class="menu add-menu" popover role="menu" aria-label="Add to the manuscript">
+  <button type="button" class="menu-item" role="menuitem" data-add="chapter"><span>Add chapter</span></button>
+  <button type="button" class="menu-item" role="menuitem" data-add="scene"><span>Add scene</span></button>
+  <button type="button" class="menu-item" role="menuitem" data-add="part"><span>Add part</span></button>
+  <button type="button" class="menu-item" role="menuitem" data-add="front_matter"><span>Add front matter</span></button>
+  <button type="button" class="menu-item" role="menuitem" data-add="back_matter"><span>Add back matter</span></button>
+</div>
+{{end}}
+{{end}}
+{{end}}

@@ -1,0 +1,38 @@
+{{define "head"}}
+<link rel="stylesheet" href="{{asset "css/outline.css"}}">
+{{if .Data.CanEdit}}<script src="{{asset "js/outline.js"}}" defer></script>{{end}}
+{{end}}
+
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">Outline</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "outline" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "outline" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "outline" .Data.Project.Role}}{{end}}
+
+{{define "content"}}
+{{with .Data}}
+<section class="outline" id="outline" aria-labelledby="o-title" data-project="{{.ProjectID}}" data-slug="{{.Slug}}" data-can-edit="{{.CanEdit}}" data-ext="{{asset "js/outsort.js"}}">
+  <h1 id="o-title" tabindex="-1">Outline</h1>
+  <div id="o-body">{{template "outline-body" .}}</div>
+  {{template "live-marker" (dict "Scope" "project" "ID" .ProjectID)}}
+  {{if .CanEdit}}
+  <form class="o-add" id="o-add" method="post" action="/ui/projects/{{.ProjectID}}/docs" aria-label="Add to the outline">
+    <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+    <div class="field"><label for="o-add-kind">Add</label>
+      <select id="o-add-kind" name="kind">
+        <option value="chapter">Chapter</option>
+        <option value="scene">Scene</option>
+        <option value="part">Part</option>
+        <option value="front_matter">Front matter</option>
+        <option value="back_matter">Back matter</option>
+        <option value="note">Note</option>
+      </select></div>
+    <div class="field"><label for="o-add-title">Title</label><input id="o-add-title" type="text" name="title" maxlength="300" autocomplete="off" placeholder="Optional"></div>
+    <button class="btn solid" type="submit">Add to the end</button>
+  </form>
+  {{end}}
+  <div id="o-live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+</section>
+{{end}}
+{{end}}

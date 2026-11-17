@@ -1,0 +1,73 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/attach.css"}}"><script src="{{asset "js/attach.js"}}" defer></script>{{end}}
+{{define "crumb"}}{{if .Data.Owner.Compend}}{{template "ccrumb" (dict "C" .Data.Compend "Here" "Attachments")}}{{else}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Owner.Name}}</a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}/files">Attachments</a></nav>
+{{end}}{{end}}
+{{define "tab-write"}}{{if .Data.Owner.Compend}}{{template "ctab-phone" ctabs .Data.Slug "files"}}{{else}}{{template "ptab-phone" ptabs .Data.Slug "" "files" .Data.Project.Role}}{{end}}{{end}}
+{{define "projmore"}}{{if .Data.Owner.Compend}}{{template "cmore" ctabs .Data.Slug "files"}}{{else}}{{template "project-more" ptabs .Data.Slug "" "files" .Data.Project.Role}}{{end}}{{end}}
+{{define "ptabs"}}{{if .Data.Owner.Compend}}{{template "ctab-desktop" ctabs .Data.Slug "files"}}{{else}}{{template "ptab-desktop" ptabs .Data.Slug "" "files" .Data.Project.Role}}{{end}}{{end}}
+{{define "content"}}
+{{with .Data}}{{$a := .Att}}
+<div class="settings attach attach-one" id="attach" data-can-edit="{{.Owner.CanEdit}}">
+  <h1 class="wrap">{{$a.Filename}}</h1>
+  <p class="sub">{{$a.KindLabel}}, {{$a.Size}}{{if $a.Width}}, {{$a.Width}} by {{$a.Height}} pixels{{end}}{{if $a.When}}. Added {{$a.When}}{{end}}.</p>
+  <p class="sr-only" id="att-live" role="status" aria-live="polite"></p>
+  {{if .Saved}}<p class="saved" role="status">{{.Saved}}</p>{{end}}
+  {{if and .Error (not .Refused)}}<p class="field-error" role="alert" id="att-error">{{.Error}}</p>{{end}}
+
+  <section class="att-view" aria-labelledby="h-view">
+    <h2 id="h-view" class="sr-only">The file</h2>
+    {{if $a.IsImage}}<p class="att-big"><img src="{{$a.URL}}" alt="{{if $a.Alt}}{{$a.Alt}}{{else}}{{$a.Filename}}{{end}}"></p>
+    {{else if eq $a.Kind "pdf"}}
+      <p><a class="btn" href="/files/{{$a.ID}}?download=1" download>Download the PDF</a> <button type="button" class="btn quiet" id="att-preview" data-src="/files/{{$a.ID}}" aria-controls="att-frame" aria-expanded="false" hidden>Preview here</button></p>
+      <div id="att-frame" class="att-frame" hidden></div>
+    {{else}}<p><a class="btn" href="/files/{{$a.ID}}?download=1" download>Download the text</a></p>{{end}}
+    {{if $a.IsImage}}<p class="fine"><a href="/files/{{$a.ID}}?download=1" download>Download the original</a></p>{{end}}
+  </section>
+
+  <section aria-labelledby="h-use">
+    <h2 id="h-use">Use it in a chapter</h2>
+    <div class="keybox"><code id="att-md" class="wrap">{{$a.Shown}}</code><button type="button" class="btn small" data-copy="{{$a.Markdown}}" hidden>Copy Markdown</button></div>
+    <p class="fine">Paste this into a chapter or a note. The address works only for people who can read this {{.Owner.Word}}.</p>
+  </section>
+
+  <section aria-labelledby="h-where">
+    <h2 id="h-where">Where it is used</h2>
+    {{if .Refs}}<ul class="plain-list">{{range .Refs}}<li><a href="{{.URL}}">{{.Label}}</a> <span class="fine">{{if eq .Kind "research"}}research note{{else}}chapter or document{{end}}{{if .Trashed}}, in the trash{{end}}</span></li>{{end}}</ul>
+    {{else}}<p class="fine">No chapter or note links to it.</p>{{end}}
+    <p class="fine">Links inside entity entries and in files that arrived by import are not tracked here.</p>
+  </section>
+
+  {{if .Owner.CanEdit}}
+  <section aria-labelledby="h-name">
+    <h2 id="h-name">Name and description</h2>
+    <form class="form" method="post" action="{{.Owner.UI}}/files/{{$a.ID}}/update">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field"><label for="at-name">Name</label><input id="at-name" type="text" name="filename" value="{{if .Values.filename}}{{.Values.filename}}{{else}}{{$a.Filename}}{{end}}" maxlength="200" autocomplete="off"{{if eq .Field "filename"}} aria-invalid="true" aria-describedby="att-error"{{end}}><span class="hint">Only a label. The type is decided by the file itself.</span></div>
+      <div class="field"><label for="at-alt">{{if $a.IsImage}}Alt text{{else}}Description{{end}}</label><textarea id="at-alt" name="alt" rows="3" maxlength="500"{{if eq .Field "alt"}} aria-invalid="true" aria-describedby="att-error"{{end}}>{{if .Values.alt}}{{.Values.alt}}{{else}}{{$a.Alt}}{{end}}</textarea><span class="hint">{{if $a.IsImage}}What the picture shows, for people who cannot see it. It is also the default text when you insert it.{{else}}A short note about the file.{{end}}</span></div>
+      <div class="form-actions"><button class="btn solid" type="submit">Save</button></div>
+    </form>
+  </section>
+
+  <section aria-labelledby="h-del">
+    <h2 id="h-del">Delete</h2>
+    {{if .Refused}}
+    <p class="banner-line" role="alert" id="att-error"><strong>It is still in use.</strong> {{if .Refs}}The places listed above link to it. Take those links out first, or delete it anyway.{{else}}{{.Error}}{{end}}</p>
+    <p class="fine">If you delete it anyway, the {{if $a.IsImage}}pictures{{else}}links{{end}} in the places listed above will show as broken until you take them out. The file cannot be brought back.</p>
+    <form class="form" method="post" action="{{.Owner.UI}}/files/{{$a.ID}}/delete">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="force" value="1">
+      <div class="field"><label for="at-confirm">Type the file's name to confirm: <strong class="wrap">{{$a.Filename}}</strong></label>
+        <input id="at-confirm" type="text" name="confirm" value="{{.Typed}}" autocomplete="off" spellcheck="false" data-confirm="{{$a.Filename}}"{{if eq .Field "confirm"}} aria-invalid="true" aria-describedby="att-error"{{end}}></div>
+      <div class="form-actions"><button class="btn danger" type="submit" data-confirm-submit>Delete it anyway</button></div>
+    </form>
+    {{else}}
+    <p class="fine">{{if $a.Refs}}It is used in {{$a.Refs}} {{plural $a.Refs "place" "places"}}, so you will be asked before it is deleted.{{else}}Nothing links to it. Deleting removes the file for good.{{end}}</p>
+    <form method="post" action="{{.Owner.UI}}/files/{{$a.ID}}/delete"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn danger" type="submit">Delete the file</button></form>
+    {{end}}
+  </section>
+  {{else}}
+  <p class="fine">Only editors can rename or delete a file.</p>
+  {{end}}
+  <p><a href="{{.Owner.Base}}/files">All attachments</a></p>
+</div>
+{{end}}
+{{end}}

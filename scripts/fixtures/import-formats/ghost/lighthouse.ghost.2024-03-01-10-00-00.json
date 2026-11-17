@@ -1,0 +1,57 @@
+{
+ "db": [
+  {
+   "data": {
+    "posts": [
+     {
+      "created_at": "2024-03-01T10:00:00.000Z",
+      "custom_excerpt": null,
+      "html": "\u003cp\u003eThe keeper lit the lamp at six.\u003c/p\u003e\u003cfigure class=\"kg-card kg-image-card\"\u003e\u003cimg src=\"__GHOST_URL__/content/images/2024/03/lamp.png\" class=\"kg-image\" alt=\"The lamp room\"\u003e\u003c/figure\u003e",
+      "id": "1",
+      "published_at": "2024-03-01T10:00:00.000Z",
+      "slug": "the-lamp",
+      "status": "published",
+      "title": "The Lamp",
+      "type": "post",
+      "visibility": "public"
+     },
+     {
+      "created_at": "2024-03-02T10:00:00.000Z",
+      "custom_excerpt": null,
+      "html": "\u003cp\u003eFog for three days. \u003cimg src=\"__GHOST_URL__/content/images/size/w600/2024/03/lamp.png\" alt=\"The lamp again\"\u003e\u003c/p\u003e",
+      "id": "2",
+      "published_at": "2024-03-02T10:00:00.000Z",
+      "slug": "fog",
+      "status": "published",
+      "title": "Fog",
+      "type": "post",
+      "visibility": "public"
+     }
+    ],
+    "posts_tags": [
+     {
+      "post_id": "2",
+      "tag_id": "t1"
+     }
+    ],
+    "settings": [
+     {
+      "key": "title",
+      "value": "Lighthouse"
+     }
+    ],
+    "tags": [
+     {
+      "id": "t1",
+      "name": "Weather",
+      "slug": "weather"
+     }
+    ]
+   },
+   "meta": {
+    "exported_on": 1709287200000,
+    "version": "5.80.0"
+   }
+  }
+ ]
+}

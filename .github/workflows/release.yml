@@ -1,0 +1,345 @@
+# The release of crueber/scriobh on GitHub, for a `v*` tag: the server and the agent CLI for every platform
+# scripts/release-dist.sh builds, the desktop packages, and ONE GitHub Release that holds them all. It is one
+# workflow with one `release` job, which is the only thing that creates the Release, so two workflows cannot race to
+# make it (the image workflow, docker-image.yml, makes no release).
+#
+#   push a v* tag                     builds and releases that tag
+#   Actions -> release -> Run workflow, with `tag`   rebuilds and releases an existing tag
+#   Run workflow without `tag`        builds the files as workflow artifacts and makes no release
+#
+# THE FILES ARE NOT SIGNED. Signing is not set up: no Apple Developer ID certificate or notarisation, no Windows
+# code-signing certificate, no updater key. macOS Gatekeeper and Windows SmartScreen will warn, and
+# SHA256SUMS.txt (which comes from the same place as the files) is a checksum list, not a signature. The secrets and
+# steps that would add signing are in docs/p8-notes/release-runbook.md; when they exist, add the environment
+# variables it lists to the build step of the matching platform. Nothing here reads a secret.
+#
+# Written from the development repository's release and desktop workflows (whose Linux job has built and packaged on
+# the forge, and whose Windows installer has been cross-built there; nothing here has run on GitHub's own macOS or
+# Windows runners) and NOT run on GitHub when it was made; checked with actionlint and a YAML parser. Expect to fix
+# the first run. The `dist` job runs the very script a person can run
+# (`make release-dist VERSION=v1.2.3`), so what is published can be checked against a local build.
+#
+# THE DESKTOP LEGS, and what each one does on GitHub's own runners:
+#   linux-x86_64     the Linux .deb through `tauri build`, and an AppImage that may fail
+#   macos-*          desktop/scripts/build-macos.sh, the script the development forge's macOS job runs too: server, Tauri
+#                    command line, build, ad-hoc signature, checks, and a .dmg named Scriobh_<version>_<aarch64|x86_64>.dmg
+#   windows-x86_64   a NATIVE `tauri build --bundles nsis` on windows-latest (the forge cross-compiles with
+#                    desktop/scripts/build-windows-cross.sh instead, because it has no Windows runner; GitHub has one,
+#                    and a native build needs no cross toolchain and no download of Microsoft's SDK). The installer
+#                    is renamed to the forge's name, scriobh-desktop-<version>-windows-amd64-setup.exe. The app's
+#                    `webviewInstallMode` is `skip` (desktop/src-tauri/tauri.conf.json: the installer makes no network
+#                    request, so it does not install WebView2); this workflow passes no configuration that changes it.
+#
+# SCRIPTS AND SOURCE. The tag's tree is checked out into `src/` and built; the commit the run is on (the tag itself
+# for a push, the branch the run was started on for a dispatch) is checked out into `tools/`, and its scripts do the
+# work. A tag made before a script existed can therefore be released by starting the run from a newer branch.
+#
+# THE RELEASE IS MADE ONCE AND ITS NOTES ARE LEFT ALONE. The `release` job creates the Release only when there is
+# none (`gh release view`, then `gh release create`), so a re-run does not overwrite a title or notes someone
+# edited; it attaches the files with `--clobber`, which replaces a file of the same name. SHA256SUMS-desktop.txt is
+# made from the desktop assets the Release holds after the upload, not from this run's files alone, so it describes
+# what is there (a package a failed leg did not rebuild keeps its older file and its sum).
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "An existing tag to build and release (for example v1.2.3); empty builds the files only"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+# One run per tag at a time; a second run waits for the first instead of replacing it half done.
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  RUST_TOOLCHAIN: "1.100.0"
+  CARGO_TERM_COLOR: never
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  # What is being released: the tag (empty for a files-only run), the version stamped into the programs, and the
+  # ref every other job checks out.
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.plan.outputs.tag }}
+      version: ${{ steps.plan.outputs.version }}
+      ref: ${{ steps.plan.outputs.ref }}
+    steps:
+      - name: Work out the tag, the version and the ref
+        id: plan
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          REF: ${{ github.ref }}
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          tag="$INPUT_TAG"
+          case "$REF" in refs/tags/v*) [ -n "$tag" ] || tag="$REF_NAME" ;; esac
+          if [ -n "$tag" ]; then
+            case "$tag" in
+              v[0-9]*) ;;
+              *) echo "release: '$tag' is not a version tag (v followed by a digit)" >&2; exit 1 ;;
+            esac
+            case "$tag" in *[!A-Za-z0-9._+-]*) echo "release: odd characters in '$tag'" >&2; exit 1 ;; esac
+            version="$tag"; ref="refs/tags/$tag"
+          else
+            version="dev-$(printf '%s' "$SHA" | cut -c1-7)"; ref="$SHA"
+          fi
+          { echo "tag=$tag"; echo "version=$version"; echo "ref=$ref"; } >>"$GITHUB_OUTPUT"
+          echo "tag='$tag' version='$version' ref='$ref'"
+
+  dist:
+    needs: [plan]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4.2.2
+        with:
+          path: tools
+
+      - uses: actions/checkout@v4.2.2
+        with:
+          ref: ${{ needs.plan.outputs.ref }}
+          path: src
+
+      - uses: actions/setup-go@v5.5.0
+        with:
+          go-version-file: src/go.mod
+
+      - name: Build the archives and the checksum list
+        run: bash tools/scripts/release-dist.sh --version "${{ needs.plan.outputs.version }}" --src src --out dist
+
+      - uses: actions/upload-artifact@v4.6.2
+        with:
+          name: scriobh-dist
+          path: dist/*
+          if-no-files-found: error
+
+  desktop:
+    needs: [plan]
+    name: desktop (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x86_64
+            os: ubuntu-22.04
+            triple: x86_64-unknown-linux-gnu
+            bundles: deb
+            target_flag: ""
+          - name: macos-aarch64
+            os: macos-15
+            triple: aarch64-apple-darwin
+            bundles: app,dmg
+            target_flag: --target aarch64-apple-darwin
+          - name: macos-x86_64
+            os: macos-15
+            triple: x86_64-apple-darwin
+            bundles: app,dmg
+            target_flag: --target x86_64-apple-darwin
+          - name: windows-x86_64
+            os: windows-latest
+            triple: x86_64-pc-windows-msvc
+            bundles: nsis
+            target_flag: ""
+    env:
+      # The tree desktop/scripts/linux-deb.sh builds (its own scripts come from `tools/`).
+      SRC_DIR: ${{ github.workspace }}/src
+    defaults:
+      run:
+        shell: bash
+        working-directory: src
+    steps:
+      - uses: actions/checkout@v4.2.2
+        with:
+          path: tools
+
+      - uses: actions/checkout@v4.2.2
+        with:
+          ref: ${{ needs.plan.outputs.ref }}
+          path: src
+
+      - uses: actions/setup-go@v5.5.0
+        with:
+          go-version-file: src/go.mod
+
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: "22"
+
+      - name: Build dependencies of the shell (Linux)
+        if: runner.os == 'Linux'
+        run: bash ../tools/desktop/scripts/linux-deb.sh deps
+
+      - name: Rust toolchain, pinned
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --target "${{ matrix.triple }}"
+          rustup default "$RUST_TOOLCHAIN"
+          rustc -vV
+
+      # The production server, built for the platform the app is built for, goes inside the bundle.
+      - name: Server binary for the bundle
+        if: runner.os != 'macOS'
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: desktop/scripts/sidecar.sh "${{ matrix.triple }}"
+
+      - name: Tauri command line, pinned
+        if: runner.os != 'macOS'
+        run: cd desktop && npm ci --no-audit --no-fund
+
+      - name: Build the unsigned package
+        if: runner.os != 'macOS'
+        run: cd desktop && node node_modules/@tauri-apps/cli/tauri.js build --bundles ${{ matrix.bundles }} ${{ matrix.target_flag }}
+
+      # macOS: one script does the server binary (stamped with the version), the Tauri command line, the build, the
+      # ad-hoc signature (no certificate is used here), the checks (identifier, version, architectures, signature,
+      # that the .dmg mounts) and writes DIST_DIR/Scriobh_<version>_<aarch64|x86_64>.dmg, named for VERSION (the tag
+      # without its v, so v2.0.1 gives Scriobh_2.0.1_*; the script prints a WARNING when that is not the app's own
+      # version). SRC_DIR (the job's) is the tag's tree, so the script of the commit the run is on builds it.
+      - name: Build, sign ad hoc and check the macOS package
+        if: runner.os == 'macOS'
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+          DIST_DIR: ${{ github.workspace }}/macos-dist
+        run: bash ../tools/desktop/scripts/build-macos.sh "${{ matrix.triple }}"
+
+      # UNVERIFIED, and allowed to fail: the AppImage. The bundler's build-time downloads are pinned and checked
+      # against a SHA-256 first, and the result is opened (`--appimage-extract`) and must hold the app and its server
+      # (../tools/desktop/scripts/linux-deb.sh, `appimage`). A failed or absent AppImage is simply not staged below.
+      - name: Build an AppImage (Linux)
+        id: appimage
+        if: runner.os == 'Linux'
+        continue-on-error: true
+        timeout-minutes: 30
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: bash ../tools/desktop/scripts/linux-deb.sh appimage
+
+      # upload-artifact roots an artifact at the common parent of everything it uploads, so packages uploaded from
+      # their bundle folders would arrive in the release job nested (deb/x.deb, dmg/y.dmg) and `merge-multiple`
+      # would keep that nesting. They are copied flat into out/ and that is what is uploaded.
+      - name: Stage the packages in one flat folder
+        env:
+          APPIMAGE_OUTCOME: ${{ steps.appimage.outcome }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          DIST_DIR: ${{ github.workspace }}/macos-dist
+        run: |
+          shopt -s nullglob
+          b=desktop/src-tauri/target/release/bundle
+          mkdir -p out
+          case "$RUNNER_OS" in
+            Linux)
+              cp -- "$b"/deb/*.deb out/
+              if [ "$APPIMAGE_OUTCOME" = success ]; then cp -- "$b"/appimage/*.AppImage out/; fi ;;
+            macOS)
+              cp -- "$DIST_DIR"/Scriobh_*.dmg out/ ;;
+            Windows)
+              # the forge's name for the same file (build-windows-cross.sh): the tag, not the bundler's Scriobh_<n>_x64-setup.exe
+              exes=("$b"/nsis/*-setup.exe)
+              [ ${#exes[@]} -eq 1 ] || { echo "expected one NSIS installer, found ${#exes[@]}" >&2; exit 1; }
+              cp -- "${exes[0]}" "out/scriobh-desktop-$VERSION-windows-amd64-setup.exe" ;;
+          esac
+          ls -l out
+          [ -n "$(ls -A out)" ] || { echo "no package was built" >&2; exit 1; }
+
+      - name: Upload the packages
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: scriobh-desktop-${{ matrix.name }}
+          path: src/out/*
+          if-no-files-found: error
+
+  # The only job that makes the Release. It runs when the archives were built, even if a desktop leg failed (the
+  # macOS and Windows legs never ran before), and attaches what there is; a re-run replaces files of the same name.
+  release:
+    if: ${{ !cancelled() && needs.plan.outputs.tag != '' && needs.dist.result == 'success' }}
+    needs: [plan, dist, desktop]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.plan.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4.2.2
+        with:
+          path: tools
+
+      - uses: actions/download-artifact@v4.3.0
+        with:
+          name: scriobh-dist
+          path: dist
+
+      # Flat: each desktop artifact holds only the files staged in out/ (see the desktop job).
+      - uses: actions/download-artifact@v4.3.0
+        continue-on-error: true
+        with:
+          pattern: scriobh-desktop-*
+          path: desktop
+          merge-multiple: true
+
+      - name: Create the Release if there is none, and attach the files
+        run: |
+          mkdir -p desktop
+          shopt -s nullglob
+          ls -la dist desktop
+          cat >body.md <<'BODY'
+          Binary release of @TAG@, built by the release workflow from the tag's own tree.
+
+          **What is here**
+
+          - `scriobh-@TAG@-<os>-<arch>.tar.gz` (`.zip` on Windows): the production server `scriobh` and the agent CLI `scriobh-cli`, with LICENSE, NOTICE and README.md. Linux on amd64, arm64, arm (ARMv7), 386, riscv64 and ppc64le, macOS on Intel and Apple silicon, Windows on amd64, arm64 and 386, FreeBSD on amd64 and arm64, OpenBSD on amd64 and NetBSD on amd64. Only the macOS one for Apple silicon has been run; the rest are cross-compiled. Static programs (no CGO); the server is the `prod` build, which has no development sign-in.
+          - `SHA256SUMS.txt`: the SHA-256 of every archive above. Check with `sha256sum -c SHA256SUMS.txt` (`shasum -a 256 -c` on macOS).
+          - The desktop app, for the platforms whose build succeeded, with `SHA256SUMS-desktop.txt`. Read docs/DESKTOP.md before relying on it. Linux: the `.deb` (and an AppImage when that build worked). Windows: `scriobh-desktop-@TAG@-windows-amd64-setup.exe`, an installer for 64-bit Windows 10 and 11, built on a Windows runner. macOS: `Scriobh_<version>_aarch64.dmg` (Apple silicon) and `Scriobh_<version>_x86_64.dmg` (Intel), where `<version>` is this release's tag without its `v`.
+          - The container image, built by the image workflow from the same tag push, so check the repository's Packages before relying on it: `ghcr.io/crueber/scriobh:@TAG@`.
+
+          **Nothing is signed.** There are no signatures, no notarisation and no signing certificate: the checksum lists come from the same place as the files, so they detect a damaged download and prove nothing about who made it. Check the checksum first. macOS and Windows will warn:
+
+          - Windows (the installer): SmartScreen shows "Windows protected your PC" because the file is unsigned and has no reputation. Choose More info, then Run anyway, if you have checked the checksum. WebView2 is required and is not installed by this installer: the app's window is Microsoft's WebView2 runtime, and the installer is built not to download it, so that installing makes no network request. Windows 11 and an up-to-date Windows 10 normally have it already; if the app opens no window, install the WebView2 Runtime (Evergreen) from Microsoft and open Scríobh again. What the app shows when the runtime is missing has not been seen.
+          - macOS (the images): they are signed ad hoc and not notarised, so Gatekeeper will not open them at once. On macOS 15 (Sequoia) and later, open the app, then go to System Settings, Privacy and Security, scroll down, choose Open Anyway next to the message about "Scriobh", and Open again (it may ask for your password); on macOS 14 and earlier, right-click the app and choose Open, then Open in the dialog. It is asked once per downloaded copy. `xattr -dr com.apple.quarantine /Applications/Scriobh.app` does the same from a terminal; for the programs in the archives use `xattr -d com.apple.quarantine <file>`.
+
+          There is no update server: install a newer release by hand.
+
+          **Release notes** are in the section headed "release notes" at the end of docs/OPEN-QUESTIONS.md for this version: @NOTES@. They say what has not been verified.
+          BODY
+          sed -i "s|@TAG@|$TAG|g; s|@NOTES@|${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/blob/$TAG/docs/OPEN-QUESTIONS.md|g" body.md
+          # An existing Release keeps its title and notes; only a missing one (and only that) is created.
+          if gh release view "$TAG" >/dev/null 2>err.txt; then
+            echo "the Release of $TAG exists; its title and notes are left as they are"
+          elif grep -qi "not found" err.txt; then
+            flags=(--verify-tag)
+            case "$TAG" in *-*) flags+=(--prerelease) ;; esac
+            gh release create "$TAG" --title "$TAG" --notes-file body.md "${flags[@]}"
+          else
+            cat err.txt >&2; exit 1
+          fi
+          gh release upload "$TAG" dist/* --clobber
+          files=(desktop/*)
+          if [ ${#files[@]} -gt 0 ]; then gh release upload "$TAG" "${files[@]}" --clobber; fi
+
+      # The list is made from the desktop assets the Release holds now (everything that is not an archive of this
+      # run or a checksum list), so it matches the Release even when a leg failed this time and an older package
+      # is still attached.
+      - name: Checksums of the desktop packages on the Release
+        run: |
+          rm -rf onrelease && mkdir onrelease
+          gh release download "$TAG" --dir onrelease --pattern '*' --clobber
+          for f in dist/*; do rm -f "onrelease/$(basename "$f")"; done
+          rm -f onrelease/SHA256SUMS-desktop.txt
+          bash tools/scripts/release-sums.sh onrelease SHA256SUMS-desktop.txt
+          if [ -f onrelease/SHA256SUMS-desktop.txt ]; then gh release upload "$TAG" onrelease/SHA256SUMS-desktop.txt --clobber; fi

@@ -1,0 +1,37 @@
+{{define "shelf"}}<div id="shelf-wrap" class="shelf-wrap">
+  <nav class="views" aria-label="Library views">
+    <a href="/"{{if eq .State "active"}} aria-current="page"{{end}}>Your work</a>
+    <a href="/?state=archived"{{if eq .State "archived"}} aria-current="page"{{end}}>Archived</a>
+    <a href="/?state=trashed"{{if eq .State "trashed"}} aria-current="page"{{end}}>Trash</a>
+    <a href="/compendiums">Compendiums</a>
+  </nav>
+  {{with .Continue}}
+  <a class="continue" href="/p/{{.Slug}}{{if .LastDocumentID}}/d/{{.LastDocumentID}}{{end}}">
+    <span class="cover cover-mini {{coverClass .CoverColor}}" aria-hidden="true"><span class="cover-rule"></span></span>
+    <span class="continue-text">
+      <span class="eyebrow">Continue where you left off</span>
+      <span class="continue-title">{{.Title}}</span>
+      <span class="continue-meta">{{num .WordCount}} {{plural .WordCount "word" "words"}}{{if .WordGoal}} of {{num .WordGoal}}{{end}}</span>
+    </span>
+    {{template "icon" "chevron-right"}}
+  </a>
+  {{end}}
+  {{if .Projects}}
+  <h2 id="shelf-label" class="eyebrow">{{if eq .State "archived"}}Archived work{{else if eq .State "trashed"}}In the trash{{else}}Your work{{end}}</h2>
+  {{if eq .State "trashed"}}<p class="fine trash-note">Projects stay here until you delete them for good. Restore one to bring it back.</p>{{end}}
+  <ul class="shelf" aria-labelledby="shelf-label">
+    {{range .Projects}}{{template "project-tile" (dict "P" . "State" $.State "CSRF" $.CSRF "Lock" $.Lock "Unlock" $.Unlock)}}{{end}}
+  </ul>
+  {{else if .Q}}
+  <p class="empty-line">No projects match &ldquo;{{.Q}}&rdquo;. <a href="/">Show all projects</a></p>
+  {{else if eq .State "archived"}}
+  <div class="empty"><p>Nothing is archived. Archive a finished project to tidy the shelf; it stays readable.</p></div>
+  {{else if eq .State "trashed"}}
+  <div class="empty"><p>The trash is empty.</p></div>
+  {{else}}
+  <div class="empty">
+    <p>No projects yet. Create one to begin.</p>
+    {{if .IsWriter}}<div class="head-actions"><a class="btn solid" href="/ui/projects/new" hx-get="/ui/projects/new" hx-target="#dialog-body" hx-swap="innerHTML">New project</a><a class="btn" href="/import">Import</a></div>{{else}}<p class="fine">Ask an administrator to add you to a project.</p>{{end}}
+  </div>
+  {{end}}
+</div>{{end}}

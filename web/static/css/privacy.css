@@ -1,0 +1,55 @@
+/* The project's privacy pages: the passphrase and search by meaning. Flat fills, hairline rules, one accent, the
+   theme's tokens, logical properties so a right-to-left interface mirrors. Read at 390 px: the two lists stack, every
+   control is at least the touch target high, nothing scrolls sideways. A rule or a left edge is never the only sign:
+   every state is also a word. */
+.priv h3 { margin: var(--s-4) 0 var(--s-1); font: 600 var(--text-base)/var(--lh-base) var(--font-ui); color: var(--fg-2); }
+.priv p { max-inline-size: 60ch; }
+.priv .priv-words { margin-block-start: var(--s-5); border-block-start: 0; padding-block-start: 0; }
+.priv-notice { margin: var(--s-3) 0; padding: var(--s-3) var(--s-4); border: 1px solid var(--line); border-inline-start: 3px solid var(--accent); border-radius: var(--r-1); background: var(--surface); color: var(--fg); font-size: var(--text-base); line-height: var(--lh-base); }
+.priv-lists { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-2) var(--s-5); margin-block-start: var(--s-3); }
+@media (min-width: 700px) { .priv-lists { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.priv-lists ul { margin: 0; padding-inline-start: var(--s-4); list-style: disc; color: var(--fg-2); }
+.priv-lists li { margin-block: var(--s-1); }
+.priv-state { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); margin-block-start: var(--s-4); }
+.priv-state form { margin: 0; }
+.priv-owner { margin-block-start: var(--s-5); }
+.priv-keys { min-inline-size: 0; margin: 0; padding: var(--s-3) var(--s-4); border: 1px solid var(--line); border-radius: var(--r-1); }
+.priv-keys legend { padding-inline: var(--s-1); font: 600 var(--text-sm)/var(--lh-sm) var(--font-ui); color: var(--fg-2); }
+.priv-keylist { margin: var(--s-2) 0 0; padding: 0; list-style: none; }
+.priv-keylist li { padding-block: var(--s-2); border-block-start: 1px solid var(--line-2); }
+.priv-keylist .check { align-items: flex-start; }
+.priv-keylist p { margin: 0; padding-inline-start: calc(18px + var(--s-3)); }
+.priv-cmd { display: inline-block; max-inline-size: 100%; overflow-wrap: anywhere; padding: var(--s-2) var(--s-3); border: 1px solid var(--line); border-radius: var(--r-1); background: var(--surface-2); font: 400 var(--text-sm)/var(--lh-sm) var(--font-mono); user-select: all; }
+
+/* ---- search by meaning ---------------------------------------------------------------------------------------- */
+.sem-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-3); padding: var(--s-4); border: 1px solid var(--line); border-radius: var(--r-2); background: var(--surface); }
+.sem-state { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-2) var(--s-3); margin: 0; }
+.sem-state strong { font: 600 var(--text-lg)/var(--lh-lg) var(--font-ui); }
+.sem-state[data-state="error"] strong, .sem-state[data-state="backoff"] strong { color: var(--danger); }
+.sem-facts { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-1) var(--s-4); margin: 0; }
+@media (min-width: 560px) { .sem-facts { grid-template-columns: max-content minmax(0, 1fr); } }
+.sem-facts dt { color: var(--muted); font-size: var(--text-sm); }
+.sem-facts dd { margin: 0; overflow-wrap: anywhere; }
+.sem-never { margin-block: var(--s-3); padding: var(--s-3) var(--s-4); border: 1px solid var(--line); border-inline-start: 3px solid var(--accent); border-radius: var(--r-1); background: var(--surface); }
+.sem-remote { margin-block: var(--s-3); padding: var(--s-3) var(--s-4); border: 1px solid var(--danger); border-radius: var(--r-1); background: var(--danger-soft); color: var(--fg); }
+.sem-remote strong { color: var(--danger); }
+.sem-actions { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; }
+.sem-actions form { margin: 0; }
+.sem-actions .btn { min-block-size: var(--target); }
+.sem-hits { margin: 0; padding: 0; list-style: none; }
+.sem-hit { padding-block: var(--s-3); border-block-end: 1px solid var(--line-2); }
+.sem-hit a { font: 600 var(--text-base)/var(--lh-base) var(--font-ui); }
+.sem-hit p { margin: var(--s-1) 0 0; color: var(--fg-2); }
+.sem-modes { display: flex; flex-wrap: wrap; gap: var(--s-2); margin-block: var(--s-2) var(--s-3); }
+.sem-modes a { display: inline-flex; align-items: center; min-block-size: var(--target); padding-inline: var(--s-3); border: 1px solid var(--line); border-radius: var(--r-1); color: var(--fg-2); }
+.sem-modes a[aria-current="page"] { border-color: var(--accent); background: var(--accent-soft); color: var(--fg); }
+.sem-like { margin-block-start: var(--s-3); }
+.sem-like summary { cursor: pointer; min-block-size: var(--target); display: flex; align-items: center; font: 500 var(--text-sm)/var(--lh-sm) var(--font-ui); }
+
+/* ---- the unlock page ------------------------------------------------------------------------------------------ */
+.gate-page .hint a { text-decoration: underline; }
+.gate-page h1 { font: 400 28px/34px var(--font-prose); letter-spacing: -.01em; overflow-wrap: anywhere; }
+@media (max-width: 599px) {
+  .gate-page .form-actions { flex-direction: column-reverse; align-items: stretch; }
+  .gate-page .btn { justify-content: center; min-block-size: 44px; }
+}

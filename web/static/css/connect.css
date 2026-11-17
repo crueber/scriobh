@@ -1,0 +1,58 @@
+/* The publish and connect pages: the static site, webhooks, connect an agent. They build on the share links page's
+   cards (share.css) and the settings frame; this adds code blocks, the status lines, warnings, the delivery log and the
+   accent swatches. Flat fills, hairline rules, the theme's tokens, logical properties. Nothing moves. */
+.cx .notice-line { margin: 0 0 var(--s-3); padding: var(--s-2) var(--s-3); border-inline-start: 3px solid var(--accent); background: var(--surface-2); font-size: var(--text-sm); }
+.cx .notice-line.is-warn, .cx-off { border-inline-start-color: var(--warn); }
+.cx .notice-line.is-bad { border-inline-start-color: var(--danger); }
+.cx-live { position: fixed; inset-inline: var(--s-3); inset-block-end: calc(var(--s-4) + var(--safe-b, 0px)); z-index: 30; max-inline-size: 28rem; margin: 0 auto; padding: var(--s-2) var(--s-3); border: 1px solid var(--line); border-radius: var(--r-1); background: var(--surface); color: var(--fg); font-size: var(--text-sm); text-align: center; }
+.cx-live:empty { padding: 0; border: 0; background: none; } /* kept in the accessibility tree, so the first message is announced */
+.cx section h3 { margin: var(--s-4) 0 var(--s-1); font: 600 var(--text-base)/var(--lh-base) var(--font-ui); }
+.cx-code { margin: var(--s-1) 0 var(--s-2); padding: var(--s-2) var(--s-3); max-inline-size: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-1); background: var(--surface-2); font: 400 var(--text-sm)/1.5 var(--font-mono); white-space: pre; direction: ltr; text-align: left; }
+.cx-code:focus-visible, .cx .cx-mono:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cx .cx-mono { inline-size: 100%; font-family: var(--font-mono); direction: ltr; }
+.cx code { font-family: var(--font-mono); font-size: .92em; overflow-wrap: anywhere; }
+.cx-bullets { margin: var(--s-2) 0; padding-inline-start: var(--s-4); }
+.cx-bullets li { margin: 0 0 var(--s-1); }
+.cx-table { inline-size: 100%; border-collapse: collapse; font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+.cx-table th, .cx-table td { padding: var(--s-1) var(--s-2); border-block-end: 1px solid var(--line-2); text-align: start; }
+.cx-table thead th { color: var(--muted); font-weight: 500; }
+.cx-facts { display: grid; gap: var(--s-1); margin: 0 0 var(--s-3); font-size: var(--text-sm); }
+.cx-facts div { display: grid; grid-template-columns: 10rem minmax(0, 1fr); gap: var(--s-2); }
+.cx-facts dt { color: var(--muted); }
+.cx-facts dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .cx-facts div { grid-template-columns: 1fr; gap: 0; } }
+.cx-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); margin: var(--s-2) 0; }
+.cx-actions form { margin: 0; }
+@media (max-width: 600px) { .cx-actions > .btn, .cx-actions > form, .cx-actions > form .btn, .cx-wide { inline-size: 100%; } }
+.cx-warn { margin: 0 0 var(--s-1); padding: var(--s-1) var(--s-3); border-inline-start: 3px solid var(--warn); background: var(--surface-2); font-size: var(--text-sm); }
+.cx-warn b { font-weight: 500; }
+.cx-fold { margin: var(--s-3) 0; }
+.cx-fold > summary { cursor: pointer; min-block-size: var(--target); line-height: var(--target); font-weight: 500; }
+.cx-nudge { color: var(--warn); }
+.cx-ok { color: var(--ok); }
+.cx-bad { color: var(--danger); }
+.cx-events { margin: 0; padding: 0; list-style: none; }
+.cx-events .hint { display: block; margin: -6px 0 var(--s-1); padding-inline-start: calc(18px + var(--s-3)); }
+.cx-nav-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--s-2); }
+@media (max-width: 600px) { .cx-nav-row { grid-template-columns: 1fr; padding-block-end: var(--s-2); border-block-end: 1px solid var(--line-2); } }
+.cx-sws { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-3); }
+.cx-sw { display: inline-flex; align-items: center; gap: var(--s-1); min-block-size: var(--target); }
+.cx-chip { display: inline-flex; inline-size: 28px; block-size: 18px; border: 1px solid var(--line); border-radius: var(--r-1); overflow: hidden; }
+.cx-chip i { flex: 1; }
+.cx-sw input:checked + .cx-chip { outline: 2px solid var(--fg); outline-offset: 2px; }
+.cx-sw input:focus-visible + .cx-chip { outline: 2px solid var(--accent); outline-offset: 4px; }
+/* the site generator's five accents (internal/site/css.go), light and dark: the colours of the site, not of this app */
+.a-moss i:first-child { background: #2F5D50; } .a-moss i:last-child { background: #7FB09A; }
+.a-slate i:first-child { background: #3B5B7A; } .a-slate i:last-child { background: #8FB3D6; }
+.a-sepia i:first-child { background: #7A4B2A; } .a-sepia i:last-child { background: #D4A27C; }
+.a-meadow i:first-child { background: #4B6B3A; } .a-meadow i:last-child { background: #9CC48A; }
+.a-contrast i:first-child { background: #0050A0; } .a-contrast i:last-child { background: #7FB4FF; }
+.cx-log { margin: 0; padding: 0; list-style: none; }
+.cx-log > li { padding: var(--s-2) 0; border-block-end: 1px solid var(--line-2); }
+.cx-log .shl-meta { margin: 0; }
+.cx-log form { display: inline; }
+.cx-filter { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-3); margin: 0 0 var(--s-2); padding: 0; list-style: none; font-size: var(--text-sm); }
+.cx-filter a { display: inline-block; min-block-size: var(--target); line-height: var(--target); color: var(--accent); }
+.cx-filter a[aria-current] { color: var(--fg); font-weight: 600; text-decoration: none; }
+.cx .shl-state.is-off { border-color: var(--warn); color: var(--warn); }
+.cx .shl-state.is-dead { border-color: var(--danger); color: var(--danger); }

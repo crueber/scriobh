@@ -1,0 +1,36 @@
+{{define "ptab-desktop"}}<nav class="ptabs" aria-label="Project">
+  <a href="{{.Write}}"{{if eq .Active "write"}} aria-current="page"{{end}}>Write</a>
+  <a href="/p/{{.Slug}}/outline"{{if eq .Active "outline"}} aria-current="page"{{end}}>Outline</a>
+  <a href="/p/{{.Slug}}/cards"{{if eq .Active "cards"}} aria-current="page"{{end}}>Cards</a>
+  <a href="/p/{{.Slug}}/research"{{if eq .Active "research"}} aria-current="page"{{end}}>Research</a>
+  <a href="/p/{{.Slug}}/compendium"{{if eq .Active "compendium"}} aria-current="page"{{end}}>Compendium</a>
+  <a href="/p/{{.Slug}}/goals"{{if eq .Active "goals"}} aria-current="page"{{end}}>Goals</a>
+  <a href="/p/{{.Slug}}/search"{{if eq .Active "search"}} aria-current="page"{{end}}>Search</a>
+  {{if ne .Role "reviewer"}}<a href="/p/{{.Slug}}/ai"{{if eq .Active "ai"}} aria-current="page"{{end}}>AI</a>{{end}}
+</nav>{{end}}
+{{define "ptab-phone"}}<a class="tab" href="{{.Write}}"{{if eq .Active "write"}} aria-current="page"{{end}}>{{template "icon" "write"}}<span>Write</span></a>
+<a class="tab" href="/p/{{.Slug}}/outline"{{if eq .Active "outline"}} aria-current="page"{{end}}>{{template "icon" "outline"}}<span>Outline</span></a>
+<a class="tab" href="/p/{{.Slug}}/research"{{if eq .Active "research"}} aria-current="page"{{end}}>{{template "icon" "research"}}<span>Research</span></a>
+<a class="tab" href="/p/{{.Slug}}/compendium"{{if eq .Active "compendium"}} aria-current="page"{{end}}>{{template "icon" "compendium"}}<span>Bible</span></a>{{end}}
+{{define "project-more"}}<p class="menu-label" id="menu-project">This project</p>
+<ul class="menu-list" aria-labelledby="menu-project">
+  <li><a class="menu-item" href="/p/{{.Slug}}/cards"{{if eq .Active "cards"}} aria-current="page"{{end}}>{{template "icon" "cards"}}<span>Corkboard</span></a></li>
+  <li><a class="menu-item" href="/p/{{.Slug}}/board"{{if eq .Active "board"}} aria-current="page"{{end}}>{{template "icon" "board"}}<span>Status board</span></a></li>
+  <li><a class="menu-item" href="/p/{{.Slug}}/read"{{if eq .Active "read"}} aria-current="page"{{end}}>{{template "icon" "read"}}<span>Reading mode</span></a></li>
+  <li><a class="menu-item" href="/p/{{.Slug}}/timeline"{{if eq .Active "timeline"}} aria-current="page"{{end}}>{{template "icon" "history"}}<span>Timeline</span></a></li>
+  <li><a class="menu-item" href="/p/{{.Slug}}/goals"{{if eq .Active "goals"}} aria-current="page"{{end}}>{{template "icon" "goals"}}<span>Goals</span></a></li>
+  <li><a class="menu-item" href="/p/{{.Slug}}/search"{{if eq .Active "search"}} aria-current="page"{{end}}>{{template "icon" "search"}}<span>Search</span></a></li>
+  <li><a class="menu-item" href="/p/{{.Slug}}/files"{{if eq .Active "files"}} aria-current="page"{{end}}>{{template "icon" "attach"}}<span>Attachments</span></a></li>
+  <li><a class="menu-item" href="/p/{{.Slug}}/scratch"{{if eq .Active "scratch"}} aria-current="page"{{end}}>{{template "icon" "scratch"}}<span>Scratchpad</span></a></li>
+  {{if or (not .Role) (eq .Role "owner") (eq .Role "editor") (eq .Role "reviewer")}}<li><a class="menu-item" href="/p/{{.Slug}}/review"{{if eq .Active "review"}} aria-current="page"{{end}}>{{template "icon" "check"}}<span>Review</span></a></li>{{end}}
+  {{if or (not .Role) (eq .Role "owner")}}<li><a class="menu-item" href="/p/{{.Slug}}/share"{{if eq .Active "share"}} aria-current="page"{{end}}>{{template "icon" "link"}}<span>Share links</span></a></li>{{end}}
+  {{if or (not .Role) (eq .Role "owner") (eq .Role "editor")}}<li><a class="menu-item" href="/p/{{.Slug}}/compile"{{if eq .Active "compile"}} aria-current="page"{{end}}>{{template "icon" "download"}}<span>Compile</span></a></li>{{end}}
+  {{if or (not .Role) (eq .Role "owner") (eq .Role "editor")}}<li><a class="menu-item" href="/p/{{.Slug}}/site"{{if eq .Active "site"}} aria-current="page"{{end}}>{{template "icon" "upload"}}<span>Static site</span></a></li>{{end}}
+  {{if or (not .Role) (eq .Role "owner")}}<li><a class="menu-item" href="/p/{{.Slug}}/passphrase"{{if eq .Active "passphrase"}} aria-current="page"{{end}}>{{template "icon" "lock"}}<span>Passphrase</span></a></li>{{end}}
+  {{if or (not .Role) (eq .Role "owner")}}<li><a class="menu-item" href="/p/{{.Slug}}/semantic"{{if eq .Active "semantic"}} aria-current="page"{{end}}>{{template "icon" "search"}}<span>Search by meaning</span></a></li>{{end}}
+  {{if or (not .Role) (eq .Role "owner")}}<li><a class="menu-item" href="/p/{{.Slug}}/webhooks"{{if eq .Active "webhooks"}} aria-current="page"{{end}}>{{template "icon" "code"}}<span>Webhooks</span></a></li>{{end}}
+  <li><a class="menu-item" href="/p/{{.Slug}}/people"{{if eq .Active "people"}} aria-current="page"{{end}}>{{template "icon" "people"}}<span>People</span></a></li>
+  <li><a class="menu-item" href="/p/{{.Slug}}/editions"{{if eq .Active "editions"}} aria-current="page"{{end}}>{{template "icon" "attach"}}<span>Editions</span></a></li>
+  <li><a class="menu-item" href="/p/{{.Slug}}/git"{{if eq .Active "git"}} aria-current="page"{{end}}>{{template "icon" "history"}}<span>Git sync</span></a></li>
+  {{if ne .Role "reviewer"}}<li><a class="menu-item" href="/p/{{.Slug}}/ai"{{if eq .Active "ai"}} aria-current="page"{{end}}>{{template "icon" "ai"}}<span>AI</span></a></li>{{end}}
+</ul>{{end}}

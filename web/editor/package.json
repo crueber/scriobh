@@ -1,0 +1,30 @@
+{
+  "name": "scriobh-editor",
+  "version": "0.0.0",
+  "private": true,
+  "description": "ProseMirror editor bundle for Scriobh. Build-time and test-time only; the built bundle is committed.",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test \"test/*.test.mjs\"",
+    "test:browser": "node --test \"browser-test/*.test.mjs\""
+  },
+  "dependencies": {
+    "markdown-it": "14.1.0",
+    "prosemirror-commands": "1.7.2",
+    "prosemirror-gapcursor": "1.4.1",
+    "prosemirror-history": "1.5.1",
+    "prosemirror-inputrules": "1.5.1",
+    "prosemirror-keymap": "1.2.3",
+    "prosemirror-markdown": "1.13.9",
+    "prosemirror-model": "1.25.13",
+    "prosemirror-schema-list": "1.6.0",
+    "prosemirror-state": "1.4.4",
+    "prosemirror-transform": "1.12.5",
+    "prosemirror-view": "1.42.9"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "playwright-core": "1.65.0"
+  }
+}

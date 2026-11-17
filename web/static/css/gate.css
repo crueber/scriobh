@@ -1,0 +1,40 @@
+/* Scríobh: the cover a page of a protected project draws over itself when the project locks (F-252).
+   Flat fill, no gradient, no animation: the manuscript must be gone from the screen at once, not faded out.
+   The page behind is hidden here and made inert by js/gate.js, so it is not read out, tabbed into or found by
+   find-in-page while the cover is up. Nothing is removed from it: what a person typed stays where it is. */
+
+/* Everything in the body but the cover, and everything inside it, whatever visibility it sets for itself (the manuscript rail and
+   the inspector do): the manuscript's words are not on the screen, and not in find-in-page. Nothing is removed or resized, so
+   the page is exactly where it was when the cover goes. */
+html.gate-locked body > *:not(#gate-cover),
+html.gate-locked body > *:not(#gate-cover) * { visibility: hidden !important; }
+
+.gate-cover {
+  position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0;
+  border: 0; border-radius: 0; background: var(--bg); color: var(--fg); overflow: auto;
+}
+.gate-cover[open] { animation: none; }
+.gate-cover::backdrop { background: var(--bg); }
+.gate-cover-form { display: flex; flex-direction: column; gap: var(--s-4); max-width: 30rem; margin: 0 auto; padding: 18vh var(--s-4) var(--s-8); }
+.gate-cover-form h1 { font: 400 var(--text-2xl)/var(--lh-2xl) var(--font-prose); overflow-wrap: anywhere; }
+.gate-cover-form p { color: var(--fg-2); }
+.gate-cover-form .field-error { color: var(--danger); }
+.gate-held { padding: var(--s-3); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: var(--r-1); background: var(--surface); }
+.gate-cover-form .form-actions { justify-content: space-between; align-items: center; flex-wrap: wrap; }
+
+@media (max-width: 599px) {
+  .gate-cover-form { padding-top: 12vh; }
+  .gate-cover-form .form-actions { flex-direction: column-reverse; align-items: stretch; }
+  .gate-cover-form .btn { width: 100%; justify-content: center; min-height: 44px; }
+}
+@media print {
+  html.gate-locked body > *:not(.gate-cover) { display: none; }
+}
+
+/* What came back after a lock: the note over the page, and the text that had no field to go into. */
+.held-note { margin: var(--s-3) auto; max-width: var(--page-w); padding: var(--s-3) var(--s-4); border: 1px solid var(--line); border-inline-start: 3px solid var(--accent); border-radius: var(--r-1); background: var(--surface); display: flex; flex-direction: column; gap: var(--s-2); align-items: flex-start; }
+.held-note p { margin: 0; }
+.held-note details { inline-size: 100%; }
+.held-note summary { cursor: pointer; min-block-size: var(--target); display: flex; align-items: center; font: 500 var(--text-sm)/var(--lh-sm) var(--font-ui); }
+.held-note label { display: block; margin-block: var(--s-2); font: 500 var(--text-sm)/var(--lh-sm) var(--font-ui); color: var(--fg-2); }
+.held-copy { display: block; inline-size: 100%; margin-block-start: var(--s-1); padding: var(--s-2) var(--s-3); border: 1px solid var(--field-line); border-radius: var(--r-1); background: var(--surface-2); color: var(--fg); font: inherit; }

@@ -1,0 +1,173 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/git.css"}}"><link rel="stylesheet" href="{{asset "css/editions.css"}}">{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="{{$.T "git.crumb"}}"><a href="/">{{template "icon" "chevron-left"}}<span>{{$.T "git.library"}}</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}/editions">{{$.T "editions.title"}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{if .Data.Compare}}{{$.T "editions.diff.compare_crumb"}}{{else}}{{$.T "editions.diff.crumb"}}{{end}}</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "editions" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "editions" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "editions" .Data.Project.Role}}{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}
+<div class="settings git edn dfx">
+  <h1 id="dfx-top" tabindex="-1">{{if .Compare}}{{$.T "editions.diff.compare_title"}}{{else}}{{$.T "editions.diff.title"}}{{end}}</h1>
+  <p class="sub">{{if .FirstLabel}}{{$.T "editions.diff.sub_compare" "project" .Project.Title "label" .FirstLabel}}{{else if .EditionName}}{{$.T "editions.diff.sub_project" "project" .Project.Title "label" .EditionName}}{{else}}{{.Project.Title}}{{end}}</p>
+  {{if not .FlashAt}}{{template "dfflash" (dict "D" $d "P" $)}}{{end}}
+
+  {{with .Picker}}
+    {{if $d.FirstLabel}}
+    <form class="form dfx-pick" method="get" action="/p/{{$d.Slug}}/editions/compare">
+      <input type="hidden" name="edition" value="{{$d.EditionID}}">
+      <p class="fine">{{$.T "editions.diff.pick_intro"}}</p>
+      {{if .Projects}}
+      <div class="field"><label for="dfx-proj">{{$.T "editions.diff.pick_project"}}</label>
+        <select id="dfx-proj" name="with_project">{{range .Projects}}<option value="{{.ID}}"{{if eq .ID $.Data.Picker.With}} selected{{end}}>{{.Title}}</option>{{end}}</select>
+        <button class="btn small quiet" type="submit" name="pick" value="1" formnovalidate>{{$.T "editions.diff.pick_show"}}</button></div>
+      {{end}}
+      {{if .Editions}}
+      <div class="field"><label for="dfx-with">{{$.T "editions.diff.second"}}</label>
+        <select id="dfx-with" name="with_edition" required>{{range .Editions}}<option value="{{.ID}}">{{.Label}} ({{.When}})</option>{{end}}</select></div>
+      <div class="form-actions"><button class="btn solid" type="submit">{{$.T "editions.diff.compare_go"}}</button></div>
+      <p class="fine">{{$.T "editions.diff.compare_note"}}</p>
+      {{else}}<p class="empty-line" role="note">{{$.T "editions.diff.pick_none"}}</p>{{end}}
+    </form>
+    {{else}}
+    <p class="fine">{{$.T "editions.diff.pick_first"}}</p>
+    {{if .Editions}}<ul class="edn-list" aria-label="{{$.T "editions.list_label"}}">{{range .Editions}}<li class="edn-item"><h2 class="edn-name"><a href="/p/{{$d.Slug}}/editions/compare?edition={{.ID}}">{{.Label}}</a></h2><p class="fine edn-line">{{$.T "editions.diff.kind_when" "kind" .KindWord "when" .When}}</p></li>{{end}}</ul>
+    {{else}}<p class="empty-line" role="note">{{$.T "editions.empty"}}</p>{{end}}
+    {{end}}
+  {{end}}
+
+  {{with .Res}}
+  {{if not $d.Step}}
+  <section aria-labelledby="dfx-sum">
+    <h2 id="dfx-sum">{{$.T "editions.diff.summary_h"}}</h2>
+    <dl class="facts git-facts edn-facts">
+      <div><dt>{{if $d.Compare}}{{$.T "editions.diff.first"}}{{else}}{{$.T "editions.diff.in_edition"}}{{end}}</dt><dd class="wrap"><bdi>{{.Base.Label}}</bdi>{{if .Base.Project}}<span class="fine dfx-line"><bdi>{{.Base.Project}}</bdi></span>{{end}}<span class="fine dfx-line">{{$.T "editions.diff.words_n" "n" (num .Base.Words)}}</span><span class="fine dfx-line">{{$.T (printf "editions.diff.source_%s" .Base.Source)}}</span></dd></div>
+      <div><dt>{{if $d.Compare}}{{$.T "editions.diff.second"}}{{else}}{{$.T "editions.diff.current"}}{{end}}</dt><dd class="wrap">{{if $d.Compare}}<bdi>{{.Head.Label}}</bdi>{{if .Head.Project}}<span class="fine dfx-line"><bdi>{{.Head.Project}}</bdi></span>{{end}}{{else}}<bdi>{{.Head.Project}}</bdi>{{end}}<span class="fine dfx-line">{{$.T "editions.diff.words_n" "n" (num .Head.Words)}}</span>{{if $d.Compare}}<span class="fine dfx-line">{{$.T (printf "editions.diff.source_%s" .Head.Source)}}</span>{{end}}</dd></div>
+      <div><dt>{{$.T "editions.diff.words_added"}}</dt><dd>{{num .Summary.WordsAdded}}</dd></div>
+      <div><dt>{{$.T "editions.diff.words_removed"}}</dt><dd>{{num .Summary.WordsRemoved}}</dd></div>
+    </dl>
+    <p class="fine">{{$.T "editions.diff.summary" "edited" .Summary.Edited "added" .Summary.Added "removed" .Summary.Removed "moved" .Summary.Moved "split" .Summary.Split "merged" .Summary.Merged "unchanged" .Summary.Unchanged}}</p>
+    <p class="fine">{{$.T "editions.diff.no_net"}}</p>
+    {{if $d.Coarse}}<p class="notice-line" role="note">{{$.T "editions.diff.coarse_total" "n" $d.Coarse}}</p>{{end}}
+    {{if .TooDifferent}}<p class="notice-line" role="note"><strong>{{$.T "editions.diff.too_different"}}</strong> {{$.T "editions.diff.too_different_d"}}</p>{{end}}
+    {{if .Partial}}<p class="notice-line" role="note"><strong>{{$.T "editions.diff.partial"}}</strong> {{$.T "editions.diff.partial_d" "n" .Summary.Uncounted}}</p>{{end}}
+    {{range .Notices}}<p class="notice-line" role="note">{{.}}</p>{{end}}
+    {{if not $d.CanText}}<p class="notice-line" role="note">{{$.T "editions.diff.text_for_editors"}} {{$.T "editions.diff.readers_note"}}</p>{{end}}
+    <details class="more"><summary>{{$.T "editions.diff.guess_h"}}</summary>
+      <p class="fine">{{$.T "editions.diff.guess_a"}}</p>
+      <p class="fine">{{$.T "editions.diff.guess_b"}}</p>
+    </details>
+  </section>
+
+  <section aria-labelledby="dfx-steps">
+    <h2 id="dfx-steps">{{$.T "editions.diff.chapters_h"}}</h2>
+    {{if not $d.Steps}}<p class="fine">{{if $d.Quiet}}{{$.T "editions.diff.all_same"}}{{else}}{{$.T "editions.diff.empty"}}{{end}}</p>{{end}}
+    <ol class="dfs-list" aria-labelledby="dfx-steps">
+      {{range $d.Steps}}{{template "dfstep" (dict "S" . "D" $d "P" $)}}{{end}}
+    </ol>
+    {{if $d.Quiet}}<details class="more"><summary>{{$.T "editions.diff.unchanged_h" "n" (len $d.Quiet)}}</summary>
+      <ol class="dfs-list">{{range $d.Quiet}}{{template "dfstep" (dict "S" . "D" $d "P" $)}}{{end}}</ol></details>{{end}}
+    {{if $d.Hidden}}<p class="fine">{{$.T "editions.diff.hidden" "n" $d.Hidden}}</p>{{end}}
+  </section>
+  {{else}}
+  {{with $d.Step}}
+  <p class="dfx-nav"><a href="{{$d.Back}}">{{$.T "editions.diff.back"}}</a>{{if $d.Prev}} <a rel="prev" href="{{$d.Prev}}">{{$.T "editions.diff.prev_chapter"}}</a>{{end}}{{if $d.Next}} <a rel="next" href="{{$d.Next}}">{{$.T "editions.diff.next_chapter"}}</a>{{end}}{{if and $d.CanTake $d.Revision}} <a href="#dfx-take">{{$.T "editions.diff.take_link"}}</a>{{end}}</p>
+  <section aria-labelledby="dfx-step">
+    <h2 id="dfx-step" tabindex="-1"><bdi>{{if .HeadTitle}}{{.HeadTitle}}{{else}}{{.BaseTitle}}{{end}}</bdi></h2>
+    <p class="dfs-status" data-status="{{.Status}}"><span class="dfs-mark" aria-hidden="true"></span>{{template "dfstatus" (dict "S" . "P" $)}}</p>
+    {{if and .BaseTitle .HeadTitle (ne .BaseTitle .HeadTitle)}}<p class="fine">{{$.T "editions.diff.was" "t" .BaseTitle}}</p>{{end}}
+    <p class="fine">{{$.T "editions.diff.words_line" "a" (num .Words.Added) "r" (num .Words.Removed)}}</p>
+    {{if eq .Compared "coarse"}}<p class="fine">{{$.T "editions.diff.coarse_row"}}</p>{{end}}
+    {{template "dfmatch" (dict "S" . "P" $)}}
+    {{if .Note}}<p class="fine">{{.Note}}</p>{{end}}
+    {{if and (eq (len .Head) 1) .Head}}{{with index .Head 0}}{{if .DocumentID}}<p class="fine"><a class="dfx-open" href="/p/{{$d.Slug}}/d/{{.DocumentID}}">{{$.T "editions.diff.open_chapter"}}</a></p>{{end}}{{end}}{{end}}
+  </section>
+  <section aria-labelledby="dfx-hunks">
+    <h2 id="dfx-hunks" tabindex="-1">{{$.T "editions.diff.hunks_h"}}</h2>
+    {{if eq $d.FlashAt "dfx-hunks"}}{{template "dfflash" (dict "D" $d "P" $)}}{{end}}
+    {{if not $d.Hunks}}<p class="fine">{{if eq .Compared "equal"}}{{$.T "editions.diff.no_changes"}}{{else}}{{$.T "editions.diff.not_compared"}}{{end}}</p>{{end}}
+    {{if $d.Hunks}}<p class="fine dfx-legend">{{if $d.Compare}}{{$.T "editions.diff.legend_compare"}}{{else}}{{$.T "editions.diff.legend"}}{{end}}</p>{{end}}
+    {{template "dfpager" (dict "D" $d "P" $ "L" "editions.diff.pages_top")}}
+    {{if and $d.Revision $d.OfferN}}
+    <form class="dfx-all" method="post" action="/ui/projects/{{$d.Project.ID}}/editions/{{$d.EditionID}}/suggest">
+      <input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="chapter" value="{{.Key}}"><input type="hidden" name="base_revision" value="{{$d.Revision}}"><input type="hidden" name="page" value="{{$d.Page}}">
+      {{range $d.OfferIDs}}<input type="hidden" name="hunk" value="{{.}}">{{end}}
+      <button class="btn" type="submit">{{if eq $d.OfferN 1}}{{$.T "editions.diff.suggest_page_one"}}{{else}}{{$.T "editions.diff.suggest_page" "n" $d.OfferN}}{{end}}</button>
+      <p class="fine">{{$.T "editions.diff.suggest_page_note" "from" $d.From "to" $d.To}}</p>
+    </form>
+    {{end}}
+    {{range $d.Hunks}}
+    <article class="dfh" id="diff-{{.Index}}" aria-labelledby="hh{{.Index}}" data-kind="{{.Kind}}">
+      <h3 id="hh{{.Index}}"><span class="dfh-mark" aria-hidden="true"></span>{{$.T "editions.diff.difference" "index" .Index "total" .Total}}: {{if $d.Compare}}{{$.T (printf "editions.diff.ckind.%s" .Kind)}}{{else}}{{$.T (printf "editions.diff.kind.%s" .Kind)}}{{end}}</h3>
+      {{if .Status}}{{template "dfflash" (dict "D" $d "P" $)}}{{end}}
+      <p class="fine">{{$.T "editions.diff.words_line" "a" (num .Words.Added) "r" (num .Words.Removed)}}</p>
+      {{if .Before}}<p class="fine dfh-before"><span>{{$.T "editions.diff.before"}}</span> <bdi dir="auto">{{.Before}}</bdi></p>{{end}}
+      {{if .Segments}}
+      <p class="dfh-label">{{$.T "editions.diff.word_by_word"}}</p>
+      <p class="dft dft-words" dir="auto">{{range .Segments}}{{if eq .Op "delete"}}<del><span class="dft-sign" aria-hidden="true">&minus;</span><span class="sr-only">{{$.T "editions.diff.sr_removed"}} </span>{{.Text}}</del>{{else if eq .Op "insert"}}<ins><span class="dft-sign" aria-hidden="true">+</span><span class="sr-only">{{$.T "editions.diff.sr_added"}} </span>{{.Text}}</ins>{{else}}<span>{{.Text}}</span>{{end}}{{end}}</p>
+      {{end}}
+      {{if .Fold}}
+      {{if .Base}}<details class="dfh-full"><summary>{{if $d.Compare}}{{$.T "editions.diff.full_first" "n" (num .BaseWords)}}{{else}}{{$.T "editions.diff.full_edition" "n" (num .BaseWords)}}{{end}}</summary><blockquote class="dft" dir="auto">{{.Base}}</blockquote></details>{{end}}
+      {{if .Head}}<details class="dfh-full"><summary>{{if $d.Compare}}{{$.T "editions.diff.full_second" "n" (num .HeadWords)}}{{else}}{{$.T "editions.diff.full_project" "n" (num .HeadWords)}}{{end}}</summary><blockquote class="dft" dir="auto">{{.Head}}</blockquote></details>{{end}}
+      {{else}}
+      {{if .Base}}<p class="dfh-label">{{if $d.Compare}}{{$.T "editions.diff.in_first"}}{{else}}{{$.T "editions.diff.in_edition"}}{{end}}</p><blockquote class="dft" dir="auto">{{.Base}}</blockquote>{{end}}
+      {{if .Head}}<p class="dfh-label">{{if $d.Compare}}{{$.T "editions.diff.in_second"}}{{else}}{{$.T "editions.diff.in_project"}}{{end}}</p><blockquote class="dft" dir="auto">{{.Head}}</blockquote>{{end}}
+      {{end}}
+      <div class="dfh-actions">
+        {{if .Offerable}}
+        <form method="post" action="/ui/projects/{{$d.Project.ID}}/editions/{{$d.EditionID}}/suggest">
+          <input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="chapter" value="{{$d.Step.Key}}"><input type="hidden" name="base_revision" value="{{$d.Revision}}"><input type="hidden" name="hunk" value="{{.ID}}"><input type="hidden" name="at" value="{{.Index}}"><input type="hidden" name="page" value="{{$d.Page}}">
+          <button class="btn small" type="submit" aria-label="{{$.T "editions.diff.suggest_n" "index" .Index}}">{{$.T "editions.diff.suggest"}}</button>
+        </form>
+        {{else}}{{if .Offer}}<p class="fine">{{$.T "editions.diff.skipped" "reason" .Offer}}</p>{{end}}
+        {{if .Next}}<a class="btn small quiet" href="{{.Next}}">{{$.T "editions.diff.next"}}</a>{{end}}{{end}}
+      </div>
+    </article>
+    {{end}}
+    {{template "dfpager" (dict "D" $d "P" $ "L" "editions.diff.pages_bottom")}}
+  </section>
+  {{if and (not $d.Compare) $d.CanText $d.Revision .Offer}}
+  <section class="dfx-take" aria-labelledby="dfx-take">
+    <h2 id="dfx-take" tabindex="-1">{{$.T "editions.diff.take_h"}}</h2>
+    {{if eq $d.FlashAt "dfx-take"}}{{template "dfflash" (dict "D" $d "P" $)}}{{end}}
+    {{if .Offer.Take}}
+    <p class="fine">{{$.T "editions.diff.take_a"}}</p>
+    <p class="fine">{{$.T "editions.diff.take_b"}}</p>
+    <p class="fine">{{$.T "editions.diff.keep_note"}}</p>
+    {{if .Offer.Reason}}<p class="fine">{{.Offer.Reason}}</p>{{end}}
+    <form class="form" method="post" action="/ui/projects/{{$d.Project.ID}}/editions/{{$d.EditionID}}/take">
+      <input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="chapter" value="{{.Key}}"><input type="hidden" name="base_revision" value="{{$d.Revision}}"><input type="hidden" name="page" value="{{$d.Page}}">
+      {{if .Offer.Confirm}}<p class="notice-line" role="note"><strong>{{$.T "editions.diff.guess_label"}}</strong> {{$.T "editions.diff.confirm_guess"}}</p>
+      <label class="check" for="dfx-confirm"><input id="dfx-confirm" type="checkbox" name="confirm_guess" value="1" required><span>{{$.T "editions.diff.confirm_box" "t" .BaseTitle}}</span></label>{{end}}
+      <div class="form-actions"><button class="btn" type="submit">{{$.T "editions.diff.take_go"}}</button></div>
+    </form>
+    {{else}}<p class="fine">{{.Offer.Reason}}</p>{{end}}
+  </section>
+  {{end}}
+  {{end}}
+  {{end}}
+  {{end}}
+  <p class="dfx-bottom"><a href="/p/{{.Slug}}/editions">{{$.T "editions.back"}}</a>{{if .Step}} <a href="#dfx-top">{{$.T "editions.diff.to_top"}}</a>{{end}}</p>
+</div>
+{{end}}
+{{end}}
+{{define "dfflash"}}{{with .D}}{{if .Notice}}<p class="saved" role="status" tabindex="-1" autofocus data-result>{{.Notice}}{{if .DocLink}} <a class="dfx-open" href="/p/{{.Slug}}/d/{{.DocLink}}">{{$.P.T "editions.diff.open_chapter"}}</a>{{end}}</p>{{end}}
+{{if .Error}}{{if .FlashSoft}}<p class="fine dfx-soft" role="status" tabindex="-1" autofocus data-result>{{.Error}}</p>{{else}}<p class="field-error" role="alert" tabindex="-1" autofocus data-result>{{.Error}}{{if .Retry}} <a href="{{.RetryURL}}">{{$.P.T "editions.diff.try_again"}}</a>{{end}}</p>{{end}}{{end}}
+{{if and .Lines (or .Notice .Error)}}<ul class="plain dfx-lines">{{range .Lines}}<li>{{.}}</li>{{end}}</ul>{{end}}{{end}}{{end}}
+{{define "dfpager"}}{{with .D}}{{if gt .Pages 1}}<nav class="dfx-pager" aria-label="{{$.P.T $.L}}">
+  <p class="fine">{{$.P.T "editions.diff.range" "from" .From "to" .To "total" .Total}}</p>
+  <p class="dfx-pages">{{if .PrevPage}}<a class="btn small quiet" rel="prev" href="{{.PrevPage}}">{{$.P.T "editions.diff.page_prev"}}</a>{{end}}<span class="fine">{{$.P.T "editions.diff.page_of" "page" .Page "pages" .Pages}}</span>{{if .NextPage}}<a class="btn small quiet" rel="next" href="{{.NextPage}}">{{$.P.T "editions.diff.page_next"}}</a>{{end}}</p>
+</nav>{{end}}{{end}}{{end}}
+{{define "dfstatus"}}{{$s := .S}}{{if and $s.Renamed $s.Moved}}{{.P.T "editions.diff.status_flags2" "status" (.P.T (printf "editions.diff.status.%s" $s.Status)) "a" (.P.T "editions.diff.flag.renamed") "b" (.P.T "editions.diff.flag.moved")}}{{else if $s.Renamed}}{{.P.T "editions.diff.status_flag" "status" (.P.T (printf "editions.diff.status.%s" $s.Status)) "flag" (.P.T "editions.diff.flag.renamed")}}{{else if $s.Moved}}{{.P.T "editions.diff.status_flag" "status" (.P.T (printf "editions.diff.status.%s" $s.Status)) "flag" (.P.T "editions.diff.flag.moved")}}{{else}}{{.P.T (printf "editions.diff.status.%s" $s.Status)}}{{end}}{{end}}
+{{define "dfmatch"}}{{with .S.Match}}<p class="dfs-match" data-guess="{{if .Guess}}true{{else}}false{{end}}">{{if .Guess}}<strong><span class="dfs-q" aria-hidden="true">?</span> {{$.P.T "editions.diff.guess_label"}}</strong> {{$.P.T "editions.diff.guess_line" "how" ($.P.T (printf "editions.diff.match.%s" .Method)) "score" $.S.GuessScore}}{{else}}{{$.P.T "editions.diff.sure_line" "how" ($.P.T (printf "editions.diff.match.%s" .Method))}}{{end}}</p>{{end}}{{end}}
+{{define "dfstep"}}{{$s := .S}}
+<li class="dfs" data-status="{{$s.Status}}">
+  <p class="dfs-head"><span class="dfs-status" data-status="{{$s.Status}}"><span class="dfs-mark" aria-hidden="true"></span>{{.P.T (printf "editions.diff.status.%s" $s.Status)}}</span> <bdi class="dfs-title">{{if $s.HeadTitle}}{{$s.HeadTitle}}{{else}}{{$s.BaseTitle}}{{end}}</bdi></p>
+  {{if and $s.BaseTitle $s.HeadTitle (ne $s.BaseTitle $s.HeadTitle)}}<p class="fine">{{.P.T "editions.diff.was" "t" $s.BaseTitle}}</p>{{end}}
+  <p class="fine">{{if $s.Renamed}}<span>{{.P.T "editions.diff.flag.renamed"}}.</span> {{end}}{{if $s.Moved}}<span>{{.P.T "editions.diff.flag.moved"}}.</span> {{end}}{{if or $s.Words.Added $s.Words.Removed}}<span>{{.P.T "editions.diff.words_line" "a" (num $s.Words.Added) "r" (num $s.Words.Removed)}}</span>{{end}}</p>
+  {{if eq $s.Compared "coarse"}}<p class="fine">{{.P.T "editions.diff.coarse_row"}}</p>{{end}}
+  {{template "dfmatch" (dict "S" $s "P" .P)}}
+  {{if $s.Note}}<p class="fine">{{$s.Note}}</p>{{end}}
+  {{if $s.Link}}<p><a class="btn small" href="{{$s.Link}}">{{.P.T "editions.diff.review" "n" $s.Changes}}</a></p>{{end}}
+</li>
+{{end}}

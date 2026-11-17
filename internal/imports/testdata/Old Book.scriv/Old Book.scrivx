@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ScrivenerProject Version="1.0" Creator="SCRWIN-2.8.0" Author="Bo Fixture">
+<Binder><BinderItem ID="0" Type="DraftFolder" Created="2012-01-01 10:00:00 +0000" Modified="2012-01-02 10:00:00 +0000"><Title>Draft</Title><MetaData><IncludeInCompile>Yes</IncludeInCompile></MetaData><Children><BinderItem ID="2" Type="Text"><Title>Chapter One</Title><MetaData><IncludeInCompile>Yes</IncludeInCompile><StatusID>1</StatusID></MetaData></BinderItem><BinderItem ID="3" Type="Text"><Title>Chapter Two</Title><MetaData><IncludeInCompile>No</IncludeInCompile></MetaData></BinderItem></Children></BinderItem><BinderItem ID="1" Type="ResearchFolder"><Title>Research</Title><MetaData><IncludeInCompile>No</IncludeInCompile></MetaData><Children><BinderItem ID="5" Type="Text"><Title>Notes on salt</Title><MetaData><IncludeInCompile>No</IncludeInCompile></MetaData></BinderItem></Children></BinderItem><BinderItem ID="4" Type="TrashFolder"><Title>Trash</Title><MetaData><IncludeInCompile>No</IncludeInCompile></MetaData></BinderItem></Binder>
+<StatusSettings><StatusItems><Status ID="1">Done</Status></StatusItems></StatusSettings>
+</ScrivenerProject>

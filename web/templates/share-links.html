@@ -1,0 +1,104 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/share.css"}}"><script src="{{asset "js/share-links.js"}}" defer></script><script src="{{asset "js/arm.js"}}" defer></script>{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "shl.title"}}</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "share" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "share" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "share" .Data.Project.Role}}{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}
+<div class="settings shl" id="shl">
+  <h1>{{$.T "shl.title"}}</h1>
+  <p class="sub">{{.Project.Title}}. {{$.T "shl.intro"}}</p>
+  {{if .Flash}}<p class="saved" role="status">{{.Flash}}</p>{{end}}
+  {{if .Error}}<p class="field-error" role="alert" id="shl-error">{{.Error}}</p>{{end}}
+
+  {{with .Once}}
+  <section class="shl-once" aria-labelledby="shl-once-h" id="shl-once">
+    <h2 id="shl-once-h">{{$.T "shl.once_h"}}</h2>
+    <p id="shl-once-note" role="status">{{$.T "shl.once_note"}}</p>
+    <div class="field"><label for="shl-url">{{$.T "shl.link"}}</label><input id="shl-url" type="text" readonly value="{{.Path}}" data-path="{{.Path}}" spellcheck="false" aria-describedby="shl-once-note"></div>
+    <p class="fine" data-nojs>{{$.T "shl.once_path"}}</p>
+    <div class="form-actions"><button type="button" class="btn solid" id="shl-copy" data-copy data-copied="{{$.T "shl.copied"}}" hidden>{{$.T "shl.copy"}}</button></div>
+  </section>
+  {{end}}
+
+  <section class="shl-new" aria-labelledby="shl-new-h">
+    <h2 id="shl-new-h">{{$.T "shl.new_h"}}</h2>
+    <form class="form" method="post" action="/ui/projects/{{.ProjectID}}/share/create">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field"><label for="sl-label">{{$.T "shl.label"}}</label><input id="sl-label" name="label" type="text" maxlength="100" value="{{index .Form "label"}}" autocomplete="off"><span class="hint">{{$.T "shl.label_hint"}}</span></div>
+      <fieldset class="field radios"><legend>{{$.T "shl.what_h"}}</legend>
+        <label class="check"><input type="radio" name="scope" value="read"{{if ne (index .Form "scope") "comment"}} checked{{end}}><span>{{$.T "shl.read"}}</span></label>
+        <label class="check"><input type="radio" name="scope" value="comment"{{if eq (index .Form "scope") "comment"}} checked{{end}}><span>{{$.T "shl.comment"}}</span></label>
+      </fieldset>
+      <fieldset class="field radios"><legend>{{$.T "shl.contents_h"}}</legend>
+        <label class="check"><input type="radio" name="contents" value="whole"{{if ne (index .Form "contents") "chosen"}} checked{{end}}><span>{{$.T "shl.whole"}}</span></label>
+        <label class="check"><input type="radio" name="contents" value="chosen"{{if eq (index .Form "contents") "chosen"}} checked{{end}}><span>{{$.T "shl.chosen"}}</span></label>
+        <ul class="shl-docs" aria-label="{{$.T "shl.docs"}}">{{range .Docs}}<li class="d{{.Depth}}"><label class="check"><input type="checkbox" name="doc" value="{{.ID}}"{{if .Checked}} checked{{end}}><span>{{.Title}}</span></label></li>{{end}}</ul>
+        <span class="hint">{{$.T "shl.docs_hint"}}</span>
+      </fieldset>
+      <div class="field-row">
+        <div class="field"><label for="sl-pass">{{$.T "shl.pass"}}</label><input id="sl-pass" name="passphrase" type="password" autocomplete="new-password" minlength="8" maxlength="200" spellcheck="false"><span class="hint">{{$.T "shl.pass_hint"}}</span></div>
+        <div class="field"><label for="sl-exp">{{$.T "shl.expires"}}</label><input id="sl-exp" name="expires" type="date" min="{{.Today}}" value="{{index .Form "expires"}}"><span class="hint">{{$.T "shl.expires_hint"}}</span></div>
+      </div>
+      <label class="check"><input type="checkbox" name="download"{{if eq (index .Form "download") "on"}} checked{{end}}><span>{{$.T "shl.download"}}</span></label>
+      <div class="field"><label for="sl-gh">{{$.T "shl.ghosts"}}</label><select id="sl-gh" name="ghosts"><option value="omit"{{if ne (index .Form "ghosts") "keep"}} selected{{end}}>{{$.T "shl.ghosts_omit"}}</option><option value="keep"{{if eq (index .Form "ghosts") "keep"}} selected{{end}}>{{$.T "shl.ghosts_keep"}}</option></select></div>
+      <p class="fine">{{$.T "shl.never"}}</p>
+      <div class="form-actions"><button class="btn solid" type="submit">{{$.T "shl.make"}}</button></div>
+    </form>
+  </section>
+
+  <section aria-labelledby="shl-list-h">
+    <h2 id="shl-list-h">{{$.T "shl.links_h"}}</h2>
+    {{if .Links}}<ul class="shl-list">{{range .Links}}
+      <li class="shl-link{{if not .Active}} is-off{{end}}" id="link-{{.ID}}">
+        <h3>{{if .Label}}{{.Label}}{{else}}{{$.T "shl.unnamed"}}{{end}} <span class="shl-state is-{{.Status}}">{{if eq .Status "active"}}{{$.T "shl.s_active"}}{{else if eq .Status "expired"}}{{$.T "shl.s_expired"}}{{else}}{{$.T "shl.s_revoked"}}{{end}}</span></h3>
+        <ul class="shl-meta">
+          <li>{{if eq .Scope "comment"}}{{$.T "shl.m_comment"}}{{else}}{{$.T "shl.m_read"}}{{end}}</li>
+          <li>{{.What}}</li>
+          <li>{{if .HasPassphrase}}{{$.T "shl.m_pass"}}{{else}}{{$.T "shl.m_nopass"}}{{end}}</li>
+          <li>{{if .ExpiresText}}{{$.T "shl.m_expires" "when" .ExpiresText}}{{else}}{{$.T "shl.m_noexp"}}{{end}}</li>
+          {{if .AllowDownload}}<li>{{$.T "shl.m_dl"}}</li>{{end}}
+          <li>{{$.T "shl.m_made" "when" .Created}}</li>
+        </ul>
+        {{with .Usage}}<ul class="shl-meta" aria-label="{{$.T "shl.usage"}}">
+          <li><b>{{num .Item.Views}}</b> {{$.T "shl.u_views"}}</li>
+          <li><b>{{num .Threads}}</b> {{$.T "shl.u_threads"}}{{if .OpenThreads}} ({{$.T "shl.u_open" "n" .OpenThreads}}){{end}}</li>
+          <li><b>{{num .Failed}}</b> {{$.T "shl.u_failed"}}</li>
+          <li><b>{{num .LockedBuckets}}</b> {{$.T "shl.u_locked"}}</li>
+        </ul>{{end}}
+        {{if .LastUsed}}<p class="fine">{{$.T "shl.last" "when" .LastUsed}}</p>{{end}}
+        {{if .Active}}
+        <details class="shl-edit"><summary>{{$.T "shl.edit"}}</summary>
+          <form class="form" method="post" action="/ui/projects/{{$d.ProjectID}}/share/update">
+            <input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="share_id" value="{{.ID}}">
+            <div class="field"><label for="e-l-{{.ID}}">{{$.T "shl.label"}}</label><input id="e-l-{{.ID}}" name="label" type="text" maxlength="100" value="{{.Label}}" autocomplete="off"></div>
+            <fieldset class="field radios"><legend>{{$.T "shl.what_h"}}</legend>
+              <label class="check"><input type="radio" name="scope" value="read"{{if ne .Scope "comment"}} checked{{end}}><span>{{$.T "shl.read"}}</span></label>
+              <label class="check"><input type="radio" name="scope" value="comment"{{if eq .Scope "comment"}} checked{{end}}><span>{{$.T "shl.comment"}}</span></label>
+            </fieldset>
+            <div class="field-row">
+              <div class="field"><label for="e-p-{{.ID}}">{{$.T "shl.new_pass"}}</label><input id="e-p-{{.ID}}" name="passphrase" type="password" autocomplete="new-password" minlength="8" maxlength="200"><span class="hint">{{$.T "shl.new_pass_hint"}}</span></div>
+              <div class="field"><label for="e-x-{{.ID}}">{{$.T "shl.expires"}}</label><input id="e-x-{{.ID}}" name="expires" type="date" value="{{.ExpiresDate}}"></div>
+            </div>
+            {{if .HasPassphrase}}<label class="check"><input type="checkbox" name="remove_passphrase"><span>{{$.T "shl.rm_pass"}}</span></label>{{end}}
+            <label class="check"><input type="checkbox" name="clear_expiry"><span>{{$.T "shl.clear_exp"}}</span></label>
+            <label class="check"><input type="checkbox" name="download"{{if .AllowDownload}} checked{{end}}><span>{{$.T "shl.download"}}</span></label>
+            <div class="field"><label for="e-g-{{.ID}}">{{$.T "shl.ghosts"}}</label><select id="e-g-{{.ID}}" name="ghosts"><option value="omit"{{if ne .Ghosts "keep"}} selected{{end}}>{{$.T "shl.ghosts_omit"}}</option><option value="keep"{{if eq .Ghosts "keep"}} selected{{end}}>{{$.T "shl.ghosts_keep"}}</option></select></div>
+            <p class="fine">{{$.T "shl.edit_note"}}</p>
+            <div class="form-actions"><button class="btn small" type="submit">{{$.T "shl.save"}}</button></div>
+          </form>
+          <form class="form-actions" method="post" action="/ui/projects/{{$d.ProjectID}}/share/revoke" data-arm="{{$.T "shl.revoke_ask"}}" data-arm-ok="{{$.T "shl.revoke_ok"}}" data-arm-cancel="{{$.T "rq.cancel"}}">
+            <input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="share_id" value="{{.ID}}">
+            <button class="btn quiet danger-text" type="submit" aria-describedby="revoke-note-{{.ID}}">{{$.T "shl.revoke"}}</button>
+            <span class="hint" id="revoke-note-{{.ID}}">{{$.T "shl.revoke_note"}}</span>
+          </form>
+        </details>
+        {{end}}
+      </li>{{end}}
+    </ul>{{else}}<p class="fine">{{$.T "shl.none"}}</p>{{end}}
+  </section>
+</div>
+{{end}}
+{{end}}

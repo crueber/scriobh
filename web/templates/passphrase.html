@@ -1,0 +1,102 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/privacy.css"}}">{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="{{$.T "project.gate.crumb"}}"><a href="/">{{template "icon" "chevron-left"}}<span>{{$.T "project.gate.library"}}</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "pass.crumb"}}</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "passphrase" .Data.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "passphrase" .Data.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "passphrase" .Data.Role}}{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}
+<div class="settings priv" id="priv">
+  <h1>{{$.T "pass.title"}}</h1>
+  <p class="sub">{{iso .Title}}. {{if not .Status.Protected}}{{$.T "pass.state_none"}}{{else if .Status.Unlocked}}{{$.T "pass.state_open"}}{{else}}{{$.T "pass.state_locked"}}{{end}}</p>
+  {{if eq .Saved "set"}}<p class="saved" role="status">{{$.T "pass.saved_set"}}</p>{{else if eq .Saved "options"}}<p class="saved" role="status">{{$.T "pass.saved_options"}}</p>{{else if eq .Saved "cleared"}}<p class="saved" role="status">{{$.T "pass.saved_cleared"}}</p>{{end}}
+
+  <section class="priv-words" aria-labelledby="pass-does-h">
+    <h2 id="pass-does-h">{{$.T "pass.does_h"}}</h2>
+    <p class="priv-notice" role="note">{{$.T "project.gate.notice"}}</p>
+    <p>{{$.T "pass.does_p"}}</p>
+    <div class="priv-lists">
+      <div><h3>{{$.T "pass.keeps_h"}}</h3><ul><li>{{$.T "pass.keeps_1"}}</li><li>{{$.T "pass.keeps_2"}}</li><li>{{$.T "pass.keeps_3"}}</li><li>{{$.T "pass.keeps_4"}}</li></ul></div>
+      <div><h3>{{$.T "pass.not_h"}}</h3><ul><li>{{$.T "pass.not_1"}}</li><li>{{$.T "pass.not_2"}}</li><li>{{$.T "pass.not_3"}}</li><li>{{$.T "pass.not_4"}}</li><li>{{$.T "pass.not_5"}}</li><li>{{$.T "pass.not_6"}}</li><li>{{$.T "pass.not_7"}}</li><li>{{$.T "pass.not_9"}}</li><li>{{$.T "pass.not_8"}}</li></ul></div>
+    </div>
+    {{if .Status.Protected}}<div class="priv-state">
+      {{if .Status.Unlocked}}<form method="post" action="/ui/projects/{{.ID}}/lock"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn" type="submit">{{$.T "project.gate.lock_now"}}</button></form><p class="fine">{{$.T "pass.lock_hint"}}</p>
+      {{else}}<a class="btn solid" href="/p/{{.Slug}}/unlock?next=%2Fp%2F{{.Slug}}%2Fpassphrase">{{$.T "pass.unlock_now"}}</a>{{end}}
+    </div>{{end}}
+  </section>
+
+  {{if not .IsOwner}}
+  <p class="fine priv-owner">{{$.T "pass.only_owner"}}</p>
+  {{else}}
+  <section aria-labelledby="pass-set-h">
+    <h2 id="pass-set-h">{{if .Status.Protected}}{{$.T "pass.change_h"}}{{else}}{{$.T "pass.set_h"}}{{end}}</h2>
+    <form class="form" method="post" action="/ui/projects/{{.ID}}/passphrase/set" autocomplete="off">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      {{if .Status.Protected}}<div class="field"><label for="ps-cur">{{$.T "pass.current"}}</label><input id="ps-cur" type="password" name="current" autocomplete="off" spellcheck="false" required{{if and (eq .Form "set") (eq .Field "current")}} aria-invalid="true" aria-describedby="pass-err-set"{{end}}></div>{{end}}
+      <div class="field"><label for="ps-new">{{$.T "pass.new"}}</label><input id="ps-new" type="password" name="passphrase" autocomplete="new-password" spellcheck="false" minlength="8" maxlength="200" required aria-describedby="ps-hint{{if and (eq .Form "set") (eq .Field "passphrase")}} pass-err-set{{end}}"{{if and (eq .Form "set") (eq .Field "passphrase")}} aria-invalid="true"{{end}}></div>
+      <div class="field"><label for="ps-rep">{{$.T "pass.repeat"}}</label><input id="ps-rep" type="password" name="repeat" autocomplete="new-password" spellcheck="false" minlength="8" maxlength="200" required{{if and (eq .Form "set") (eq .Field "repeat")}} aria-invalid="true" aria-describedby="pass-err-set"{{end}}></div>
+      {{if not .Status.Protected}}<div class="field"><label for="ps-idle">{{$.T "pass.idle"}}</label><input id="ps-idle" type="number" name="idle_minutes" min="1" max="720" value="{{.Idle}}" inputmode="numeric" aria-describedby="ps-idle-hint{{if and (eq .Form "set") (eq .Field "idle_minutes")}} pass-err-set{{end}}"{{if and (eq .Form "set") (eq .Field "idle_minutes")}} aria-invalid="true"{{end}}><span class="hint" id="ps-idle-hint">{{$.T "pass.idle_hint"}}</span></div>{{end}}
+      <p class="hint" id="ps-hint">{{$.T "pass.set_hint"}}{{if .Status.Protected}} {{$.T "pass.change_hint"}}{{end}}</p>
+      {{if eq .Form "set"}}<p class="field-error" id="pass-err-set" role="alert">{{.Error}}</p>{{end}}
+      <div class="form-actions"><button class="btn solid" type="submit">{{$.T "pass.save_set"}}</button></div>
+    </form>
+  </section>
+
+  {{if .Status.Protected}}
+  <section aria-labelledby="pass-opt-h">
+    <h2 id="pass-opt-h">{{$.T "pass.opt_h"}}</h2>
+    <form class="form" method="post" action="/ui/projects/{{.ID}}/passphrase/options" autocomplete="off">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field"><label for="po-idle">{{$.T "pass.idle"}}</label><input id="po-idle" type="number" name="idle_minutes" min="1" max="720" value="{{.Idle}}" inputmode="numeric" aria-describedby="po-idle-hint{{if and (eq .Form "options") (eq .Field "idle_minutes")}} pass-err-options{{end}}"{{if and (eq .Form "options") (eq .Field "idle_minutes")}} aria-invalid="true"{{end}}><span class="hint" id="po-idle-hint">{{$.T "pass.idle_hint"}}</span></div>
+      <fieldset class="priv-keys" aria-describedby="po-keys-intro">
+        <legend>{{$.T "project.gate.keys_h"}}</legend>
+        <p class="hint" id="po-keys-intro">{{$.T "pass.keys_intro"}}</p>
+        <input type="hidden" name="allow_keys" value="false">
+        <label class="check"><input type="checkbox" name="allow_keys" value="true"{{if .Status.AllowKeys}} checked{{end}}><span>{{$.T "pass.keys_allow"}}</span></label>
+        <h3>{{$.T "pass.keys_list_h"}}</h3>
+        {{if .Keys}}<ul class="priv-keylist">{{range .Keys}}<li>
+          <label class="check"><input type="checkbox" name="approved" value="{{.KeyID}}"{{if .Approved}} checked{{end}}><span><strong>{{iso .Name}}</strong> <span class="fine">{{.Prefix}}&hellip; &middot; {{if .Mine}}{{$.T "pass.key_mine"}}{{else}}{{$.T "pass.key_theirs" "name" (iso .Owner)}}{{end}}</span></span></label>
+          <p class="fine">{{if eq .How "minted"}}{{$.T "pass.key_minted"}} {{else if eq .How "owner"}}{{$.T "pass.key_owner"}} {{end}}{{$.T "pass.key_stats" "uses" (num .Uses) "refused" (num .Refused) "first" .First "last" .Last}}</p>
+        </li>{{end}}</ul>{{range .Was}}<input type="hidden" name="was" value="{{.}}">{{end}}
+        {{else}}<p class="fine">{{$.T "pass.keys_none"}}</p>{{end}}
+      </fieldset>
+      <div class="field"><label for="po-cur">{{$.T "pass.current"}}</label><input id="po-cur" type="password" name="current" autocomplete="off" spellcheck="false" required aria-describedby="po-cur-hint{{if and (eq .Form "options") (eq .Field "current")}} pass-err-options{{end}}"{{if and (eq .Form "options") (eq .Field "current")}} aria-invalid="true"{{end}}><span class="hint" id="po-cur-hint">{{$.T "pass.opt_current_hint"}}</span></div>
+      {{if eq .Form "options"}}<p class="field-error" id="pass-err-options" role="alert">{{.Error}}</p>{{end}}
+      <div class="form-actions"><button class="btn solid" type="submit">{{$.T "pass.save_opt"}}</button></div>
+    </form>
+  </section>
+
+  <section aria-labelledby="pass-rm-h">
+    <h2 id="pass-rm-h">{{$.T "pass.rm_h"}}</h2>
+    <form class="form" method="post" action="/ui/projects/{{.ID}}/passphrase/clear" autocomplete="off">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <p>{{$.T "pass.rm_p"}}</p>
+      <div class="field"><label for="pr-cur">{{$.T "pass.current"}}</label><input id="pr-cur" type="password" name="current" autocomplete="off" spellcheck="false" required{{if and (eq .Form "clear") (eq .Field "current")}} aria-invalid="true" aria-describedby="pass-err-clear"{{end}}></div>
+      {{if eq .Form "clear"}}<p class="field-error" id="pass-err-clear" role="alert">{{.Error}}</p>{{end}}
+      <div class="form-actions"><button class="btn danger" type="submit">{{$.T "pass.rm_go"}}</button></div>
+    </form>
+  </section>
+  {{end}}
+  {{end}}
+
+  {{if .Status.Protected}}
+  <section aria-labelledby="pass-forgot-h">
+    <h2 id="pass-forgot-h">{{$.T "pass.forgot_h"}}</h2>
+    {{if .AdminCanClear}}
+    <form class="form" method="post" action="/ui/projects/{{.ID}}/passphrase/admin-clear">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <p>{{$.T "pass.forgot_admin"}}</p>
+      <div class="field"><label for="pa-name">{{$.T "pass.admin_type" "name" (iso .Title)}}</label><input id="pa-name" type="text" name="confirm_name" autocomplete="off" spellcheck="false" data-confirm="{{.Title}}"{{if eq .Form "admin-clear"}} aria-invalid="true" aria-describedby="pass-err-admin"{{end}}></div>
+      {{if eq .Form "admin-clear"}}<p class="field-error" id="pass-err-admin" role="alert">{{.Error}}</p>{{end}}
+      <div class="form-actions"><button class="btn danger" type="submit" data-confirm-submit>{{$.T "project.gate.admin_clear"}}</button></div>
+    </form>
+    {{else if .IsOwner}}
+    <p>{{$.T "pass.forgot_owner"}}</p>
+    <p><code class="priv-cmd">scriobh passphrase clear --project {{.ID}}</code></p>
+    {{end}}
+  </section>
+  {{end}}
+</div>
+{{end}}
+{{end}}

@@ -1,0 +1,56 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/entities.css"}}"><script src="{{asset "js/entity.js"}}" defer></script>{{end}}
+{{define "crumb"}}<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}/entities">Entities</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{.Data.E.Name}}</span></nav>{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "compendium" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "compendium" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "compendium" .Data.Project.Role}}{{end}}
+{{define "content"}}
+{{with .Data}}{{$e := .E}}
+<div class="settings ents sheet" id="sheet" data-entity="{{$e.ID}}" data-project="{{.Project.ID}}">
+  {{template "live-marker" (dict "Scope" "project" "ID" .Project.ID)}}
+  <p class="sr-only" id="ent-announce" role="status" aria-live="polite"></p>
+  <h1>{{template "entity-swatch" .Color}} {{$e.Name}}</h1>
+  <p class="sub">{{.Kind}}. {{.ViaLabel}}: {{$e.CompendiumName}}. This is how {{.Project.Title}} reads it{{if $e.Overridden}}, with this book&rsquo;s own changes{{end}}.</p>
+  {{if .Saved}}<p class="saved" role="status">{{.Saved}}</p>{{end}}
+  {{if .Error}}<p class="field-error" role="alert" id="ent-error" tabindex="-1">{{.Error}}</p>{{end}}
+
+  <section class="ent-read" aria-label="The entity as this book reads it">
+    {{if $e.Summary}}<p class="lede">{{$e.Summary}}</p>{{end}}
+    {{if $e.Aliases}}<p class="fine">Also called: {{range $i, $a := $e.Aliases}}{{if $i}}, {{end}}{{$a}}{{end}}</p>{{end}}
+    {{$any := false}}{{range .Fields}}{{if .Effective}}{{$any = true}}{{end}}{{end}}
+    {{if $any}}<dl class="facts">{{range .Fields}}{{if .Effective}}<div><dt>{{.Label}}</dt><dd>{{.Effective}}</dd></div>{{end}}{{end}}</dl>{{end}}
+    {{if $e.Body}}<div class="md">{{.BodyHTML}}</div>{{end}}
+    {{if .Notes}}<h2>This book&rsquo;s notes</h2><p class="pre">{{.Notes}}</p>{{end}}
+    {{if .CompSlug}}<p class="fine"><a href="/c/{{.CompSlug}}/e/{{$e.ID}}">Open its sheet in the Compendium</a></p>{{end}}
+  </section>
+
+  {{template "where-project" .Where}}
+
+  {{if .CanEdit}}<section id="override" aria-labelledby="h-ov">
+    <h2 id="h-ov">This book&rsquo;s version</h2>
+    <p class="sub">Change how only this book reads the entity: a different name, a different age, a private note. The Compendium&rsquo;s own entry is never changed here, and other books are not affected. Leave a box empty to use the Compendium&rsquo;s.</p>
+    <form class="form" method="post" action="/ui/projects/{{.Project.ID}}/entity-override/set">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="entity_id" value="{{$e.ID}}">
+      <div class="field"><label for="ov-name">Name in this book</label><input id="ov-name" type="text" name="name" value="{{if .Values.name}}{{.Values.name}}{{else}}{{.OvName}}{{end}}" maxlength="200" autocomplete="off" aria-describedby="ov-name-h"><span class="hint" id="ov-name-h">The Compendium calls it {{.BaseName}}.</span></div>
+      <div class="field"><label for="ov-summary">Summary in this book</label><textarea id="ov-summary" name="summary" rows="2" aria-describedby="ov-summary-h">{{if .Values.summary}}{{.Values.summary}}{{else}}{{.OvSummary}}{{end}}</textarea><span class="hint" id="ov-summary-h">{{if .BaseSummary}}The Compendium says: {{.BaseSummary}}{{else}}The Compendium has no summary.{{end}}</span></div>
+      {{range .Fields}}{{if or .Base .Override .Has}}{{template "ov-field" (dict "F" . "V" $.Data.Values)}}{{end}}{{end}}
+      <details class="more"><summary>Fields neither has a value for</summary>
+      {{range .Fields}}{{if not (or .Base .Override .Has)}}{{template "ov-field" (dict "F" . "V" $.Data.Values)}}{{end}}{{end}}</details>
+      <div class="field"><label for="ov-notes">Notes for this book <span class="optional">private to the book</span></label><textarea id="ov-notes" name="notes" rows="4">{{if .Values.notes}}{{.Values.notes}}{{else}}{{.Notes}}{{end}}</textarea></div>
+      <div class="form-actions"><button class="btn solid" type="submit">Save this book&rsquo;s version</button></div>
+    </form>
+    {{if .OverrideSet}}<form method="post" action="/ui/projects/{{.Project.ID}}/entity-override/clear"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="entity_id" value="{{$e.ID}}"><button class="btn quiet" type="submit">Clear this book&rsquo;s version</button></form>{{end}}
+  </section>{{else}}{{if .OverrideSet}}<p class="fine">This book changes the entry. You can read that, and an owner or editor of the book can change it.</p>{{end}}{{end}}
+
+  {{if and .CanEdit .IsLink}}<section id="unlink" aria-labelledby="h-un">
+    <h2 id="h-un">Linked entity</h2>
+    <p class="sub">This entity is linked into the project by itself, and the project sees nothing else of its Compendium. Unlinking takes it out of the book&rsquo;s reach. The entity itself stays in its Compendium.</p>
+    <form method="post" action="/ui/projects/{{.Project.ID}}/entity-override/unlink"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="entity_id" value="{{$e.ID}}"><button class="btn quiet danger-text" type="submit">Unlink from this project</button></form>
+  </section>{{end}}
+</div>
+{{end}}
+{{end}}
+
+{{define "ov-field"}}<div class="field"><label for="ov-f-{{.F.Key}}">{{.F.Label}}</label>
+        <input id="ov-f-{{.F.Key}}" type="text" name="f.{{.F.Key}}" value="{{with index .V (printf "f.%s" .F.Key)}}{{.}}{{else}}{{.F.Override}}{{end}}" autocomplete="off" aria-describedby="ov-f-{{.F.Key}}-h"{{if eq .F.Type "date"}} placeholder="YYYY, YYYY-MM or YYYY-MM-DD"{{end}}>
+        <span class="hint" id="ov-f-{{.F.Key}}-h">{{if .F.Base}}The Compendium says: {{.F.Base}}{{else}}The Compendium has no value.{{end}}{{if eq .F.Type "choice"}} Allowed: {{range $i, $c := .F.Choices}}{{if $i}}, {{end}}{{$c}}{{end}}.{{end}}</span>
+        <label class="check"><input type="checkbox" name="blank.{{.F.Key}}" value="1"{{if .F.Blanked}} checked{{end}}><span>Show nothing for {{.F.Label}} in this book</span></label></div>{{end}}

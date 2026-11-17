@@ -1,0 +1,12 @@
+{{define "content"}}
+<section class="notice" aria-labelledby="claim-title">
+  <p class="eyebrow">First sign-in</p>
+  <h1 id="claim-title">Claim administration</h1>
+  <p class="lede">No administrator group is configured, so the first person to sign in may claim administration, once. You are signed in as <strong>{{.Data.Name}}</strong> ({{.Data.Email}}) through {{.Data.Issuer}}.</p>
+  <form class="notice-actions" method="post" action="/auth/claim-admin">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <button class="btn solid" type="submit">Make me the administrator</button>
+    <a class="btn quiet" href="/">Not now</a>
+  </form>
+</section>
+{{end}}

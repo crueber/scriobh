@@ -1,0 +1,38 @@
+/* Custom typography (F-085): how a project's writing and reading views are set, chosen from a fixed list on the server.
+   The page writes data attributes on the paper (internal/domain/typography HTMLAttrs); these rules read them. Nothing here is
+   generated per project or per person, so there is no stylesheet route to cache, and a project that sets nothing has no
+   attribute and is drawn by app.css, editor.css and read.css exactly as before. Screen only: print, exports, the compile
+   preview and a share link never read them. Colours are not touched, so themes and forced colours are unaffected.
+   Size is a multiple of the reader's own size (--prose already holds it) and never below 1, so it can only enlarge. */
+@media screen {
+html .paper[data-tf="sys-serif"] { --font-prose: ui-serif, Georgia, "Times New Roman", serif; }
+html .paper[data-tf="sys-sans"] { --font-prose: system-ui, -apple-system, "Segoe UI", sans-serif; }
+html .paper[data-tf="sys-mono"] { --font-prose: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+html .paper[data-ts] :is(.scriobh-prose, .chapter, .doc-plain) { font-size: calc(var(--prose) * var(--ts)); line-height: calc(var(--lh-prose) * var(--ts)); }
+html .paper[data-ts="105"]{--ts:1.05} html .paper[data-ts="110"]{--ts:1.1} html .paper[data-ts="115"]{--ts:1.15} html .paper[data-ts="120"]{--ts:1.2} html .paper[data-ts="125"]{--ts:1.25} html .paper[data-ts="130"]{--ts:1.3} html .paper[data-ts="135"]{--ts:1.35} html .paper[data-ts="140"]{--ts:1.4}
+html .paper[data-tlh="130"]{--lh-prose:calc(var(--prose)*1.3)}
+html .paper[data-tlh="135"]{--lh-prose:calc(var(--prose)*1.35)}
+html .paper[data-tlh="140"]{--lh-prose:calc(var(--prose)*1.4)}
+html .paper[data-tlh="145"]{--lh-prose:calc(var(--prose)*1.45)}
+html .paper[data-tlh="150"]{--lh-prose:calc(var(--prose)*1.5)}
+html .paper[data-tlh="155"]{--lh-prose:calc(var(--prose)*1.55)}
+html .paper[data-tlh="160"]{--lh-prose:calc(var(--prose)*1.6)}
+html .paper[data-tlh="165"]{--lh-prose:calc(var(--prose)*1.65)}
+html .paper[data-tlh="170"]{--lh-prose:calc(var(--prose)*1.7)}
+html .paper[data-tlh="175"]{--lh-prose:calc(var(--prose)*1.75)}
+html .paper[data-tlh="180"]{--lh-prose:calc(var(--prose)*1.8)}
+html .paper[data-tlh="185"]{--lh-prose:calc(var(--prose)*1.85)}
+html .paper[data-tlh="190"]{--lh-prose:calc(var(--prose)*1.9)}
+html .paper[data-tlh="195"]{--lh-prose:calc(var(--prose)*1.95)}
+html .paper[data-tlh="200"]{--lh-prose:calc(var(--prose)*2)}
+html .paper[data-tm="40"]{--measure:40ch} html .paper[data-tm="45"]{--measure:45ch} html .paper[data-tm="50"]{--measure:50ch} html .paper[data-tm="55"]{--measure:55ch} html .paper[data-tm="60"]{--measure:60ch} html .paper[data-tm="66"]{--measure:66ch} html .paper[data-tm="70"]{--measure:70ch} html .paper[data-tm="75"]{--measure:75ch} html .paper[data-tm="80"]{--measure:80ch}
+/* The writing view sizes its page in ch of the page's own, unscaled font, so the measure is scaled with the text: 80 characters stay 80 at 140 percent. */
+html body.write .paper[data-ts]:is([data-tm], :not([data-measure="full"])) { max-width: calc(var(--measure) * var(--ts) + 2 * var(--s-4)); }
+/* The reading view caps its page at --page-w whatever the text size, so 80 characters would shrink to 45 at 140 percent: when a size or a measure is set the page is sized in the text's own (scaled) unit instead. A person's own full width is left as it was. */
+html .reading-paper:is([data-tm], [data-ts]:not([data-measure="full"])) { font-size: calc(var(--prose) * var(--ts, 1)); max-width: calc(var(--measure) + 2 * var(--s-4)); }
+html .paper[data-tp="indent"] :is(.scriobh-prose, .r-prose) > p { margin: 0; text-indent: 1.5em; }
+html .paper[data-tp="indent"] :is(.scriobh-prose, .r-prose) > p:first-child,
+html .paper[data-tp="indent"] :is(.scriobh-prose, .r-prose) > :is(h1, h2, h3, h4, h5, h6, blockquote, ul, ol, pre, hr, .scene-break) + p { text-indent: 0; }
+html .paper[data-tp="indent"] :is(.scriobh-prose, .r-prose) > p + :is(blockquote, ul, ol, pre) { margin-top: .95em; }
+html .paper[data-tb="rule"] :is(.scriobh-prose .scene-break, .r-prose hr, .r-prose .scene-break, .r-sec > .scene-break)::before { content: ""; display: block; inline-size: 4rem; margin-inline: auto; border-top: 1px solid var(--muted); letter-spacing: 0; }
+}

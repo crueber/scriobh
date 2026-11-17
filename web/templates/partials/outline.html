@@ -1,0 +1,49 @@
+{{define "outline-body"}}
+<div class="o-tools" id="o-tools">
+  <nav class="o-sort" aria-label="Order of the outline">{{range $m := outlineSorts}}
+    <a href="/p/{{$.Slug}}/outline{{if $m.Query}}?sort={{$m.Query}}{{end}}" data-sort-link="{{$m.Key}}" data-frag="/ui/projects/{{$.ProjectID}}/outline{{if $m.Query}}?sort={{$m.Query}}{{end}}"{{if eq $m.Key $.Sort}} aria-current="true"{{end}}>{{$m.Label}}</a>{{end}}
+  </nav>
+  <details class="o-colsel" id="o-colsel" hidden><summary>Columns</summary>
+    <div class="o-colbox" role="group" aria-label="Columns to show">
+      <label class="check"><input type="checkbox" name="col" value="date"> Story date</label>
+      <label class="check"><input type="checkbox" name="col" value="pov"> Point of view</label>
+      <label class="check"><input type="checkbox" name="col" value="status"> Status</label>
+      <label class="check"><input type="checkbox" name="col" value="words"> Words</label>
+    </div>
+  </details>
+</div>
+{{if eq .Sort "timeline"}}<p class="o-note">The scenes in the order they happen in the story, by story date. {{if .Undated}}{{.Undated}} without a date come last. {{end}}Moving is only possible in manuscript order.</p>
+{{else if eq .Sort "pov"}}<p class="o-note">The scenes grouped by whose eyes they are told through, in manuscript order inside each group.{{if .NoPov}} None has a point of view yet; choose one in the Details or In this scene tab of the writing view.{{end}} Moving is only possible in manuscript order.</p>{{end}}
+<div class="o-summary" id="o-summary">
+  <p class="o-total"><strong>{{num .Totals.Words}}</strong> {{plural .Totals.Words "word" "words"}}{{if .Totals.TargetWords}} of {{num .Totals.TargetWords}}{{end}}{{if not .Sorted}} in {{.Chapters}} {{plural .Chapters "chapter" "chapters"}}{{end}}{{if .Totals.Documents}}{{if .Sorted}} in{{else}},{{end}} {{num .Totals.Documents}} {{plural .Totals.Documents "document" "documents"}}{{end}}</p>
+  {{if .Totals.TargetWords}}<progress class="o-bar" value="{{.Pct}}" max="100" aria-label="Progress of the whole project">{{.Pct}}%</progress>{{end}}
+  {{if .TotalMix}}<p class="o-mix">{{.TotalMix}}</p>{{end}}
+</div>
+{{if and .Rows (eq .Sort "pov")}}<div class="o-groups" id="o-list" data-sort="pov" data-cols="{{.Cols}}">{{range $i, $g := .Groups}}
+  <section class="o-grp" aria-labelledby="o-g{{$i}}">
+    <h2 class="o-gh" id="o-g{{$i}}">{{$g.Label}} <span class="o-gn">{{num $g.Docs}} {{plural $g.Docs "scene" "scenes"}}, {{num $g.Words}} {{plural $g.Words "word" "words"}}</span></h2>
+    <ol class="o-list o-sub" aria-labelledby="o-g{{$i}}">{{range $g.Rows}}
+{{template "outline-row" (dict "R" . "Slug" $.Slug)}}{{end}}
+    </ol>
+  </section>{{end}}
+</div>{{else if .Rows}}<ol class="o-list" id="o-list" aria-label="Outline" data-sort="{{.Sort}}" data-cols="{{.Cols}}">{{range .Rows}}
+{{template "outline-row" (dict "R" . "Slug" $.Slug)}}{{end}}
+</ol>{{else}}<div class="o-empty" id="o-list-empty" data-sort="{{.Sort}}"><p>{{if .Sorted}}No scenes yet. The timeline and point-of-view orders list the scenes and chapters that hold no others.{{else}}Nothing here yet. Add a chapter to begin the outline.{{end}}</p></div>{{end}}
+{{end}}
+
+{{define "outline-row"}}{{$r := .R}}<li class="orow o-d{{$r.Level}}" id="o-{{$r.ID}}" data-id="{{$r.ID}}" data-parent="{{$r.ParentID}}" data-kind="{{$r.Kind}}" data-rev="{{$r.Revision}}" data-status="{{$r.Status}}" data-target="{{$r.TargetWords}}" data-syn="{{$r.SynopsisShort}}" data-title="{{$r.Title}}">
+  <div class="orow-main">
+    <span class="orow-kind">{{$r.KindLabel}}{{if $r.Number}} {{$r.Number}}{{end}}</span>
+    <a class="orow-title" href="/p/{{.Slug}}/d/{{$r.ID}}">{{$r.Title}}</a>{{if $r.InTitle}}<span class="sr-only">, in {{$r.InTitle}}</span>{{end}}
+    <span class="orow-date"{{if not $r.Dated}} data-undated="1"{{end}}><span class="sr-only">Story date: </span>{{$r.Date}}</span>
+    <span class="orow-pov"><span class="sr-only">Point of view: </span>{{if $r.Pov}}{{$r.Pov}}{{else}}None{{end}}</span>
+    <span class="orow-status" data-s="{{$r.Status}}"><span class="sr-only">Status: </span>{{$r.StatusTxt}}</span>
+  </div>
+  {{if $r.Crumb}}<p class="orow-crumb" aria-hidden="true">{{$r.Crumb}}</p>{{end}}
+  <p class="orow-syn{{if not $r.SynopsisShort}} is-empty{{end}}">{{if $r.SynopsisShort}}{{$r.SynopsisShort}}{{else}}No synopsis yet{{end}}</p>
+  <div class="orow-nums">
+    <span class="orow-words">{{num $r.Words}} {{plural $r.Words "word" "words"}}{{if $r.Target}} of {{num $r.Target}}{{if $r.Over}}, over the target{{end}}{{end}}</span>
+    {{if $r.Target}}<progress class="orow-bar" value="{{$r.Pct}}" max="100" aria-label="Progress of {{$r.Title}}">{{$r.Pct}}%</progress>{{end}}
+    {{if $r.Mix}}<span class="orow-mix">{{$r.Mix}}</span>{{end}}
+  </div>
+</li>{{end}}

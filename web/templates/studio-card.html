@@ -1,0 +1,61 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/studio.css"}}"><script src="{{asset "js/card.js"}}" defer></script><script src="{{asset "js/arm.js"}}" defer></script>{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/studio">{{$.T "studio.ui.title"}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "studio.ui.t_card"}}</span></nav>
+{{end}}
+{{define "tab-write"}}<a class="tab" href="/studio" aria-current="page">{{template "icon" "goals"}}<span>{{$.T "studio.ui.tab"}}</span></a>{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}
+<div class="settings studio-sub" id="studio-card">
+  <h1>{{$.T "studio.ui.card.title"}}</h1>
+  <p class="sub">{{$.T "studio.ui.card.intro"}}</p>
+  {{template "studio-tabs" (dict "P" $ "Tab" "card")}}
+  {{if .Flash}}<p class="saved" role="status" tabindex="-1" autofocus data-result>{{.Flash}}</p>{{end}}
+  {{if .Error}}<p class="field-error" role="alert" id="st-error" tabindex="-1" autofocus data-result>{{.Error}}</p>{{end}}
+
+  {{if .Once}}
+  <section class="st-once" id="card-once" aria-labelledby="h-once">
+    <h2 id="h-once">{{$.T "studio.ui.card.once_h"}}</h2>
+    <p id="card-once-note" role="status">{{$.T "studio.ui.card.once_note"}}</p>
+    <div class="field"><label for="card-url">{{$.T "studio.ui.card.link"}}</label><input id="card-url" type="text" readonly value="{{.Once}}" data-path="{{.Once}}" spellcheck="false" dir="ltr" aria-describedby="card-once-note" autofocus></div>
+    <p class="fine" data-nojs>{{$.T "studio.ui.card.once_path"}}</p>
+    <div class="form-actions">
+      <button type="button" class="btn solid" data-copy data-copied="{{$.T "studio.ui.card.copied"}}" hidden>{{$.T "studio.ui.card.copy"}}</button>
+      <a class="btn" href="{{.Once}}" target="_blank" rel="noopener noreferrer">{{$.T "studio.ui.card.open"}}</a>
+      <button type="button" class="btn" data-card-png="{{.Once}}/card.svg" data-name="{{$.T "studio.ui.card.file"}}" hidden>{{$.T "studio.ui.card.png"}}</button>
+      <a class="btn" href="{{.Once}}/card.svg" download="{{$.T "studio.ui.card.file"}}.svg" data-card-svg>{{$.T "studio.ui.card.svg"}}</a>
+    </div>
+    <p class="field-error" id="card-png-err" role="alert" hidden>{{$.T "studio.ui.card.png_failed"}}</p>
+  </section>
+  {{end}}
+
+  <section id="new" aria-labelledby="h-new">
+    <h2 id="h-new">{{$.T "studio.ui.card.new"}}</h2>
+    <p class="sub">{{$.T "studio.ui.card.shows"}}</p>
+    <form class="form" method="post" action="/ui/studio/cards">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field"><label for="cd-label">{{$.T "studio.ui.card.label"}}</label><input id="cd-label" name="label" type="text" maxlength="60" autocomplete="off" value="{{.V "label"}}" aria-describedby="cd-label-h{{if eq .Field "label"}} st-error{{end}}"{{if eq .Field "label"}} aria-invalid="true"{{end}}><span class="hint" id="cd-label-h">{{$.T "studio.ui.card.label_h"}}</span></div>
+      <div class="field"><label for="cd-days">{{$.T "studio.ui.card.days"}}</label><input id="cd-days" name="expires_days" type="number" inputmode="numeric" min="1" max="365" step="1" value="{{if .V "expires_days"}}{{.V "expires_days"}}{{else}}30{{end}}" aria-describedby="cd-days-h{{if eq .Field "expires_days"}} st-error{{end}}"{{if eq .Field "expires_days"}} aria-invalid="true"{{end}}><span class="hint" id="cd-days-h">{{$.T "studio.ui.card.days_h"}}</span></div>
+      <div class="field"><label class="check" for="cd-proj"><input id="cd-proj" type="checkbox" name="show_projects"{{if eq (.V "show_projects") "on"}} checked{{end}} aria-describedby="cd-proj-h"><span>{{$.T "studio.ui.card.projects"}}</span></label><span class="hint" id="cd-proj-h">{{$.T "studio.ui.card.projects_h"}}</span></div>
+      <div class="form-actions"><button class="btn solid" type="submit">{{$.T "studio.ui.card.make"}}</button></div>
+    </form>
+  </section>
+
+  <section id="cards" aria-labelledby="h-cards">
+    <h2 id="h-cards">{{$.T "studio.ui.card.list"}}</h2>
+    {{if .Cards}}<ul class="st-cardlist">{{range .Cards}}
+      <li{{if not .Live}} class="is-off"{{end}}>
+        <h3>{{if .Label}}<bdi>{{.Label}}</bdi>{{else}}{{$.T "studio.ui.card.unnamed"}}{{end}} <span class="st-state">{{.State}}</span></h3>
+        <ul class="st-meta">
+          <li>{{$.T "studio.ui.card.made" "date" .Made}}</li>
+          <li>{{$.T "studio.ui.card.expires" "date" .Expires}}</li>
+          <li data-views>{{.Views}}</li>
+          {{if .Last}}<li>{{.Last}}</li>{{end}}
+          <li>{{if .Projects}}{{$.T "studio.ui.card.with_projects"}}{{else}}{{$.T "studio.ui.card.no_projects"}}{{end}}</li>
+        </ul>
+        {{if .Live}}<form class="form-actions" method="post" action="/ui/studio/cards/{{.ID}}/revoke" data-arm="{{$.T "studio.ui.card.revoke_ask"}}" data-arm-ok="{{$.T "studio.ui.card.revoke_ok"}}" data-arm-cancel="{{$.T "rq.cancel"}}"><input type="hidden" name="_csrf" value="{{$d.CSRF}}"><button class="btn quiet" type="submit">{{$.T "studio.ui.card.revoke"}}</button></form>{{end}}
+      </li>{{end}}
+    </ul>{{else}}<p class="st-empty">{{$.T "studio.ui.card.none"}}</p>{{end}}
+  </section>
+</div>
+{{end}}
+{{end}}

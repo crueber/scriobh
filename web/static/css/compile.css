@@ -1,0 +1,85 @@
+/* The Compile page: the setup beside the preview, the preview as one calm page at a time. Flat fills, hairline rules,
+   the theme's tokens; logical properties, so a right-to-left book mirrors. At 390 px the preview comes after the setup. */
+.cmp { max-inline-size: 76rem; }
+.cmp-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-5); }
+@media (min-width: 1000px) { .cmp-grid:has(.cmp-result:not([hidden])) { grid-template-columns: minmax(0, 26rem) minmax(0, 1fr); align-items: start; } .cmp-result { position: sticky; inset-block-start: var(--s-3); max-block-size: calc(100dvh - var(--header-h) - var(--s-5)); overflow-y: auto; } }
+.cmp-group { margin: 0 0 var(--s-3); padding: var(--s-2) var(--s-3) var(--s-1); border: 1px solid var(--line); border-radius: var(--r-1); }
+.cmp-group legend { padding: 0 var(--s-1); font: 600 var(--text-sm)/var(--lh-sm) var(--font-ui); color: var(--fg-2); }
+.cmp-presetbar { display: flex; flex-wrap: wrap; gap: var(--s-1); margin: 0 0 var(--s-2); }
+.cmp-namebox { margin: 0 0 var(--s-3); padding: var(--s-3); border: 1px solid var(--accent); border-radius: var(--r-1); background: var(--accent-soft); }
+.cmp-actions { display: flex; flex-wrap: wrap; align-items: end; gap: var(--s-2) var(--s-3); margin: var(--s-4) 0 var(--s-1); }
+.cmp-actions .field { margin: 0; min-inline-size: 6rem; }
+.cmp-status { min-block-size: 1.5em; margin: var(--s-2) 0; color: var(--fg-2); }
+.cmp-status.is-bad { color: var(--danger); }
+.cmp-manifest { margin: 0 0 var(--s-4); padding: var(--s-3); border: 1px solid var(--accent); border-radius: var(--r-2); background: var(--accent-soft); }
+.cmp-manifest h2 { margin-block-start: 0; }
+.cmp-facts { margin: 0; display: grid; gap: var(--s-1); font-size: var(--text-sm); }
+.cmp-facts div { display: grid; grid-template-columns: 11rem minmax(0, 1fr); gap: var(--s-2); }
+.cmp-facts dt { color: var(--muted); }
+.cmp-facts dd { margin: 0; overflow-wrap: anywhere; }
+.cmp-hash { font-family: var(--font-mono); font-size: var(--text-xs); }
+.cmp-facts .is-ok { color: var(--ok); }
+@media (max-width: 600px) { .cmp-facts div { grid-template-columns: 1fr; } }
+.cmp-sum { margin: 0 0 var(--s-3); color: var(--fg-2); }
+.cmp-titlepage { margin: 0 0 var(--s-3); padding: var(--s-3); border: 1px solid var(--line); border-radius: var(--r-1); background: var(--surface); }
+.cmp-titlepage p { margin: 0 0 var(--s-1); }
+.cmp-tp-t { font: 600 var(--text-lg)/var(--lh-lg) var(--font-prose); }
+.cmp-warn { margin: 0 0 var(--s-2); padding: var(--s-2) var(--s-3); border-inline-start: 3px solid var(--warn); background: var(--surface-2); font-size: var(--text-sm); }
+.cmp-viewer { margin: var(--s-3) 0 var(--s-2); outline-offset: 2px; }
+.cmp-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); margin: 0 0 var(--s-2); }
+.cmp-pos { color: var(--fg-2); font-size: var(--text-sm); font-variant-numeric: tabular-nums; text-align: center; }
+.cmp-paper { padding: var(--s-3); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-2); overflow-x: auto; }
+.cmp-page { position: relative; inline-size: min(100%, 34rem); min-block-size: 28rem; margin: 0 auto; padding: 2.4rem 2.2rem 2.6rem; background: var(--surface); border: 1px solid var(--line); color: var(--fg); font-family: var(--font-prose); font-size: var(--text-base); line-height: 1.7; overflow-wrap: break-word; }
+.cmp-ph, .cmp-pf { margin: 0; color: var(--muted); font: 400 var(--text-xs)/var(--lh-xs) var(--font-ui); }
+.cmp-ph { margin-block-end: var(--s-4); text-align: end; }
+.cmp-pf { margin-block-start: var(--s-4); text-align: center; }
+.cmp-b { margin: 0; unicode-bidi: plaintext; }
+.cmp-b.is-indent { text-indent: 1.6em; }
+.cmp-b.k-heading { margin: var(--s-4) 0 var(--s-3); text-align: center; font-weight: 600; }
+.cmp-b.k-scene_break { text-align: center; color: var(--muted); }
+.cmp-b.k-quote { margin-inline: 1.6em; color: var(--fg-2); }
+.cmp-b.k-list_item::before { content: "\2022\00a0"; }
+.cmp-b.k-code, .cmp-b.k-table_row { font-family: var(--font-mono); font-size: var(--text-sm); }
+.cmp-b.k-drop { block-size: 6rem; }
+.cmp-b.k-line { white-space: pre-wrap; line-height: 1.35; }
+.cmp-b.is-cont { color: var(--fg-2); }
+.cmp-page.is-title { display: flex; flex-direction: column; }
+.cmp-fold { margin: var(--s-3) 0; }
+.cmp-fold summary { cursor: pointer; min-block-size: var(--target); line-height: var(--target); font-weight: 500; }
+.cmp-outline, .cmp-list { margin: 0; padding: 0; list-style: none; font-size: var(--text-sm); }
+.cmp-outline li, .cmp-list li { display: flex; justify-content: space-between; gap: var(--s-3); padding: var(--s-1) 0; border-block-end: 1px solid var(--line-2); }
+.cmp-outline li.l1 { padding-inline-start: var(--s-3); } .cmp-outline li.l2 { padding-inline-start: var(--s-5); }
+.cmp-n { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.notice-line { margin: 0 0 var(--s-3); padding: var(--s-2) var(--s-3); border-inline-start: 3px solid var(--accent); background: var(--surface-2); font-size: var(--text-sm); }
+
+#cmp-opts .field:has(select)::after { content: none; }
+#cmp-opts select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23888' stroke-width='1.5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; }
+[dir="rtl"] #cmp-opts select { background-position: left 14px center; }
+
+/* Print: the proof is one SVG per page at the trim size's proportions (the paper is the theme's surface, the text block a
+   dashed hairline); the cover is the project's flat colour with white type and dashed trim and folds. */
+.cmp-page.is-sheet { inline-size: auto; min-block-size: 0; padding: 0; border: 0; background: none; }
+.cmp-sheet { display: block; margin: 0 auto; inline-size: auto; block-size: auto; max-inline-size: 100%; max-block-size: min(40rem, 72dvh); border: 1px solid var(--line); }
+.cmp-sheet .pg { fill: var(--surface); }
+.cmp-sheet .tb { fill: none; stroke: var(--line); stroke-dasharray: 3 3; }
+.cmp-sheet text, .cmp-wrapart text { font-family: "Liberation Serif", "Times New Roman", Times, serif; }
+.cmp-sheet text { fill: var(--fg); }
+.cmp-sheet .k-head, .cmp-sheet .k-folio, .cmp-sheet .blank { fill: var(--muted); }
+.cmp-sheet .k-heading { font-weight: 600; }
+.cmp-sheet .k-note { fill: var(--fg-2); }
+.cmp-sheet .im { fill: var(--surface-2); stroke: var(--line); }
+.cmp-check li { justify-content: flex-start; gap: var(--s-2); }
+.cmp-mark { flex: none; inline-size: 1.2em; font-weight: 600; color: var(--muted); }
+.cmp-check .is-ok .cmp-mark { color: var(--ok); }
+.cmp-check .is-bad .cmp-mark { color: var(--danger); }
+.cmp-cover { margin: var(--s-5) 0; padding-block-start: var(--s-3); border-block-start: 1px solid var(--line); }
+.cmp-wrap { margin: var(--s-3) 0 var(--s-1); }
+.cmp-wrapart { display: block; inline-size: 100%; block-size: auto; border: 1px solid var(--line); }
+.cv-t { font-weight: 700; }
+.cv-s { font-style: italic; }
+.cv-k { font-weight: 700; letter-spacing: .12em; }
+.cv-g { fill: none; stroke-opacity: .7; stroke-dasharray: 4 4; }
+#cmp input[type="number"], #cmp textarea { inline-size: 100%; min-block-size: max(var(--target), 40px); padding: 0 var(--s-3); border: 1px solid var(--field-line); border-radius: var(--r-1); background: var(--surface); color: var(--fg); font: inherit; }
+#cmp textarea { min-block-size: 6rem; padding-block: var(--s-2); resize: vertical; }
+@media (max-width: 600px) { #cmp-pfacts div, #cv-facts div { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.cmp-pfacts { margin: var(--s-3) 0; }

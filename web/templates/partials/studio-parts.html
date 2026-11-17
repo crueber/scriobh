@@ -1,0 +1,59 @@
+{{/* Shared pieces of the Writing Studio's pages. P is the page (for its words), and each block says what else it takes. */}}
+{{define "studio-tabs"}}{{$p := .P}}{{$tab := .Tab}}
+  <nav class="st-tabs" aria-label="{{$p.T "studio.ui.tabs"}}">
+    <a href="/studio"{{if eq $tab "studio"}} aria-current="page"{{end}}>{{$p.T "studio.ui.t_dash"}}</a>
+    <a href="/studio/goals"{{if eq $tab "goals"}} aria-current="page"{{end}}>{{$p.T "studio.ui.t_goals"}}</a>
+    <a href="/studio/sprints"{{if eq $tab "sprints"}} aria-current="page"{{end}}>{{$p.T "studio.ui.t_sprints"}}</a>
+    <a href="/studio/data"{{if eq $tab "data"}} aria-current="page"{{end}}>{{$p.T "studio.ui.t_data"}}</a>
+    <a href="/studio/card"{{if eq $tab "card"}} aria-current="page"{{end}}>{{$p.T "studio.ui.t_card"}}</a>
+  </nav>
+{{end}}
+
+{{/* One goal with its bar. G is the goal as the page reads it; H is the heading's element name. */}}
+{{define "studio-goal"}}{{$p := .P}}{{with .G}}
+  <li class="st-goal" id="g-{{.G.ID}}">
+    <h3><a href="{{if eq .G.Source "studio"}}/studio/goals/{{.G.ID}}{{else}}/p/{{.G.ProjectSlug}}/goals{{end}}">{{.Title}}</a></h3>
+    <p class="st-scope">{{if .G.ProjectTitle}}<bdi>{{.G.ProjectTitle}}</bdi>{{else}}{{$p.T "studio.ui.goal.every"}}{{end}}</p>
+    <p class="st-val"><span>{{.Value}}</span><span>{{.G.Percent}}%</span></p>
+    <progress class="st-meter" value="{{.MeterVal}}" max="{{.G.Target}}" aria-label="{{.Title}}">{{.G.Percent}}%</progress>
+    {{if .Message}}<p class="st-gmsg{{if .G.Met}} is-met{{end}}">{{if .G.Met}}<span class="st-tick" aria-hidden="true"></span>{{end}}{{.Message}}</p>{{end}}
+    {{if .Net}}<p class="fine">{{.Net}}</p>{{end}}
+    {{if .G.Deadline}}<p class="fine">{{$p.T "studio.ui.goal.deadline" "date" ($.W.Date .G.Deadline)}}</p>{{end}}
+    {{range .Notes}}<p class="fine">{{.}}</p>{{end}}
+    {{if .Ended}}<p class="fine">{{.Ended}}</p>{{end}}
+    {{if eq .G.Source "project"}}<p class="fine">{{$p.T "studio.ui.goal.on_project"}}</p>{{end}}
+  </li>
+{{end}}{{end}}
+
+{{/* The form that starts a sprint. Projects are the ones the person may write in; Pick is the one chosen first. */}}
+{{define "studio-sprint-form"}}{{$p := .P}}{{$b := .B}}{{$pick := .Pick}}
+  <form class="form st-sprintf" method="post" action="/ui/studio/sprint/start">
+    <input type="hidden" name="_csrf" value="{{$b.CSRF}}"><input type="hidden" name="back" value="{{.Back}}">
+    <div class="field"><label for="sp-project">{{$p.T "studio.ui.sprint.project"}}</label>
+      <select id="sp-project" name="project_id"{{if and (eq $b.Form "sprint") (eq $b.Field "project_id")}} aria-invalid="true" aria-describedby="st-error"{{end}}>{{range .Projects}}<option value="{{.ID}}"{{if eq .ID $pick}} selected{{end}}>{{.Title}}</option>{{end}}</select></div>
+    <fieldset class="field st-radios"{{if and (eq $b.Form "sprint") (eq $b.Field "minutes")}} aria-describedby="st-error"{{end}}><legend>{{$p.T "studio.ui.sprint.length"}}</legend>
+      {{$m := $b.V "minutes"}}
+      <label class="check"><input type="radio" name="minutes" value="15"{{if eq $m "15"}} checked{{end}}><span>{{$p.T "studio.ui.sprint.m15"}}</span></label>
+      <label class="check"><input type="radio" name="minutes" value="25"{{if or (eq $m "25") (not $m)}} checked{{end}}><span>{{$p.T "studio.ui.sprint.m25"}}</span></label>
+      <label class="check"><input type="radio" name="minutes" value="45"{{if eq $m "45"}} checked{{end}}><span>{{$p.T "studio.ui.sprint.m45"}}</span></label>
+      <label class="check"><input type="radio" name="minutes" value="0"{{if eq $m "0"}} checked{{end}}><span>{{$p.T "studio.ui.sprint.m0"}}</span></label>
+      <div class="st-custom"><label class="check"><input type="radio" name="minutes" value="custom"{{if eq $m "custom"}} checked{{end}}><span>{{$p.T "studio.ui.sprint.custom"}}</span></label>
+        <input type="number" name="custom" inputmode="numeric" min="1" max="240" step="1" value="{{$b.V "custom"}}" aria-label="{{$p.T "studio.ui.sprint.custom_label"}}"{{if and (eq $b.Form "sprint") (eq $b.Field "minutes")}} aria-invalid="true"{{end}}></div>
+    </fieldset>
+    <p class="hint">{{$p.T "studio.ui.sprint.hint"}}</p>
+    <div class="form-actions"><button class="btn solid" type="submit">{{$p.T "studio.ui.sprint.start"}}</button></div>
+  </form>
+{{end}}
+
+{{/* The sprint that is running, with the ways to end it. */}}
+{{define "studio-sprint-now"}}{{$p := .P}}{{with .S}}
+  <div class="st-now">
+    <p class="st-nowline"><strong>{{.Line}}</strong></p>
+    <p class="fine">{{.Words}}{{if .Title}} &middot; <bdi>{{.Title}}</bdi>{{end}}</p>
+    <div class="form-actions">
+      <form method="post" action="/ui/studio/sprint/stop"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="back" value="{{$.Back}}"><button class="btn" type="submit">{{$p.T "studio.ui.sprint.stop"}}</button></form>
+      <form method="post" action="/ui/studio/sprint/abandon"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="back" value="{{$.Back}}"><button class="btn quiet" type="submit">{{$p.T "studio.ui.sprint.abandon"}}</button></form>
+    </div>
+    <p class="fine">{{$p.T "studio.ui.sprint.abandon_note"}}</p>
+  </div>
+{{end}}{{end}}

@@ -1,0 +1,72 @@
+{
+  "productName": "Scriobh",
+  "mainBinaryName": "scriobh-desktop",
+  "version": "2.0.0",
+  "identifier": "app.scriobh",
+  "build": {
+    "frontendDist": "../ui"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [],
+    "security": {
+      "csp": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+      "freezePrototype": false,
+      "capabilities": ["none"]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "Productivity",
+    "shortDescription": "A private place to write long things",
+    "longDescription": "Scríobh is a self-hosted, privacy-first long-form writing application. The desktop app runs the same server on this computer and shows it in a window.",
+    "copyright": "Copyright (c) 2026 Christopher Rueber",
+    "licenseFile": "../../LICENSE",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "externalBin": ["binaries/scriobh-desktop-server"],
+    "createUpdaterArtifacts": false,
+    "fileAssociations": [
+      {
+        "ext": ["md", "markdown"],
+        "name": "Markdown document",
+        "mimeType": "text/markdown",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": ["epub"],
+        "name": "EPUB book",
+        "mimeType": "application/epub+zip",
+        "role": "Viewer",
+        "rank": "Alternate"
+      }
+    ],
+    "macOS": {
+      "minimumSystemVersion": "11.3"
+    },
+    "windows": {
+      "webviewInstallMode": {
+        "type": "skip"
+      }
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["scriobh"]
+      }
+    },
+    "updater": {
+      "endpoints": ["https://releases.scriobh.invalid/desktop/{{target}}-{{arch}}/latest.json"],
+      "pubkey": "REPLACE-WITH-THE-PUBLIC-KEY-FROM-tauri-signer-generate",
+      "requireSignedVersion": true
+    }
+  }
+}

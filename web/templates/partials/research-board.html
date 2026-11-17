@@ -1,0 +1,24 @@
+{{define "research-board"}}<div id="r-board" class="r-board" data-by="{{.By}}" data-src="{{.UI}}/research/board?by={{.By}}">
+{{if .Total}}
+<div class="r-cols">{{range .Columns}}{{$col := .}}
+  <section class="r-col" aria-labelledby="col-{{.Key}}" data-key="{{.Key}}" data-label="{{.Label}}">
+    <h2 id="col-{{.Key}}">{{if .Class}}<span class="tagdot {{.Class}}" aria-hidden="true"></span>{{end}}{{.Label}} <span class="fine">{{.Count}}</span></h2>
+    <ol class="r-cards">{{range .Cards}}
+      <li class="r-card" id="c-{{.ID}}">
+        <a class="r-name" href="{{$.Base}}/research/{{.ID}}" data-id="{{.ID}}" data-rev="{{.Revision}}">{{if .Title}}{{.Title}}{{else}}Untitled{{end}}</a>
+        <p class="r-meta fine">{{.KindLabel}}{{if gt .WordCount 0}}, {{num .WordCount}} {{plural .WordCount "word" "words"}}{{end}}{{if and (eq $.By "status") .TagViews}}{{range .TagViews}} <span class="tag"><span class="tagdot {{.Class}}" aria-hidden="true"></span>{{.Name}}</span>{{end}}{{end}}</p>
+        {{if $.CanEdit}}<form class="r-moveto" method="post" action="{{$.UI}}/research/board-move">
+          <input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="note_id" value="{{.ID}}"><input type="hidden" name="rev" value="{{.Revision}}"><input type="hidden" name="by" value="{{$.By}}"><input type="hidden" name="from" value="{{$col.Key}}">
+          <label class="sr-only" for="mv-{{.ID}}-{{$col.Key}}">Move {{if .Title}}{{.Title}}{{else}}Untitled{{end}} to</label>
+          <select id="mv-{{.ID}}-{{$col.Key}}" name="to">{{range $.Columns}}<option value="{{.Key}}"{{if eq .Key $col.Key}} selected{{end}}>{{.Label}}</option>{{end}}</select>
+          <button class="btn small" type="submit">Move to</button>
+        </form>{{end}}
+      </li>{{else}}<li class="fine r-none">Nothing here.</li>{{end}}
+    </ol>
+    {{if .Hidden}}<p class="fine"><a href="{{.More}}">Show the other {{.Hidden}}</a></p>{{end}}
+  </section>{{end}}
+</div>
+{{else}}
+<div class="r-empty"><p>No research to put on a board yet. <a href="{{.Base}}/research">Add a note or a clipping</a>.</p></div>
+{{end}}
+</div>{{end}}

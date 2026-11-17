@@ -1,0 +1,22 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/research.css"}}"><script src="{{asset "js/research.js"}}" defer></script>{{end}}
+{{define "crumb"}}{{template "res-crumb" (dict "O" .Data "Mid" "Research" "Here" "Board")}}{{end}}
+{{define "tab-write"}}{{template "res-tab" (dict "O" .Data "Active" "research")}}{{end}}
+{{define "ptabs"}}{{template "res-ptabs" (dict "O" .Data "Active" "research")}}{{end}}
+{{define "projmore"}}{{template "res-more" (dict "O" .Data "Active" "research")}}{{end}}
+{{define "content"}}
+{{with .Data}}
+<div class="research board-page" id="research" data-owner="{{.Kind}}" data-can-edit="{{.CanEdit}}">
+  {{template "live-marker" (dict "Scope" .Scope "ID" .ID)}}
+  <h1 id="r-title" tabindex="-1">Research board</h1>
+  <p class="sub">Notes and clippings in columns. Move a card with the Move to box on it, or press the Left or Right arrow while its title is focused.{{if eq .By "tag"}} A note with several tags is in several columns; moving it swaps one tag for another.{{end}}</p>
+  {{template "res-subnav" (dict "O" . "Active" "board")}}
+  <nav class="r-by" aria-label="Columns by">
+    <a href="{{.Base}}/research/board"{{if eq .By "status"}} aria-current="page"{{end}}>By status</a>
+    <a href="{{.Base}}/research/board?by=tag"{{if eq .By "tag"}} aria-current="page"{{end}}>By tag</a>
+  </nav>
+  {{if .Error}}<p class="field-error" role="alert">{{.Error}}</p>{{end}}
+  <p class="sr-only" id="r-live" role="status" aria-live="polite" aria-atomic="true"></p>
+  {{template "research-board" .}}
+</div>
+{{end}}
+{{end}}

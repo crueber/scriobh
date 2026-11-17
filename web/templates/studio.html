@@ -1,0 +1,168 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/studio.css"}}"><script src="{{asset "js/studio.js"}}" defer></script>{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "studio.ui.title"}}</span></nav>
+{{end}}
+{{define "tab-write"}}<a class="tab" href="/studio" aria-current="page">{{template "icon" "goals"}}<span>{{$.T "studio.ui.tab"}}</span></a>{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}
+<div class="studio" id="studio">
+  <header class="st-head">
+    <h1>{{$.T "studio.ui.title"}}</h1>
+    <p class="sub">{{$.T "studio.ui.intro"}}</p>
+  </header>
+  {{template "studio-tabs" (dict "P" $ "Tab" "studio")}}
+  {{if .Flash}}<p class="saved" role="status" tabindex="-1" autofocus data-result>{{.Flash}}</p>{{end}}
+  {{if and .Error (ne .Form "range")}}<p class="field-error" role="alert" id="st-error" tabindex="-1" autofocus data-result>{{.Error}}</p>{{end}}
+
+  {{if .Nudges}}<ul class="st-nudges" aria-label="{{$.T "studio.ui.nudges"}}">{{range .Nudges}}
+    <li><span>{{.Text}}</span><form method="post" action="/ui/studio/nudges/seen"><input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="ids" value="{{.ID}}"><button class="btn quiet small" type="submit" aria-label="{{$.T "studio.ui.nudge_dismiss" "text" .Text}}">{{$.T "studio.ui.dismiss"}}</button></form></li>{{end}}
+  </ul>{{end}}
+
+  {{if .New}}<p class="st-welcome">{{$.T "studio.ui.welcome"}}</p>{{end}}
+
+  <section class="st-cards" aria-labelledby="h-cards">
+    <h2 id="h-cards" class="sr-only">{{$.T "studio.ui.cards"}}</h2>
+    <ul>{{range .Cards}}
+      <li class="st-card" data-card="{{.Key}}">
+        <h3>{{.Label}}</h3>
+        <p class="st-num" data-num>{{.Value}}</p>
+        {{if .Delta}}<p class="st-delta" data-delta>{{.Delta}}{{if .Pct}} <span data-pct>({{.Pct}})</span>{{end}}</p>{{end}}
+        {{if .Sub}}<p class="st-delta">{{.Sub}}</p>{{end}}
+        <svg class="st-spark" viewBox="0 0 100 28" preserveAspectRatio="none" role="img" focusable="false"><title>{{.SparkText}}</title><polyline points="{{.Spark}}" fill="none"/></svg>
+      </li>{{end}}
+    </ul>
+  </section>
+
+  <div class="st-grid">
+    <div class="st-col">
+    <section class="st-panel" id="streak" aria-labelledby="h-streak">
+      <h2 id="h-streak">{{$.T "studio.ui.streak.h"}}</h2>
+      {{if .Streak.HasGoal}}
+      {{if .Streak.Current}}<p class="st-big"><strong data-streak>{{.Streak.Current}}</strong> <span>{{.StreakDay}}</span></p>{{else if .Days30}}<p class="st-fig" data-days30>{{.Days30}}</p>{{end}}
+      {{if .TodayMax}}<progress class="st-meter" value="{{.TodayVal}}" max="{{.TodayMax}}" aria-label="{{$.T "studio.ui.streak.meter"}}">{{.StreakFig}}</progress>{{end}}
+      <p class="st-fig" data-today>{{.StreakFig}}</p>
+      <p class="st-msg">{{.StreakMsg}}</p>
+      {{if .Streak.Longest}}<p class="fine" data-longest>{{.Longest}}</p>{{end}}
+      {{else}}
+      <p class="st-fig" data-today>{{.StreakFig}}</p>
+      <p class="st-msg">{{.StreakMsg}}</p>
+      <p><a class="btn" href="/studio/goals#new">{{$.T "studio.ui.streak.set"}}</a></p>
+      {{end}}
+      {{if .Note}}<p class="fine">{{.Note}}</p>{{end}}
+      {{if .Sprint}}{{else if .QuickText}}
+      <form class="st-quick" method="post" action="/ui/studio/sprint/start">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="back" value="studio">
+        <input type="hidden" name="project_id" value="{{.Quick.ProjectID}}"><input type="hidden" name="minutes" value="0"><input type="hidden" name="target_words" value="{{.QuickN}}">
+        <button class="btn solid" type="submit" id="st-quick">{{.QuickText}}</button>
+        <p class="fine">{{$.T "studio.ui.quick_note" "title" (iso .Quick.Title)}}</p>
+      </form>
+      {{else if .Quick}}<p class="st-quick"><a class="btn" href="/p/{{.Quick.Slug}}">{{$.T "studio.ui.continue" "title" (iso .Quick.Title)}}</a></p>{{end}}
+    </section>
+
+    <section class="st-panel" id="goals" aria-labelledby="h-goals">
+      <div class="st-ph"><h2 id="h-goals">{{$.T "studio.ui.goals.h"}}</h2><p class="st-counts" data-goal-counts>{{.GoalsLine}}</p></div>
+      {{if .NoGoals}}<p class="st-empty">{{$.T "studio.ui.goals.empty"}}</p>
+      <p><a class="btn" href="/studio/goals#new">{{$.T "studio.ui.goals.first"}}</a></p>
+      {{else}}<ul class="st-goals">{{range .Goals}}{{template "studio-goal" (dict "P" $ "G" . "W" $d.W)}}{{end}}</ul>
+      <p><a href="/studio/goals">{{$.T "studio.ui.goals.all"}}</a></p>{{end}}
+    </section>
+
+    <section class="st-panel" id="patterns" aria-labelledby="h-pat">
+      <h2 id="h-pat">{{$.T "studio.ui.pat.h"}}</h2>
+      {{if .Chart.Empty}}<p class="st-empty">{{$.T "studio.ui.pat.empty"}}</p>{{else}}
+      <p class="st-msg">{{.BestDay}}</p>
+      <ul class="st-bars">{{range .Weekdays}}<li{{if .Best}} class="is-best"{{end}}><span class="st-bl">{{.Label}}</span><progress class="st-meter" value="{{.Value}}" max="{{.Max}}" aria-label="{{.Label}}">{{.Text}}</progress><span class="st-bv">{{.Text}}</span></li>{{end}}</ul>
+      {{if .BestHour}}<p class="st-msg">{{.BestHour}}</p>{{end}}
+      <ul class="st-bars">{{range .Parts}}<li><span class="st-bl">{{.Label}}</span><progress class="st-meter" value="{{.Value}}" max="{{.Max}}" aria-label="{{.Label}}">{{.Text}}</progress><span class="st-bv">{{.Text}}</span></li>{{end}}</ul>
+      <p class="fine">{{$.T "studio.ui.pat.note"}}</p>{{end}}
+    </section>
+
+    <section class="st-panel" id="sprint" aria-labelledby="h-sprint">
+      <h2 id="h-sprint">{{$.T "studio.ui.sprint.h"}}</h2>
+      {{if .Sprint}}{{template "studio-sprint-now" (dict "P" $ "S" .Sprint "CSRF" .CSRF "Back" "studio")}}
+      {{else if .Writable}}<p class="sub">{{$.T "studio.ui.sprint.intro"}}</p>
+      {{template "studio-sprint-form" (dict "P" $ "B" $d "Projects" .Writable "Pick" (or (.V "project_id") (and .Quick .Quick.ProjectID) "") "Back" "studio")}}
+      {{else}}<p class="st-empty">{{$.T "studio.ui.sprint.none"}}</p>{{end}}
+      <p><a href="/studio/sprints">{{$.T "studio.ui.sprint.stats"}}</a></p>
+    </section>
+    </div>
+    <div class="st-col">
+    <section class="st-panel" id="activity" aria-labelledby="h-act">
+      <div class="st-ph"><h2 id="h-act">{{$.T "studio.ui.cal.h"}}</h2>
+        <nav class="st-ranges" aria-label="{{$.T "studio.ui.cal.ranges"}}">{{range $i, $l := .CalRanges}}<a href="{{$l.URL}}"{{if eq (eq $i 1) $d.Cal.All}} aria-current="true"{{end}}>{{$l.Text}}</a>{{end}}</nav></div>
+      <div class="st-scroll" role="region" aria-labelledby="h-act" tabindex="0">
+        <table class="st-cal" data-weeks="{{.Cal.Weeks}}" data-hint="{{$.T "studio.ui.cal.hint"}}">
+          <caption class="sr-only">{{$.T "studio.ui.cal.caption"}}</caption>
+          <thead><tr><td></td>{{range .Cal.Months}}{{if .Label}}<th scope="colgroup" colspan="{{.Span}}"><span>{{.Label}}</span></th>{{else}}<td colspan="{{.Span}}"></td>{{end}}{{end}}</tr></thead>
+          <tbody>{{range .Cal.Rows}}
+            <tr><th scope="row"><span class="sr-only">{{.Long}}</span>{{if .Short}}<span aria-hidden="true">{{.Short}}</span>{{end}}</th>{{range .Cells}}{{if .Blank}}<td></td>{{else}}<td class="l{{.Level}}{{if .Hit}} hit{{end}}{{if .Today}} now{{end}}"><span class="sr-only">{{.Name}}</span><i title="{{.Name}}" aria-hidden="true"></i></td>{{end}}{{end}}</tr>{{end}}
+          </tbody>
+        </table>
+      </div>
+      <p class="st-legend" aria-hidden="true"><span>{{$.T "studio.ui.cal.less"}}</span><i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i><span>{{$.T "studio.ui.cal.more"}}</span></p>
+      {{if not .Cal.Empty}}<p class="st-sum" data-cal-sum>{{.Cal.Summary}}</p>{{end}}
+      <p class="fine">{{if .Cal.Legend}}{{.Cal.Legend}} {{end}}{{$.T "studio.ui.cal.key"}}</p>
+    </section>
+
+    <section class="st-panel" id="words" aria-labelledby="h-words">
+      <div class="st-ph"><h2 id="h-words">{{$.T "studio.ui.chart.h"}}</h2>
+        <nav class="st-ranges" aria-label="{{$.T "studio.ui.chart.ranges"}}">{{range (list "30d" "90d" "365d" "all")}}<a href="/studio?range={{.}}{{$d.Chart.Period}}#words"{{if eq . $d.Chart.Range}} aria-current="true"{{end}}>{{$.T (printf "studio.ui.range.%s" .)}}</a>{{end}}</nav></div>
+      {{if .Chart.Empty}}<p class="st-empty">{{$.T "studio.ui.chart.empty"}}</p>
+      {{else}}
+      <figure class="st-chart">
+        <div class="st-plot">
+          <div class="st-y" aria-hidden="true"><span>{{.Chart.YTop}}</span><span>{{.Chart.YMid}}</span><span>0</span></div>
+          <svg viewBox="0 0 600 160" preserveAspectRatio="none" role="img" focusable="false" aria-labelledby="ch-t ch-d"><title id="ch-t">{{$.T "studio.ui.chart.h"}}</title><desc id="ch-d">{{.Chart.Desc}}</desc>
+            <line class="g" x1="0" x2="600" y1="8" y2="8"/><line class="g" x1="0" x2="600" y1="80" y2="80"/><line class="g0" x1="0" x2="600" y1="152" y2="152"/>
+            {{if .Chart.Area}}<path class="a" d="{{.Chart.Area}}"/>{{end}}<path class="ln" d="{{.Chart.Line}}" fill="none"/>
+            {{range .Chart.Cols}}<rect class="c" x="{{.X}}" y="0" width="{{.W}}" height="160"><title>{{.Title}}</title></rect>{{end}}
+          </svg>
+          <div class="st-x" aria-hidden="true">{{range .Chart.XLabels}}<span>{{.}}</span>{{end}}</div>
+        </div>
+        <figcaption data-chart-desc>{{.Chart.Desc}}</figcaption>
+      </figure>
+      <ul class="st-pace">{{range .Chart.Pace}}<li>{{.}}</li>{{end}}</ul>
+      <details class="st-more"><summary>{{$.T "studio.ui.chart.table"}}</summary>
+        <div class="st-scroll st-tall" role="region" aria-label="{{$.T "studio.ui.chart.table"}}" tabindex="0">
+          <table class="st-table"><thead><tr><th scope="col">{{.Chart.BucketHead}}</th><th scope="col">{{$.T "studio.ui.compare.words"}}</th><th scope="col">{{$.T "studio.ui.compare.net"}}</th><th scope="col">{{$.T "studio.ui.compare.minutes"}}</th></tr></thead>
+            <tbody>{{range .Chart.Rows}}<tr><th scope="row">{{.Label}}</th><td>{{.Words}}</td><td>{{.Net}}</td><td>{{.Minutes}}</td></tr>{{end}}</tbody></table>
+        </div>
+      </details>
+      {{end}}
+      <details class="st-more"{{if or (eq .Chart.Range "custom") (eq .Form "range")}} open{{end}}><summary>{{$.T "studio.ui.chart.dates"}}</summary>
+        <form class="st-dates" method="get" action="/studio#words">
+          {{if eq .Form "range"}}<p class="field-error" role="alert" id="st-range-error">{{.Error}}</p>{{end}}
+          <div class="field"><label for="st-from">{{$.T "studio.ui.chart.from"}}</label><input id="st-from" type="date" name="from" value="{{if eq .Form "range"}}{{.V "from"}}{{else if eq .Chart.Range "custom"}}{{.Chart.From}}{{end}}" required{{if eq .Form "range"}} aria-invalid="true" aria-describedby="st-range-error"{{end}}></div>
+          <div class="field"><label for="st-to">{{$.T "studio.ui.chart.to"}}</label><input id="st-to" type="date" name="to" value="{{if eq .Form "range"}}{{.V "to"}}{{else if eq .Chart.Range "custom"}}{{.Chart.To}}{{end}}" required></div>
+          <button class="btn" type="submit">{{$.T "studio.ui.chart.show"}}</button>
+        </form>
+      </details>
+    </section>
+
+    <section class="st-panel" id="trend" aria-labelledby="h-trend">
+      <h2 id="h-trend">{{$.T "studio.ui.trend.h"}}</h2>
+      <p class="st-msg">{{.Trend}}</p>
+      {{if .TrendFig}}<p class="fine">{{.TrendFig}}</p>{{end}}
+      {{if .Resources}}<ul class="st-links">{{range .Resources}}<li><a href="{{.URL}}">{{.Text}}</a></li>{{end}}</ul>{{end}}
+      <p><a href="/studio/data">{{$.T "studio.ui.trend.compare"}}</a></p>
+    </section>
+
+    <section class="st-panel" id="projects" aria-labelledby="h-proj">
+      <h2 id="h-proj">{{$.T "studio.ui.proj.h"}}</h2>
+      {{if .Projects}}
+      <table class="st-table"><thead><tr><th scope="col">{{$.T "studio.ui.proj.project"}}</th><th scope="col">{{$.T "studio.ui.proj.today"}}</th><th scope="col">{{$.T "studio.ui.proj.week"}}</th><th scope="col">{{$.T "studio.ui.proj.prev"}}</th></tr></thead>
+        <tbody>{{range .Projects}}<tr><th scope="row"><a href="/p/{{.Slug}}/goals"><bdi>{{.Title}}</bdi></a></th><td>{{.Today}}</td><td>{{.Week}}</td><td>{{.Prev}}</td></tr>{{end}}</tbody></table>
+      <p class="fine">{{$.T "studio.ui.proj.note"}}</p>
+      {{else}}<p class="st-empty">{{$.T "studio.ui.proj.empty"}}</p>{{end}}
+    </section>
+    </div>
+  </div>
+
+  <footer class="st-foot">
+    {{if .Hidden}}<p class="fine">{{.Hidden}}</p>{{end}}
+    <p class="fine">{{$.T "studio.ui.zone" "zone" .Zone}} <a href="/settings#profile">{{$.T "studio.ui.zone_change"}}</a></p>
+    <p class="fine">{{$.T "studio.ui.private"}} <a href="/settings#studio">{{$.T "studio.ui.settings"}}</a></p>
+  </footer>
+</div>
+{{end}}
+{{end}}

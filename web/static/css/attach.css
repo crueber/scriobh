@@ -1,0 +1,54 @@
+/* The attachments pages: the grid of files, the space used, the drop zone and the upload rows, and one file's page.
+   Loaded on /p/{slug}/files and /c/{slug}/files (and a file's page under them). Tokens only. */
+.attach { max-width: 880px; }
+.attach h3 { margin: 0; font: 500 var(--text-base)/var(--lh-base) var(--font-ui); }
+.attach .wrap { overflow-wrap: anywhere; }
+.attach code { font: 400 .92em var(--font-mono); }
+.attach .field-error { margin: var(--s-2) 0 0; }
+.attach textarea { width: 100%; padding: var(--s-2) var(--s-3); border: 1px solid var(--field-line); border-radius: var(--r-1); background: var(--surface); color: var(--fg); font: inherit; }
+.att-meter { display: block; width: 100%; max-width: 480px; height: 6px; margin: var(--s-2) 0; appearance: none; -webkit-appearance: none; border: 0; border-radius: 0; background: var(--line); color: var(--accent); }
+.att-meter::-webkit-progress-bar { background: var(--line); }
+.att-meter::-webkit-progress-value { background: var(--accent); }
+.att-meter::-moz-progress-bar { background: var(--accent); }
+.usage-line { margin: 0 0 var(--s-1); font-size: var(--text-base); }
+.filters { display: flex; flex-wrap: wrap; gap: var(--s-2); margin: 0 0 var(--s-3); }
+.filters a { display: inline-flex; align-items: center; min-height: var(--target); padding: 0 var(--s-3); border: 1px solid var(--line); border-radius: var(--r-1); color: var(--fg-2); text-decoration: none; font-size: var(--text-sm); }
+.filters a[aria-current="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--fg); font-weight: 500; }
+
+.att-drop { padding: var(--s-4); border: 1px dashed var(--muted); border-radius: var(--r-1); background: var(--surface); }
+.att-drop p { margin: 0 0 var(--s-2); }
+.att-over { outline: 2px solid var(--accent); outline-offset: 2px; background: var(--accent-soft); }
+.att-queue { margin: var(--s-3) 0 0; padding: 0; list-style: none; }
+.att-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); padding: var(--s-3); border: 1px solid var(--line); border-left: 4px solid var(--muted); border-radius: var(--r-1); background: var(--surface); font-size: var(--text-sm); }
+.att-queue .att-row + .att-row { margin-top: var(--s-2); }
+.att-row[data-kind="ok"] { border-left-color: var(--ok); }
+.att-row[data-kind="danger"] { border-left-color: var(--danger); }
+.att-msg { flex: 1 1 22ch; min-width: 0; margin: 0; }
+.att-progress { display: block; width: 100%; max-width: 360px; height: 6px; margin-top: var(--s-2); appearance: none; -webkit-appearance: none; border: 0; border-radius: 0; background: var(--line); color: var(--accent); }
+.att-progress::-webkit-progress-bar { background: var(--line); }
+.att-progress::-webkit-progress-value { background: var(--accent); }
+.att-progress::-moz-progress-bar { background: var(--accent); }
+
+.att-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: var(--s-4); margin: 0; padding: 0; list-style: none; }
+.att-card { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--line); border-radius: var(--r-1); background: var(--surface); overflow: hidden; }
+.att-thumb { position: relative; display: flex; align-items: center; justify-content: center; flex: none; height: 9rem; overflow: hidden; background: var(--surface-2); border-bottom: 1px solid var(--line-2); }
+.att-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.att-badge { padding: 2px var(--s-3); border: 1px solid var(--line); border-radius: var(--r-1); font: 500 var(--text-sm)/var(--lh-sm) var(--font-mono); color: var(--fg-2); letter-spacing: .06em; text-transform: uppercase; }
+.att-info { display: flex; flex-direction: column; gap: 2px; padding: var(--s-3); }
+.att-info .fine, .att-info .att-alt { margin: 0; }
+.att-alt { font-size: var(--text-sm); color: var(--fg-2); overflow-wrap: anywhere; }
+.att-info .btn { align-self: flex-start; margin-top: var(--s-2); }
+.pager { margin: var(--s-4) 0 0; }
+.empty-line { margin: var(--s-4) 0; padding: var(--s-3); border: 1px solid var(--line); border-radius: var(--r-1); background: var(--surface); }
+.empty-line p { margin: 0 0 var(--s-1); }
+
+.att-big { margin: 0 0 var(--s-2); }
+.att-big img { display: block; max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: var(--r-1); background: var(--surface-2); }
+.att-frame iframe { display: block; width: 100%; height: 70dvh; border: 1px solid var(--line); border-radius: var(--r-1); background: var(--surface-2); }
+.keybox { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--s-2); padding: var(--s-3); border: 1px solid var(--line); border-radius: var(--r-1); background: var(--surface-2); }
+.keybox code { flex: 1 1 14rem; font-size: var(--text-sm); line-height: 1.5; user-select: all; }
+.plain-list { margin: var(--s-2) 0; padding-left: var(--s-4); font-size: var(--text-sm); line-height: var(--lh-sm); }
+.plain-list li + li { margin-top: var(--s-1); }
+.banner-line { margin: var(--s-3) 0; padding: var(--s-3); border: 1px solid var(--line); border-left: 4px solid var(--danger); border-radius: var(--r-1); background: var(--surface); font-size: var(--text-sm); }
+.attach-one section { margin-top: var(--s-5); padding-top: var(--s-4); }
+.attach-one > p:last-child { margin-top: var(--s-5); }

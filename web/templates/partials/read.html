@@ -1,0 +1,10 @@
+{{define "read-article"}}<section class="chapter" id="{{.ID}}" data-doc="{{.Doc}}" data-title="{{.Title}}" data-next="{{.Next}}" aria-label="{{.Label}}: {{.Title}}">
+  <header class="chapter-top">
+    {{if .Kicker}}<p class="r-kicker">{{.Kicker}}</p>{{end}}
+    <p class="r-label">{{.Label}}</p>
+    <h2 class="r-title">{{.Title}}</h2>
+  </header>
+{{range .Body}}  <div class="r-sec{{if .Scene}} is-scene{{end}}" id="{{.ID}}"{{if .Doc}} data-doc="{{.Doc}}" data-rev="{{.Rev}}"{{end}}>{{if .Scene}}<hr class="scene-break">{{if .Title}}<h3 class="r-scene-title">{{.Title}}</h3>{{end}}{{end}}
+    <div class="r-prose">{{.HTML}}</div>
+  </div>
+{{end}}</section>{{end}}

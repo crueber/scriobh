@@ -1,0 +1,91 @@
+project: {title:x subtitle: kind:blog author:Ada Fixture language:}
+layout: ghost
+
+== chapter: Lexical Post [status done, compile true, date "2023-06-02", source "ghost/post/lexical-post"]
+   | ## Lexical heading
+   | 
+   | Plain, **bold** *italic* ***both*** ~~struck~~ `code`. [a link](https://example.org/lex)\
+   | after a break \%\% not a note \[\[x\]\]
+   | 
+   | > A lexical quote
+   | 
+   | - first
+   | - second
+   |     1. nested one
+   | 
+   | * * *
+   | 
+   | ```
+   | print('hi')
+   | ```
+   | 
+   | *\[image: Lexical image\]*
+   | 
+   | With a *caption*
+   | 
+   | [A bookmark](https://example.org/bm)
+   | 
+   | *\[embed\]*
+   | 
+   | *\[image: g1\]*
+   | 
+   | *\[image: g2\]*
+   | 
+   | An html card
+   | 
+   | Card **markdown** with \%\% a note \%\% and \[\[a link\]\]
+   | 
+   | Careful
+== chapter: Empty Lexical [status done, compile true, date "2023-06-03", source "ghost/post/empty"]
+   | Only the html has text.
+
+report: {
+ "ghost": {
+  "authors": 1,
+  "embeds_noted": 2,
+  "file": "ghost-5.json",
+  "footnotes": 0,
+  "forms_dropped": 0,
+  "ghost_version": "5.82.0",
+  "iframes_dropped": 0,
+  "image_addresses": [
+   "https://cdn.example/c.png",
+   "https://video.example/e",
+   "https://cdn.example/g1.png",
+   "https://cdn.example/g2.png"
+  ],
+  "images": 3,
+  "imported_pages": 0,
+  "imported_posts": 2,
+  "links": 2,
+  "links_not_kept": 0,
+  "markdown_broken_up": 0,
+  "markdown_not_read": 0,
+  "markdown_raw_html_dropped": 0,
+  "not_imported": {},
+  "pictures_from_zip": 0,
+  "posts_in_file": 2,
+  "scripts_dropped": 1,
+  "sources": {
+   "html": 1,
+   "lexical": 1
+  },
+  "statuses": {
+   "published": 2
+  },
+  "tags": {},
+  "unknown_nodes": {
+   "mystery-card": 1,
+   "product": 1
+  },
+  "visibility": {
+   "public": 1
+  }
+ }
+}
+
+warnings:
+- 3 image(s) were not imported; each is marked in the text with its description.
+- 2 embed(s), bookmark(s) or video(s) became a note with their address; nothing was fetched.
+- Cards this reader does not know were left out: mystery-card (1), product (1).
+- Left out: 1 script(s), 0 iframe(s), 0 form(s), 0 embed(s), 0 audio or video element(s).

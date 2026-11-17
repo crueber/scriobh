@@ -1,0 +1,24 @@
+{{define "git-force"}}
+<form id="git-force-form" class="form" method="post" action="/ui/projects/{{.Project.ID}}/git/force" hx-post="/ui/projects/{{.Project.ID}}/git/force" hx-target="#git-force-form" hx-swap="outerHTML">
+  <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="remote_id" value="{{.Remote.ID}}">
+  <div class="dialog-head">
+    <h2 id="dialog-title">{{$.Pg.T "git.force.title" "name" .Remote.Name}}</h2>
+    <button type="button" class="icon-btn dialog-close" data-dialog-close aria-label="{{$.Pg.T "git.close"}}">{{template "icon" "close"}}</button>
+  </div>
+  <p class="lede">{{$.Pg.T "git.force.lede1"}} <strong>{{.Remote.Branch}}</strong> {{$.Pg.T "git.force.lede2" "host" .Remote.Host}}</p>
+  <ul class="plain">
+    <li>{{$.Pg.T "git.force.bundle"}} <code>data/backups/git</code>{{$.Pg.T "git.force.bundle2"}} <code>git clone</code> {{$.Pg.T "git.force.bundle3"}}</li>
+    <li>{{$.Pg.T "git.force.moves"}}</li>
+    <li>{{$.Pg.T "git.force.nothing"}}</li>
+  </ul>
+  <div class="field">
+    <label for="gfp-confirm">{{$.Pg.T "git.force.type"}} <strong>{{.Remote.Name}}</strong></label>
+    <input id="gfp-confirm" type="text" name="confirm" value="{{.Typed}}" autocomplete="off" spellcheck="false" autofocus data-confirm="{{.Remote.Name}}"{{if .Error}} aria-invalid="true" aria-describedby="gfp-err"{{end}}>
+    {{if .Error}}<p class="field-error" id="gfp-err" role="alert">{{.Error}}</p>{{end}}
+  </div>
+  <div class="form-actions">
+    <button type="button" class="btn quiet" data-dialog-close>{{$.Pg.T "git.cancel"}}</button>
+    <button class="btn danger" type="submit" data-confirm-submit>{{$.Pg.T "git.force.go"}}</button>
+  </div>
+</form>
+{{end}}

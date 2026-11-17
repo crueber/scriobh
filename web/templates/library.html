@@ -1,0 +1,16 @@
+{{define "content"}}
+<section class="library" aria-labelledby="library-title">
+  <header class="library-head">
+    <div>
+      <h1 id="library-title" tabindex="-1">{{.Title}}</h1>
+      {{with .Data.Projects}}<p class="sub">{{len .}} {{plural (len .) "project" "projects"}}</p>{{end}}
+    </div>
+    <div class="head-actions"><a class="btn quiet" href="/studio">{{.T "studio.ui.title"}}</a>{{if and .User.IsWriter (eq .Data.State "active") (or .Data.Projects .Data.Q)}}<a class="btn" href="/import">Import</a><a class="btn solid" href="/ui/projects/new" hx-get="/ui/projects/new" hx-target="#dialog-body" hx-swap="innerHTML">New project</a>{{end}}</div>
+  </header>
+  <form class="lib-search" role="search" aria-label="Search every project" method="get" action="/search">
+    <label class="sr-only" for="lib-q">Search every project</label>
+    <input id="lib-q" type="search" name="q" placeholder="Search every project" autocomplete="off" spellcheck="false">
+  </form>
+  {{template "shelf" .Data}}
+</section>
+{{end}}

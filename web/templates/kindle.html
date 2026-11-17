@@ -1,0 +1,61 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/mail.css"}}">{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}/compile">{{$.T "cmp.title"}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "mail.kindle.title"}}</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "compile" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "compile" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "compile" .Data.Project.Role}}{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}
+<div class="settings ml" id="kindle">
+  <h1>{{$.T "mail.kindle.title"}}</h1>
+  <p class="sub">{{.Project.Title}}. {{$.T "mail.kindle.page_intro"}}</p>
+  {{if .Flash}}<p class="ml-note" role="status" data-tone="ok" id="ml-queued"><span class="ml-mark" aria-hidden="true"></span>{{.Flash}}</p>{{end}}
+  {{if .Error}}<p class="field-error" role="alert" id="ml-error" tabindex="-1">{{.Error}}</p>{{end}}
+
+  {{if .Preview}}
+  <section id="preview" aria-labelledby="ml-pv-h">
+    <h2 id="ml-pv-h">{{$.T "mail.kindle.preview_h"}}</h2>
+    <dl class="ml-facts">
+      <div><dt>{{$.T "mail.kindle.to_label"}}</dt><dd><bdi dir="ltr">{{.Preview.Recipient}}</bdi></dd></div>
+      <div><dt>{{$.T "mail.kindle.file_label"}}</dt><dd><bdi dir="ltr">{{.Preview.FileName}}</bdi>, {{.PreviewSize}}</dd></div>
+      <div><dt>{{$.T "mail.kindle.docs_label"}}</dt><dd>{{num .Preview.Documents}}</dd></div>
+      {{if .Sender}}<div><dt>{{$.T "mail.kindle.sender_label"}}</dt><dd><bdi dir="ltr">{{.Sender}}</bdi></dd></div>{{end}}
+    </dl>
+    <p>{{$.T "mail.kindle.held_back"}}</p>
+    <div class="ml-banner" data-tone="warn" id="ml-leaves"><p class="ml-head"><span class="ml-mark" aria-hidden="true"></span><strong>{{$.T "mail.kindle.leaves"}}</strong></p></div>
+    {{if .Sender}}<p class="fine">{{$.T "mail.kindle.approve" "sender" .Sender}}</p>{{end}}
+    <p class="fine">{{$.T "mail.kindle.expires"}}</p>
+    <form class="form" method="post" action="/ui/projects/{{.ProjectID}}/kindle/send">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="token" value="{{.Token}}">
+      <div class="form-actions"><button class="btn solid" type="submit">{{$.T "mail.kindle.send"}}</button><a class="btn quiet" href="/p/{{.Slug}}/kindle">{{$.T "mail.kindle.cancel"}}</a></div>
+    </form>
+  </section>
+  {{else}}
+  <section id="start" aria-labelledby="ml-st-h">
+    <h2 id="ml-st-h">{{$.T "mail.kindle.compile_h"}}</h2>
+    <p class="sub">{{$.T "mail.kindle.fixed"}}</p>
+    {{if eq .K.State "off"}}<p class="ml-note" data-tone="info"><span class="ml-mark" aria-hidden="true"></span>{{$.T "mail.kindle.mail_off"}}</p>
+    {{else if eq .K.State "noaddr"}}<p class="ml-note" data-tone="info"><span class="ml-mark" aria-hidden="true"></span>{{$.T "mail.kindle.no_address"}}</p><p><a class="btn" href="/settings#kindle">{{$.T "mail.kindle.go_settings"}}</a></p>
+    {{else}}
+    <p>{{$.T "mail.kindle.to_ready"}} <bdi dir="ltr">{{.K.Address}}</bdi></p>
+    {{if .Sender}}<p class="fine">{{$.T "mail.kindle.approve" "sender" .Sender}}</p>{{end}}
+    <form method="post" action="/ui/projects/{{.ProjectID}}/kindle/preview"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn solid" type="submit">{{$.T "mail.kindle.preview"}}</button></form>
+    {{end}}
+  </section>
+  {{end}}
+
+  <section id="log" aria-labelledby="ml-log-h">
+    <h2 id="ml-log-h">{{$.T "mail.kindle.log"}}</h2>
+    {{if .Log}}<ul class="ml-list">{{range .Log}}
+      <li data-state="{{.State}}">
+        <p class="ml-line"><strong><bdi dir="ltr">{{.FileName}}</bdi>, {{.Size}}</strong> <span class="ml-state">{{if eq .State "waiting"}}{{$.T "mail.kindle.state_waiting"}}{{else if eq .State "sent"}}{{$.T "mail.kindle.state_sent"}}{{else if eq .State "failed"}}{{$.T "mail.kindle.state_failed"}}{{else if eq .State "cancelled"}}{{$.T "mail.kindle.state_cancelled"}}{{else}}{{$.T "mail.kindle.state_unknown"}}{{end}}</span></p>
+        <p class="fine"><bdi dir="ltr">{{.When}}</bdi> · {{$.T "mail.kindle.log_by" "name" .By}} · {{if .Recipient}}{{$.T "mail.kindle.to_label"}} <bdi dir="ltr">{{.Recipient}}</bdi>{{else}}{{$.T "mail.kindle.log_to_domain"}} <bdi dir="ltr">{{.RecipientDomain}}</bdi>{{end}}</p>
+      </li>{{end}}
+    </ul>{{else}}<p class="fine">{{$.T "mail.kindle.log_empty"}}</p>{{end}}
+    {{if not .CanSeeAddress}}<p class="fine">{{$.T "mail.kindle.log_owner_only"}}</p>{{end}}
+    <form method="get" action="/p/{{.Slug}}/kindle#log"><button class="btn quiet small" type="submit" id="ml-refresh">{{$.T "mail.kindle.log_refresh"}}</button></form>
+  </section>
+</div>
+{{end}}
+{{end}}

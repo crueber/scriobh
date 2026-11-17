@@ -1,0 +1,48 @@
+{{define "new-project-form"}}
+{{$names := dict "cover-0" "Moss" "cover-1" "Walnut" "cover-2" "Harbour" "cover-3" "Plum" "cover-4" "Fern" "cover-5" "Heather" "cover-6" "Ochre" "cover-7" "Peat"}}
+<form id="new-project-form" class="form" method="post" action="/ui/projects" hx-post="/ui/projects" hx-target="#new-project-form" hx-swap="outerHTML">
+  <input type="hidden" name="_csrf" value="{{.CSRF}}">
+  <div class="dialog-head">
+    <h2 id="dialog-title">New project</h2>
+    <button type="button" class="icon-btn dialog-close" data-dialog-close aria-label="Close">{{template "icon" "close"}}</button>
+  </div>
+  {{with index .Errors "form"}}<p class="field-error" role="alert">{{.}}</p>{{end}}
+  <div class="field">
+    <label for="np-title">Title</label>
+    <input id="np-title" type="text" name="title" value="{{index .Values "title"}}" maxlength="200" required autofocus autocomplete="off"{{with index .Errors "title"}} aria-invalid="true" aria-describedby="np-title-err"{{end}}>
+    {{with index .Errors "title"}}<p class="field-error" id="np-title-err" role="alert">{{.}}</p>{{end}}
+  </div>
+  <div class="field-row">
+    <div class="field">
+      <label for="np-kind">Kind</label>
+      <select id="np-kind" name="kind">{{range kinds}}<option value="{{.Value}}"{{if eq .Value (index $.Values "kind")}} selected{{end}}>{{.Label}}</option>{{end}}</select>
+      {{with index .Errors "kind"}}<p class="field-error" role="alert">{{.}}</p>{{end}}
+    </div>
+    <div class="field">
+      <label for="np-language">Language</label>
+      <input id="np-language" type="text" name="language" value="{{index .Values "language"}}" maxlength="16" autocomplete="off" spellcheck="false"{{with index .Errors "language"}} aria-invalid="true" aria-describedby="np-language-err"{{end}}>
+      {{with index .Errors "language"}}<p class="field-error" id="np-language-err" role="alert">{{.}}</p>{{end}}
+    </div>
+  </div>
+  <div class="field">
+    <label for="np-author">Author</label>
+    <input id="np-author" type="text" name="author_name" value="{{index .Values "author_name"}}" maxlength="200" autocomplete="off"{{with index .Errors "subtitle"}} aria-invalid="true" aria-describedby="np-author-err"{{end}}>
+    {{with index .Errors "subtitle"}}<p class="field-error" id="np-author-err" role="alert">{{.}}</p>{{end}}
+  </div>
+  <div class="field">
+    <label for="np-goal">Word goal <span class="optional">optional</span></label>
+    <input id="np-goal" type="text" inputmode="numeric" name="word_goal" value="{{index .Values "word_goal"}}" autocomplete="off"{{with index .Errors "word_goal"}} aria-invalid="true" aria-describedby="np-goal-err"{{end}}>
+    {{with index .Errors "word_goal"}}<p class="field-error" id="np-goal-err" role="alert">{{.}}</p>{{end}}
+  </div>
+  <fieldset class="swatches"><legend>Cover</legend>
+    <div class="swatch-row">
+    {{range $i, $sw := palette}}<label class="swatch"><input type="radio" name="cover_color" value="{{$sw.Hex}}"{{if eq $sw.Hex (index $.Values "cover_color")}} checked{{else if and (eq $i 0) (not (index $.Values "cover_color"))}} checked{{end}}><span class="chip {{$sw.Class}}"></span><span class="sr-only">{{index $names $sw.Class}}</span></label>{{end}}
+    </div>
+    {{with index .Errors "cover_color"}}<p class="field-error" role="alert">{{.}}</p>{{end}}
+  </fieldset>
+  <div class="form-actions">
+    <a class="btn quiet" href="/" data-dialog-close>Cancel</a>
+    <button class="btn solid" type="submit">Create project</button>
+  </div>
+</form>
+{{end}}

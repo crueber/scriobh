@@ -1,0 +1,13 @@
+{{define "compile-kindle"}}{{$p := .P}}{{$k := .K}}
+    <section id="kindle" aria-labelledby="cmp-k-h">
+      <h2 id="cmp-k-h">{{$p.T "mail.kindle.compile_h"}}</h2>
+      <p class="fine">{{$p.T "mail.kindle.intro"}} {{$p.T "mail.kindle.fixed"}}</p>
+      {{if eq $k.State "off"}}<p class="fine">{{$p.T "mail.kindle.mail_off"}}</p>
+      {{else if eq $k.State "noaddr"}}<p class="fine">{{$p.T "mail.kindle.no_address"}}</p><p><a class="btn quiet small" href="/settings#kindle">{{$p.T "mail.kindle.go_settings"}}</a></p>
+      {{else if eq $k.State "ready"}}
+      <p class="fine">{{$p.T "mail.kindle.to_ready"}} <bdi dir="ltr">{{$k.Address}}</bdi></p>
+      <form method="post" action="/ui/projects/{{.ID}}/kindle/preview"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn" type="submit">{{$p.T "mail.kindle.preview"}}</button></form>
+      {{end}}
+      <p><a class="btn quiet small" href="/p/{{.Slug}}/kindle">{{$p.T "mail.kindle.open"}}</a></p>
+    </section>
+{{end}}

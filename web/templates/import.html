@@ -1,0 +1,191 @@
+{{define "head"}}
+<link rel="stylesheet" href="{{asset "css/import.css"}}">
+<script src="{{asset "js/import.js"}}" defer></script>
+<script src="{{asset "js/import-formats.js"}}" defer></script>
+<script src="{{asset "js/import-books.js"}}" defer></script>
+{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a>{{with .Data.Into}}<span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Slug}}">{{.Title}}</a>{{end}}<span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">Import</span></nav>
+{{end}}
+{{define "content"}}
+{{with .Data}}
+<section class="import" id="import" aria-labelledby="imp-title"{{with .Into}} data-into="{{.ID}}" data-slug="{{.Slug}}"{{end}}>
+  {{if not .Into}}<nav class="imp-tabs" aria-label="Where to import from"><a href="/import" aria-current="page">Files and exports</a><a href="/import/git">A Git repository</a></nav>{{end}}
+  <h1 id="imp-title" tabindex="-1">{{if .Into}}Add files to {{.Into.Title}}{{else}}Import a book or a blog{{end}}</h1>
+  <p class="lede">{{if .Into}}What you bring in becomes new documents after what is already in the project. Nothing that is there now is changed.{{else}}Markdown files, a Word document, an EPUB book, a PDF, a Scrivener project, or a WordPress or Ghost export. You see what would be created before anything is.{{end}}</p>
+  <noscript><p class="field-error">Import reads your files in the browser, so it needs JavaScript. Turn it on for this site and reload.</p></noscript>
+  <div class="imp-pick" id="imp-pick">
+    <fieldset class="rg-src" id="imp-fmt">
+      <legend>What are you importing?</legend>
+      <label class="check" for="imp-f-md"><input id="imp-f-md" type="radio" name="imp-fmt" value="md" checked><span>Markdown files, or an Obsidian vault</span></label>
+      <label class="check" for="imp-f-docx"><input id="imp-f-docx" type="radio" name="imp-fmt" value="docx"><span>A Word document (.docx), or a Google Doc downloaded as one</span></label>
+      <label class="check" for="imp-f-epub"><input id="imp-f-epub" type="radio" name="imp-fmt" value="epub"><span>{{$.T "imp.fmt_epub"}}</span></label>
+      <label class="check" for="imp-f-pdf"><input id="imp-f-pdf" type="radio" name="imp-fmt" value="pdf"><span>{{$.T "imp.fmt_pdf"}}</span></label>
+      <label class="check" for="imp-f-scrivener"><input id="imp-f-scrivener" type="radio" name="imp-fmt" value="scrivener"><span>A Scrivener project</span></label>
+      <label class="check" for="imp-f-wordpress"><input id="imp-f-wordpress" type="radio" name="imp-fmt" value="wordpress"><span>A WordPress export</span></label>
+      <label class="check" for="imp-f-ghost"><input id="imp-f-ghost" type="radio" name="imp-fmt" value="ghost"><span>A Ghost export</span></label>
+      {{if .Pandoc}}<label class="check" for="imp-f-pandoc"><input id="imp-f-pandoc" type="radio" name="imp-fmt" value="pandoc"><span>{{$.T "pandoc.import_choice"}}</span></label>{{end}}
+    </fieldset>
+    <div class="rg-block" data-fmt="md">
+      <div class="field">
+        <label for="imp-folder">Choose a folder</label>
+        <input id="imp-folder" type="file" webkitdirectory multiple>
+      </div>
+      <div class="field">
+        <label for="imp-zip">Or choose a zip file</label>
+        <input id="imp-zip" type="file" accept=".zip,application/zip">
+      </div>
+      <label class="check" for="imp-obs"><input id="imp-obs" type="checkbox"><span>The folder or zip is an Obsidian vault (links, callouts and comments are converted; pictures and attachments are not brought in)</span></label>
+      <p class="fine">Hidden files and folders, images and anything that is not Markdown are left out, and the files you chose are listed with the reason. The limits are {{num .Caps.Markdown}} Markdown files, {{.Caps.FileMiB}} MiB for one file and {{.Caps.TotalMiB}} MiB of Markdown in all. A zip that turns out to be a Scrivener project or a WordPress or Ghost export is read as one; the preview says what it found.</p>
+    </div>
+    <div class="rg-block" data-fmt="docx" hidden>
+      <div class="field">
+        <label for="imp-docx">Choose a Word document (.docx)</label>
+        <input id="imp-docx" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" aria-describedby="imp-docx-h">
+        <span class="hint" id="imp-docx-h">Each Heading 1 becomes a chapter. Footnotes, lists, quotes and tables are kept. Pictures are not brought in. Tracked changes and comments are, as you choose below; the preview says how many there were. From Google Docs: File, Download, Microsoft Word.</span>
+      </div>
+      <div class="field">
+        <label for="imp-dh">The document's top headings are</label>
+        <select id="imp-dh"><option value="chapters">Chapters</option><option value="parts">Parts (the next level down are the chapters)</option></select>
+      </div>
+      <fieldset class="rg-src imp-radios" aria-describedby="imp-dc-h">
+        <legend>{{$.T "imp.dc_h"}}</legend>
+        <label class="check" for="imp-dc-suggest"><input id="imp-dc-suggest" type="radio" name="imp-dc" value="suggest" checked><span><strong>{{$.T "imp.dc_suggest"}}</strong> {{$.T "imp.dc_suggest_d"}}</span></label>
+        <label class="check" for="imp-dc-accept"><input id="imp-dc-accept" type="radio" name="imp-dc" value="accept"><span><strong>{{$.T "imp.dc_accept"}}</strong> {{$.T "imp.dc_accept_d"}}</span></label>
+        <label class="check" for="imp-dc-reject"><input id="imp-dc-reject" type="radio" name="imp-dc" value="reject"><span><strong>{{$.T "imp.dc_reject"}}</strong> {{$.T "imp.dc_reject_d"}}</span></label>
+      </fieldset>
+      <p class="fine" id="imp-dc-h">{{$.T "imp.dc_note"}}</p>
+    </div>
+    <div class="rg-block" data-fmt="epub" hidden>
+      <p class="fine">{{if .Into}}{{$.T "imp.epub_into"}}{{else}}{{$.T "imp.epub_new"}}{{end}}</p>
+      <div class="field">
+        <label for="imp-epub">{{$.T "imp.epub_choose"}}</label>
+        <input id="imp-epub" type="file" accept=".epub,application/epub+zip" aria-describedby="imp-epub-h">
+        <span class="hint" id="imp-epub-h">{{$.T "imp.epub_hint" "mb" .Caps.BookMiB}}</span>
+      </div>
+      <fieldset class="rg-src imp-radios">
+        <legend>{{$.T "imp.es_h"}}</legend>
+        <label class="check" for="imp-es-auto"><input id="imp-es-auto" type="radio" name="imp-es" value="auto" checked><span><strong>{{$.T "imp.es_auto"}}</strong> {{$.T "imp.es_auto_d"}}</span></label>
+        <label class="check" for="imp-es-toc"><input id="imp-es-toc" type="radio" name="imp-es" value="toc"><span><strong>{{$.T "imp.es_toc"}}</strong> {{$.T "imp.es_toc_d"}}</span></label>
+        <label class="check" for="imp-es-files"><input id="imp-es-files" type="radio" name="imp-es" value="files"><span><strong>{{$.T "imp.es_files"}}</strong> {{$.T "imp.es_files_d"}}</span></label>
+        <label class="check" for="imp-es-headings"><input id="imp-es-headings" type="radio" name="imp-es" value="headings"><span><strong>{{$.T "imp.es_headings"}}</strong> {{$.T "imp.es_headings_d"}}</span></label>
+      </fieldset>
+      <fieldset class="rg-src imp-radios">
+        <legend>{{$.T "imp.ep_h"}}</legend>
+        <label class="check" for="imp-ep-skip"><input id="imp-ep-skip" type="radio" name="imp-ep" value="skip" checked><span><strong>{{$.T "imp.ep_skip"}}</strong> {{$.T "imp.ep_skip_d"}}</span></label>
+        <label class="check" for="imp-ep-keep"><input id="imp-ep-keep" type="radio" name="imp-ep" value="keep"><span><strong>{{$.T "imp.ep_keep"}}</strong> {{$.T "imp.ep_keep_d"}}</span></label>
+      </fieldset>
+      <p class="fine">{{$.T "imp.epub_again"}}</p>
+      <p class="fine">{{$.T "imp.epub_safe"}}</p>
+    </div>
+    <div class="rg-block" data-fmt="pdf" hidden>
+      <div class="field">
+        <label for="imp-pdffile">{{$.T "imp.pdf_choose"}}</label>
+        <input id="imp-pdffile" type="file" accept=".pdf,application/pdf" aria-describedby="imp-pdffile-h">
+        <span class="hint" id="imp-pdffile-h">{{$.T "imp.pdf_hint" "mb" .Caps.BookMiB}}</span>
+      </div>
+      <p class="fine">{{$.T "imp.pdf_isolated"}}</p>
+      <p class="fine">{{$.T "imp.pdf_refused"}}</p>
+      <p class="fine">{{$.T "imp.pdf_lost"}}</p>
+    </div>
+    <div class="rg-block" data-fmt="scrivener" hidden>
+      <p class="fine">A Scrivener project is a folder whose name ends in .scriv. The easiest way to bring it is as a zip: in Finder or Explorer, right-click the .scriv folder and compress it, then choose the .zip here. You can also choose the .scriv folder itself. Scrivener 2 and 3 projects are read.</p>
+      <div class="field">
+        <label for="imp-scriv">Choose the zipped project (.zip)</label>
+        <input id="imp-scriv" type="file" accept=".zip,application/zip">
+      </div>
+      <div class="field">
+        <label for="imp-scrivdir">Or choose the .scriv folder</label>
+        <input id="imp-scrivdir" type="file" webkitdirectory multiple>
+      </div>
+      <div class="field">
+        <label for="imp-sr">The Research folder</label>
+        <select id="imp-sr" data-opt="scrivener_research"><option value="notes">Becomes research notes</option><option value="skip">Is left out</option></select>
+      </div>
+      <div class="field">
+        <label for="imp-sn">Each document's notes</label>
+        <select id="imp-sn" data-opt="scrivener_notes"><option value="private">Come after its text as private notes</option><option value="skip">Are left out</option></select>
+      </div>
+      <div class="field">
+        <label for="imp-ss">Character and place sheets (the Characters and Places folders)</label>
+        <select id="imp-ss" data-opt="scrivener_sheets" aria-describedby="imp-ss-h"><option value="notes">Become research notes</option><option value="entities">Become entities in the Compendium</option></select>
+      </div>
+      <p class="fine" id="imp-ss-h">{{if .Into}}Entities go into this project's primary Compendium if you may edit it. A name it already has stays a research note.{{else}}As entities, they go into a Compendium made for the new project. A sheet whose name is taken stays a research note.{{end}}</p>
+      <div class="field">
+        <label for="imp-sp">Pictures (research images and pictures placed in the text)</label>
+        <select id="imp-sp" data-opt="pictures"><option value="import">Are brought in, cleaned</option><option value="skip">Are left out, and marked in the text</option></select>
+      </div>
+      <p class="fine">A picture is kept only if it is a PNG, JPEG, GIF or WebP, and is cleaned first: where and with what it was taken, and any thumbnail, are removed.</p>
+      <p class="fine">The Draft becomes parts, chapters and scenes, with their titles, synopses, status and Include in Compile. Annotations and comments written in the text become private notes. PDFs and web pages in Research, labels, keywords, snapshots, collections and the Trash are counted, not brought in; the preview lists them.</p>
+    </div>
+    <div class="rg-block" data-fmt="wordpress" hidden>
+      <p class="fine">In WordPress, open Tools, then Export, choose All content (or Posts) and download the export file. It is an .xml file. Choose it here, or a zip that holds it. To bring the pictures too, put the site's wp-content/uploads folder (from a backup, or your host's file manager) in the zip beside the export.</p>
+      <div class="field">
+        <label for="imp-wp">Choose the WordPress export (.xml or .zip)</label>
+        <input id="imp-wp" type="file" accept=".xml,.zip,text/xml,application/xml,application/zip">
+      </div>
+      <div class="field">
+        <label for="imp-wps">Which posts</label>
+        <select id="imp-wps" data-opt="wp_status"><option value="published">Published ones only</option><option value="all">Drafts, scheduled and private ones too (marked do not compile)</option></select>
+      </div>
+      <div class="field">
+        <label for="imp-wpt">Posts or pages</label>
+        <select id="imp-wpt" data-opt="wp_types"><option value="posts">Posts</option><option value="pages">Pages</option><option value="both">Both (pages go in a part of their own)</option></select>
+      </div>
+      <p class="fine">Posts become chapters of a blog project, oldest first, with the date and the excerpt. Comments are never read. Nothing is fetched from your site: a picture that is not in the zip is marked in the text with its description, and the preview lists the addresses.</p>
+      <div class="field">
+        <label for="imp-wpp">Pictures in the zip</label>
+        <select id="imp-wpp" data-opt="pictures"><option value="import">Are brought in, cleaned</option><option value="skip">Are left out, and marked in the text</option></select>
+      </div>
+      <p class="fine">A picture is kept only if it is a PNG, JPEG, GIF or WebP, and is cleaned first: where and with what it was taken, and any thumbnail, are removed.</p>
+    </div>
+    <div class="rg-block" data-fmt="ghost" hidden>
+      <p class="fine">In Ghost Admin, open Settings, then Import/Export (under Advanced; Labs in older versions), and export your content. It downloads a .json file. Choose it here, or a zip that holds it. To bring the pictures too, put the site's content/images folder in the zip beside the export.</p>
+      <div class="field">
+        <label for="imp-gh">Choose the Ghost export (.json or .zip)</label>
+        <input id="imp-gh" type="file" accept=".json,.zip,application/json,application/zip">
+      </div>
+      <div class="field">
+        <label for="imp-ghs">Which posts</label>
+        <select id="imp-ghs" data-opt="ghost_status"><option value="published">Published ones only</option><option value="all">Drafts, scheduled and sent ones too (marked do not compile)</option></select>
+      </div>
+      <div class="field">
+        <label for="imp-ght">Posts or pages</label>
+        <select id="imp-ght" data-opt="ghost_types"><option value="posts">Posts</option><option value="pages">Pages</option><option value="both">Both</option></select>
+      </div>
+      <p class="fine">Posts become chapters of a blog project, oldest first, with the date and the excerpt. Members, newsletters and settings other than the site's title are not read. Nothing is fetched from your site: a picture that is not in the zip is marked in the text.</p>
+      <div class="field">
+        <label for="imp-ghp">Pictures in the zip</label>
+        <select id="imp-ghp" data-opt="pictures"><option value="import">Are brought in, cleaned</option><option value="skip">Are left out, and marked in the text</option></select>
+      </div>
+      <p class="fine">A picture is kept only if it is a PNG, JPEG, GIF or WebP, and is cleaned first: where and with what it was taken, and any thumbnail, are removed.</p>
+    </div>
+    {{if .Pandoc}}<div class="rg-block" data-fmt="pandoc" hidden>
+      <div class="field">
+        <label for="imp-pd">{{$.T "pandoc.import_file"}}</label>
+        <input id="imp-pd" type="file" accept=".odt,.rtf,.tex,.latex,.wiki,.mediawiki,.org,.textile,.rst,.fb2,.typ,.dbk,.docbook,.xml">
+      </div>
+      <div class="field">
+        <label for="imp-pdf">{{$.T "pandoc.import_format"}}</label>
+        <select id="imp-pdf" data-opt="pandoc_format" aria-describedby="imp-pdf-h"><option value="odt">{{$.T "pandoc.fmt_odt"}}</option><option value="rtf">{{$.T "pandoc.fmt_rtf"}}</option><option value="latex">{{$.T "pandoc.fmt_latex"}}</option><option value="mediawiki">{{$.T "pandoc.fmt_mediawiki"}}</option><option value="org">{{$.T "pandoc.fmt_org"}}</option><option value="textile">{{$.T "pandoc.fmt_textile"}}</option><option value="rst">{{$.T "pandoc.fmt_rst"}}</option><option value="fb2">{{$.T "pandoc.fmt_fb2"}}</option><option value="typst">{{$.T "pandoc.fmt_typst"}}</option><option value="docbook">{{$.T "pandoc.fmt_docbook"}}</option></select>
+      </div>
+      <p class="fine" id="imp-pdf-h">{{$.T "pandoc.import_hint"}}</p>
+      <div class="field">
+        <label for="imp-pdh">{{$.T "pandoc.import_headings"}}</label>
+        <select id="imp-pdh" data-opt="docx_headings"><option value="chapters">{{$.T "pandoc.import_chapters"}}</option><option value="parts">{{$.T "pandoc.import_parts"}}</option></select>
+      </div>
+      <div class="field">
+        <label for="imp-pdp">{{$.T "pandoc.import_pictures"}}</label>
+        <select id="imp-pdp" data-opt="pictures"><option value="skip">{{$.T "pandoc.import_pictures_skip"}}</option><option value="import">{{$.T "pandoc.import_pictures_import"}}</option></select>
+      </div>
+    </div>{{end}}
+    <label class="check" for="imp-split"><input id="imp-split" type="checkbox"><span>Turn each second-level heading (##) into a scene</span></label>
+  </div>
+  <p class="imp-status" id="imp-status" role="status" aria-live="polite"></p>
+  <p class="imp-retry"><button class="btn" type="button" id="imp-retry" hidden>{{$.T "imp.retry"}}</button></p>
+  <div id="imp-live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+  <div id="imp-msg" hidden data-msg="{{json ($.Msgs "imp.js.")}}"></div>
+  <div id="imp-result" hidden></div>
+</section>
+{{end}}
+{{end}}

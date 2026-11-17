@@ -1,0 +1,105 @@
+{{define "head"}}
+<link rel="stylesheet" href="{{asset "css/timeline.css"}}">
+<script src="{{asset "js/timeline.js"}}" defer></script>
+{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/c/{{.Data.C.Slug}}">{{.Data.C.Name}}</a><span class="crumb-sep" aria-hidden="true">/</span><a href="/c/{{.Data.C.Slug}}/timeline">Timeline</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{if .Data.New}}New event{{else}}Event{{end}}</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ctab-phone" ctabs .Data.Slug "timeline"}}{{end}}
+{{define "projmore"}}{{template "cmore" ctabs .Data.Slug "timeline"}}{{end}}
+{{define "ptabs"}}{{template "ctab-desktop" ctabs .Data.Slug "timeline"}}{{end}}
+
+{{define "content"}}
+{{with .Data}}
+<section class="tl tl-eventpage settings" id="tl" data-compendium="{{.C.ID}}" data-kind="event" data-slug="{{.Slug}}">
+  <h1 id="tl-h" tabindex="-1">{{if .New}}New event{{else}}{{.E.Title}}{{end}}</h1>
+  <p class="sub">{{.C.Name}}. <a href="/c/{{.Slug}}/timeline">Back to the timeline</a>.</p>
+  {{if .Saved}}<p class="saved" role="status">{{.Saved}}</p>{{end}}
+  {{if .Why}}<p class="tl-note">{{.Why}}</p>{{end}}
+  {{if .CanRestore}}<form class="tl-undo" method="post" action="/ui/timeline/events/{{.E.ID}}/restore"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn solid" type="submit">Restore this event</button></form>{{end}}
+
+  {{if .CanEdit}}
+  <form class="form tl-form" id="tl-form" method="post" action="{{if .New}}/ui/compendiums/{{.C.ID}}/timeline/events{{else}}/ui/timeline/events/{{.E.ID}}{{end}}">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    {{if not .New}}<input type="hidden" name="base_revision" value="{{.V.Revision}}">{{end}}
+    {{if .Error}}<p class="field-error" role="alert" id="tl-err">{{.Error}}</p>{{end}}
+    <div class="field"><label for="ev-title">Title</label>
+      <input id="ev-title" name="title" type="text" maxlength="200" required value="{{.V.Title}}" autocomplete="off"{{if eq .Field "title"}} aria-invalid="true" aria-describedby="tl-err"{{end}}></div>
+    <div class="field-row tl-dates">
+      <div class="field"><label for="ev-start">Starts</label>
+        <input id="ev-start" name="story_date" type="text" autocomplete="off" spellcheck="false" placeholder="1998-04-12" value="{{.V.Date}}" data-date data-pair="ev-end" aria-describedby="ev-start-h"{{if eq .Field "story_date"}} aria-invalid="true"{{end}}>
+        <p class="hint tl-hint" id="ev-start-h" role="status" data-hint>Leave empty if the date is not known. Use 1998, 1998-04, 1998-04-12 or 1998-04-12T19:30. A year can be negative, such as -0044.</p></div>
+      <div class="field"><label for="ev-end">Ends</label>
+        <input id="ev-end" name="story_date_end" type="text" autocomplete="off" spellcheck="false" placeholder="1998-04-14" value="{{.V.End}}" data-date data-pair="ev-start" aria-describedby="ev-end-h"{{if eq .Field "story_date_end"}} aria-invalid="true"{{end}}>
+        <p class="hint tl-hint" id="ev-end-h" role="status" data-hint>Only for an event that lasts. Not before the start.</p></div>
+    </div>
+    <div class="field"><label for="ev-label">Story label</label>
+      <input id="ev-label" name="story_label" type="text" maxlength="120" autocomplete="off" placeholder="Midsummer, Year 312" value="{{.V.Label}}">
+      <p class="hint">How the world's own calendar says it. Shown beside the date and never used to put events in order.</p></div>
+    <div class="field"><label for="ev-place">Place</label>
+      <input id="ev-place" name="location" type="text" autocomplete="off" value="{{.V.Place}}" data-picker data-kind="place" data-compendium="{{.C.ID}}" aria-describedby="ev-place-h{{if eq .Field "location"}} tl-err{{end}}"{{if eq .Field "location"}} aria-invalid="true"{{end}}>
+      <p class="hint" id="ev-place-h">An entity of this Compendium, by name or alias. Leave empty for no place.</p></div>
+    <fieldset class="tl-people" id="tl-people">
+      <legend>Who took part</legend>
+      <p class="hint">Type a name to choose from this Compendium, and say what each did there if you like. Clear a name to take that person off.</p>
+      <ul class="tl-prows" id="tl-prows">
+        {{range $i, $p := .Rows}}<li class="tl-prow">
+          <div class="field"><label for="ev-pn-{{$i}}">Person or thing</label><input id="ev-pn-{{$i}}" name="person_name" type="text" autocomplete="off" value="{{$p.Name}}" data-picker data-compendium="{{$.Data.C.ID}}"></div>
+          <div class="field"><label for="ev-pr-{{$i}}">Role</label><input id="ev-pr-{{$i}}" name="person_role" type="text" maxlength="60" autocomplete="off" placeholder="host, witness" value="{{$p.Role}}"></div>
+        </li>{{end}}
+      </ul>
+      <button class="btn small" type="button" id="tl-addp" hidden>Add another</button>
+    </fieldset>
+    <div class="field"><label for="ev-desc">Description</label>
+      <textarea id="ev-desc" name="description" rows="6" maxlength="20000"{{if eq .Field "description"}} aria-invalid="true"{{end}}>{{.V.Description}}</textarea>
+      <p class="hint">Plain text or Markdown.</p></div>
+    <div class="form-actions"><a class="btn quiet" href="/c/{{.Slug}}/timeline">Cancel</a><button class="btn solid" type="submit">{{if .New}}Add event{{else}}Save changes{{end}}</button></div>
+  </form>
+  {{else if not .New}}
+  <dl class="tl-facts">
+    <div><dt>When</dt><dd>{{if .E.Dated}}{{.E.StoryDate}}{{if .E.StoryDateEnd}} to {{.E.StoryDateEnd}}{{end}}{{else}}Undated{{end}}{{if .E.StoryLabel}} <span class="tl-lab">{{.E.StoryLabel}}</span>{{end}}</dd></div>
+    <div><dt>Where</dt><dd>{{with .E.Location}}{{.Name}}{{else}}No place{{end}}</dd></div>
+    <div><dt>Who</dt><dd>{{if .E.Participants}}<ul class="tl-inl">{{range .E.Participants}}<li>{{.Entity.Name}}{{if .Role}} <span class="fine">({{.Role}})</span>{{end}}</li>{{end}}</ul>{{else}}No one{{end}}</dd></div>
+  </dl>
+  {{if .E.Description}}<p class="tl-desc">{{.E.Description}}</p>{{end}}
+  {{end}}
+
+  {{if not .New}}
+  <section id="tl-scenes" class="tl-panel" aria-labelledby="tl-scenes-h">
+    <h2 id="tl-scenes-h">Scenes that tell this event</h2>
+    {{if .LinkErr}}<p class="field-error" role="alert">{{.LinkErr}}</p>{{end}}
+    {{if .Scenes}}<ul class="tl-scenes">{{range .Scenes}}<li>
+      <span>{{if .Href}}<a href="{{.Href}}">{{.Title}}</a>{{else}}{{.Title}}{{end}} <span class="fine">{{.Kind}} in {{.Project}}</span></span>
+      {{if and $.Data.CanEdit .Editable}}<form method="post" action="/ui/timeline/events/{{$.Data.E.ID}}/scenes/unlink"><input type="hidden" name="_csrf" value="{{$.Data.CSRF}}"><input type="hidden" name="doc" value="{{.ID}}"><input type="hidden" name="book" value="{{$.Data.Book}}"><button class="btn small quiet" type="submit" aria-label="Unlink {{.Title}} from this event">Unlink</button></form>{{end}}
+    </li>{{end}}</ul>
+    {{else}}<p class="fine">No scene tells this event yet. Scenes you can see are listed here as links to the chapter.</p>{{end}}
+    {{if .CanEdit}}
+      {{if .Linkable}}
+      <form class="tl-pick" method="get" action="/c/{{.Slug}}/timeline/events/{{.E.ID}}#tl-scenes" aria-label="Choose a book">
+        <div class="field"><label for="ev-book">Book</label>
+          <select id="ev-book" name="book">{{range .Books}}<option value="{{.ID}}"{{if eq .ID $.Data.Book}} selected{{end}}>{{.Title}}</option>{{end}}</select></div>
+        <button class="btn" type="submit">Show its scenes</button>
+      </form>
+      {{if .Book}}
+        {{if .Options}}<form class="tl-pick" method="post" action="/ui/timeline/events/{{.E.ID}}/scenes">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="book" value="{{.Book}}">
+          <div class="field"><label for="ev-scene">Scene</label>
+            <select id="ev-scene" name="doc">{{range .Options}}<option value="{{.ID}}">{{.Title}}{{if .Where}}, in {{.Where}}{{end}}</option>{{end}}</select></div>
+          <button class="btn solid" type="submit">Link this scene</button>
+        </form>{{else}}<p class="fine">Every scene in that book already tells this event, or the book has none.</p>{{end}}
+      {{end}}
+      {{else}}<p class="fine">No book that uses this Compendium is open to you for editing, so there is no scene to link from here.</p>{{end}}
+    {{end}}
+  </section>
+  {{if .CanEdit}}
+  <section class="tl-panel" aria-labelledby="tl-trash-h">
+    <h2 id="tl-trash-h">Remove this event</h2>
+    <p class="fine">It moves to the trash with its people, place and scenes, and can be brought back from the timeline.</p>
+    <form method="post" action="/ui/timeline/events/{{.E.ID}}/trash"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn danger" type="submit">Move to the trash</button></form>
+  </section>
+  {{end}}
+  {{end}}
+  <div id="tl-live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+</section>
+{{end}}
+{{end}}

@@ -1,0 +1,44 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/attach.css"}}"><script src="{{asset "js/attach.js"}}" defer></script>{{end}}
+{{define "crumb"}}{{if .Data.Owner.Compend}}{{template "ccrumb" (dict "C" .Data.Compend "Here" "Attachments")}}{{else}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Owner.Name}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">Attachments</span></nav>
+{{end}}{{end}}
+{{define "tab-write"}}{{if .Data.Owner.Compend}}{{template "ctab-phone" ctabs .Data.Slug "files"}}{{else}}{{template "ptab-phone" ptabs .Data.Slug "" "files" .Data.Project.Role}}{{end}}{{end}}
+{{define "projmore"}}{{if .Data.Owner.Compend}}{{template "cmore" ctabs .Data.Slug "files"}}{{else}}{{template "project-more" ptabs .Data.Slug "" "files" .Data.Project.Role}}{{end}}{{end}}
+{{define "ptabs"}}{{if .Data.Owner.Compend}}{{template "ctab-desktop" ctabs .Data.Slug "files"}}{{else}}{{template "ptab-desktop" ptabs .Data.Slug "" "files" .Data.Project.Role}}{{end}}{{end}}
+{{define "content"}}
+{{with .Data}}
+<div class="settings attach" id="attach" data-attach="{{.Owner.API}}" data-list="{{.Owner.ListPath}}" data-max="{{.Usage.MaxFileBytes}}" data-can-edit="{{.Owner.CanEdit}}" data-base="{{.Owner.Base}}">
+  {{template "live-marker" (dict "Scope" .Owner.Kind "ID" .Owner.ID)}}
+  <h1>Attachments</h1>
+  <p class="sub">The pictures, PDFs and text files of {{.Owner.Name}}. A picture is used in a chapter by its Markdown, <code>&excl;[description](/files/&hellip;)</code>; the pages of this {{.Owner.Word}} are the only ones that can show it.</p>
+  {{if .Saved}}<p class="saved" role="status">{{.Saved}}</p>{{end}}
+  <p class="sr-only" id="att-live" role="status" aria-live="polite"></p>
+
+  <section class="usage" aria-labelledby="h-usage">
+    <h2 id="h-usage" class="sr-only">Space</h2>
+    <p class="usage-line"><strong>{{.Usage.Used}}</strong> in {{.Usage.Files}} {{plural .Usage.Files "file" "files"}}{{if .Usage.HasLimit}} of the {{.Usage.Limit}} this {{.Owner.Word}} may hold{{else}}; this {{.Owner.Word}} has no size limit{{end}}.</p>
+    {{if .Usage.HasLimit}}<progress class="att-meter" value="{{.Usage.Pct}}" max="100" aria-label="Space used by this {{.Owner.Word}}">{{.Usage.Pct}}%</progress>
+    {{if .Usage.Full}}<p class="field-error" role="alert">This {{.Owner.Kind}} is full. Delete a file before adding another.</p>{{else if .Usage.Near}}<p class="fine">This {{.Owner.Kind}} is nearly full.</p>{{end}}{{end}}
+    <p class="fine">You have added {{.Usage.You}}{{if .Usage.YouHasLimit}} of the {{.Usage.YouLimit}} you may add in all{{end}}. One file can be up to {{.Usage.MaxFile}}.</p>
+  </section>
+
+  {{if .Owner.CanEdit}}
+  <section class="att-add" aria-labelledby="h-add">
+    <h2 id="h-add">Add files</h2>
+    <div class="att-drop" id="att-drop">
+      <p>Drop files here, or <button type="button" class="btn small" id="att-pick" hidden>Choose files</button><span class="att-noscript">adding files from this page needs script, which is off here</span></p>
+      <p class="fine">Images (PNG, JPEG, GIF, WebP), PDFs, plain text and Markdown, up to {{.Usage.MaxFile}} each. SVG pictures are not accepted, because they can carry scripts; save the picture as a PNG or a PDF instead.</p>
+    </div>
+    <ul class="att-queue" id="att-queue" aria-label="Uploads"></ul>
+  </section>
+  {{end}}
+
+  <section aria-labelledby="h-files">
+    <h2 id="h-files">Files</h2>
+    <p class="filters" aria-label="Show"><a href="{{.Owner.Base}}/files"{{if not .Kind}} aria-current="true"{{end}}>All</a> <a href="{{.Owner.Base}}/files?kind=image"{{if eq .Kind "image"}} aria-current="true"{{end}}>Images</a> <a href="{{.Owner.Base}}/files?kind=pdf"{{if eq .Kind "pdf"}} aria-current="true"{{end}}>PDFs</a> <a href="{{.Owner.Base}}/files?kind=text"{{if eq .Kind "text"}} aria-current="true"{{end}}>Text</a></p>
+    {{template "attach-list" .}}
+    <p class="fine">Where a file is used is known for chapters and research notes. Links inside entity entries and in files that arrived by import are not tracked, so a picture used only there can be deleted without a warning.</p>
+  </section>
+</div>
+{{end}}
+{{end}}

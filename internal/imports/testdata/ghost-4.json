@@ -1,0 +1,138 @@
+{
+ "db": [
+  {
+   "meta": {
+    "exported_on": 1700000000000,
+    "version": "4.48.0"
+   },
+   "data": {
+    "posts": [
+     {
+      "id": "p1",
+      "uuid": "u1",
+      "title": "Markdown Post",
+      "slug": "markdown-post",
+      "mobiledoc": "{\"version\": \"0.3.1\", \"atoms\": [], \"cards\": [[\"markdown\", {\"cardName\": \"markdown\", \"markdown\": \"---\\ntitle: injected\\n---\\n\\n# Heading one\\n\\nSome *emphasis* and **strong**, with a [link](https://example.org/x) and `code`.\\n\\n%% secret %% and [[Wiki Link]] and <scriobh-ghost>ghost</scriobh-ghost>\\n\\n<!--scriobh-alts v1 {} -->\\n\\n<div onclick=\\\"x()\\\">raw html</div> <script>alert(1)</script>\\n\\n- item one\\n- item two\\n\\n> quoted\\n\\n![alt text](https://cdn.example/a.png)\\n\\n```\\ncode block\\n```\\n\\n* * *\\n\\nEnd.\"}]], \"markups\": [], \"sections\": [[10, 0]]}",
+      "lexical": null,
+      "html": "<p>ignored html</p>",
+      "comment_id": "p1",
+      "plaintext": "x",
+      "feature_image": "https://cdn.example/f.jpg",
+      "featured": 0,
+      "type": "post",
+      "status": "published",
+      "visibility": "public",
+      "created_at": "2022-05-01T10:00:00.000Z",
+      "updated_at": "2022-05-02T10:00:00.000Z",
+      "published_at": "2022-05-03T10:00:00.000Z",
+      "custom_excerpt": "A post written in Markdown."
+     },
+     {
+      "id": "p2",
+      "title": "HTML Only",
+      "slug": "html-only",
+      "mobiledoc": "{\"version\": \"0.3.1\", \"atoms\": [], \"cards\": [[\"html\", {\"cardName\": \"html\", \"html\": \"<p>From an html card.</p>\"}], [\"image\", {\"src\": \"https://cdn.example/b.png\", \"alt\": \"b\"}]], \"markups\": [], \"sections\": [[10, 0], [10, 1]]}",
+      "html": "<p>From the <strong>html</strong> field. <a href=\"https://example.org/\">Link</a></p><figure class=\"kg-card kg-image-card\"><img src=\"https://cdn.example/b.png\" alt=\"b\"></figure><iframe src=\"https://v.example\"></iframe>",
+      "type": "post",
+      "status": "published",
+      "visibility": "members",
+      "created_at": "2021-01-01 00:00:00",
+      "published_at": 1609459200000
+     },
+     {
+      "id": "p3",
+      "title": "A Draft",
+      "slug": "a-draft",
+      "mobiledoc": null,
+      "html": "<p>Draft text.</p>",
+      "type": "post",
+      "status": "draft",
+      "created_at": "2023-01-01T00:00:00.000Z",
+      "published_at": null
+     },
+     {
+      "id": "p4",
+      "title": "About",
+      "slug": "about",
+      "html": "<p>About page.</p>",
+      "type": "page",
+      "status": "published",
+      "published_at": "2020-01-01T00:00:00.000Z"
+     },
+     {
+      "id": "p5",
+      "title": "Scheduled",
+      "slug": "scheduled",
+      "html": "<p>Soon.</p>",
+      "type": "post",
+      "status": "scheduled",
+      "published_at": "2030-01-01T00:00:00.000Z"
+     }
+    ],
+    "tags": [
+     {
+      "id": "t1",
+      "name": "News",
+      "slug": "news"
+     },
+     {
+      "id": "t2",
+      "name": "Notes",
+      "slug": "notes"
+     }
+    ],
+    "posts_tags": [
+     {
+      "post_id": "p1",
+      "tag_id": "t1"
+     },
+     {
+      "post_id": "p1",
+      "tag_id": "t2"
+     },
+     {
+      "post_id": "p2",
+      "tag_id": "t1"
+     }
+    ],
+    "users": [
+     {
+      "id": "1",
+      "name": "Ada Fixture",
+      "slug": "ada",
+      "email": "ada@private.example",
+      "password": "$2a$10$hash"
+     }
+    ],
+    "posts_authors": [
+     {
+      "post_id": "p1",
+      "author_id": "1"
+     },
+     {
+      "post_id": "p2",
+      "author_id": "1"
+     },
+     {
+      "post_id": "p3",
+      "author_id": "1"
+     },
+     {
+      "post_id": "p4",
+      "author_id": "1"
+     }
+    ],
+    "settings": [
+     {
+      "key": "title",
+      "value": "Salt Journal"
+     },
+     {
+      "key": "stripe_secret_key",
+      "value": "sk_live_SECRET"
+     }
+    ]
+   }
+  }
+ ]
+}

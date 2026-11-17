@@ -1,0 +1,8 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/share.css"}}">{{end}}
+{{/* The one answer for a link that opens nothing, whatever the reason: it never says which. */}}
+{{define "content"}}
+<div class="sh">
+  <h1>{{$.T "sh.gone_h"}}</h1>
+  <p>{{$.T "sh.gone"}}</p>
+</div>
+{{end}}

@@ -1,0 +1,92 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/admin.css"}}">{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "adm.title"}}</span></nav>
+{{end}}
+{{define "tab-write"}}{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}
+<div class="settings adm" id="adm">
+  <h1>{{$.T "adm.title"}}</h1>
+  {{template "admin-tabs" (dict "T" $ "Tab" .Tab)}}
+  {{if .Flash}}<p class="saved" role="status">{{.Flash}}</p>{{end}}
+  {{if .Error}}<p class="field-error" role="alert" id="adm-err">{{.Error}}</p>{{end}}
+
+  {{if .Confirm}}
+  <section aria-labelledby="adm-c-h" class="adm-confirm">
+    <h2 id="adm-c-h">{{$.T "adm.off_h" "name" .Confirm.Name}}</h2>
+    <p>{{$.T "adm.off_what"}}</p>
+    <form method="post" action="/ui/admin/users/disable" class="form">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="id" value="{{.Confirm.ID}}">
+      <div class="field"><label for="adm-name">{{$.T "adm.off_type" "name" .Confirm.Name}}</label><input id="adm-name" name="confirm_name" type="text" autocomplete="off" spellcheck="false" autofocus{{if $d.Error}} aria-invalid="true" aria-describedby="adm-err"{{end}}></div>
+      <div class="form-actions"><a class="btn quiet" href="/admin/users">{{$.T "adm.cancel"}}</a><button class="btn danger" type="submit">{{$.T "adm.off_go"}}</button></div>
+    </form>
+  </section>
+  {{else if eq .Tab "users"}}
+  <section aria-labelledby="adm-u-h">
+    <h2 id="adm-u-h">{{$.T "adm.t_users"}}</h2>
+    <p class="sub">{{$.T "adm.u_sum" "total" .Total "active" .Active "off" .Disabled "admins" ($.N "adm.n_admins" .Admins)}} {{$.T "adm.u_privacy"}}</p>
+    {{if .FromIdP}}<p class="fine">{{$.T "adm.u_idp"}}</p>{{end}}
+    <form class="adm-filter" method="get" action="/admin/users">
+      <label for="adm-q">{{$.T "adm.search"}}</label><input id="adm-q" name="q" type="search" value="{{.Q}}" autocomplete="off">
+      <label for="adm-s">{{$.T "adm.show"}}</label>
+      <select id="adm-s" name="status"><option value="">{{$.T "adm.s_all"}}</option><option value="active"{{if eq .Status "active"}} selected{{end}}>{{$.T "adm.s_active"}}</option><option value="disabled"{{if eq .Status "disabled"}} selected{{end}}>{{$.T "adm.s_off"}}</option></select>
+      <button class="btn small" type="submit">{{$.T "adm.filter"}}</button>
+    </form>
+    <ul class="adm-list">{{range .Rows}}
+      <li class="adm-user{{if .Disabled}} is-off{{end}}" id="u-{{.ID}}">
+        <div class="adm-who"><strong>{{.Name}}</strong>{{if .Self}} <span class="adm-tag">{{$.T "adm.you"}}</span>{{end}}{{if .Disabled}} <span class="adm-tag is-off">{{$.T "adm.off"}}</span>{{end}}<span class="fine">{{.Email}}</span></div>
+        <dl class="adm-facts">
+          <div><dt>{{$.T "adm.role"}}</dt><dd>{{if eq .Role "admin"}}{{$.T "adm.r_admin"}}{{else if eq .Role "writer"}}{{$.T "adm.r_writer"}}{{else}}{{$.T "adm.r_reader"}}{{end}}</dd></div>
+          <div><dt>{{$.T "adm.seen"}}</dt><dd>{{if .Seen}}{{.Seen}}{{else}}{{$.T "adm.never"}}{{end}}</dd></div>
+          <div><dt>{{$.T "adm.projects"}}</dt><dd>{{.Projects}} / {{.MemberOf}}</dd></div>
+          <div><dt>{{$.T "adm.storage"}}</dt><dd>{{.Storage}}</dd></div>
+          <div><dt>{{$.T "adm.sessions"}}</dt><dd>{{.Sessions}}</dd></div>
+        </dl>
+        {{if not .Self}}<div class="adm-actions">
+          {{if .Disabled}}<form method="post" action="/ui/admin/users/enable"><input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><button class="btn small" type="submit">{{$.T "adm.on"}}</button></form>
+          {{else}}<a class="btn quiet small danger-text" href="/admin/users/{{.ID}}/disable">{{$.T "adm.off_link"}}</a>{{end}}
+          {{if not $d.FromIdP}}<form method="post" action="/ui/admin/users/role" class="adm-role"><input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="id" value="{{.ID}}">
+            <label class="sr-only" for="role-{{.ID}}">{{$.T "adm.role_of" "name" .Name}}</label>
+            <select id="role-{{.ID}}" name="role"><option value="admin"{{if eq .Role "admin"}} selected{{end}}>{{$.T "adm.r_admin"}}</option><option value="writer"{{if eq .Role "writer"}} selected{{end}}>{{$.T "adm.r_writer"}}</option><option value="reader"{{if eq .Role "reader"}} selected{{end}}>{{$.T "adm.r_reader"}}</option></select>
+            <button class="btn quiet small" type="submit">{{$.T "adm.change"}}</button></form>{{end}}
+        </div>{{end}}
+      </li>{{else}}<li class="fine">{{$.T "adm.none"}}</li>{{end}}
+    </ul>
+    {{if gt .Pages 1}}<nav class="adm-pager" aria-label="{{$.T "adm.pages"}}">{{if .PrevURL}}<a class="btn quiet small" rel="prev" href="{{.PrevURL}}">{{$.T "adm.prev"}}</a>{{end}}<span class="fine">{{$.T "adm.page_of" "n" .Page "m" .Pages}}</span>{{if .NextURL}}<a class="btn quiet small" rel="next" href="{{.NextURL}}">{{$.T "adm.next"}}</a>{{end}}</nav>{{end}}
+  </section>
+  {{else if eq .Tab "quotas"}}
+  <section aria-labelledby="adm-q-h">
+    <h2 id="adm-q-h">{{$.T "adm.q_h"}}</h2>
+    <p class="sub">{{.Note}}</p>
+    <ul class="adm-bars">{{range .Lines}}<li><span class="adm-bar-name">{{.Name}}</span>
+      <span class="adm-bar-fig">{{if .Used}}{{.Used}} {{$.T "adm.of"}} {{end}}{{.Limit}}</span>
+      {{if .Percent}}<progress class="adm-meter{{if .Over}} is-over{{end}}" max="100" value="{{.Percent}}" aria-label="{{.Name}}">{{.Percent}}%</progress>{{end}}</li>{{end}}</ul>
+    <h2 id="adm-qu-h">{{$.T "adm.q_people"}}</h2>
+    <ul class="adm-list" aria-labelledby="adm-qu-h">{{range .QuotaUsers}}
+      <li class="adm-user{{if .Disabled}} is-off{{end}}"><div class="adm-who"><strong>{{.Name}}</strong>{{if .Disabled}} <span class="adm-tag is-off">{{$.T "adm.off"}}</span>{{end}}</div>
+        <dl class="adm-facts"><div><dt>{{$.T "adm.storage"}}</dt><dd>{{.Storage}} {{$.T "adm.of"}} {{.Limit}}</dd></div><div><dt>{{$.T "adm.keys"}}</dt><dd>{{.Keys}}{{if .KeyLimit}} {{$.T "adm.of"}} {{.KeyLimit}}{{end}}</dd></div><div><dt>{{$.T "adm.owned"}}</dt><dd>{{.Projects}}</dd></div></dl>
+        {{if .Percent}}<progress class="adm-meter{{if ge .Percent 100}} is-over{{end}}" max="100" value="{{.Percent}}" aria-label="{{$.T "adm.storage"}}: {{.Name}}">{{.Percent}}%</progress>{{end}}</li>{{end}}
+    </ul>
+  </section>
+  {{else if eq .Tab "diagnostics"}}
+  <section aria-labelledby="adm-d-h">
+    <h2 id="adm-d-h">{{$.T "adm.d_h"}}</h2>
+    <p>{{$.T "adm.d_what"}}</p>
+    <p class="fine">{{$.T "adm.d_not"}}</p>
+    <p><a class="btn solid" href="/admin/diagnostics/download" download>{{$.T "adm.d_get"}}</a></p>
+    {{with .Diag}}
+    <h3>{{$.T "adm.d_now"}}</h3>
+    <dl class="adm-facts adm-diag">
+      <div><dt>{{$.T "adm.d_version"}}</dt><dd>{{.Version}} · {{.Go}} · {{.OS}}/{{.Arch}}</dd></div>
+      <div><dt>{{$.T "adm.d_migr"}}</dt><dd>{{.Applied}} / {{.Known}}{{if .Pending}} ({{$.T "adm.d_pending" "n" .Pending}}){{end}}</dd></div>
+      <div><dt>{{$.T "adm.d_tables"}}</dt><dd>{{.Tables}}</dd></div>
+      <div><dt>{{$.T "adm.d_disk"}}</dt><dd>{{.DiskTotal}}</dd></div>
+      <div><dt>{{$.T "adm.d_log"}}</dt><dd>{{.LogLines}}</dd></div>
+    </dl>
+    {{if .Queues}}<h3>{{$.T "adm.d_queues"}}</h3><ul class="adm-queues">{{range .Queues}}<li><strong>{{.Name}}</strong>: {{range $k, $v := .States}}{{$k}} {{$v}} {{end}}</li>{{end}}</ul>{{end}}
+    {{end}}
+  </section>
+  {{end}}
+</div>
+{{end}}
+{{end}}

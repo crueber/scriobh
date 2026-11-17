@@ -1,0 +1,68 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/research.css"}}"><script src="{{asset "js/pad.js"}}" defer></script>{{end}}
+{{define "crumb"}}{{template "res-crumb" (dict "O" .Data "Mid" "Research" "Here" .Data.KindLabel)}}{{end}}
+{{define "tab-write"}}{{template "res-tab" (dict "O" .Data "Active" "research")}}{{end}}
+{{define "ptabs"}}{{template "res-ptabs" (dict "O" .Data "Active" "research")}}{{end}}
+{{define "projmore"}}{{template "res-more" (dict "O" .Data "Active" "research")}}{{end}}
+{{define "content"}}
+{{with .Data}}
+<div class="research note-page" id="research" data-owner="{{.Kind}}">
+  {{template "live-marker" (dict "Scope" .Scope "ID" .ID)}}
+  <h1 id="r-title" tabindex="-1">{{if .Note.Title}}{{.Note.Title}}{{else}}Untitled {{.KindLabel}}{{end}}</h1>
+  <p class="sub">{{.KindLabel}}{{if .Folder}} in {{.Folder}}{{end}}{{if ne .Note.Kind "folder"}}, {{num .Words}} {{plural .Words "word" "words"}}{{end}}. Last changed {{.Updated}}. {{if .Note.Trashed}}<strong>This one is in the trash.</strong>{{end}}</p>
+  {{if .Error}}<p class="field-error" role="alert" id="r-error">{{.Error}}</p>{{end}}
+  {{if .SavedText}}<p class="saved" role="status">{{.SavedText}}</p>{{end}}
+  <p class="sr-only" id="r-live" role="status" aria-live="polite" aria-atomic="true"></p>
+  <div id="pad-bars" aria-live="polite"></div>
+  {{if .Conflict}}<section class="r-conflict" id="r-conflict" aria-labelledby="r-conf-h">
+    <h2 id="r-conf-h">The version saved elsewhere</h2>
+    <p class="fine">Your text is in the boxes below. To keep it, press Save: it replaces what is shown here. To take this version instead, <a href="{{.Base}}/research/{{.Note.ID}}">open the note again</a>.</p>
+    {{if .Conflict.Title}}<p><strong>{{.Conflict.Title}}</strong></p>{{end}}
+    {{if .Conflict.Body}}<pre class="r-theirs" tabindex="0" aria-label="The version saved elsewhere, read only">{{.Conflict.Body}}</pre>{{end}}
+  </section>{{end}}
+  <form class="pad note-form" id="r-note" method="post"{{if .CanEdit}} action="{{.UI}}/research/save"{{end}} data-pad="note" data-method="PATCH" data-url="{{.API}}/research/{{.Note.ID}}" data-draft="{{.DraftKey}}" data-can-edit="{{.CanEdit}}" data-preview="{{.UI}}/research/preview" data-updated="{{.Note.UpdatedAt}}">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="note_id" value="{{.Note.ID}}"><input type="hidden" name="rev" value="{{.Note.Revision}}">
+    <div class="field"><label for="n-title">Title</label><input id="n-title" type="text" name="title" value="{{.Note.Title}}" maxlength="300" autocomplete="off"{{if not .CanEdit}} readonly{{end}}{{if eq .Field "title"}} aria-invalid="true" aria-describedby="r-error"{{end}}></div>
+    <div class="field-row">
+      <div class="field"><label for="n-status">Status</label><select id="n-status" name="status"{{if not .CanEdit}} disabled{{end}}>{{range .Statuses}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select></div>
+      <div class="field"><label for="n-tags">Tags</label><input id="n-tags" type="text" name="tags" value="{{.TagsText}}" list="n-taglist" autocomplete="off" spellcheck="false" aria-describedby="n-tags-h"{{if not .CanEdit}} readonly{{end}}><span class="hint" id="n-tags-h">Separate with commas. A new name makes a new tag.</span>
+        <datalist id="n-taglist">{{range .AllTags}}<option value="{{.Name}}">{{end}}</datalist></div>
+    </div>
+    {{if eq .Note.Kind "clipping"}}
+    <div class="field"><label for="n-url">Where it came from</label><input id="n-url" type="text" name="source_url" value="{{.Note.SourceURL}}" maxlength="2000" inputmode="url" autocomplete="off" spellcheck="false" aria-describedby="n-url-h{{if eq .Field "source_url"}} r-error{{end}}"{{if not .CanEdit}} readonly{{end}}{{if eq .Field "source_url"}} aria-invalid="true"{{end}}><span class="hint" id="n-url-h">An address starting with http or https, kept as text. Scríobh never opens it or fetches it by itself.</span></div>
+    <div class="field"><label for="n-date">Read on</label><input id="n-date" type="text" name="retrieved_on" value="{{.Note.RetrievedOn}}" placeholder="2026-03-14" maxlength="10" autocomplete="off"{{if not .CanEdit}} readonly{{end}}{{if eq .Field "retrieved_on"}} aria-invalid="true" aria-describedby="r-error"{{end}}></div>
+    <div class="field"><label for="n-quote">The passage you kept</label><textarea id="n-quote" name="quote" rows="5" maxlength="20000"{{if not .CanEdit}} readonly{{end}}>{{.Note.Quote}}</textarea></div>
+    {{if .Source}}<div class="r-source">
+      <p class="fine">Saved address: <code class="wrap" id="n-src">{{.Source}}</code></p>
+      <button type="button" class="btn small" data-copy="#n-src" hidden>Copy the address</button>
+      <button type="button" class="btn small" data-open aria-controls="n-warn" aria-expanded="false" hidden>Open the source&hellip;</button>
+      <div id="n-warn" class="r-warn" role="group" aria-labelledby="n-warn-h" hidden>
+        <p id="n-warn-h"><strong>This opens another website.</strong> Scríobh never fetches it, and the site will see your visit.</p>
+        <button type="button" class="btn solid small" data-go>Open it in a new tab</button> <button type="button" class="btn quiet small" data-cancel>Cancel</button>
+      </div>
+    </div>{{end}}
+    {{end}}
+    {{if ne .Note.Kind "folder"}}<div class="field"><div class="r-bodyhead"><label for="n-body">{{if eq .Note.Kind "clipping"}}Your notes on it{{else}}Text{{end}} <span class="optional">(Markdown)</span></label>
+      <button type="button" class="btn quiet small" data-toggle-preview aria-pressed="false" hidden>Preview</button></div>
+      <textarea id="n-body" name="body" rows="16" spellcheck="true"{{if not .CanEdit}} readonly{{end}}{{if eq .Field "body"}} aria-invalid="true" aria-describedby="r-error"{{end}}>{{.Note.Body}}</textarea>
+      <div id="n-preview" class="md-preview" hidden tabindex="-1" aria-label="Preview of the text"></div></div>{{end}}
+    {{if .CanEdit}}<div class="form-actions"><button class="btn solid" type="submit">Save</button> <span class="pad-state" id="pad-state" role="status" aria-live="polite" data-state="saved">{{if .Conflict}}Not saved{{else}}Saved{{end}}</span></div>{{else}}<p class="fine">You can read this research but not change it.</p>{{end}}
+  </form>
+
+  {{if and .HasPreview (ne .Note.Kind "folder")}}<section class="r-saved-preview" aria-labelledby="r-sp-h"><h2 id="r-sp-h">The saved text, as it reads</h2><div class="md-preview">{{.Preview}}</div></section>{{end}}
+
+  <section class="r-atts" id="r-atts" aria-labelledby="r-att-h">
+    <h2 id="r-att-h">Attachments</h2>
+    {{if .Attachments}}<ul>{{range .Attachments}}<li><a href="{{.URL}}">{{.Filename}}</a> <span class="fine">{{.Kind}}, {{.Size}}</span></li>{{end}}</ul>
+    <p class="fine">These are the files this note links to. <a href="{{.FilesURL}}">All attachments</a></p>
+    {{else}}<p class="fine">This note links to no attachments. Files are kept on the <a href="{{.FilesURL}}">Attachments page</a>; paste a file's address into the text to link it.</p>{{end}}
+  </section>
+
+  {{if .CanEdit}}<section class="r-danger" aria-labelledby="r-trash-h"><h2 id="r-trash-h">{{if .Note.Trashed}}Restore{{else}}Move to the trash{{end}}</h2>
+    {{if .Note.Trashed}}<form method="post" action="{{.UI}}/research/restore"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="note_id" value="{{.Note.ID}}"><button class="btn" type="submit">Restore this {{.KindLabel}}</button></form>
+    {{else}}<p class="fine">{{if eq .Note.Kind "folder"}}A folder takes what it holds with it. Restoring the folder brings all of it back.{{else}}Nothing is deleted: the trash keeps it until you restore it.{{end}}</p>
+    <form method="post" action="{{.UI}}/research/trash"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="note_id" value="{{.Note.ID}}"><button class="btn danger" type="submit">Move to the trash</button></form>{{end}}
+  </section>{{end}}
+  <p class="r-back"><a href="{{.Base}}/research">All research</a></p>
+</div>
+{{end}}
+{{end}}

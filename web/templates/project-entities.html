@@ -1,0 +1,26 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/entities.css"}}"><script src="{{asset "js/entity.js"}}" defer></script>{{end}}
+{{define "crumb"}}<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">Entities</span></nav>{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "compendium" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "compendium" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "compendium" .Data.Project.Role}}{{end}}
+{{define "content"}}
+{{with .Data}}
+<div class="settings ents" id="ents" data-project="{{.Project.ID}}">
+  {{template "live-marker" (dict "Scope" "project" "ID" .Project.ID)}}
+  <h1>Entities</h1>
+  <p class="sub">{{.Project.Title}}. The characters, places and other entries this book draws on, as this book reads them: its own changes to an entry show here, and the Compendium&rsquo;s record stays as it is.</p>
+  <p class="sr-only" id="ent-announce" role="status" aria-live="polite"></p>
+  <form class="ent-search" role="search" aria-label="Find an entity" method="get" action="/p/{{.Slug}}/entities">
+    <div class="field"><label for="ent-q">Find an entity</label><input id="ent-q" type="search" name="q" value="{{.Q}}" placeholder="A name or an alias" autocomplete="off" spellcheck="false"></div>
+    {{if .Kind}}<input type="hidden" name="kind" value="{{.Kind}}">{{end}}
+    <button class="btn" type="submit">Search</button>
+    {{if .Q}}<a class="btn quiet" href="/p/{{.Slug}}/entities{{if .Kind}}?kind={{.Kind}}{{end}}">Clear</a>{{end}}
+  </form>
+  <nav class="ent-kinds" aria-label="Kind of entity">
+    <a href="/p/{{.Slug}}/entities"{{if not .Kind}} aria-current="true"{{end}}>All</a>
+    {{range .Kinds}}<a href="/p/{{$.Data.Slug}}/entities?kind={{.ID}}"{{if eq .ID $.Data.Kind}} aria-current="true"{{end}}>{{.Plural}}</a>{{end}}
+  </nav>
+  <div id="ent-list" data-src="{{.Src}}">{{template "project-entity-list" .}}</div>
+</div>
+{{end}}
+{{end}}

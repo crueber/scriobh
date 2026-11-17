@@ -1,0 +1,84 @@
+/* The page a share link opens (no account, no settings, no way into the application) and the owner's page that manages
+   the links. Flat fills, hairline rules, the theme's tokens (the page follows the system's light or dark), logical
+   properties so a right-to-left book mirrors. It is read at 390 px and printed. */
+body.share-body { background: var(--bg); color: var(--fg); }
+.sh { max-inline-size: 76rem; margin: 0 auto; padding: var(--s-5) var(--s-4) var(--s-7); }
+.sh-head { max-inline-size: var(--measure); margin: 0 auto var(--s-4); text-align: center; }
+.sh-head h1 { margin: 0; font: 400 var(--text-2xl)/var(--lh-2xl) var(--font-prose); overflow-wrap: anywhere; }
+.sh-sub, .sh-note { margin: var(--s-2) 0 0; color: var(--fg-2); font-size: var(--text-sm); }
+.sh-note { text-align: center; }
+.sh-unlock, .sh-gone { max-inline-size: 26rem; margin: var(--s-6) auto; padding: var(--s-4); border: 1px solid var(--line); border-radius: var(--r-2); background: var(--surface); }
+.sh-gone { text-align: center; }
+.sh-unlock h2, .sh-gone h2 { margin: 0 0 var(--s-3); font: 600 var(--text-lg)/var(--lh-lg) var(--font-ui); }
+.sh-gone p { margin: 0; color: var(--fg-2); }
+.sh-gone-h, .sh > h1 { font: 400 var(--text-2xl)/var(--lh-2xl) var(--font-prose); }
+.sh > p { color: var(--fg-2); }
+.sh-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-3) var(--s-5); }
+.sh-body[hidden] { display: none; }
+.sh-body > * { grid-column: 1; }
+@media (min-width: 1100px) { .sh-body.has-comments, .sh[data-scope="comment"] .sh-body { grid-template-columns: minmax(0, 1fr) 22rem; } .sh[data-scope="comment"] .sh-margin { grid-column: 2; grid-row: 3 / span 4; position: sticky; inset-block-start: var(--s-3); align-self: start; max-block-size: calc(100dvh - var(--s-5)); overflow-y: auto; } }
+.sh-toc { max-inline-size: var(--measure); margin: 0 auto; inline-size: 100%; border-block: 1px solid var(--line); padding-block: var(--s-3); }
+.sh-toc summary { cursor: pointer; min-block-size: var(--target); line-height: var(--target); font: 500 var(--text-sm)/var(--target) var(--font-ui); }
+.sh-toc ol { margin: 0; padding: 0; list-style: none; }
+.sh-toc li { padding: 2px 0; }
+.sh-toc li.d1 { padding-inline-start: var(--s-3); } .sh-toc li.d2 { padding-inline-start: var(--s-5); } .sh-toc li.d3 { padding-inline-start: var(--s-6); }
+.sh-toc li.is-part { margin-block-start: var(--s-2); font: 500 var(--text-xs)/var(--lh-xs) var(--font-ui); letter-spacing: .08em; text-transform: uppercase; }
+.sh-toc a { display: inline-block; min-block-size: var(--target); line-height: var(--target); color: var(--accent); }
+.sh-n { color: var(--muted); font-size: var(--text-xs); }
+.sh-tools { display: flex; flex-wrap: wrap; gap: var(--s-2); max-inline-size: var(--measure); margin: 0 auto; inline-size: 100%; }
+.sh-who { max-inline-size: var(--measure); margin: 0 auto; inline-size: 100%; }
+.sh-who h2, .sh-margin h2 { margin: 0 0 var(--s-1); font: 600 var(--text-base)/var(--lh-base) var(--font-ui); }
+.sh-who .field input { inline-size: 100%; }
+.sh .chapter { margin-block-end: var(--s-6); }
+.sh .chapter-top .btn { margin-block-start: var(--s-2); }
+.sh-more { block-size: 1px; }
+.sh .chapter:focus { outline: none; }
+.sh .chapter:focus-visible .r-title { outline: 2px solid var(--accent); outline-offset: 4px; }
+.sh-margin { padding: var(--s-3); border: 1px solid var(--line); border-radius: var(--r-2); background: var(--surface); font-size: var(--text-sm); line-height: var(--lh-sm); }
+.sh-margin[hidden] { display: none; }
+.sh-threads { margin: var(--s-3) 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--s-3); }
+.sh-thread { padding: var(--s-3); border: 1px solid var(--line); border-inline-start: 3px solid var(--comment-line); border-radius: var(--r-1); background: var(--surface); }
+.sh-thread.is-resolved { background: var(--surface-2); border-inline-start-color: var(--line); color: var(--fg-2); }
+.sh-where { margin: 0 0 var(--s-1); color: var(--muted); font-size: var(--text-xs); }
+.sh-quote { margin: 0 0 var(--s-2); padding-inline-start: var(--s-2); border-inline-start: 2px solid var(--line); color: var(--fg-2); font-family: var(--font-prose); font-size: var(--text-base); overflow-wrap: anywhere; }
+.sh-c { margin: 0 0 var(--s-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+.sh-form textarea { inline-size: 100%; min-block-size: 6rem; resize: vertical; font-family: var(--font-ui); font-size: var(--text-base); }
+.sh .field input, .sh-form textarea { min-block-size: max(var(--target), 44px); }
+.sh-c, .sh-quote { unicode-bidi: plaintext; text-align: start; }
+mark.sh-mark { background: var(--comment); color: inherit; border-block-end: 2px solid var(--comment-line); }
+mark.sh-mark:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sh-pop { position: fixed; inset-inline: 0; inset-block-end: calc(var(--s-4) + var(--safe-b)); z-index: 20; display: flex; justify-content: center; pointer-events: none; }
+.sh-pop[hidden] { display: none; }
+.sh-pop .btn { pointer-events: auto; min-block-size: var(--target); border: 1px solid var(--accent); }
+.sh .r-prose p, .sh .r-prose li, .sh .r-prose h2, .sh .r-prose h3 { unicode-bidi: plaintext; }
+.sh .reading-paper { padding-inline: 0; }
+
+/* the owner's page that makes and manages the links */
+.shl { max-inline-size: 56rem; }
+.shl-new { margin-block-end: var(--s-5); }
+.shl-once { margin: 0 0 var(--s-5); padding: var(--s-4); border: 1px solid var(--accent); border-radius: var(--r-2); background: var(--accent-soft); }
+.shl-once input { inline-size: 100%; font-family: var(--font-mono); }
+.shl-docs { max-block-size: 14rem; overflow-y: auto; margin: 0; padding: var(--s-2) var(--s-3); border: 1px solid var(--line); border-radius: var(--r-1); list-style: none; }
+.shl-docs li { padding: 2px 0; }
+.shl-docs .d1 { padding-inline-start: var(--s-4); } .shl-docs .d2 { padding-inline-start: var(--s-6); }
+.shl-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--s-3); }
+.shl-link { padding: var(--s-3) var(--s-4); border: 1px solid var(--line); border-radius: var(--r-2); background: var(--surface); }
+.shl-link.is-off { background: var(--surface-2); color: var(--fg-2); }
+.shl-link h3 { margin: 0 0 var(--s-1); font: 600 var(--text-base)/var(--lh-base) var(--font-ui); }
+.shl-meta { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-3); margin: 0 0 var(--s-2); padding: 0; color: var(--fg-2); font-size: var(--text-sm); list-style: none; }
+.shl-meta b { color: var(--fg); font-weight: 500; font-variant-numeric: tabular-nums; }
+.shl-state { padding: 0 .5em; border: 1px solid var(--line); border-radius: var(--r-1); font-size: var(--text-xs); }
+.shl-state.is-active { border-color: var(--accent); color: var(--accent); }
+.shl-edit { margin-block-start: var(--s-2); }
+.shl-edit summary { display: flex; align-items: center; min-height: var(--target); cursor: pointer; color: var(--accent); }
+.shl-edit .form { margin-block-start: var(--s-2); }
+
+@media print {
+  body.share-body { background: none; }
+  .skip, .sh-tools, .sh-who, .sh-margin, .sh-pop, .sh-toc, .sh-unlock, .sh .chapter-top .btn, .sh-more { display: none; }
+  .sh { padding: 0; max-inline-size: none; }
+  .sh .chapter { break-before: page; margin: 0; }
+  .sh .chapter:first-of-type { break-before: auto; }
+  mark.sh-mark { background: none; border: 0; }
+  .sh .r-prose a { color: inherit; text-decoration: none; }
+}

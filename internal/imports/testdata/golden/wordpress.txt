@@ -1,0 +1,120 @@
+project: {title:Salt & Roads subtitle:Notes from the road kind:blog author:Ada Fixture language:en-GB}
+layout: wordpress
+
+== chapter: The Salt Road [status done, compile true, date "2024-01-10", source "wordpress/post/the-salt-road"]
+   synopsis: "How it begins." long: ""
+   | The salt road begins at the *sea*, and **ends** at the market. See [the page](https://example.org/salt).[^1]
+   | 
+   | ### Second stop
+   | 
+   | - Salt
+   | - Bread
+   |     - Rye
+   | 
+   | > Salt is a kind of memory.
+   | >
+   | > *Anon*
+   | 
+   | *\[image: A map of the road\]*
+   | 
+   | The road
+   | 
+   | 100% real \%\% not a note \[\[not a link\]\] \& more
+   | 
+   | | Stop | Miles |
+   | | --- | --- |
+   | | Sea | 0 |
+   | 
+   | [^1]: The road is *invented*.
+== chapter: Classic [status done, compile true, date "2024-02-01", source "wordpress/post/classic"]
+   | The second post was written in the classic editor.\
+   | It has a line break.
+   | 
+   | A second paragraph with a captioned thing and a footnote[^1].
+   | 
+   | Last paragraph.
+   | 
+   | [^1]: Salt is NaCl, mostly.
+== chapter: The Third Post & Last [status done, compile true, date "2024-03-05", source "wordpress/post/third-post"]
+   synopsis: "The last one." long: ""
+   | Third.
+== chapter: A Draft [status draft, compile false, date "2024-04-01", source "wordpress/post/a-draft"]
+   | Not ready.
+== chapter: Private Thoughts [status done, compile false, date "2024-04-02", source "wordpress/post/private-thoughts"]
+   | Only for me.
+== part: Pages [status draft, compile true, date "", source "wordpress/pages"]
+   | 
+  == chapter: About [status done, compile true, date "2024-01-01", source "wordpress/page/about"]
+     | About this site.
+
+report: {
+ "wordpress": {
+  "attachment_urls": [
+   "https://salt.example/wp-content/uploads/map.jpg"
+  ],
+  "attachments": 1,
+  "authors": 1,
+  "by_type": {
+   "attachment": 1,
+   "nav_menu_item": 1,
+   "page": 1,
+   "post": 6
+  },
+  "categories": {
+   "News": 1,
+   "Travel": 2
+  },
+  "classic_editor_posts": 5,
+  "comments": 1,
+  "custom_field_keys": {
+   "mood": 1
+  },
+  "embeds_dropped": 0,
+  "file": "e.xml",
+  "footnotes": 2,
+  "forms_dropped": 1,
+  "iframes_dropped": 1,
+  "image_addresses": [
+   "https://salt.example/wp-content/uploads/map.jpg"
+  ],
+  "images": 1,
+  "items": 9,
+  "links": 1,
+  "links_not_kept": 0,
+  "media_dropped": 0,
+  "not_imported": {
+   "status trash": 1,
+   "type nav_menu_item": 1
+  },
+  "pages": 1,
+  "pictures_from_zip": 0,
+  "posts": 5,
+  "relative_links": 0,
+  "scripts_dropped": 1,
+  "shortcodes_removed": {
+   "caption": 1,
+   "gallery": 1
+  },
+  "statuses": {
+   "draft": 1,
+   "private": 1,
+   "publish": 4
+  },
+  "tables": 1,
+  "tags": {
+   "road": 1,
+   "salt": 3
+  },
+  "wxr_version": "1.2"
+ }
+}
+
+warnings:
+- Drafts, pending, scheduled and private posts were imported and marked do not compile.
+- Not imported: status trash (1), type nav_menu_item (1).
+- 1 comment(s) were not imported: comments are reported, never kept. Commenters' names and addresses were not read.
+- 1 attachment(s) (media files) are listed in the export by address; none was fetched and none was imported. The first addresses are in the report.
+- 1 image(s) in the posts were not imported; each is marked in the text with its description.
+- Left out of the posts: 1 script(s), 1 iframe(s), 1 form(s), 0 embed(s), 0 audio or video element(s).
+- Categories (2) and tags (2) are not kept; they are listed in the import's record.
+- Custom fields (1 key(s)) are not kept; they are listed in the import's record.

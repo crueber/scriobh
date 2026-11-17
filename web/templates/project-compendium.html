@@ -1,0 +1,89 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/compendium.css"}}"><script src="{{asset "js/compendium.js"}}" defer></script>{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">Compendium</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "compendium" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "compendium" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "compendium" .Data.Project.Role}}{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}
+<div class="settings comp" id="comp-page">
+  {{template "live-marker" (dict "Scope" "project" "ID" .Project.ID)}}
+  <h1>Compendium</h1>
+  <p class="sub">{{.Project.Title}}. A Compendium holds the bible of a book: characters, places, items, organisations and ideas. A project sees its primary Compendium, the whole Compendiums it references, and any single entities linked to it. Being on this project does not put anyone on the Compendium: that is decided on the Compendium's own page.</p>
+  {{if .Error}}<p class="field-error" role="alert" id="comp-error">{{.Error}}</p>{{end}}
+  {{if .SavedText}}<p class="saved" role="status">{{.SavedText}}</p>{{end}}
+
+  <div id="cfrag" data-live-refresh>
+  <section id="primary" aria-labelledby="h-primary">
+    <h2 id="h-primary">Primary Compendium</h2>
+    {{if .Wiring.Primary}}
+    <p class="bigline"><a href="/c/{{index .Slugs .Wiring.Primary.CompendiumID}}">{{.Wiring.Primary.Name}}</a></p>
+    <p class="fine">Its entities appear in this project, and the project can override them for this book alone without changing the Compendium.</p>
+    {{else if .Wiring.HasPrimary}}
+    <p>This project has a primary Compendium that you are not a member of, so it is not shown here. Its owner can add you from the Compendium's page.</p>
+    {{else}}
+    <p>This project has no primary Compendium yet.</p>
+    {{end}}
+    {{if .IsOwner}}
+    {{with .Preview}}<div class="banner preview" data-tone="info" role="status" id="preview">
+      <p class="banner-head"><strong>{{if .Clear}}Take away the primary Compendium?{{else}}Make &ldquo;{{.TargetName}}&rdquo; the primary Compendium?{{end}}</strong></p>
+      <ul class="plain">
+        {{if .Out.Changed}}
+        <li>{{num .Out.EntitiesEntering}} {{plural .Out.EntitiesEntering "entity appears" "entities appear"}} in this project that did not before.</li>
+        <li>{{num .Out.EntitiesLeaving}} {{plural .Out.EntitiesLeaving "entity stops" "entities stop"}} showing, unless the project still references the old Compendium as a whole.</li>
+        <li>{{num .Out.OverridesKept}} {{plural .Out.OverridesKept "override keeps" "overrides keep"}} applying.</li>
+        <li>{{num .Out.OverridesDormant}} {{plural .Out.OverridesDormant "override goes" "overrides go"}} dormant. {{if .Out.OverridesDormant}}They are kept, and apply again if the entity comes back.{{end}}</li>
+        {{if .Out.ReferenceDropped}}<li>The project references this Compendium as a whole already. That reference is no longer needed and is removed.</li>{{end}}
+        {{if .Out.MentionRowsLeaving}}<li>{{$.N "cmg.pv_mentions" .Out.MentionRowsLeaving}}</li>{{end}}
+        {{if .Out.LinksLeaving}}<li>{{$.N "cmg.pv_links" .Out.LinksLeaving}}</li>{{end}}
+        {{if .Out.SceneRefsLeaving}}<li>{{$.N "cmg.pv_scenes" .Out.SceneRefsLeaving}}</li>{{end}}
+        {{if or .Out.Keys .Out.HiddenKeys}}<li>{{$.N "cmg.pv_keys_follow" (add (len .Out.Keys) .Out.HiddenKeys)}}{{if .Out.KeysLosingBible}} {{$.N "cmg.pv_keys_lose" .Out.KeysLosingBible}}{{end}}{{if .Out.Keys}} {{$.T "cmg.pv_keys_yours"}} {{range $i, $k := .Out.Keys}}{{if $i}}, {{end}}{{$k.Name}}{{end}}.{{end}}</li>{{end}}
+        {{else}}<li>Nothing would change: it is already the primary.</li>{{end}}
+      </ul>
+      {{if .Stale}}<p class="notice-line" role="status">{{$.T "compendium.manage.stale"}}</p>{{end}}
+      {{if .Out.Changed}}<form class="row-actions" method="post" action="/ui/projects/{{$d.Project.ID}}/compendium/{{if .Clear}}clear{{else}}set{{end}}"><input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="compendium_id" value="{{.TargetID}}"><input type="hidden" name="fingerprint" value="{{.Out.Fingerprint}}"><button class="btn solid" type="submit">{{if .Clear}}Take it away{{else}}Make it the primary{{end}}</button><a class="btn quiet" href="/p/{{$d.Slug}}/compendium">Leave it as it is</a></form>{{end}}
+    </div>{{end}}
+    <div class="row-actions">
+      {{if .Editable}}<form class="form" method="post" action="/ui/projects/{{.Project.ID}}/compendium/preview">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <div class="field"><label for="pc-set">{{if .Wiring.HasPrimary}}Change the primary Compendium{{else}}Choose a primary Compendium{{end}}</label><select id="pc-set" name="compendium_id">{{range .Editable}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></div>
+        <p class="hint">Only Compendiums you can edit are offered. You see what would change before anything does.</p>
+        <div class="form-actions"><button class="btn" type="submit">See what would change</button></div>
+      </form>{{end}}
+      {{if .Wiring.HasPrimary}}<form method="post" action="/ui/projects/{{.Project.ID}}/compendium/clear-preview"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn quiet" type="submit">Take the primary away&hellip;</button></form>{{end}}
+    </div>
+    {{if not .Wiring.HasPrimary}}<details class="more"{{if eq .Field "name"}} open{{end}}><summary>Make a new Compendium for this project</summary>
+      <form class="form" method="post" action="/ui/projects/{{.Project.ID}}/compendium/create">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <div class="field"><label for="pn-name">Name</label><input id="pn-name" type="text" name="name" value="{{if index .Values "name"}}{{index .Values "name"}}{{else}}{{.Project.Title}}{{end}}" maxlength="200" required autocomplete="off"{{if eq .Field "name"}} aria-invalid="true" aria-describedby="comp-error"{{end}}></div>
+        <div class="field"><label for="pn-kind">Kind</label><select id="pn-kind" name="kind"><option value="fiction">Fiction</option><option value="nonfiction">Nonfiction</option></select></div>
+        <div class="field"><label for="pn-desc">What it is for <span class="optional">optional</span></label><textarea id="pn-desc" name="description" rows="3" maxlength="5000"></textarea></div>
+        <label class="check"><input type="checkbox" name="starter" value="1" checked><span>Start with the usual fields</span></label>
+        <div class="form-actions"><button class="btn solid" type="submit">Create it</button></div>
+      </form></details>{{end}}
+    {{else if not .Wiring.HasPrimary}}<p class="fine">Only the project's owner can choose a Compendium for it.</p>{{end}}
+  </section>
+
+  <section id="refs" aria-labelledby="h-refs">
+    <h2 id="h-refs">Referenced as a whole</h2>
+    <p class="fine">Referencing a Compendium shows all of its entities in this project, read-only. A reference is followed one level: the Compendiums that one references are not shown here unless this project references them too.</p>
+    {{if .Wiring.References}}<ul class="plainlist">{{range .Wiring.References}}<li><a href="/c/{{index $d.Slugs .CompendiumID}}">{{.Name}}</a>
+      {{if $d.IsOwner}}<form class="inline" method="post" action="/ui/projects/{{$d.Project.ID}}/compendium/ref-remove"><input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="compendium_id" value="{{.CompendiumID}}"><button class="btn quiet small danger-text" type="submit" aria-label="Stop referencing {{.Name}}">Stop referencing</button></form>{{end}}</li>{{end}}</ul>
+    {{else}}<p class="fine">No other Compendium is referenced.</p>{{end}}
+    {{if .Wiring.Hidden}}<p class="fine">{{.Wiring.Hidden}} {{plural .Wiring.Hidden "Compendium this project uses is" "Compendiums this project uses are"}} not shown, because you are not a member of {{plural .Wiring.Hidden "it" "them"}}.</p>{{end}}
+    {{if and .IsOwner .Choices}}<form class="form" method="post" action="/ui/projects/{{.Project.ID}}/compendium/ref-add">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field"><label for="pr-target">Reference a Compendium</label><select id="pr-target" name="compendium_id">{{range .Choices}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></div>
+      <div class="form-actions"><button class="btn" type="submit">Reference it</button></div>
+    </form>{{end}}
+  </section>
+  </div>
+
+  <section id="linked" aria-labelledby="h-linked">
+    <h2 id="h-linked">Single entities</h2>
+    <p class="fine">An entity from any Compendium you can read can be linked to this project on its own, without the rest of that Compendium. Link entities from the entity's page in the Compendium.</p>
+  </section>
+</div>
+{{end}}
+{{end}}

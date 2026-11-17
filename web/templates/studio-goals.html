@@ -1,0 +1,56 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/studio.css"}}"><script src="{{asset "js/arm.js"}}" defer></script>{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/studio">{{$.T "studio.ui.title"}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "studio.ui.t_goals"}}</span></nav>
+{{end}}
+{{define "tab-write"}}<a class="tab" href="/studio" aria-current="page">{{template "icon" "goals"}}<span>{{$.T "studio.ui.tab"}}</span></a>{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}
+<div class="settings studio-sub" id="studio-goals">
+  <h1>{{$.T "studio.ui.goals.title"}}</h1>
+  <p class="sub">{{$.T "studio.ui.goals.intro"}}</p>
+  {{template "studio-tabs" (dict "P" $ "Tab" "goals")}}
+  {{if .Flash}}<p class="saved" role="status" tabindex="-1" autofocus data-result>{{.Flash}}</p>{{end}}
+
+  <section id="goals" aria-labelledby="h-active">
+    <h2 id="h-active">{{$.T "studio.ui.goals.active"}}</h2>
+    <p class="sub" data-goal-counts>{{.Counts}}</p>
+    {{if .Active}}<ul class="st-goals">{{range .Active}}{{template "studio-goal" (dict "P" $ "G" . "W" $d.W)}}{{end}}</ul>
+    {{else}}<p class="st-empty">{{$.T "studio.ui.goals.empty"}}</p>{{end}}
+  </section>
+
+  <section id="new" aria-labelledby="h-new">
+    <h2 id="h-new">{{$.T "studio.ui.goals.new"}}</h2>
+    <p class="sub">{{$.T "studio.ui.goals.new_intro"}}</p>
+    {{if .Error}}<p class="field-error" role="alert" id="st-error" tabindex="-1" autofocus data-result>{{.Error}}{{if .Link}} <a href="{{.Link}}">{{$.T "studio.ui.goals.open_existing"}}</a>{{end}}</p>{{end}}
+    <form class="form" method="post" action="/ui/studio/goals">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field-row st-two">
+        <div class="field"><label for="ng-measure">{{$.T "studio.ui.goals.f_measure"}}</label>
+          <select id="ng-measure" name="measure"{{if eq .Field "measure"}} aria-invalid="true" aria-describedby="st-error"{{end}}>{{$m := .V "measure"}}{{range .Measures}}<option value="{{.Value}}"{{if eq .Value $m}} selected{{end}}>{{.Label}}</option>{{end}}</select></div>
+        <div class="field"><label for="ng-period">{{$.T "studio.ui.goals.f_period"}}</label>
+          <select id="ng-period" name="period"{{if eq .Field "period"}} aria-invalid="true" aria-describedby="st-error"{{end}}>{{$pd := .V "period"}}{{range .Periods}}<option value="{{.Value}}"{{if eq .Value $pd}} selected{{end}}>{{.Label}}</option>{{end}}</select></div>
+      </div>
+      <div class="field"><label for="ng-target">{{$.T "studio.ui.goals.f_target"}}</label>
+        <input id="ng-target" name="target" type="number" inputmode="numeric" min="1" step="1" value="{{.V "target"}}" required aria-describedby="ng-target-h{{if eq .Field "target"}} st-error{{end}}"{{if eq .Field "target"}} aria-invalid="true"{{end}}>
+        <span class="hint" id="ng-target-h">{{$.T "studio.ui.goals.f_target_h"}}</span></div>
+      <div class="field"><label for="ng-project">{{$.T "studio.ui.goals.f_project"}}</label>
+        <select id="ng-project" name="project_id"{{if eq .Field "project_id"}} aria-invalid="true" aria-describedby="st-error"{{end}}>{{$pr := .V "project_id"}}<option value="">{{$.T "studio.ui.goal.every"}}</option>{{range .Projects}}<option value="{{.ID}}"{{if eq .ID $pr}} selected{{end}}>{{.Title}}</option>{{end}}</select></div>
+      <div class="field"><label for="ng-deadline">{{$.T "studio.ui.goals.f_deadline"}}</label>
+        <input id="ng-deadline" name="deadline" type="date" value="{{.V "deadline"}}" aria-describedby="ng-deadline-h{{if eq .Field "deadline"}} st-error{{end}}"{{if eq .Field "deadline"}} aria-invalid="true"{{end}}>
+        <span class="hint" id="ng-deadline-h">{{$.T "studio.ui.goals.f_deadline_h"}}</span></div>
+      <div class="form-actions"><button class="btn solid" type="submit">{{$.T "studio.ui.goals.create"}}</button></div>
+    </form>
+  </section>
+
+  {{if .Done}}<section id="done" aria-labelledby="h-done">
+    <h2 id="h-done">{{$.T "studio.ui.goals.done"}}</h2>
+    <ul class="st-goals">{{range .Done}}{{template "studio-goal" (dict "P" $ "G" . "W" $d.W)}}{{end}}</ul>
+  </section>{{end}}
+  {{if .Archived}}<section id="archived" aria-labelledby="h-arch">
+    <h2 id="h-arch">{{$.T "studio.ui.goals.archived_h"}}</h2>
+    <p class="sub">{{$.T "studio.ui.goals.archived_intro"}}</p>
+    <ul class="st-goals">{{range .Archived}}{{template "studio-goal" (dict "P" $ "G" . "W" $d.W)}}{{end}}</ul>
+  </section>{{end}}
+</div>
+{{end}}
+{{end}}

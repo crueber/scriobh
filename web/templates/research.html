@@ -1,0 +1,57 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/research.css"}}"><script src="{{asset "js/research.js"}}" defer></script>{{end}}
+{{define "crumb"}}{{template "res-crumb" (dict "O" .Data "Here" "Research")}}{{end}}
+{{define "tab-write"}}{{template "res-tab" (dict "O" .Data "Active" "research")}}{{end}}
+{{define "ptabs"}}{{template "res-ptabs" (dict "O" .Data "Active" "research")}}{{end}}
+{{define "projmore"}}{{template "res-more" (dict "O" .Data "Active" "research")}}{{end}}
+{{define "content"}}
+{{with .Data}}
+<div class="research" id="research" data-owner="{{.Kind}}" data-can-edit="{{.CanEdit}}">
+  {{template "live-marker" (dict "Scope" .Scope "ID" .ID)}}
+  <h1 id="r-title" tabindex="-1">Research</h1>
+  <p class="sub">{{if eq .Kind "c"}}Notes, clippings and folders shared by everyone on the Compendium &ldquo;{{.Name}}&rdquo;.{{else}}Notes, clippings and folders kept with the project &ldquo;{{.Name}}&rdquo;. Research is not part of the manuscript: it is never counted, compiled or exported with it.{{end}}</p>
+  {{template "res-subnav" (dict "O" . "Active" (or (and (eq .View "trash") "trash") "list"))}}
+  {{if .Error}}<p class="field-error" role="alert" id="r-error">{{.Error}}</p>{{end}}
+  {{if .SavedText}}<p class="saved" role="status">{{.SavedText}}</p>{{end}}
+  <p class="sr-only" id="r-live" role="status" aria-live="polite" aria-atomic="true"></p>
+
+  <form class="r-search" method="get" action="{{.Base}}/research" role="search" aria-label="Search the research">
+    <label class="sr-only" for="r-q">Search the research</label>
+    <input id="r-q" type="search" name="q" value="{{.Q}}" placeholder="Search titles, sources and text" autocomplete="off" spellcheck="false">
+    <button class="btn" type="submit">Search</button>
+  </form>
+
+  {{if .Searched}}
+  <section id="r-results" aria-labelledby="r-res-h">
+    <h2 id="r-res-h">{{if .Message}}Search{{else}}{{num .HitTotal}} {{plural .HitTotal "match" "matches"}} for &ldquo;{{.Q}}&rdquo;{{end}}</h2>
+    {{if .Message}}<p class="field-error" role="alert">{{.Message}}</p>{{end}}
+    {{if .Degraded}}<p class="fine">The search index could not be read, so a slower search answered. An administrator can rebuild it.</p>{{end}}
+    <ol class="r-hits">{{range .Hits}}<li><a class="r-hit-title" href="{{$.Data.Base}}/research/{{.ID}}">{{.Title}}</a> <span class="fine">{{.Kind}}, matched in {{if eq .MatchedIn "body"}}the text{{else if eq .MatchedIn "source"}}the source address{{else}}the title{{end}}</span>
+      <p class="snippet">{{range .Parts}}{{if .Mark}}<mark>{{.Text}}</mark>{{else}}{{.Text}}{{end}}{{end}}</p></li>{{else}}{{if not $.Data.Message}}<li class="fine">Nothing matches. Try fewer or shorter words.</li>{{end}}{{end}}</ol>
+    <p class="r-pager">{{if .HitPrev}}<a href="{{.HitPrev}}">Earlier results</a>{{end}}{{if .HitNext}} <a href="{{.HitNext}}">More results</a>{{end}} <a href="{{.Base}}/research">Clear the search</a></p>
+  </section>
+  {{else}}
+  {{if and .CanEdit (eq .View "tree")}}
+  <form class="r-add" method="post" action="{{.UI}}/research/create" aria-labelledby="r-add-h">
+    <h2 id="r-add-h" class="sr-only">Add to the research</h2>
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div class="field"><label for="r-add-kind">Add</label>
+      <select id="r-add-kind" name="kind"><option value="note">Note</option><option value="clipping">Clipping</option><option value="folder">Folder</option></select></div>
+    <div class="field"><label for="r-add-title">Title</label><input id="r-add-title" type="text" name="title" maxlength="300" autocomplete="off" placeholder="Optional"{{if eq .Field "title"}} aria-invalid="true" aria-describedby="r-error"{{end}}></div>
+    {{if .Folders}}<div class="field"><label for="r-add-in">In</label>
+      <select id="r-add-in" name="parent_id"><option value="">The top level</option>{{range .Folders}}<option value="{{.ID}}">{{.Label}}</option>{{end}}</select></div>{{end}}
+    <button class="btn solid" type="submit">Add</button>
+  </form>
+  {{end}}
+  {{if .Tags}}<form class="r-filter" method="get" action="{{.Base}}/research" aria-label="Filter by tag">
+    <label for="r-tag">Tag</label>
+    <select id="r-tag" name="tag"><option value="">All notes</option>{{range .Tags}}<option value="{{.Name}}"{{if eq .Name $.Data.Tag}} selected{{end}}>{{.Name}} ({{.Notes}})</option>{{end}}</select>
+    <button class="btn small" type="submit">Show</button>
+  </form>{{end}}
+  <section id="r-tree-box" aria-labelledby="r-tree-h">
+    <h2 id="r-tree-h" class="sr-only">{{if eq .View "trash"}}The trash{{else if .Tag}}Notes tagged {{.Tag}}{{else}}Everything{{end}}</h2>
+    {{template "research-tree" .}}
+  </section>
+  {{end}}
+</div>
+{{end}}
+{{end}}

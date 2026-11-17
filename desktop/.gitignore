@@ -1,0 +1,17 @@
+# Build outputs and tools: none of these are committed.
+node_modules/
+target/
+src-tauri/target/
+src-tauri/gen/
+# The server binary is built by scripts/sidecar.sh and copied here for the bundler.
+src-tauri/binaries/
+# Updater and signing keys never live in the repository, not even by accident.
+*.key
+*.key.pub
+*.pem
+*.p12
+*.pfx
+*.p8
+*.cer
+*.provisionprofile
+tauri.release.local.json

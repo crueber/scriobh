@@ -1,0 +1,11 @@
+# Allowlist: the build context is only what `go build` reads.
+*
+!go.mod
+!go.sum
+!cmd
+!internal
+!web
+!skills
+web/editor
+**/node_modules
+**/*.test

@@ -1,0 +1,55 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/studio.css"}}"><script src="{{asset "js/arm.js"}}" defer></script>{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/studio">{{$.T "studio.ui.title"}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{.Title}}</span></nav>
+{{end}}
+{{define "tab-write"}}<a class="tab" href="/studio" aria-current="page">{{template "icon" "goals"}}<span>{{$.T "studio.ui.tab"}}</span></a>{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}{{$g := .Goal}}
+<div class="settings studio-sub" id="studio-goal">
+  <h1>{{$g.Title}}</h1>
+  <p class="sub">{{if $g.G.ProjectTitle}}<bdi>{{$g.G.ProjectTitle}}</bdi>{{else}}{{$.T "studio.ui.goal.every"}}{{end}}</p>
+  {{template "studio-tabs" (dict "P" $ "Tab" "goals")}}
+  {{if .Flash}}<p class="saved" role="status" tabindex="-1" autofocus data-result>{{.Flash}}</p>{{end}}
+  {{if .Error}}<p class="field-error" role="alert" id="st-error" tabindex="-1" autofocus data-result>{{.Error}}</p>{{end}}
+  <h2 class="sr-only">{{$.T "studio.ui.goal.now"}}</h2>
+  <ul class="st-goals st-one">{{template "studio-goal" (dict "P" $ "G" $g "W" $d.W)}}</ul>
+
+  {{if $g.Editable}}
+  <section id="change" aria-labelledby="h-change">
+    <h2 id="h-change">{{$.T "studio.ui.goal.change"}}</h2>
+    <p class="sub">{{$.T "studio.ui.goal.change_intro"}}</p>
+    <form class="form" method="post" action="/ui/studio/goals/{{$g.G.ID}}/update">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field"><label for="eg-target">{{$.T "studio.ui.goals.f_target"}}</label>
+        <input id="eg-target" name="target" type="number" inputmode="numeric" min="1" step="1" required value="{{if .V "target"}}{{.V "target"}}{{else}}{{$g.G.Target}}{{end}}"{{if eq .Field "target"}} aria-invalid="true" aria-describedby="st-error"{{end}}></div>
+      {{if .Total}}<div class="field"><label for="eg-deadline">{{$.T "studio.ui.goals.f_deadline"}}</label>
+        <input id="eg-deadline" name="deadline" type="date" value="{{if .Error}}{{.V "deadline"}}{{else}}{{$g.G.Deadline}}{{end}}"{{if eq .Field "deadline"}} aria-invalid="true" aria-describedby="st-error"{{end}}></div>{{end}}
+      <div class="form-actions"><button class="btn solid" type="submit">{{$.T "studio.ui.goal.save"}}</button></div>
+    </form>
+    <form class="form-actions st-archive" method="post" action="/ui/studio/goals/{{$g.G.ID}}/archive" data-arm="{{$.T "studio.ui.goal.archive_ask"}}" data-arm-ok="{{$.T "studio.ui.goal.archive_ok"}}" data-arm-cancel="{{$.T "rq.cancel"}}">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn quiet" type="submit">{{$.T "studio.ui.goal.archive"}}</button>
+    </form>
+    <p class="fine">{{$.T "studio.ui.goal.archive_note"}}</p>
+  </section>
+  {{end}}
+
+  <section id="periods" aria-labelledby="h-periods">
+    <h2 id="h-periods">{{$.T "studio.ui.goal.periods"}}</h2>
+    <p class="sub">{{$.T "studio.ui.goal.periods_intro"}}</p>
+    {{if .Periods}}<div class="st-scroll" role="region" aria-labelledby="h-periods" tabindex="0">
+    <table class="st-table"><thead><tr><th scope="col">{{$.T "studio.ui.goal.c_when"}}</th><th scope="col">{{$.T "studio.ui.goal.c_target"}}</th><th scope="col">{{$.T "studio.ui.goal.c_value"}}</th><th scope="col">{{$.T "studio.ui.goal.c_state"}}</th></tr></thead>
+      <tbody>{{range .Periods}}<tr><th scope="row">{{.Range}}</th><td>{{.Target}}</td><td>{{.Value}}</td><td>{{if .Met}}<span class="st-tick" aria-hidden="true"></span>{{$.T "studio.ui.goal.s_met"}}{{end}}</td></tr>{{end}}</tbody></table></div>
+    {{else}}<p class="st-empty">{{$.T "studio.ui.goal.periods_empty"}}</p>{{end}}
+  </section>
+
+  <section id="versions" aria-labelledby="h-versions">
+    <h2 id="h-versions">{{$.T "studio.ui.goal.versions"}}</h2>
+    <p class="sub">{{$.T "studio.ui.goal.versions_intro"}}</p>
+    <div class="st-scroll" role="region" aria-labelledby="h-versions" tabindex="0">
+    <table class="st-table"><thead><tr><th scope="col">{{$.T "studio.ui.goal.c_from"}}</th><th scope="col">{{$.T "studio.ui.goal.c_target"}}</th>{{if .Total}}<th scope="col">{{$.T "studio.ui.goals.f_deadline"}}</th>{{end}}</tr></thead>
+      <tbody>{{range .Versions}}<tr><th scope="row">{{.From}}</th><td>{{.Target}}</td>{{if $d.Total}}<td>{{if .Deadline}}{{.Deadline}}{{else}}{{$.T "studio.ui.goal.no_deadline"}}{{end}}</td>{{end}}</tr>{{end}}</tbody></table></div>
+  </section>
+  <p><a href="/studio/goals">{{$.T "studio.ui.goals.all"}}</a></p>
+</div>
+{{end}}
+{{end}}

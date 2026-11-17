@@ -1,0 +1,65 @@
+{{define "project-export"}}
+<form id="project-export-form" class="form" method="post" action="/ui/projects/{{.P.ID}}/export" data-download data-skipped="{{.SkippedText}}">
+  <input type="hidden" name="_csrf" value="{{.CSRF}}">
+  <div class="dialog-head">
+    <h2 id="dialog-title">Export &ldquo;{{.P.Title}}&rdquo;</h2>
+    <button type="button" class="icon-btn dialog-close" data-dialog-close aria-label="Close">{{template "icon" "close"}}</button>
+  </div>
+  {{if .Error}}<p class="field-error" role="alert">{{.Error}}</p>{{end}}
+  <div class="field">
+    <label for="ex-format">Kind</label>
+    <select id="ex-format" name="format">
+      <option value="markdown"{{if ne .Format "html"}} selected{{end}}>Markdown, as stored</option>
+      <option value="html"{{if eq .Format "html"}} selected{{end}}>HTML, to read or share</option>
+    </select>
+  </div>
+  <p class="fine">HTML leaves out front matter, comments and private notes, and loads nothing from outside.</p>
+  <div class="field">
+    <label for="ex-mode">Layout</label>
+    <select id="ex-mode" name="mode">
+      <option value="single"{{if ne .Mode "bundle"}} selected{{end}}>One file</option>
+      <option value="bundle"{{if eq .Mode "bundle"}} selected{{end}}>A zip: Markdown mirrors the manuscript tree, HTML has one page per document and an index</option>
+    </select>
+  </div>
+  <div class="field">
+    <label class="check" for="ex-notes"><input id="ex-notes" type="checkbox" name="notes" value="true"{{if .Notes}} checked{{end}}><span>Include notes</span></label>
+    <span class="hint">The notes you keep for yourself are left out unless you ask for them.</span>
+  </div>
+  <div class="field">
+    <label class="check" for="ex-private"><input id="ex-private" type="checkbox" name="private_notes" value="true"{{if .PrivateNotes}} checked{{end}}><span>Keep private notes (HTML only)</span></label>
+    <span class="hint">Text between %% marks stays out of an HTML export unless you ask for it. A Markdown export always keeps it, as stored.</span>
+  </div>
+  <div class="field">
+    <label for="ex-alts">Alternatives</label>
+    <select id="ex-alts" name="alternatives">
+      <option value="keep"{{if ne .Alternatives "omit"}} selected{{end}}>Keep the other wordings</option>
+      <option value="omit"{{if eq .Alternatives "omit"}} selected{{end}}>Leave them out</option>
+    </select>
+  </div>
+  <p class="fine">The chosen wording is in the text either way. Keeping the other wordings means importing the file brings them back; leaving them out gives plain Markdown. This is for a Markdown export; an HTML export is always the chosen text.</p>
+  <div class="field">
+    <label for="ex-ghosts">Ghosted text</label>
+    <select id="ex-ghosts" name="ghosts">
+      <option value="keep"{{if ne .Ghosts "omit"}} selected{{end}}>Keep it</option>
+      <option value="omit"{{if eq .Ghosts "omit"}} selected{{end}}>Leave it out</option>
+    </select>
+  </div>
+  <p class="fine">Ghosted text is not counted, but it is part of the chapter, so an export keeps it, as stored (dimmed again when imported), unless you say otherwise.</p>
+  <div class="field">
+    <label for="ex-excl">Documents marked do not compile</label>
+    <select id="ex-excl" name="include_excluded">
+      <option value=""{{if eq .Excluded ""}} selected{{end}}>Leave them out of one file and the HTML, keep them in a zip</option>
+      <option value="yes"{{if eq .Excluded "yes"}} selected{{end}}>Include them</option>
+      <option value="no"{{if eq .Excluded "no"}} selected{{end}}>Leave them out</option>
+    </select>
+    <span class="hint">A zip is the full copy that an import can restore, so it keeps everything unless you say otherwise. If a download leaves some out, it tells you how many.</span>
+  </div>
+  <p class="fine">The stash is never part of an export.</p>
+  <p class="fine">Every export is recorded with a manifest of the documents it held and their SHA-256 hashes. The zip carries that manifest as <code>scriobh.json</code>, so you can check a copy later.</p>
+  <p class="field-error export-status" id="export-status" role="status" hidden></p>
+  <div class="form-actions">
+    <button type="button" class="btn quiet" data-dialog-close>Cancel</button>
+    <button class="btn solid" type="submit">Export</button>
+  </div>
+</form>
+{{end}}

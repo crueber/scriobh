@@ -1,0 +1,45 @@
+{{define "cards-body"}}
+<p class="b-count" id="b-count">{{if .Filter}}Showing {{.Shown}} of {{.Cards}} {{plural .Cards "card" "cards"}}, status {{.FilterLabel}}.{{else}}{{.Cards}} {{plural .Cards "card" "cards"}}, {{num .Totals.Words}} {{plural .Totals.Words "word" "words"}}.{{end}}{{if and .Filter .CanEdit}} Clear the filter to reorder cards.{{end}}</p>
+{{if .Lanes}}{{range .Lanes}}
+<section class="lane" aria-labelledby="l-{{.ID}}"{{if .Part}} data-part="{{.ID}}" data-title="{{.Title}}" data-prev="{{.Prev}}" data-prev2="{{.Prev2}}" data-next="{{.Next}}"{{end}}>
+  <h2 id="l-{{.ID}}" class="lane-head{{if not .Title}} sr-only{{end}}">{{if .Title}}{{.Title}}{{else}}The manuscript{{end}}{{if .Title}} <span class="lane-words">{{num .Words}} {{plural .Words "word" "words"}}</span>{{end}}</h2>
+  <ol class="cards-list" aria-labelledby="l-{{.ID}}">{{range .Cards}}
+{{template "card" (dict "R" . "Slug" $.Slug)}}{{end}}
+  </ol>
+</section>{{end}}
+{{else}}<div class="b-empty" id="b-empty"><p>{{if .Filter}}No card has the status {{.FilterLabel}}.{{else}}Nothing here yet. Add a chapter and its card appears here.{{end}}</p></div>{{end}}
+{{end}}
+
+{{define "card"}}{{$r := .R}}<li class="ccard" id="c-{{$r.ID}}" data-id="{{$r.ID}}" data-parent="{{$r.ParentID}}" data-kind="{{$r.Kind}}" data-rev="{{$r.Revision}}" data-status="{{$r.Status}}" data-title="{{$r.Title}}" data-syn="{{$r.SynopsisShort}}" data-prev="{{$r.Prev}}" data-prev2="{{$r.Prev2}}" data-next="{{$r.Next}}">
+  <div class="ccard-head">
+    <span class="ccard-kind">{{$r.KindLabel}}{{if $r.Number}} {{$r.Number}}{{end}}</span>
+    <span class="ccard-status" data-s="{{$r.Status}}"><span class="sr-only">Status: </span>{{$r.StatusTxt}}</span>
+  </div>
+  <a class="ccard-title" href="/p/{{.Slug}}/d/{{$r.ID}}">{{$r.Title}}</a>{{if $r.InTitle}}<span class="sr-only">, in {{$r.InTitle}}</span>{{end}}
+  <p class="ccard-syn{{if not $r.SynopsisShort}} is-empty{{end}}">{{if $r.SynopsisShort}}{{$r.SynopsisShort}}{{else}}No synopsis yet{{end}}</p>
+  <div class="ccard-foot">
+    <span class="ccard-words">{{num $r.Words}} {{plural $r.Words "word" "words"}}{{if $r.Target}} of {{num $r.Target}}{{if $r.Over}}, over the target{{end}}{{end}}</span>
+    {{if $r.Target}}<progress class="ccard-bar" value="{{$r.Pct}}" max="100" aria-label="Progress of {{$r.Title}}">{{$r.Pct}}%</progress>{{end}}
+  </div>
+</li>{{end}}
+
+{{define "board-body"}}
+<p class="b-count" id="b-count">{{.Cards}} {{plural .Cards "card" "cards"}}, {{num .Totals.Words}} {{plural .Totals.Words "word" "words"}}.</p>
+{{if .Cards}}<div class="bcols" id="bcols">{{range .Cols}}
+  <section class="bcol" data-status="{{.Status}}" aria-labelledby="bc-{{.Status}}">
+    <h2 id="bc-{{.Status}}" class="bcol-head">{{.Label}} <span class="bcount">{{len .Cards}}</span></h2>
+    <p class="bwords">{{num .Words}} {{plural .Words "word" "words"}}</p>
+    <ol class="bcards" aria-labelledby="bc-{{.Status}}">{{range .Cards}}
+{{template "bcard" (dict "R" . "Slug" $.Slug)}}{{end}}
+    </ol>
+    {{if not .Cards}}<p class="bnone">Nothing is {{.Label}} yet.</p>{{end}}
+  </section>{{end}}
+</div>
+{{else}}<div class="b-empty" id="b-empty"><p>Nothing here yet. Add a chapter and its card appears in a column.</p></div>{{end}}
+{{end}}
+
+{{define "bcard"}}{{$r := .R}}<li class="bcard" id="c-{{$r.ID}}" data-id="{{$r.ID}}" data-kind="{{$r.Kind}}" data-rev="{{$r.Revision}}" data-status="{{$r.Status}}" data-title="{{$r.Title}}">
+  <span class="ccard-kind">{{$r.KindLabel}}{{if $r.Number}} {{$r.Number}}{{end}}</span>
+  <a class="ccard-title" href="/p/{{.Slug}}/d/{{$r.ID}}">{{$r.Title}}</a>{{if $r.InTitle}}<span class="sr-only">, in {{$r.InTitle}}</span>{{end}}
+  <span class="ccard-words">{{num $r.WordCount}} {{plural $r.WordCount "word" "words"}}</span>
+</li>{{end}}

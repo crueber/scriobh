@@ -1,0 +1,1 @@
+{{define "sem-similar"}}{{if .Hits}}<ol class="sem-hits">{{range .Hits}}<li class="sem-hit"><a href="{{.URL}}">{{.Title}}</a><span class="fine"> {{.Meta}}</span><p>{{.Snippet}}</p></li>{{end}}</ol>{{else}}<p class="fine">{{.Message}}</p>{{end}}{{if .Partial}}<p class="fine">{{.Partial}}</p>{{end}}{{end}}

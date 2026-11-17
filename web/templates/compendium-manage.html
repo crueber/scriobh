@@ -1,0 +1,152 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/compendium.css"}}"><link rel="stylesheet" href="{{asset "css/cmanage.css"}}">{{end}}
+{{define "crumb"}}{{template "ccrumb" (dict "C" .Data.C "Here" ($.T "cmg.crumb"))}}{{end}}
+{{define "tab-write"}}{{template "ctab-phone" ctabs .Data.Slug "manage"}}{{end}}
+{{define "ptabs"}}{{template "ctab-desktop" ctabs .Data.Slug "manage"}}{{end}}
+{{define "projmore"}}{{template "cmore" ctabs .Data.Slug "manage"}}{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}
+<div class="settings comp cmg" id="cmg">
+  <h1>{{$.T "cmg.title"}}</h1>
+  <p class="sub">{{iso .C.Name}}. {{$.T "cmg.intro"}}</p>
+  <p class="cmg-nolink" role="note">{{$.T "cmg.no_undo"}}</p>
+  <p class="fine"><a href="/c/{{.Slug}}/changes">{{$.T "cmg.see_changes"}}</a></p>
+  {{if .Error}}<p class="field-error" role="alert" id="cmg-error">{{.Error}}</p>{{end}}
+  {{if .Stale}}<p class="notice-line" role="alert">{{.Stale}}</p>{{end}}
+
+  {{with .Plan}}{{template "cmg-preview" (dict "D" $d "P" . "Pg" $)}}{{end}}
+
+  {{if not .Plan}}
+  <section id="merge" aria-labelledby="h-merge">
+    <h2 id="h-merge">{{$.T "compendium.manage.merge_h"}}</h2>
+    <p>{{$.T "compendium.manage.merge_lede"}}</p>
+    {{if .Targets}}
+    <form class="form" method="post" action="/ui/compendiums/{{.C.ID}}/manage/merge-preview">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field"><label for="mg-into">{{$.T "compendium.manage.target"}}</label><select id="mg-into" name="into_id"{{if and (eq .Open "merge") (eq .Field "into_id")}} aria-invalid="true" aria-describedby="cmg-error"{{end}}>{{range .Targets}}<option value="{{.ID}}"{{if eq .ID $d.IntoID}} selected{{end}}>{{.Name}}</option>{{end}}</select></div>
+      <p class="hint">{{$.T "cmg.target_hint"}}</p>
+      <div class="form-actions"><button class="btn" type="submit">{{$.T "compendium.manage.preview"}}</button></div>
+    </form>
+    {{else}}<p class="fine">{{$.T "cmg.no_targets"}}</p>{{end}}
+  </section>
+
+  <section id="split" aria-labelledby="h-split">
+    <h2 id="h-split">{{$.T "compendium.manage.split_h"}}</h2>
+    <p>{{$.T "compendium.manage.split_lede"}}</p>
+    <form class="form cmg-filter" method="get" action="/c/{{.Slug}}/manage#split" role="search" aria-label="{{$.T "cmg.filter"}}">
+      <div class="field-row">
+        <div class="field"><label for="sp-q">{{$.T "cmg.filter_q"}}</label><input id="sp-q" type="search" name="q" value="{{.Q}}" autocomplete="off"></div>
+        <div class="field"><label for="sp-kind">{{$.T "cmg.filter_kind"}}</label><select id="sp-kind" name="kind"><option value="">{{$.T "cmg.kind_all"}}</option>{{range $k := (list "character" "place" "item" "org" "concept")}}<option value="{{$k}}"{{if eq $k $d.Kind}} selected{{end}}>{{$.T (print "cmg.kind_" $k)}}</option>{{end}}</select></div>
+      </div>
+      <div class="form-actions"><button class="btn" type="submit">{{$.T "cmg.filter_go"}}</button></div>
+    </form>
+    <form class="form" method="post" action="/ui/compendiums/{{.C.ID}}/manage/split-preview">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <fieldset class="cmg-pick"><legend>{{$.T "compendium.manage.choose"}}</legend>
+        {{if .Entities}}<p class="hint">{{$.N "cmg.shown" (len .Entities) "total" (num .Total)}}{{if .More}} {{$.T "cmg.more"}}{{end}}</p>
+        <ul class="cmg-ents">{{range .Entities}}<li><label class="check"><input type="checkbox" name="entity_id" value="{{.ID}}"{{if index $d.Picked .ID}} checked{{end}}><span>{{.Name}} <span class="fine">{{$.T (print "cmg.kind_" .Kind)}}</span></span></label></li>{{end}}</ul>
+        {{else}}<p class="fine">{{$.T "cmg.no_entities"}}</p>{{end}}
+      </fieldset>
+      <div class="field"><label for="sp-name">{{$.T "compendium.manage.new_name"}}</label><input id="sp-name" type="text" name="name" value="{{.NewName}}" maxlength="200" autocomplete="off"{{if and (eq .Open "split") (eq .Field "name")}} aria-invalid="true" aria-describedby="cmg-error"{{end}}></div>
+      <div class="field"><label for="sp-desc">{{$.T "cmg.desc"}} <span class="optional">{{$.T "cmg.optional"}}</span></label><textarea id="sp-desc" name="description" rows="3" maxlength="5000">{{.Desc}}</textarea></div>
+      <div class="form-actions"><button class="btn" type="submit">{{$.T "compendium.manage.preview"}}</button></div>
+    </form>
+  </section>
+  {{end}}
+</div>
+{{end}}
+{{end}}
+
+{{define "cmg-preview"}}{{$d := .D}}{{$p := .P}}{{$pg := .Pg}}
+<section class="cmg-preview" id="preview" aria-labelledby="h-preview">
+  <h2 id="h-preview">{{if eq $d.Op "merge"}}{{$pg.T "cmg.pv_merge" "from" (iso $p.SourceName) "into" (iso $p.TargetName)}}{{else}}{{$pg.T "cmg.pv_split" "from" $p.SourceName "into" (iso $d.NewName)}}{{end}}</h2>
+  <form class="form" method="post" action="/ui/compendiums/{{$d.C.ID}}/manage/{{$d.Op}}-preview">
+    <input type="hidden" name="_csrf" value="{{$d.CSRF}}">
+    <input type="hidden" name="fingerprint" value="{{$p.Fingerprint}}">
+    {{if eq $d.Op "merge"}}<input type="hidden" name="into_id" value="{{$d.IntoID}}">{{else}}<input type="hidden" name="name" value="{{$d.NewName}}"><input type="hidden" name="description" value="{{$d.Desc}}">{{range $id, $on := $d.Picked}}<input type="hidden" name="entity_id" value="{{$id}}">{{end}}{{end}}
+
+    <ul class="cmg-counts">
+      <li>{{$pg.N "cmg.moving" $p.Moving}}</li>
+      <li>{{$pg.N "cmg.staying" $p.Staying}}</li>
+      {{if $p.AliasesMoved}}<li>{{$pg.N "cmg.aliases_moving" $p.AliasesMoved}}</li>{{end}}
+      {{if $p.RelationsMoved}}<li>{{$pg.N "cmg.relations_moving" $p.RelationsMoved}}</li>{{end}}
+      {{if $p.EventsMoved}}<li>{{$pg.N "cmg.events_moving" $p.EventsMoved}}</li>{{end}}
+      {{if $p.EventScenes}}<li>{{$pg.N "cmg.event_scenes" $p.EventScenes}}</li>{{end}}
+      {{if $p.FieldDefsCopied}}<li>{{$pg.N "cmg.defs_copied" (len $p.FieldDefsCopied)}}</li>{{end}}
+      {{if $p.FieldDefsDifferent}}<li>{{$pg.T "cmg.defs_different" "keys" (join $p.FieldDefsDifferent ", ")}}</li>{{end}}
+      <li>{{$pg.T "compendium.manage.mentions"}}</li>
+    </ul>
+
+    {{if $p.Blocking}}<div class="cmg-block" role="alert"><p><strong>{{$pg.T "cmg.blocked"}}</strong></p><ul>{{range $p.Blocking}}<li>{{.}}</li>{{end}}</ul></div>{{end}}
+
+    {{if $d.Attention}}
+    <h3 id="h-clash">{{$pg.T "compendium.manage.clash_h"}}</h3>
+    {{if $p.Unresolved}}<p class="field-error" role="status">{{$pg.N "cmg.unresolved" (len $p.Unresolved)}}</p>{{end}}
+    <ul class="cmg-items" aria-labelledby="h-clash">
+      {{range $d.Attention}}{{$it := .}}<li class="cmg-item">
+        <fieldset>
+          <legend><strong>{{iso .Name}}</strong> <span class="fine">{{$pg.T (print "cmg.kind_" .Kind)}}</span></legend>
+          {{range .Clashes}}<p>{{$pg.T "compendium.manage.clash_what" "name" (iso $it.Name) "via" ($pg.T (print "cmg.via_" .Via)) "other" (iso .Name)}}</p>{{end}}
+          <label class="check"><input type="radio" name="res.{{.EntityID}}" value="rename"{{if eq .Res.Action "rename"}} checked{{end}}><span>{{$pg.T "compendium.manage.act_rename"}}</span></label>
+          <div class="field cmg-sub"><label for="new-{{.EntityID}}">{{$pg.T "cmg.new_name"}}</label><input id="new-{{.EntityID}}" type="text" name="new.{{.EntityID}}" value="{{.Res.New}}" maxlength="200" autocomplete="off"></div>
+          {{range .Clashes}}<label class="check"><input type="radio" name="res.{{$it.EntityID}}" value="merge"{{if and (eq $it.Res.Action "merge") (eq $it.Res.Into .EntityID)}} checked{{end}} data-into="{{.EntityID}}"><span>{{$pg.T "compendium.manage.act_merge" "other" (iso .Name)}}</span></label>{{end}}
+          {{if .Clashes}}<div class="field cmg-sub"><label for="into-{{.EntityID}}">{{$pg.T "cmg.merge_into"}}</label><select id="into-{{.EntityID}}" name="into.{{.EntityID}}">{{range .Clashes}}<option value="{{.EntityID}}"{{if eq $it.Res.Into .EntityID}} selected{{end}}>{{.Name}}</option>{{end}}</select></div>{{end}}
+          <label class="check"><input type="radio" name="res.{{.EntityID}}" value="drop_aliases"{{if eq .Res.Action "drop_aliases"}} checked{{end}}><span>{{$pg.T "compendium.manage.act_drop"}}</span></label>
+          <label class="check"><input type="radio" name="res.{{.EntityID}}" value="skip"{{if eq .Res.Action "skip"}} checked{{end}}><span>{{$pg.T "compendium.manage.act_skip"}}</span></label>
+          {{if .Conflicts}}<div class="cmg-fc"><p class="hint">{{$pg.T "cmg.fc_intro"}}</p>
+            {{range .Conflicts}}<fieldset><legend>{{.Label}}</legend>
+              <label class="check"><input type="radio" name="fc.{{$it.EntityID}}.{{.Key}}" value="source"{{if eq .Choice "source"}} checked{{end}}><span>{{$pg.T "cmg.fc_source"}}{{if .Source}}: {{.Source}}{{end}}</span></label>
+              <label class="check"><input type="radio" name="fc.{{$it.EntityID}}.{{.Key}}" value="target"{{if eq .Choice "target"}} checked{{end}}><span>{{$pg.T "cmg.fc_target"}}{{if .Target}}: {{.Target}}{{end}}</span></label>
+            </fieldset>{{end}}</div>{{end}}
+        </fieldset>
+      </li>{{end}}
+    </ul>
+    {{end}}
+
+    {{if or $p.RelationsCrossing $p.EventsCrossing}}
+    <fieldset class="cmg-choice"><legend>{{$pg.T "compendium.manage.cross_h"}}</legend>
+      <ul>{{range $p.RelationsCrossing}}<li>{{$pg.T "cmg.cross_rel" "from" (iso .From) "to" (iso .To) "kind" .Kind}}</li>{{end}}{{range $p.EventsCrossing}}<li>{{$pg.T "cmg.cross_event" "title" .Title "people" (join .People ", ")}}</li>{{end}}</ul>
+      <label class="check"><input type="radio" name="crossing" value="refuse"{{if ne $d.Crossing "drop"}} checked{{end}}><span>{{$pg.T "compendium.manage.cross_refuse"}}</span></label>
+      <label class="check"><input type="radio" name="crossing" value="drop"{{if eq $d.Crossing "drop"}} checked{{end}}><span>{{$pg.T "compendium.manage.cross_drop"}}</span></label>
+    </fieldset>{{end}}
+
+    {{if or $p.Keys $p.HiddenKeys}}
+    <fieldset class="cmg-choice"><legend>{{$pg.T "compendium.manage.keys_h"}}</legend>
+      {{if $p.Keys}}<ul>{{range $p.Keys}}<li>{{iso .Name}}</li>{{end}}</ul>{{end}}
+      {{if $p.HiddenKeys}}<p class="fine">{{$pg.N "cmg.keys_hidden" $p.HiddenKeys}}</p>{{end}}
+      <label class="check"><input type="radio" name="key_pins" value="refuse"{{if and (ne $d.KeyPins "repoint") (ne $d.KeyPins "leave")}} checked{{end}}><span>{{$pg.T "compendium.manage.keys_refuse"}}</span></label>
+      <label class="check"><input type="radio" name="key_pins" value="repoint"{{if eq $d.KeyPins "repoint"}} checked{{end}}><span>{{$pg.T "compendium.manage.keys_repoint"}}</span></label>
+      <label class="check"><input type="radio" name="key_pins" value="leave"{{if eq $d.KeyPins "leave"}} checked{{end}}><span>{{$pg.T "compendium.manage.keys_leave"}}</span></label>
+    </fieldset>{{end}}
+
+    {{if or $p.Projects $p.HiddenProjects}}
+    <h3>{{$pg.T "compendium.manage.projects_h"}}</h3>
+    <ul class="cmg-projects">{{range $p.Projects}}<li>{{if .EntitiesLeave}}{{$pg.N "cmg.projects_lose" .EntitiesLeave "title" (iso .Title)}}{{else}}{{$pg.T "cmg.project_keeps" "title" .Title}}{{end}}{{if .Follow}} <span class="fine">{{.Follow}}</span>{{end}}</li>{{end}}</ul>
+    {{if $p.HiddenProjects}}<p class="fine">{{$pg.N "cmg.projects_hidden" $p.HiddenProjects}}</p>{{end}}
+    {{if $p.Projects}}<label class="check"><input type="checkbox" name="follow" value="1"{{if $d.Follow}} checked{{end}}><span>{{$pg.T "compendium.manage.follow"}}</span></label>{{end}}
+    {{end}}
+
+    {{if $d.Moving}}<details class="cmg-moving"><summary>{{$pg.N "cmg.moving_list" (len $d.Moving)}}</summary><ul>{{range $d.Moving}}<li>{{.}}</li>{{end}}</ul>{{if $d.MoreMoving}}<p class="fine">{{$pg.N "cmg.moving_more" $d.MoreMoving}}</p>{{end}}</details>{{end}}
+    <p class="fine">{{$pg.T "compendium.manage.behind"}}</p>
+
+    <div class="form-actions"><button class="btn" type="submit">{{$pg.T "cmg.update"}}</button></div>
+  </form>
+
+  <form class="form cmg-confirm" method="post" action="/ui/compendiums/{{$d.C.ID}}/manage/{{$d.Op}}" aria-labelledby="h-confirm">
+    <input type="hidden" name="_csrf" value="{{$d.CSRF}}">
+    <input type="hidden" name="fingerprint" value="{{$p.Fingerprint}}">
+    {{if eq $d.Op "merge"}}<input type="hidden" name="into_id" value="{{$d.IntoID}}">{{else}}<input type="hidden" name="name" value="{{$d.NewName}}"><input type="hidden" name="description" value="{{$d.Desc}}">{{range $id, $on := $d.Picked}}<input type="hidden" name="entity_id" value="{{$id}}">{{end}}{{end}}
+    <input type="hidden" name="crossing" value="{{$d.Crossing}}"><input type="hidden" name="key_pins" value="{{$d.KeyPins}}">{{if $d.Follow}}<input type="hidden" name="follow" value="1">{{end}}
+    {{range $d.Attention}}{{$it := .}}{{if .Res.Action}}<input type="hidden" name="res.{{.EntityID}}" value="{{.Res.Action}}">{{if .Res.New}}<input type="hidden" name="new.{{.EntityID}}" value="{{.Res.New}}">{{end}}{{if .Res.Into}}<input type="hidden" name="into.{{.EntityID}}" value="{{.Res.Into}}">{{end}}{{range .Conflicts}}{{if .Choice}}<input type="hidden" name="fc.{{$it.EntityID}}.{{.Key}}" value="{{.Choice}}">{{end}}{{end}}{{end}}{{end}}
+    <h3 id="h-confirm">{{$pg.T "cmg.confirm_h"}}</h3>
+    <p class="cmg-nolink">{{$pg.T "cmg.confirm_p"}}</p>
+    {{if $d.CanConfirm}}
+    {{$name := $d.C.Name}}{{if eq $d.Op "split"}}{{$name = $d.NewName}}{{end}}
+    <div class="field"><label for="cmg-typed">{{$pg.T "cmg.type_name" "name" (iso $name)}}</label><input id="cmg-typed" type="text" name="confirm_name" value="" autocomplete="off" spellcheck="false" data-confirm="{{$name}}"></div>
+    <div class="form-actions"><button class="btn danger" type="submit" data-confirm-submit>{{if eq $d.Op "merge"}}{{$pg.T "compendium.manage.confirm_merge"}}{{else}}{{$pg.T "compendium.manage.confirm_split"}}{{end}}</button><a class="btn quiet" href="/c/{{$d.Slug}}/manage">{{$pg.T "cmg.leave"}}</a></div>
+    {{else}}
+    <p class="field-error" role="status">{{$pg.T "cmg.not_ready"}}</p>
+    <div class="form-actions"><button class="btn danger" type="submit" disabled>{{if eq $d.Op "merge"}}{{$pg.T "compendium.manage.confirm_merge"}}{{else}}{{$pg.T "compendium.manage.confirm_split"}}{{end}}</button><a class="btn quiet" href="/c/{{$d.Slug}}/manage">{{$pg.T "cmg.leave"}}</a></div>
+    {{end}}
+  </form>
+</section>
+{{end}}

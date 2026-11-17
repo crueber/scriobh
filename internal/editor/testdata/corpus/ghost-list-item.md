@@ -1,0 +1,3 @@
+- <scriobh-ghost>A ghosted item</scriobh-ghost> and more
+- <scriobh-ghost>Another whole item</scriobh-ghost>
+- Plain item

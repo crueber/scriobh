@@ -1,0 +1,27 @@
+{{define "ctab-desktop"}}<nav class="ptabs" aria-label="Compendium">
+  <a href="/c/{{.Slug}}"{{if eq .Active "overview"}} aria-current="page"{{end}}>Overview</a>
+  <a href="/c/{{.Slug}}/entities"{{if eq .Active "entities"}} aria-current="page"{{end}}>Entities</a>
+  <a href="/c/{{.Slug}}/timeline"{{if eq .Active "timeline"}} aria-current="page"{{end}}>Timeline</a>
+  <a href="/c/{{.Slug}}/research"{{if eq .Active "research"}} aria-current="page"{{end}}>Research</a>
+  <a href="/c/{{.Slug}}/files"{{if eq .Active "files"}} aria-current="page"{{end}}>Attachments</a>
+  <a href="/c/{{.Slug}}/scratch"{{if eq .Active "scratch"}} aria-current="page"{{end}}>Scratchpad</a>
+</nav>{{end}}
+{{define "ctab-phone"}}<a class="tab" href="/c/{{.Slug}}"{{if eq .Active "overview"}} aria-current="page"{{end}}>{{template "icon" "compendium"}}<span>Overview</span></a>
+<a class="tab" href="/c/{{.Slug}}/entities"{{if eq .Active "entities"}} aria-current="page"{{end}}>{{template "icon" "people"}}<span>Entities</span></a>
+<a class="tab" href="/c/{{.Slug}}/research"{{if eq .Active "research"}} aria-current="page"{{end}}>{{template "icon" "research"}}<span>Research</span></a>
+<a class="tab" href="/c/{{.Slug}}/files"{{if eq .Active "files"}} aria-current="page"{{end}}>{{template "icon" "attach"}}<span>Files</span></a>{{end}}
+{{define "cmore"}}<p class="menu-label" id="menu-comp">This Compendium</p>
+<ul class="menu-list" aria-labelledby="menu-comp">
+  <li><a class="menu-item" href="/c/{{.Slug}}/timeline"{{if eq .Active "timeline"}} aria-current="page"{{end}}>{{template "icon" "history"}}<span>Timeline</span></a></li>
+  <li><a class="menu-item" href="/c/{{.Slug}}/scratch"{{if eq .Active "scratch"}} aria-current="page"{{end}}>{{template "icon" "scratch"}}<span>Scratchpad</span></a></li>
+  <li><a class="menu-item" href="/c/{{.Slug}}/research"{{if eq .Active "research"}} aria-current="page"{{end}}>{{template "icon" "research"}}<span>Research</span></a></li>
+</ul>{{end}}
+{{define "ccrumb"}}<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/c/{{.C.Slug}}">{{.C.Name}}</a>{{if .Here}}<span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{.Here}}</span>{{end}}</nav>{{end}}
+
+{{define "comp-banner"}}<div class="comp-banner" role="note" data-kind="{{.Kind}}">
+  {{if eq .Kind "trashed"}}<p><strong>This Compendium is in the trash.</strong> It can be read, but nothing in it can be changed until it is restored.</p>
+  {{if .Owner}}<form method="post" action="/ui/compendiums/{{.ID}}/restore"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn" type="submit">Restore it</button></form>{{end}}
+  {{else}}<p><strong>Archived.</strong> It stays on the shelf and can still be changed.</p>
+  {{if .Owner}}<form method="post" action="/ui/compendiums/{{.ID}}/unarchive"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn quiet" type="submit">Unarchive</button></form>{{end}}
+  {{end}}
+</div>{{end}}

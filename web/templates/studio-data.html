@@ -1,0 +1,55 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/studio.css"}}">{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/studio">{{$.T "studio.ui.title"}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "studio.ui.t_data"}}</span></nav>
+{{end}}
+{{define "tab-write"}}<a class="tab" href="/studio" aria-current="page">{{template "icon" "goals"}}<span>{{$.T "studio.ui.tab"}}</span></a>{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}
+<div class="settings studio-sub" id="studio-data">
+  <h1>{{$.T "studio.ui.data.title"}}</h1>
+  <p class="sub">{{$.T "studio.ui.data.intro"}}</p>
+  {{template "studio-tabs" (dict "P" $ "Tab" "data")}}
+
+  <section id="compare" aria-labelledby="h-compare">
+    <div class="st-ph"><h2 id="h-compare">{{$.T "studio.ui.compare.h"}}</h2>
+      <nav class="st-ranges" aria-label="{{$.T "studio.ui.compare.presets"}}">{{range .Presets}}<a href="/studio/data?preset={{.Value}}#compare"{{if eq .Value $d.Preset}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</nav></div>
+    {{if .Error}}<p class="field-error" role="alert" id="st-error">{{.Error}}</p>{{end}}
+    {{if .Has}}
+    <div class="st-scroll" role="region" aria-labelledby="h-compare" tabindex="0">
+    <table class="st-table" id="st-compare"><thead><tr><td></td><th scope="col">{{.HeadA}}</th>{{if .Compared}}<th scope="col">{{.HeadB}}</th><th scope="col">{{$.T "studio.ui.compare.change"}}</th>{{end}}</tr></thead>
+      <tbody>{{range .Rows}}<tr><th scope="row">{{.Label}}</th><td>{{.A}}</td>{{if $d.Compared}}<td>{{.B}}</td><td>{{.Change}}</td>{{end}}</tr>{{end}}</tbody></table></div>
+    {{range .Notes}}<p class="fine">{{.}}</p>{{end}}
+    {{if .Compared}}<p class="fine">{{$.T "studio.ui.compare.note"}}</p>{{end}}
+    {{end}}
+    <details class="st-more"{{if or .Error (not .Preset)}} open{{end}}><summary>{{$.T "studio.ui.compare.own"}}</summary>
+      <form class="form" method="get" action="/studio/data#compare">
+        <fieldset class="st-set"><legend>{{$.T "studio.ui.compare.first"}}</legend>
+          <div class="field-row st-two"><div class="field"><label for="c-af">{{$.T "studio.ui.chart.from"}}</label><input id="c-af" type="date" name="a_from" value="{{.V "a_from"}}" required{{if .Error}} aria-invalid="true" aria-describedby="st-error"{{end}}></div>
+          <div class="field"><label for="c-at">{{$.T "studio.ui.chart.to"}}</label><input id="c-at" type="date" name="a_to" value="{{.V "a_to"}}" required></div></div>
+          <div class="field"><label for="c-ap">{{$.T "studio.ui.goals.f_project"}}</label><select id="c-ap" name="a_project">{{$ap := .V "a_project"}}<option value="">{{$.T "studio.ui.goal.every"}}</option>{{range .Projects}}<option value="{{.ID}}"{{if eq .ID $ap}} selected{{end}}>{{.Title}}</option>{{end}}</select></div>
+        </fieldset>
+        <fieldset class="st-set"><legend>{{$.T "studio.ui.compare.second"}}</legend>
+          <div class="field-row st-two"><div class="field"><label for="c-bf">{{$.T "studio.ui.chart.from"}}</label><input id="c-bf" type="date" name="b_from" value="{{.V "b_from"}}" required></div>
+          <div class="field"><label for="c-bt">{{$.T "studio.ui.chart.to"}}</label><input id="c-bt" type="date" name="b_to" value="{{.V "b_to"}}" required></div></div>
+          <div class="field"><label for="c-bp">{{$.T "studio.ui.goals.f_project"}}</label><select id="c-bp" name="b_project">{{$bp := .V "b_project"}}<option value="">{{$.T "studio.ui.goal.every"}}</option>{{range .Projects}}<option value="{{.ID}}"{{if eq .ID $bp}} selected{{end}}>{{.Title}}</option>{{end}}</select></div>
+        </fieldset>
+        <p class="hint">{{$.T "studio.ui.compare.drafts"}}</p>
+        <div class="form-actions"><button class="btn" type="submit">{{$.T "studio.ui.compare.go"}}</button></div>
+      </form>
+    </details>
+  </section>
+
+  <section id="export" aria-labelledby="h-export">
+    <h2 id="h-export">{{$.T "studio.ui.export.h"}}</h2>
+    <p class="sub">{{$.T "studio.ui.export.intro"}}</p>
+    <form class="form" method="get" action="/api/v1/me/studio/export">
+      <div class="field"><label for="ex-range">{{$.T "studio.ui.export.range"}}</label><select id="ex-range" name="range">{{range .Ranges}}<option value="{{.Value}}"{{if eq .Value "all"}} selected{{end}}>{{.Label}}</option>{{end}}</select></div>
+      <div class="field"><label for="ex-table">{{$.T "studio.ui.export.table"}}</label><select id="ex-table" name="table" aria-describedby="ex-table-h">{{range .Tables}}<option value="{{.Value}}">{{.Label}}</option>{{end}}</select>
+        <span class="hint" id="ex-table-h">{{$.T "studio.ui.export.table_h"}}</span></div>
+      <div class="form-actions"><button class="btn solid" type="submit" name="format" value="csv">{{$.T "studio.ui.export.csv"}}</button><button class="btn" type="submit" name="format" value="md">{{$.T "studio.ui.export.md"}}</button></div>
+    </form>
+    <p class="fine">{{$.T "studio.ui.export.note"}}</p>
+  </section>
+</div>
+{{end}}
+{{end}}

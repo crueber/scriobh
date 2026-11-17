@@ -1,0 +1,66 @@
+# Production shape. Copy to compose.yaml (or pass -f) and adjust.
+#
+#   cp compose.prod.example.yaml compose.prod.yaml
+#   $EDITOR .env              # variables are listed below and in docs/OPERATIONS.md
+#   docker compose -f compose.prod.yaml up -d --build
+#
+# The image is built from this repository with the `prod` tag, so it does not
+# contain the development issuer and refuses SCRIOBH_OIDC_STUB. Scríobh speaks
+# plain HTTP; run a reverse proxy in front of it for TLS (docs/OPERATIONS.md has
+# Caddy, Traefik and nginx examples).
+#
+# .env holds the secrets and is not committed:
+#
+#   SCRIOBH_BASE_URL=https://write.example.com
+#   SCRIOBH_OIDC_ISSUER=https://auth.example.com/...
+#   SCRIOBH_OIDC_CLIENT_ID=...
+#   SCRIOBH_OIDC_CLIENT_SECRET=...
+#   SCRIOBH_SECRET_KEY=...          # openssl rand -hex 32
+#   SCRIOBH_GIT_ALLOW_PRIVATE=1     # only if your Git server is on a private network
+#   SCRIOBH_ADMIN_GROUP=scriobh-admins
+#   SCRIOBH_WRITER_GROUP=scriobh-writers
+#   SCRIOBH_READER_GROUP=scriobh-readers
+name: scriobh
+
+services:
+  scriobh:
+    build:
+      context: .
+      args:
+        TAGS: prod
+        VERSION: ${SCRIOBH_VERSION:-dev}
+    image: scriobh:prod
+    env_file:
+      - .env
+    environment:
+      # Uncomment only when a proxy you control sets X-Forwarded-For and
+      # strips any copy the client sent. See docs/OPERATIONS.md.
+      # SCRIOBH_TRUST_PROXY: "true"
+      SCRIOBH_LOG_LEVEL: info
+    # A proxy on the same host connects to 127.0.0.1:8080. If the proxy runs in
+    # a container, put both on one network, drop `ports`, and proxy to
+    # scriobh:8080 instead.
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      # A named volume keeps the right owner (uid 65532). With a bind mount,
+      # `chown 65532:65532` the host directory first.
+      - scriobh-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "/scriobh", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    stop_grace_period: 20s
+    restart: unless-stopped
+
+volumes:
+  scriobh-data:

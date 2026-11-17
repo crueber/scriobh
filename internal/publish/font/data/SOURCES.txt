@@ -1,0 +1,20 @@
+The fonts in this directory are embedded unmodified (the original files, byte for
+byte) and are subset only inside the PDF files the program writes, which both
+licences allow. They were taken from the LibreOffice 26.8 application bundle
+(Contents/Resources/fonts/truetype), which ships them unchanged from upstream.
+
+file                          version  sha256
+LiberationSerif-Regular.ttf   2.1.5    058ea80864aef09a23f45cbec2bb5400bc3dfbdea01c3f10538a21fcb497fb74
+LiberationSerif-Italic.ttf    2.1.5    0e3dea9f8d613e006ccfa62201f33e265d19167bd0907725c3e145368b04fc2e
+LiberationSerif-Bold.ttf      2.1.5    d754ba427cfe0bca54ae052384baa8f842da5bd6550ad4da024ac441e7a7d5ce
+LiberationSerif-BoldItalic.ttf 2.1.5   f17db8af71e24d2066b587546021d4f0b296be389512b658dec3c09affeb11a7
+LiberationMono-Regular.ttf    2.1.5    f2b83c763e8afd21709333370bed4774337fae82267937e2b5aea7e2fbd922c1
+DejaVuSerif.ttf               2.37     42d1edeb7952f31b1f96d767ed7030b08a39e0c372b0071641518864e2bffb51
+DejaVuSans.ttf                2.37     7da195a74c55bef988d0d48f9508bd5d849425c1770dba5d7bfc6ce9ed848954
+
+Liberation Serif and Liberation Mono: SIL Open Font License 1.1 (OFL-liberation.txt).
+  Metric-compatible with Times New Roman and Courier New.
+DejaVu Serif and DejaVu Sans: Bitstream Vera / DejaVu licence (LICENSE-dejavu.txt),
+  used only for characters the Liberation faces do not have (symbols, rarer scripts).
+
+A test (TestEmbeddedFontsAreTheOriginals) pins the hashes above.

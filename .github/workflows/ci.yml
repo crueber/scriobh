@@ -1,0 +1,83 @@
+# The push gate for crueber/scriobh on GitHub: the same steps as the `quick` job of the development
+# repository's CI, as make targets, on a GitHub-hosted runner.
+#
+# Written from the development workflow and NOT run on GitHub when it was made (it was checked only for
+# valid YAML); the first run on GitHub is its first test. Not included, because they need a machine of
+# their own: the nightly race and bench runs, the browser jobs and the container image check.
+#
+# SCRIOBH_TIMING=off makes the tests that assert a wall-clock budget skip themselves: on a shared runner
+# they measure the machine, not the code. A laptop `go test` runs them (docs/OPERATIONS.md, "Continuous
+# integration").
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+  SCRIOBH_TIMING: "off"
+  TEST_PARALLEL: "4"
+  TEST_COUNT: ""
+
+jobs:
+  quick:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - uses: actions/setup-go@v5.5.0
+        with:
+          go-version-file: go.mod
+
+      # The editor round-trip test drives the committed bundle with node, and the freshness check rebuilds it.
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: "22"
+
+      - name: Workflow files are valid YAML
+        run: make workflows-check
+
+      - name: gofmt
+        run: make fmt-check
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: Contrast
+        run: make contrast
+
+      - name: Build the production binary
+        run: make build
+
+      - name: Skill and CLI snapshot match the registry
+        run: make skill-check
+
+      - name: Editor dependencies
+        run: make editor-deps
+
+      - name: Editor bundle is up to date
+        run: make editor-check
+
+      - name: Editor unit tests
+        run: cd web/editor && npm test
+
+      - name: Bench smoke
+        run: make bench-smoke
+
+      # Includes the authorization sweep, the editor round trip and the repository checks.
+      - name: go test, plain pass
+        run: make test-plain
+
+      - name: Desktop-ready smoke
+        run: make desktop-smoke

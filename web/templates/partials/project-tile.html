@@ -1,0 +1,28 @@
+{{define "project-tile"}}{{$p := .P}}
+<li class="tile{{if $p.Pinned}} is-pinned{{end}}">
+  {{if $p.Trashed}}<div class="tile-link tile-static">{{else}}<a class="tile-link" href="/p/{{$p.Slug}}{{if and (eq .State "active") $p.LastDocumentID}}/d/{{$p.LastDocumentID}}{{end}}">{{end}}
+    <span class="cover {{coverClass $p.CoverColor}}" aria-hidden="true">
+      <span class="cover-title">{{$p.Title}}</span>
+      <span class="cover-rule"></span>
+      <span class="cover-kind">{{template "kind-label" $p.Kind}}</span>
+    </span>
+    <span class="tile-title">{{$p.Title}}</span>
+    <span class="tile-meta">{{if $p.Locked}}<span class="tile-lock">{{template "icon" "lock"}}<span>{{.Lock}}</span></span>{{else}}{{if $p.AuthorName}}<span>{{$p.AuthorName}}</span>{{end}}<span>{{template "kind-label" $p.Kind}}</span><span class="status">{{$p.Status}}</span>{{end}}</span>
+  {{if $p.Trashed}}</div>{{else}}</a>{{end}}
+  <div class="tile-foot{{if eq .State "trashed"}} is-trash{{end}}">
+    {{if $p.Locked}}<span class="tile-bar-gap" aria-hidden="true"></span>
+    <div class="tile-actions"><a class="btn quiet small" href="/p/{{$p.Slug}}">{{.Unlock}}<span class="sr-only"> {{$p.Title}}</span></a></div>
+    {{else}}
+    {{if $p.WordGoal}}<progress class="tile-progress" value="{{$p.WordCount}}" max="{{$p.WordGoal}}" aria-label="Progress of {{$p.Title}}">{{num $p.WordCount}} of {{num $p.WordGoal}}</progress>{{else}}<span class="tile-bar-gap" aria-hidden="true"></span>{{end}}
+    <p class="tile-words">{{num $p.WordCount}}{{if $p.WordGoal}} of {{num $p.WordGoal}}{{end}}{{if not $p.WordGoal}} {{plural $p.WordCount "word" "words"}}{{end}}</p>
+    <div class="tile-actions">
+      {{if eq .State "active"}}<form method="post" action="/ui/projects/{{$p.ID}}/pin" hx-post="/ui/projects/{{$p.ID}}/pin" hx-target="#shelf-wrap" hx-swap="outerHTML"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="view" value="{{.State}}"><input type="hidden" name="pinned" value="{{if $p.Pinned}}false{{else}}true{{end}}"><button class="icon-btn pin-btn" type="submit" aria-pressed="{{if $p.Pinned}}true{{else}}false{{end}}" aria-label="{{if $p.Pinned}}Unpin{{else}}Pin{{end}} {{$p.Title}}">{{template "icon" "pin"}}</button></form>{{end}}
+      {{if eq .State "trashed"}}
+      {{if eq $p.Role "owner"}}<form method="post" action="/ui/projects/{{$p.ID}}/restore" hx-post="/ui/projects/{{$p.ID}}/restore" hx-target="#shelf-wrap" hx-swap="outerHTML"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="view" value="{{.State}}"><button class="btn quiet small" type="submit">Restore</button></form>
+      <a class="btn quiet small danger-text" href="/ui/projects/{{$p.ID}}/purge" hx-get="/ui/projects/{{$p.ID}}/purge" hx-target="#dialog-body" hx-swap="innerHTML">Delete forever</a>{{end}}
+      {{else}}<a class="icon-btn" href="/ui/projects/{{$p.ID}}/menu?view={{.State}}" hx-get="/ui/projects/{{$p.ID}}/menu?view={{.State}}" hx-target="#dialog-body" hx-swap="innerHTML" aria-label="Actions for {{$p.Title}}" aria-haspopup="dialog">{{template "icon" "more"}}</a>{{end}}
+    </div>
+    {{end}}
+  </div>
+</li>
+{{end}}

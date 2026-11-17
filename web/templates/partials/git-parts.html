@@ -1,0 +1,273 @@
+{{define "git-remotes"}}
+<section id="remotes" aria-labelledby="h-remotes">
+  <h2 id="h-remotes">{{$.Pg.T "git.remotes.title"}}</h2>
+  <p class="sub">{{$.Pg.T "git.remotes.sub" "n" (len .Rows) "max" .MaxRemotes}}</p>
+  <ul class="remotes">{{range .Rows}}
+    <li class="remote{{if .Selected}} is-on{{end}}" data-tone="{{.Tone}}" id="remote-{{.ID}}">
+      <h3><a href="/p/{{$.Slug}}/git?remote={{.ID}}#status"{{if .Selected}} aria-current="true"{{end}}>{{.Name}}</a></h3>
+      <dl class="remote-facts">
+        <div><dt>{{$.Pg.T "git.remotes.audience"}}</dt><dd><span class="aud" data-audience="{{.Audience}}">{{if eq .Audience "public"}}{{$.Pg.T "git.audience.public.short"}}{{else}}{{$.Pg.T "git.audience.private.short"}}{{end}}</span>{{if and (eq .Audience "public") .OnlyDone}} <span class="fine">{{$.Pg.T "git.remotes.only_done"}}</span>{{end}}</dd></div>
+        <div><dt>{{$.Pg.T "git.facts.address"}}</dt><dd class="wrap">{{.Host}}</dd></div>
+        <div><dt>{{$.Pg.T "git.facts.branch"}}</dt><dd>{{.Branch}}</dd></div>
+        <div><dt>{{$.Pg.T "git.facts.folder"}}</dt><dd>{{if .PathPrefix}}{{.PathPrefix}}{{else}}{{$.Pg.T "git.facts.top"}}{{end}}</dd></div>
+        <div><dt>{{$.Pg.T "git.row.state"}}</dt><dd><span class="mark" aria-hidden="true"></span>{{.State}}</dd></div>
+        <div><dt>{{$.Pg.T "git.row.last"}}</dt><dd>{{.LastPush}}{{if .Backoff}}<span class="fine"> {{.Backoff}}</span>{{end}}</dd></div>
+        {{if .SignCommits}}<div><dt>{{$.Pg.T "git.remotes.signing"}}</dt><dd>{{$.Pg.T "git.signing.signs"}}</dd></div>{{end}}
+      </dl>
+      {{if .RestorePaused}}<div class="paused" role="note">
+        <p>{{$.Pg.T "git.remotes.paused"}}</p>
+        {{if $.IsOwner}}<form method="post" action="/ui/projects/{{$.Project.ID}}/git/enable"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="remote_id" value="{{.ID}}"><button class="btn solid small" type="submit">{{$.Pg.T "git.remotes.switch_on"}}</button></form>{{else}}<p class="fine">{{$.Pg.T "git.owner_only"}}</p>{{end}}
+      </div>{{end}}
+    </li>{{end}}
+  </ul>
+  {{if .CanPublish}}<p class="row-actions"><a class="btn" href="/p/{{.Slug}}/git/publish">{{$.Pg.T "git.publish.title"}}</a></p>{{end}}
+</section>
+{{end}}
+
+{{define "git-add"}}
+<ul class="presets" aria-label="{{$.Pg.T "git.add.where"}}">
+  {{range .Presets}}<li><a class="preset{{if eq .ID $.Preset.ID}} is-on{{end}}" href="/p/{{$.Slug}}/git?{{if $.Remote}}remote={{$.Remote.ID}}&amp;{{end}}preset={{.ID}}#add"{{if eq .ID $.Preset.ID}} aria-current="true"{{end}}>{{.Label}}</a></li>{{end}}
+</ul>
+{{if .Preset.Notes}}<p class="fine">{{.Preset.Notes}}</p>{{end}}
+{{template "git-form" .}}
+{{end}}
+
+{{define "git-audience-fields"}}{{/* dict: D gitData, Cur the audience now ("" when there is none yet), Done, Notes, P an id prefix */}}
+<fieldset class="field radios audience" aria-describedby="{{.P}}-aud-hint{{if eq .D.Field "audience"}} git-error{{end}}">
+  <legend>{{$.D.Pg.T "git.audience.legend"}}</legend>
+  <label class="check aud-opt"><input type="radio" name="audience" value="private"{{if eq .Cur "private"}} checked{{end}} required{{if eq .D.Field "audience"}} aria-invalid="true"{{end}}><span><strong>{{$.D.Pg.T "git.audience.private.h"}}</strong><span class="hint">{{$.D.Pg.T "git.audience.private.d"}}</span></span></label>
+  <label class="check aud-sub"><input type="checkbox" name="include_notes" value="1"{{if .Notes}} checked{{end}}{{if eq .D.Field "include_notes"}} aria-invalid="true"{{end}}><span>{{$.D.Pg.T "git.audience.notes"}}</span></label>
+  <label class="check aud-opt"><input type="radio" name="audience" value="public"{{if eq .Cur "public"}} checked{{end}}><span><strong>{{$.D.Pg.T "git.audience.public.h"}}</strong><span class="hint">{{$.D.Pg.T "git.audience.public.d"}}</span></span></label>
+  <label class="check aud-sub"><input type="checkbox" name="only_done" value="1"{{if .Done}} checked{{end}}{{if eq .D.Field "only_done"}} aria-invalid="true"{{end}}><span>{{$.D.Pg.T "git.audience.only_done"}}</span></label>
+  <span class="hint" id="{{.P}}-aud-hint">{{$.D.Pg.T "git.audience.choose"}}</span>
+</fieldset>
+{{end}}
+
+{{define "git-form"}}
+<form class="form git-form" method="post" action="/ui/projects/{{.Project.ID}}/git/create">
+  <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="preset" value="{{if ne .Preset.ID "custom"}}{{.Preset.ID}}{{end}}">
+  <div class="field">
+    <label for="gf-name">{{$.Pg.T "git.form.name"}}</label>
+    <input id="gf-name" type="text" name="name" value="{{if .Values.name}}{{.Values.name}}{{else}}{{$.Pg.T "git.form.name_default"}}{{end}}" maxlength="80" required autocomplete="off"{{if eq .Field "name"}} aria-invalid="true" aria-describedby="git-error"{{end}}>
+    <span class="hint">{{$.Pg.T "git.form.name_hint"}}</span>
+  </div>
+  <div class="field">
+    <label for="gf-url">{{$.Pg.T "git.form.url"}}</label>
+    <input id="gf-url" type="text" name="url" value="{{if .Values.url}}{{.Values.url}}{{else if .Preset.DefaultHost}}ssh://git@{{.Preset.DefaultHost}}/{{end}}" placeholder="{{if eq .Preset.ID "github"}}ssh://git@github.com/owner/repo.git{{else if eq .Preset.ID "forgejo"}}ssh://git@your-forgejo/owner/repo.git{{else}}ssh://git@host/owner/repo.git{{end}}" required autocomplete="off" spellcheck="false" aria-describedby="gf-url-hint{{if eq .Field "url"}} git-error{{end}}"{{if eq .Field "url"}} aria-invalid="true"{{end}}>
+    <span class="hint" id="gf-url-hint">{{$.Pg.T "git.form.url_hint"}}</span>
+  </div>
+  <details class="more"{{if or .Values.username (eq .Field "username") (eq .Field "token")}} open{{end}}>
+    <summary>{{$.Pg.T "git.form.https"}}</summary>
+    <div class="field"><label for="gf-user">{{$.Pg.T "git.form.user"}}</label><input id="gf-user" type="text" name="username" value="{{.Values.username}}" autocomplete="off" spellcheck="false"></div>
+    <div class="field"><label for="gf-token">{{$.Pg.T "git.form.token"}}</label><input id="gf-token" type="password" name="token" autocomplete="off" aria-describedby="gf-token-hint"><span class="hint" id="gf-token-hint">{{$.Pg.T "git.form.token_hint"}}</span></div>
+  </details>
+  {{if eq .Field "confirm"}}<div class="field"><label for="gf-confirm">{{$.Pg.T "git.add.confirm"}}</label><input id="gf-confirm" type="text" name="confirm" autocomplete="off" spellcheck="false" aria-invalid="true" aria-describedby="git-error"></div>{{end}}
+  {{template "git-audience-fields" (dict "D" . "Cur" .Values.audience "Done" (eq .Values.only_done "1") "Notes" (eq .Values.include_notes "1") "P" "gf")}}
+  {{template "git-options" (dict "D" . "P" "gf" "V" .Values)}}
+  <label class="check"><input type="checkbox" name="sign_commits" value="1"{{if eq .Values.sign_commits "1"}} checked{{end}}><span>{{$.Pg.T "git.form.sign"}}</span></label>
+  <div class="form-actions"><button class="btn solid" type="submit"{{if not .Enabled}} disabled{{end}}>{{$.Pg.T "git.form.add"}}</button></div>
+</form>
+{{end}}
+
+{{define "git-options"}}
+  <div class="field-row">
+    <div class="field"><label for="{{.P}}-branch">{{$.D.Pg.T "git.facts.branch"}}</label><input id="{{.P}}-branch" type="text" name="branch" value="{{if .V.branch}}{{.V.branch}}{{else if .D.Remote}}{{.D.Remote.Branch}}{{else}}main{{end}}" autocomplete="off" spellcheck="false"></div>
+    <div class="field"><label for="{{.P}}-path">{{$.D.Pg.T "git.form.folder"}}</label><input id="{{.P}}-path" type="text" name="path_prefix" value="{{if .V.path_prefix}}{{.V.path_prefix}}{{else if .D.Remote}}{{.D.Remote.PathPrefix}}{{end}}" placeholder="{{$.D.Pg.T "git.form.optional"}}" autocomplete="off" spellcheck="false"></div>
+  </div>
+  {{$mode := "on_save"}}{{if .D.Remote}}{{$mode = .D.Remote.PushMode}}{{end}}{{if .V.push_mode}}{{$mode = .V.push_mode}}{{end}}
+  <fieldset class="field radios" aria-describedby="{{.P}}-mode-hint">
+    <legend>{{$.D.Pg.T "git.form.when"}}</legend>
+    <label class="check"><input type="radio" name="push_mode" value="on_save"{{if eq $mode "on_save"}} checked{{end}}><span>{{$.D.Pg.T "git.form.when_save"}}</span></label>
+    <label class="check"><input type="radio" name="push_mode" value="interval"{{if eq $mode "interval"}} checked{{end}}><span>{{$.D.Pg.T "git.form.when_interval"}}</span></label>
+    <label class="check"><input type="radio" name="push_mode" value="manual"{{if eq $mode "manual"}} checked{{end}}><span>{{$.D.Pg.T "git.form.when_manual"}}</span></label>
+    <span class="hint" id="{{.P}}-mode-hint">{{$.D.Pg.T "git.form.when_hint"}}</span>
+  </fieldset>
+  <div class="field"><label for="{{.P}}-interval">{{$.D.Pg.T "git.form.interval"}}</label><input id="{{.P}}-interval" type="number" name="interval_minutes" min="5" max="10080" inputmode="numeric" value="{{if .V.interval_minutes}}{{.V.interval_minutes}}{{else if .D.Remote}}{{.D.Remote.IntervalMinutes}}{{else}}60{{end}}"><span class="hint">{{$.D.Pg.T "git.form.interval_hint"}}</span></div>
+  <div class="field-row">
+    <div class="field"><label for="{{.P}}-an">{{$.D.Pg.T "git.form.author_name"}}</label><input id="{{.P}}-an" type="text" name="author_name" value="{{if .V.author_name}}{{.V.author_name}}{{else if .D.Remote}}{{.D.Remote.AuthorName}}{{end}}" placeholder="Scríobh" autocomplete="off"></div>
+    <div class="field"><label for="{{.P}}-ae">{{$.D.Pg.T "git.form.author_email"}}</label><input id="{{.P}}-ae" type="text" name="author_email" value="{{if .V.author_email}}{{.V.author_email}}{{else if .D.Remote}}{{.D.Remote.AuthorEmail}}{{end}}" placeholder="noreply@scriobh" autocomplete="off"></div>
+  </div>
+  <p class="fine">{{$.D.Pg.T "git.form.author_hint"}}</p>
+{{end}}
+
+{{define "git-setup"}}{{$r := .Remote}}
+<ol class="steps">
+  {{range .Steps}}<li data-done="{{.Done}}"><span class="mark" aria-hidden="true"></span><span>{{.Title}}<span class="sr-only">{{if .Done}}: {{$.Pg.T "git.step.done"}}{{else}}: {{$.Pg.T "git.step.todo"}}{{end}}</span></span></li>{{end}}
+</ol>
+{{if eq $r.AuthKind "ssh_deploy_key"}}
+<div class="setup-block" id="deploykey">
+  <h3>{{$.Pg.T "git.dk.h"}}</h3>
+  {{if $r.PublicKey}}
+  <p>{{$.Pg.T "git.dk.add"}}</p>
+  <div class="keybox"><code id="git-pubkey" class="wrap">{{$r.PublicKey}}</code><button type="button" class="btn small" data-copy="#git-pubkey" data-copied="{{$.Pg.T "git.copied_key"}}" data-selected="{{$.Pg.T "git.selected_key"}}" hidden>{{$.Pg.T "git.copy_key"}}</button></div>
+  <p class="fine">{{$.Pg.T "git.dk.fingerprint"}} <code class="wrap">{{$r.KeyFingerprint}}</code>. {{$.Pg.T "git.dk.call_it" "name" $r.Name}}</p>
+  {{if .KeyLink}}<p>{{$.Pg.T "git.dk.link"}} <code class="wrap">{{.KeyLink}}</code> <span class="fine">({{$.Pg.T "git.dk.link_note"}})</span>.</p>
+  {{else}}<p class="fine">{{$.Pg.T "git.dk.generic"}}</p>{{end}}
+  {{if .IsOwner}}<details class="more"><summary>{{$.Pg.T "git.dk.new"}}</summary>
+    <form class="form" method="post" action="/ui/projects/{{.Project.ID}}/git/keygen"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="remote_id" value="{{$r.ID}}"><input type="hidden" name="replace" value="1">
+      <p class="fine">{{$.Pg.T "git.dk.new_note"}}</p>
+      <label class="check"><input type="checkbox" name="understood" value="1" required><span>{{$.Pg.T "git.dk.understood"}}</span></label>
+      <div class="form-actions"><button class="btn" type="submit">{{$.Pg.T "git.dk.new"}}</button></div></form></details>{{end}}
+  {{else}}
+  <p>{{$.Pg.T "git.dk.none"}}</p>
+  {{if .IsOwner}}<form method="post" action="/ui/projects/{{.Project.ID}}/git/keygen"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="remote_id" value="{{$r.ID}}"><button class="btn solid" type="submit">{{$.Pg.T "git.dk.make"}}</button></form>{{else}}<p class="fine">{{$.Pg.T "git.dk.owner_only"}}</p>{{end}}
+  {{end}}
+</div>
+<div class="setup-block" id="hostkey">
+  <h3>{{$.Pg.T "git.hk.h"}}</h3>
+  {{if $r.HostKey}}
+  <p>{{$.Pg.T "git.hk.accepted"}} <code class="wrap">{{$r.HostKey.Type}} {{$r.HostKey.Fingerprint}}</code>. {{$.Pg.T "git.hk.accepted_note"}}</p>
+  {{else}}
+  <p>{{$.Pg.T "git.hk.first"}}</p>
+  {{end}}
+  {{if .Scan}}
+    {{if .Scan.Changed}}<p class="banner-danger" role="alert" data-tone="danger"><span class="mark" aria-hidden="true"></span><strong>{{$.Pg.T "git.hk.changed"}}</strong> {{$.Pg.T "git.hk.changed_detail" "host" .Scan.Host}}{{with .Scan.Pinned}} ({{.Fingerprint}}){{end}}. {{$.Pg.T "git.hk.changed_warn"}}</p>{{end}}
+    <p>{{$.Pg.N "git.hk.offers" (len .Scan.Keys) "host" .Scan.Host}}</p>
+    <ul class="fingerprints">{{range .Scan.Keys}}<li>
+      <p><code class="wrap">{{.Type}} {{.Fingerprint}}</code></p>
+      {{if $.IsOwner}}<form class="form" method="post" action="/ui/projects/{{$.Project.ID}}/git/hostkey-accept"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="remote_id" value="{{$r.ID}}"><input type="hidden" name="fingerprint" value="{{.Fingerprint}}">
+        {{if $.Scan.Changed}}<input type="hidden" name="replace" value="1"><label class="check"><input type="checkbox" name="understood" value="1" required><span>{{$.Pg.T "git.hk.know_why"}}</span></label>{{else if $r.HostKey}}<input type="hidden" name="replace" value="1"><label class="check"><input type="checkbox" name="understood" value="1" required><span>{{$.Pg.T "git.hk.replace_it"}}</span></label>{{end}}
+        <label class="check"><input type="checkbox" name="compared" value="1" required><span>{{$.Pg.T "git.hk.compared"}}</span></label>
+        <div class="form-actions"><button class="btn{{if $.Scan.Changed}} danger{{else}} solid{{end}}" type="submit">{{if $.Scan.Changed}}{{$.Pg.T "git.hk.replace"}}{{else}}{{$.Pg.T "git.hk.accept"}}{{end}}</button></div></form>
+      {{else}}<p class="fine">{{$.Pg.T "git.hk.owner_only"}}</p>{{end}}
+    </li>{{end}}</ul>
+    {{if .Scan.Docs}}<p class="fine">{{$.Pg.T "git.hk.docs"}} <code class="wrap">{{.Scan.Docs}}</code>. {{$.Pg.T "git.hk.own"}} <code>ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code>.</p>
+    {{else}}<p class="fine">{{$.Pg.T "git.hk.own"}} <code>ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code>.</p>{{end}}
+  {{end}}
+  {{if .CanEdit}}<form method="post" action="/ui/projects/{{.Project.ID}}/git/hostkey-scan#hostkey"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="remote_id" value="{{$r.ID}}"><button class="btn{{if not $r.HostKey}} solid{{end}}" type="submit">{{if $r.HostKey}}{{$.Pg.T "git.hk.again"}}{{else}}{{$.Pg.T "git.hk.scan"}}{{end}}</button></form>{{end}}
+</div>
+{{else}}
+<div class="setup-block" id="token">
+  <h3>{{$.Pg.T "git.tok.h"}}</h3>
+  {{if $r.HasSecret}}<p>{{$.Pg.T "git.tok.stored" "user" $r.Username}}</p>
+  {{else}}<p>{{$.Pg.T "git.tok.none"}}</p>{{end}}
+</div>
+{{end}}
+<div class="setup-block" id="test">
+  <h3>{{if eq $r.AuthKind "ssh_deploy_key"}}3.{{else}}2.{{end}} {{$.Pg.T "git.test.h"}}</h3>
+  <p>{{$.Pg.T "git.test.what"}}</p>
+  {{with .Test}}<div class="banner" data-tone="{{if .OK}}{{if .Warning}}warn{{else}}ok{{end}}{{else}}danger{{end}}" role="status" tabindex="-1" data-result>
+    <p class="banner-head"><span class="mark" aria-hidden="true"></span><strong>{{if .OK}}{{$.Pg.T "git.test.works"}}{{else}}{{$.Pg.T "git.test.failed"}}{{end}}</strong></p>
+    <p class="banner-detail">{{.Message}}</p>
+    {{if .Warning}}<p class="banner-hint">{{.Warning}}</p>{{end}}
+    {{if and .OK .Empty}}<p class="banner-hint">{{$.Pg.T "git.test.empty"}}</p>{{end}}
+    {{if .Hint}}<p class="banner-hint">{{.Hint}}</p>{{end}}
+  </div>{{end}}
+  {{if .CanEdit}}<form method="post" action="/ui/projects/{{.Project.ID}}/git/test#test"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="remote_id" value="{{$r.ID}}"><button class="btn" type="submit">{{$.Pg.T "git.test.h"}}</button></form>{{end}}
+</div>
+{{end}}
+
+{{define "git-settings"}}{{$r := .Remote}}
+{{if .IsOwner}}
+<form class="form git-form" method="post" action="/ui/projects/{{.Project.ID}}/git/settings">
+  <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="remote_id" value="{{$r.ID}}">
+  <div class="field"><label for="gs-name">{{$.Pg.T "git.form.name"}}</label><input id="gs-name" type="text" name="name" value="{{if .SetValues.name}}{{.SetValues.name}}{{else}}{{$r.Name}}{{end}}" maxlength="80" required autocomplete="off"></div>
+  {{template "git-options" (dict "D" . "P" "gs" "V" .SetValues)}}
+  {{if eq $r.AuthKind "https_token"}}
+  <div class="field-row">
+    <div class="field"><label for="gs-user">{{$.Pg.T "git.form.user"}}</label><input id="gs-user" type="text" name="username" value="{{if .SetValues.username}}{{.SetValues.username}}{{else}}{{$r.Username}}{{end}}" autocomplete="off" spellcheck="false"></div>
+    <div class="field"><label for="gs-token">{{$.Pg.T "git.form.replace_token"}}</label><input id="gs-token" type="password" name="token" autocomplete="off" placeholder="{{if $r.HasSecret}}{{$.Pg.T "git.form.stored"}}{{else}}{{$.Pg.T "git.form.not_set"}}{{end}}"></div>
+  </div>
+  {{end}}
+  <div class="form-actions"><button class="btn solid" type="submit">{{$.Pg.T "git.form.save"}}</button></div>
+</form>
+<details class="more" id="address"{{if eq .Field "understood"}} open{{end}}>
+  <summary>{{$.Pg.T "git.addr.h"}}</summary>
+  <form class="form" method="post" action="/ui/projects/{{.Project.ID}}/git/address">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="remote_id" value="{{$r.ID}}">
+    <p class="banner-hint"><strong>{{$.Pg.T "git.addr.read"}}</strong> {{$.Pg.T "git.addr.warn"}}</p>
+    <div class="field"><label for="ga-url">{{$.Pg.T "git.addr.new"}}</label><input id="ga-url" type="text" name="url" value="{{$r.URL}}" autocomplete="off" spellcheck="false" required></div>
+    <label class="check"><input type="checkbox" name="understood" value="1" required><span>{{$.Pg.T "git.addr.understood"}}</span></label>
+    {{if or (eq .Field "confirm") (eq $r.Audience "public") (eq $r.CreatedVia "publish")}}<div class="field"><label for="gaddr-confirm">{{$.Pg.T "git.carries.type" "name" $r.Name}}</label><input id="gaddr-confirm" type="text" name="confirm" autocomplete="off" spellcheck="false"{{if eq .Field "confirm"}} aria-invalid="true" aria-describedby="git-error"{{end}}><span class="hint">{{$.Pg.T "git.addr.confirm_hint"}}</span></div>{{end}}
+    <div class="form-actions"><button class="btn" type="submit">{{$.Pg.T "git.addr.go"}}</button></div>
+  </form>
+</details>
+{{else}}
+<dl class="facts git-facts">
+  <div><dt>{{$.Pg.T "git.form.name"}}</dt><dd>{{$r.Name}}</dd></div>
+  <div><dt>{{$.Pg.T "git.facts.address"}}</dt><dd class="wrap">{{$r.URL}}</dd></div>
+  <div><dt>{{$.Pg.T "git.facts.branch"}}</dt><dd>{{$r.Branch}}</dd></div>
+  <div><dt>{{$.Pg.T "git.facts.folder"}}</dt><dd>{{if $r.PathPrefix}}{{$r.PathPrefix}}{{else}}{{$.Pg.T "git.facts.top"}}{{end}}</dd></div>
+  <div><dt>{{$.Pg.T "git.facts.when"}}</dt><dd>{{if eq $r.PushMode "on_save"}}{{$.Pg.T "git.facts.when_save"}}{{else if eq $r.PushMode "interval"}}{{$.Pg.T "git.facts.when_interval" "n" $r.IntervalMinutes}}{{else}}{{$.Pg.T "git.facts.when_manual"}}{{end}}</dd></div>
+  <div><dt>{{$.Pg.T "git.facts.notes"}}</dt><dd>{{if $r.IncludeNotes}}{{$.Pg.T "git.facts.notes_yes"}}{{else}}{{$.Pg.T "git.facts.notes_no"}}{{end}}</dd></div>
+</dl>
+<p class="fine">{{$.Pg.T "git.settings.owner_only"}}</p>
+{{end}}
+{{end}}
+
+{{define "git-carries"}}{{$r := .Remote}}
+<p class="sub">{{if eq $r.Audience "public"}}{{$.Pg.T "git.audience.public.d"}}{{else}}{{$.Pg.T "git.audience.private.d"}}{{end}}</p>
+<dl class="facts git-facts">
+  <div><dt>{{$.Pg.T "git.remotes.audience"}}</dt><dd><strong>{{if eq $r.Audience "public"}}{{$.Pg.T "git.audience.public.h"}}{{else}}{{$.Pg.T "git.audience.private.h"}}{{end}}</strong></dd></div>
+  {{if eq $r.Audience "public"}}<div><dt>{{$.Pg.T "git.carries.done"}}</dt><dd>{{if $r.OnlyDone}}{{$.Pg.T "git.carries.done_yes"}}{{else}}{{$.Pg.T "git.carries.done_no"}}{{end}}</dd></div>
+  {{else}}<div><dt>{{$.Pg.T "git.facts.notes"}}</dt><dd>{{if $r.IncludeNotes}}{{$.Pg.T "git.facts.notes_yes"}}{{else}}{{$.Pg.T "git.facts.notes_no"}}{{end}}</dd></div>{{end}}
+</dl>
+{{if .IsOwner}}
+<details class="more" id="carries-change"{{if or (eq .Field "audience") (eq .Field "confirm") (eq .Field "understood")}} open{{end}}>
+  <summary>{{$.Pg.T "git.carries.change"}}</summary>
+  <form class="form" method="post" action="/ui/projects/{{.Project.ID}}/git/audience">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="remote_id" value="{{$r.ID}}">
+    <p class="banner-hint"><strong>{{$.Pg.T "git.carries.read"}}</strong> {{$.Pg.T "git.remotes.audience_change"}} {{$.Pg.T "git.carries.person"}}</p>
+    {{template "git-audience-fields" (dict "D" . "Cur" $r.Audience "Done" $r.OnlyDone "Notes" $r.IncludeNotes "P" "ga")}}
+    <label class="check"><input type="checkbox" name="understood" value="1"{{if eq .Field "understood"}} aria-invalid="true" aria-describedby="git-error"{{end}}><span>{{$.Pg.T "git.carries.understood"}}</span></label>
+    {{if or (eq $r.Audience "public") (eq $r.CreatedVia "publish")}}<div class="field"><label for="ga-confirm">{{$.Pg.T "git.carries.type" "name" $r.Name}}</label><input id="ga-confirm" type="text" name="confirm" autocomplete="off" spellcheck="false" data-confirm="{{$r.Name}}"{{if eq .Field "confirm"}} aria-invalid="true" aria-describedby="git-error"{{end}}><span class="hint">{{$.Pg.T "git.carries.type_hint"}}</span></div>{{end}}
+    <div class="form-actions"><button class="btn" type="submit">{{$.Pg.T "git.carries.go"}}</button></div>
+  </form>
+</details>
+{{else}}<p class="fine">{{$.Pg.T "git.settings.owner_only"}}</p>{{end}}
+{{end}}
+
+{{define "git-signing"}}{{$r := .Remote}}
+<p class="sub">{{$.Pg.T "git.signing.intro"}}</p>
+{{with .Signing}}{{if .Exists}}
+<div class="setup-block" id="signing-key">
+  <h3>{{$.Pg.T "git.remotes.signing_key"}}</h3>
+  <div class="keybox"><code id="git-signkey" class="wrap">{{.Key.PublicKey}}</code><button type="button" class="btn small" data-copy="#git-signkey" data-copied="{{$.Pg.T "git.copied_key"}}" data-selected="{{$.Pg.T "git.selected_key"}}" hidden>{{$.Pg.T "git.copy_key"}}</button></div>
+  <p class="fine">{{$.Pg.T "git.signing.fp"}} <code class="wrap">{{.Key.Fingerprint}}</code></p>
+  <details class="more"><summary>{{$.Pg.T "git.remotes.signing_allowed"}}</summary>
+    <div class="keybox"><code id="git-allowed" class="wrap">{{.Key.AllowedSigners}}</code><button type="button" class="btn small" data-copy="#git-allowed" data-copied="{{$.Pg.T "git.copied_line"}}" data-selected="{{$.Pg.T "git.selected_line"}}" hidden>{{$.Pg.T "git.copy_line"}}</button></div>
+    <p class="fine">{{$.Pg.T "git.remotes.signing_help"}}</p></details>
+  <details class="more"><summary>{{$.Pg.T "git.signing.replace"}}</summary>
+    <form class="form" method="post" action="/ui/projects/{{$.Project.ID}}/git/signing-generate"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="remote_id" value="{{$r.ID}}"><input type="hidden" name="replace" value="1">
+      <p class="fine">{{$.Pg.T "git.signing.replace_note"}}</p>
+      <label class="check"><input type="checkbox" name="understood" value="1" required><span>{{$.Pg.T "git.signing.understood"}}</span></label>
+      <div class="form-actions"><button class="btn" type="submit">{{$.Pg.T "git.signing.replace"}}</button></div></form></details>
+</div>
+<form class="form" method="post" action="/ui/projects/{{$.Project.ID}}/git/signing-remote">
+  <input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="remote_id" value="{{$r.ID}}">
+  <label class="check"><input type="checkbox" name="sign_commits" value="1"{{if $r.SignCommits}} checked{{end}}><span>{{$.Pg.T "git.signing.enable" "name" $r.Name}}</span></label>
+  <p class="fine">{{$.Pg.T "git.signing.enable_note"}}</p>
+  <div class="form-actions"><button class="btn" type="submit">{{$.Pg.T "git.form.save"}}</button></div>
+</form>
+{{else}}
+<p>{{$.Pg.T "git.signing.none"}}</p>
+<form method="post" action="/ui/projects/{{$.Project.ID}}/git/signing-generate"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="remote_id" value="{{$r.ID}}"><button class="btn solid" type="submit">{{$.Pg.T "git.remotes.signing_generate"}}</button></form>
+{{end}}{{end}}
+{{end}}
+
+{{define "git-trigger"}}{{$r := .Remote}}{{$t := $r.Trigger}}
+<p class="sub">{{$.Pg.T "git.remotes.trigger_help"}}</p>
+{{if $t}}
+<dl class="facts git-facts">
+  <div><dt>{{$.Pg.T "git.remotes.trigger_url"}}</dt><dd class="wrap">{{$t.Origin}}{{if $t.HasPath}} <span class="fine">{{$.Pg.T "git.trigger.path_sealed"}}</span>{{end}}</dd></div>
+  <div><dt>{{$.Pg.T "git.trigger.status"}}</dt><dd>{{if $t.Enabled}}{{$.Pg.T "git.trigger.on"}}{{else if $r.RestorePaused}}{{$.Pg.T "git.remotes.trigger_paused"}}{{else}}{{$.Pg.T "git.trigger.off"}}{{end}}</dd></div>
+  <div><dt>{{$.Pg.T "git.remotes.trigger_secret"}}</dt><dd><code>{{$t.SecretHint}}</code></dd></div>
+  <div><dt>{{$.Pg.T "git.remotes.trigger_last"}}</dt><dd>{{if $t.LastStatus}}{{$t.LastStatus}}{{else}}{{$.Pg.T "git.trigger.never"}}{{end}}{{if $t.Pending}} <span class="fine">{{$.Pg.T "git.trigger.pending" "n" $t.Pending}}</span>{{end}}</dd></div>
+</dl>
+<div class="row-actions">
+  <form method="post" action="/ui/projects/{{.Project.ID}}/git/trigger-test"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="remote_id" value="{{$r.ID}}"><button class="btn" type="submit"{{if not $t.Enabled}} disabled{{end}}>{{$.Pg.T "git.remotes.trigger_test"}}</button></form>
+  <form method="post" action="/ui/projects/{{.Project.ID}}/git/trigger-switch"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="remote_id" value="{{$r.ID}}">{{if $t.Enabled}}<button class="btn quiet" type="submit">{{$.Pg.T "git.trigger.switch_off"}}</button>{{else}}<input type="hidden" name="enabled" value="1"><button class="btn" type="submit">{{$.Pg.T "git.trigger.switch_on"}}</button>{{end}}</form>
+  <form method="post" action="/ui/projects/{{.Project.ID}}/git/trigger-rotate" data-arm="{{$.Pg.T "git.trigger.rotate_ask"}}" data-arm-ok="{{$.Pg.T "git.remotes.trigger_rotate"}}" data-arm-cancel="{{$.Pg.T "git.cancel"}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="remote_id" value="{{$r.ID}}"><button class="btn quiet" type="submit">{{$.Pg.T "git.remotes.trigger_rotate"}}</button></form>
+  <form method="post" action="/ui/projects/{{.Project.ID}}/git/trigger-delete" data-arm="{{$.Pg.T "git.trigger.delete_ask"}}" data-arm-ok="{{$.Pg.T "git.trigger.delete"}}" data-arm-cancel="{{$.Pg.T "git.cancel"}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="remote_id" value="{{$r.ID}}"><button class="btn quiet danger-text" type="submit">{{$.Pg.T "git.trigger.delete"}}</button></form>
+</div>
+<details class="more"><summary>{{$.Pg.T "git.trigger.change_url"}}</summary>
+  <form class="form" method="post" action="/ui/projects/{{.Project.ID}}/git/trigger-set"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="remote_id" value="{{$r.ID}}">
+    <div class="field"><label for="gt-url2">{{$.Pg.T "git.trigger.new_url"}}</label><input id="gt-url2" type="text" name="trigger_url" autocomplete="off" spellcheck="false" inputmode="url" aria-describedby="gt-url2-h"><span class="hint" id="gt-url2-h">{{$.Pg.T "git.trigger.url_hint"}}</span></div>
+    <div class="form-actions"><button class="btn" type="submit">{{$.Pg.T "git.trigger.change_go"}}</button></div></form></details>
+{{else}}
+<form class="form" method="post" action="/ui/projects/{{.Project.ID}}/git/trigger-set"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="remote_id" value="{{$r.ID}}">
+  <div class="field"><label for="gt-url">{{$.Pg.T "git.trigger.url"}}</label><input id="gt-url" type="text" name="trigger_url" autocomplete="off" spellcheck="false" inputmode="url" required aria-describedby="gt-url-h{{if eq .Field "url"}} git-error{{end}}"{{if eq .Field "url"}} aria-invalid="true"{{end}}><span class="hint" id="gt-url-h">{{$.Pg.T "git.trigger.url_hint"}}</span></div>
+  <div class="form-actions"><button class="btn solid" type="submit">{{$.Pg.T "git.trigger.make"}}</button></div>
+</form>
+{{end}}
+{{end}}

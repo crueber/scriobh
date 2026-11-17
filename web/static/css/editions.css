@@ -1,0 +1,95 @@
+/* The Editions pages: the books a project was imported from, and the chapters one was read as. Loaded after git.css. Tokens only;
+   what a chapter became is words and a link, never colour alone. */
+.edn-list { margin: var(--s-4) 0 0; padding: 0; list-style: none; }
+.edn-item { margin: 0 0 var(--s-4); padding: var(--s-3) var(--s-4); border: 1px solid var(--line); border-radius: var(--r-1); background: var(--surface); }
+.edn-name { margin: 0; font: 400 var(--text-lg)/var(--lh-lg) var(--font-prose); overflow-wrap: anywhere; }
+.edn-name a { display: inline-flex; align-items: center; min-height: var(--target); }
+.edn-line { margin: var(--s-1) 0 0; }
+.edn-facts { max-width: none; }
+.edn-facts .edn-wide { grid-column: 1 / -1; }
+.edn-chapters { margin: var(--s-3) 0 0; padding: 0; list-style: none; border-top: 1px solid var(--line-2); }
+.edn-ch { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 var(--s-3); padding-block: var(--s-2); padding-inline-start: calc(var(--s-4) * var(--depth, 0)); border-bottom: 1px solid var(--line-2); font-size: var(--text-sm); line-height: var(--lh-sm); }
+.edn-ch[data-depth="1"] { --depth: 1; }
+.edn-ch[data-depth="2"] { --depth: 2; }
+.edn-ch[data-depth="3"] { --depth: 3; }
+.edn-ch[data-depth="4"] { --depth: 4; }
+.edn-ch[data-kind="part"] .edn-title { font-weight: 600; }
+.edn-title { overflow-wrap: anywhere; }
+.edn-became a { display: inline-flex; align-items: center; min-height: 24px; }
+@media (min-width: 640px) {
+  .edn-ch { grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr); }
+  .edn-src, .edn-became { grid-column: 1 / -1; }
+}
+
+/* The diff screens: the chapters of a comparison, one difference at a time. A status or a kind is a word and a mark, never colour
+   alone; a changed word is struck through or underlined and is also marked with a sign and said to a screen reader. */
+.dfs-list { margin: var(--s-3) 0 0; padding: 0; list-style: none; border-top: 1px solid var(--line-2); }
+.dfs { padding: var(--s-2) 0; border-bottom: 1px solid var(--line-2); }
+.dfs p { margin: var(--s-1) 0 0; font-size: var(--text-sm); line-height: var(--lh-sm); }
+.dfs-head { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-3); align-items: baseline; }
+.dfs-title { overflow-wrap: anywhere; font-weight: 500; }
+.dfs-status { display: inline-flex; gap: var(--s-1); align-items: baseline; font-weight: 600; font-size: var(--text-sm); }
+.dfs-mark { display: inline-block; width: 1.1em; text-align: center; }
+.dfs-status[data-status="unchanged"] .dfs-mark::before { content: "="; }
+.dfs-status[data-status="edited"] .dfs-mark::before { content: "\00B1"; }
+.dfs-status[data-status="moved"] .dfs-mark::before { content: "\2195"; }
+.dfs-status[data-status="split"] .dfs-mark::before { content: "/"; }
+.dfs-status[data-status="merged"] .dfs-mark::before { content: "\2229"; }
+.dfs-status[data-status="added"] .dfs-mark::before { content: "+"; }
+.dfs-status[data-status="removed"] .dfs-mark::before { content: "\2212"; }
+.dfs-match[data-guess="true"] { padding: var(--s-1) var(--s-2); border: 1px dashed var(--fg-2); border-radius: var(--r-1); }
+.dfs-q { display: inline-block; width: 1.1em; text-align: center; border: 1px solid currentColor; border-radius: 50%; font-weight: 600; line-height: 1.1; }
+.dfx-nav { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-4); }
+.dfx-nav a, .dfs a.btn { display: inline-flex; align-items: center; min-height: var(--target); }
+.dfx-bottom a { display: inline-flex; align-items: center; min-height: var(--target); }
+.dfx-lines { margin: var(--s-2) 0; }
+.dfx-pick .field { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; }
+.dfx-pick select { max-width: 100%; min-height: max(var(--target), 40px); }
+.dfx-all { margin: var(--s-3) 0; }
+.dfh { margin: var(--s-4) 0 0; padding: var(--s-3) var(--s-4); border: 1px solid var(--line); border-inline-start-width: 4px; border-radius: var(--r-1); background: var(--surface); }
+.dfh h3 { margin: 0 0 var(--s-1); }
+.dfh-mark { display: inline-block; width: 1.2em; text-align: center; }
+.dfh[data-kind="replace"] .dfh-mark::before { content: "\00B1"; }
+.dfh[data-kind="added"] .dfh-mark::before { content: "+"; }
+.dfh[data-kind="removed"] .dfh-mark::before { content: "\2212"; }
+.dfh[data-kind="replace"] { border-inline-start-style: double; }
+.dfh[data-kind="added"] { border-inline-start-style: solid; }
+.dfh[data-kind="removed"] { border-inline-start-style: dashed; }
+.dfh-label { margin: var(--s-3) 0 var(--s-1); font-size: var(--text-xs); line-height: var(--lh-xs); font-weight: 600; color: var(--fg-2); }
+.dfh-before { overflow-wrap: anywhere; }
+.dft { margin: 0; padding: var(--s-2) var(--s-3); border: 1px solid var(--line-2); border-radius: var(--r-1); white-space: pre-wrap; overflow-wrap: anywhere; unicode-bidi: isolate; font: 400 var(--text-sm)/1.55 var(--font-prose); }
+.dft-words { background: var(--surface-2); }
+.dft del { text-decoration: line-through; text-decoration-thickness: 2px; }
+.dft ins { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; }
+.dft-sign { display: inline-block; text-decoration: none; font-weight: 700; margin-inline-end: .25em; }
+.dfh-actions { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; margin-top: var(--s-3); }
+.dfh-actions form { margin: 0; }
+.dfh-actions a.btn { min-height: var(--target); }
+@media (forced-colors: active) {
+  .dft del { text-decoration: line-through; }
+  .dft ins { text-decoration: underline; }
+  .dfs-match[data-guess="true"] { border-color: CanvasText; }
+}
+
+/* a phone: the facts of an edition are a short list, not a box for each */
+@media (max-width: 600px) {
+  .edn-facts.git-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-1) var(--s-3); }
+  .edn-facts > div { padding: 0; border: 0; background: none; }
+  .edn-item { padding: var(--s-3); }
+}
+
+/* a page of differences, folds of long texts, the sentence beside a difference, the take section's spacing, the links that are targets */
+.dfx-pager { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-4); align-items: center; justify-content: space-between; margin: var(--s-3) 0; }
+.dfx-pager p { margin: 0; }
+.dfx-pages { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; }
+.dfh-full { margin-top: var(--s-2); }
+.dfh-full summary { display: list-item; list-style-position: inside; min-height: var(--target); padding-block: calc((var(--target) - 1.4em) / 2); cursor: pointer; font-size: var(--text-sm); line-height: 1.4; color: var(--fg-2); }
+.dfx-soft { margin: var(--s-2) 0; padding: var(--s-2) var(--s-3); border: 1px solid var(--line); border-inline-start: 3px solid var(--accent); border-radius: var(--r-1); color: var(--fg-2); }
+.dfx-open { display: inline-flex; align-items: center; min-height: var(--target); }
+.dfx-line { display: block; }
+.dfx-take p, .dfx-take .notice-line { margin-block: var(--s-3); }
+.dfx-take .form { margin-top: var(--s-4); }
+.dfs-match { margin-block-end: var(--s-3); }
+.dfh:target { outline: 2px solid var(--accent); outline-offset: 2px; }
+.dfh:focus, #dfx-hunks:focus, #dfx-take:focus, #dfx-top:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+.dfh .saved, .dfh .field-error, .dfh .dfx-soft { margin-block: var(--s-2) var(--s-3); }

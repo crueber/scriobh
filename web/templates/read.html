@@ -1,0 +1,75 @@
+{{define "head"}}
+<link rel="stylesheet" href="{{asset "css/read.css"}}">
+{{if .Data.Prefs.TypoAttrs}}<link rel="stylesheet" href="{{asset "css/typography.css"}}">{{end}}
+{{if .Data.Review}}<link rel="stylesheet" href="{{asset "css/review.css"}}">{{end}}
+<script src="{{asset "js/read.js"}}" defer></script>
+{{if .Data.Review}}<script src="{{asset "js/arm.js"}}" defer></script><script src="{{asset "js/review.js"}}" defer></script>{{end}}
+{{end}}
+{{define "bodyclass"}} reading{{end}}
+
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>{{$.T "rd.library"}}</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "rd.reading"}}</span></nav>
+{{end}}
+{{define "tab-write"}}{{end}}
+{{define "ptabs"}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "read" .Data.Project.Role}}{{end}}
+
+{{define "content"}}
+{{with .Data}}
+{{if .Empty}}
+<section class="reader-empty" aria-labelledby="r-title">
+  <h1 id="r-title">{{.Project.Title}}</h1>
+  <p>{{$.T "rd.empty"}}</p>
+  <p><a class="btn solid" href="/p/{{.Slug}}">{{$.T "rd.go_write"}}</a></p>
+</section>
+{{else}}
+<div class="reader{{if .Review}} has-margin{{end}}" id="reader" tabindex="-1" data-user="{{$.User.ID}}" data-project="{{.ProjectID}}" data-slug="{{.Slug}}" data-doc="{{.Unit.ID}}" data-title="{{.Unit.Title}}"{{if .Review}} data-review="1"{{if .Decide}} data-decide="1"{{end}} data-suggest-src="{{asset "js/suggest.js"}}"{{end}}{{if .Next}} data-next-url="/p/{{.Slug}}/read/{{.Next.ID}}"{{end}}{{if .Prev}} data-prev-url="/p/{{.Slug}}/read/{{.Prev.ID}}"{{end}}>
+  <h1 class="sr-only">{{$.T "rd.h1" "title" .Project.Title}}</h1>
+  {{if .Review}}{{template "live-marker" (dict "Scope" "project" "ID" .ProjectID)}}{{end}}
+  <div class="read-bar" role="group" aria-label="{{$.T "rd.tools"}}">
+    <a class="btn quiet small" href="{{.WriteURL}}">{{template "icon" "write"}}<span>{{$.T "rd.back"}}</span></a>
+    <button type="button" class="btn quiet small" popovertarget="read-toc" aria-haspopup="true">{{template "icon" "menu"}}<span>{{$.T "rd.contents"}}</span></button>
+    {{if .Review}}<button type="button" class="btn quiet small" id="rv-toggle" aria-pressed="true" aria-controls="rv-margin"><span>{{$.T "review.comments"}}</span> <span class="rv-count" id="rv-count"></span></button>
+    <button type="button" class="btn quiet small" id="rv-suggest" aria-pressed="false"><span>{{$.T "review.suggesting"}}</span></button>
+    {{if .Decide}}<a class="btn quiet small" href="/p/{{.Slug}}/review">{{$.T "review.queue"}}</a>{{end}}{{end}}
+    <span class="read-pos">{{$.T "rd.page" "n" .Position "m" .Count}}</span>
+    <button type="button" class="btn quiet small" id="read-mode" aria-pressed="false" hidden>{{$.T "rd.scroll"}}</button>
+  </div>
+  <div id="read-continue" class="read-continue" role="status" hidden></div>
+  <div id="read-toc" class="menu read-toc" popover role="navigation" aria-label="{{$.T "rd.contents"}}">
+    <ol>{{range .Toc}}{{if .Part}}<li class="toc-part">{{.Part}}</li>{{end}}
+      <li><a class="menu-item" href="/p/{{$.Data.Slug}}/read/{{.ID}}" data-docs="{{.Docs}}"{{if .Current}} aria-current="page"{{end}}><span>{{.Label}}</span><span class="toc-words">{{num .Words}}</span></a></li>{{end}}
+    </ol>
+  </div>
+  <article class="paper reading-paper" id="read-stream" lang="{{.Project.Language}}" dir="{{.Dir}}" data-size="{{.Prefs.Size}}" data-measure="{{.Prefs.Measure}}" data-lh="{{.Prefs.LH}}" data-font="{{.Prefs.Font}}"{{.Prefs.TypoAttrs}}>
+{{template "read-article" .Article}}
+  </article>
+  <nav class="read-pager" id="read-pager" aria-label="{{$.T "rd.turn"}}">
+    {{if .Prev}}<a rel="prev" href="/p/{{.Slug}}/read/{{.Prev.ID}}"><span class="pg-dir">{{$.T "rd.prev"}}</span><span class="pg-title">{{.Prev.Label}}</span></a>{{else}}<span></span>{{end}}
+    {{if .Next}}<a class="pg-next" rel="next" href="/p/{{.Slug}}/read/{{.Next.ID}}"><span class="pg-dir">{{$.T "rd.next"}}</span><span class="pg-title">{{.Next.Label}}</span></a>{{end}}
+  </nav>
+  <div id="read-live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+  <div id="read-msg" hidden data-msg="{{json ($.Msgs "read.js.")}}"></div>
+  {{if .Review}}
+  <aside class="rv-margin" id="rv-margin" aria-labelledby="rv-h" tabindex="-1">
+    <div class="rv-head">
+      <div class="rv-top"><h2 id="rv-h" class="rv-title">{{$.T "review.comments"}}</h2><button type="button" class="btn small rv-close" id="rv-close">{{$.T "review.close"}}</button></div>
+      <details class="rv-keys"><summary>{{$.T "review.keys_h"}}</summary><p class="fine" id="rv-suggest-hint">{{$.T "review.keys"}}</p></details>
+      <div class="rv-tools" id="rv-tools"></div>
+    </div>
+    <div class="rv-compose" id="rv-compose" hidden></div>
+    <ol class="rv-list" id="rv-list" aria-label="{{$.T "review.comments"}}"></ol>
+    <p class="rv-empty fine" id="rv-empty" hidden></p>
+    <div class="rv-sugg" id="rv-sugg" hidden></div>
+  </aside>
+  <div class="rv-pop" id="rv-pop" hidden role="group" aria-label="{{$.T "review.selection"}}">
+    <button type="button" class="btn solid small rv-pop-c" aria-keyshortcuts="c">{{$.T "review.comment"}}</button>
+    <button type="button" class="btn small rv-pop-s" aria-keyshortcuts="s" hidden>{{$.T "review.suggest_change"}}</button>
+  </div>
+  <div id="rv-live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+  <div id="rv-msg" hidden data-msg="{{json ($.Msgs "review.js.")}}"></div>
+  {{end}}
+</div>
+{{end}}
+{{end}}
+{{end}}

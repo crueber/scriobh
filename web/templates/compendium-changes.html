@@ -1,0 +1,20 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/compendium.css"}}"><link rel="stylesheet" href="{{asset "css/cmanage.css"}}">{{end}}
+{{define "crumb"}}{{template "ccrumb" (dict "C" .Data.C "Here" ($.T "cmg.changes_title"))}}{{end}}
+{{define "tab-write"}}{{template "ctab-phone" ctabs .Data.Slug "manage"}}{{end}}
+{{define "ptabs"}}{{template "ctab-desktop" ctabs .Data.Slug "manage"}}{{end}}
+{{define "projmore"}}{{template "cmore" ctabs .Data.Slug "manage"}}{{end}}
+{{define "content"}}
+{{with .Data}}
+<div class="settings comp cmg" id="cmg-changes">
+  <h1>{{$.T "cmg.changes_title"}}</h1>
+  <p class="sub">{{iso .C.Name}}. {{$.T "cmg.changes_intro"}}</p>
+  <p class="cmg-nolink" role="note">{{$.T "cmg.no_undo"}}</p>
+  {{if .Items}}<ul class="cmg-log">{{range .Items}}<li>
+    <a href="/c/{{$.Data.Slug}}/changes/{{.ID}}"><strong>{{if eq .Kind "merge"}}{{$.T "cmg.kind_merge"}}{{else}}{{$.T "cmg.kind_split"}}{{end}}</strong>: {{$.T "cmg.log_line" "from" (iso .Source) "into" (iso .Target)}}</a>
+    <span class="fine">{{.When}}. {{$.N "cmg.moving" .Moved}}.</span>
+  </li>{{end}}</ul>
+  {{else}}<p class="fine">{{$.T "cmg.changes_none"}}</p>{{end}}
+  <p><a class="btn" href="/c/{{.Slug}}/manage">{{$.T "cmg.back_manage"}}</a></p>
+</div>
+{{end}}
+{{end}}

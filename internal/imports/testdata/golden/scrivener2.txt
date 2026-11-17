@@ -1,0 +1,54 @@
+project: {title:Old Book subtitle: kind:blank author:Bo Fixture language:}
+layout: scrivener
+
+== chapter: Chapter One [status done, compile true, date "", source "Draft/Chapter One"]
+   synopsis: "The beginning." long: ""
+   | It began in March.
+   | 
+   | The first frost came early.
+== chapter: Chapter Two [status draft, compile false, date "", source "Draft/Chapter Two"]
+   | It ended in May.
+   | 
+   | %%Notes: Needs a better ending.%%
+
+-- research research/1 (in "") note "Notes on salt" tags=[] candidate=""
+   | Salt is sodium chloride.
+
+report: {
+ "scrivener": {
+  "annotations": 0,
+  "binary_bytes_skipped": 0,
+  "comments": 0,
+  "document_links": 0,
+  "document_links_made": 0,
+  "documents": 2,
+  "excluded_from_compile": 1,
+  "files_not_read": 0,
+  "files_not_read_by_type": {},
+  "footnotes": 0,
+  "images": 0,
+  "items": 6,
+  "keywords": {},
+  "labels": {},
+  "links": 0,
+  "notes_documents": 1,
+  "outside_draft_research": 0,
+  "pictures_in_text": 0,
+  "research_images": 0,
+  "research_items": 1,
+  "research_other": 0,
+  "research_pdfs": 0,
+  "research_pictures": 0,
+  "research_web_pages": 0,
+  "snapshot_files": 0,
+  "statuses_not_mapped": {},
+  "synopses": 1,
+  "table_rows": 0,
+  "trashed": 0,
+  "underline": 0,
+  "unreadable": 0
+ }
+}
+
+warnings:
+- Collections, custom metadata, targets and the project's settings are not imported.

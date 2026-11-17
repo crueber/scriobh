@@ -1,0 +1,46 @@
+{{define "settings-mail"}}{{$p := .P}}{{$m := .M}}{{$csrf := .CSRF}}
+  <section id="kindle" class="ml-sec" aria-labelledby="h-kindle">
+    <h2 id="h-kindle">{{$p.T "mail.kindle.title"}}</h2>
+    <p class="sub">{{$p.T "mail.kindle.account_intro"}}</p>
+    {{if and $m.Flash (eq $m.Where "kindle")}}<p class="saved" role="status">{{$m.Flash}}</p>{{end}}
+    {{if and $m.Error (eq $m.Where "kindle")}}<p class="field-error" role="alert" id="ml-k-error">{{$m.Error}}</p>{{end}}
+    {{if not $m.Kindle.MailAvailable}}<p class="ml-note" data-tone="info"><span class="ml-mark" aria-hidden="true"></span>{{$p.T "mail.kindle.mail_off"}}</p>{{end}}
+    <form class="form" method="post" action="/ui/settings/kindle/save">
+      <input type="hidden" name="_csrf" value="{{$csrf}}">
+      <div class="field"><label for="ml-k-addr">{{$p.T "mail.kindle.address"}}</label>
+        <input id="ml-k-addr" name="address" type="text" inputmode="email" dir="ltr" spellcheck="false" autocapitalize="none" autocomplete="off" maxlength="254" value="{{if $m.Typed}}{{$m.Typed}}{{else}}{{$m.Kindle.Address}}{{end}}" aria-describedby="ml-k-addr-h{{if and (eq $m.Where "kindle") $m.Error}} ml-k-error{{end}}"{{if and (eq $m.Where "kindle") $m.Error}} aria-invalid="true"{{end}}>
+        <span class="hint" id="ml-k-addr-h">{{$p.T "mail.kindle.address_help"}} {{$p.T "mail.kindle.domains"}} <bdi dir="ltr">{{$m.DomainsText}}</bdi></span></div>
+      <div class="form-actions"><button class="btn solid" type="submit">{{$p.T "mail.kindle.save_address"}}</button></div>
+    </form>
+    {{if $m.Kindle.Sender}}<p class="fine">{{$p.T "mail.kindle.approve" "sender" $m.Kindle.Sender}}</p>{{else}}<p class="fine">{{$p.T "mail.kindle.approve_later"}}</p>{{end}}
+    {{if $m.Kindle.Address}}<form method="post" action="/ui/settings/kindle/delete"><input type="hidden" name="_csrf" value="{{$csrf}}"><button class="btn quiet" type="submit">{{$p.T "mail.kindle.delete_address"}}</button></form>{{end}}
+  </section>
+
+  <section id="digest" class="ml-sec" aria-labelledby="h-digest">
+    <h2 id="h-digest">{{$p.T "mail.digest.title"}}</h2>
+    <p class="sub">{{$p.T "mail.digest.contains"}}</p>
+    <p class="sub">{{$p.T "mail.digest.never"}}</p>
+    {{if and $m.Flash (eq $m.Where "digest")}}<p class="saved" role="status">{{$m.Flash}}</p>{{end}}
+    {{if and $m.Error (eq $m.Where "digest")}}<p class="field-error" role="alert" id="ml-d-error">{{$m.Error}}</p>{{end}}
+    {{if not $m.Digest.MailAvailable}}<p class="ml-note" data-tone="info"><span class="ml-mark" aria-hidden="true"></span>{{$p.T "mail.digest.off_server"}}</p>
+    {{else if not $m.Digest.Email}}<p class="ml-note" data-tone="info"><span class="ml-mark" aria-hidden="true"></span>{{$p.T "mail.digest.no_email"}}</p>
+    {{else}}
+    {{if $m.Digest.NeedsConfirm}}<p class="ml-note" data-tone="warn" id="ml-d-state"><span class="ml-mark" aria-hidden="true"></span>{{$p.T "mail.digest.state_confirm" "email" $m.Digest.Email}}</p>
+    {{else if $m.Digest.Enabled}}<p class="ml-note" data-tone="ok" id="ml-d-state"><span class="ml-mark" aria-hidden="true"></span>{{$p.T "mail.digest.state_on" "how" $m.How}}</p>
+    {{else}}<p class="ml-note" data-tone="info" id="ml-d-state"><span class="ml-mark" aria-hidden="true"></span>{{$p.T "mail.digest.state_off"}}</p>{{end}}
+    <p class="fine">{{$p.T "mail.digest.to" "email" $m.Digest.Email}} {{$p.T "mail.digest.when" "zone" $m.Zone}} {{$p.T "mail.digest.first"}}</p>
+    <form class="form" method="post" action="/ui/settings/digest">
+      <input type="hidden" name="_csrf" value="{{$csrf}}">
+      <fieldset class="field radios" aria-describedby="ml-d-state{{if and (eq $m.Where "digest") $m.Error}} ml-d-error{{end}}">
+        <legend>{{$p.T "mail.digest.frequency"}}</legend>
+        <label class="check"><input type="radio" name="frequency" value="daily"{{if eq $m.Digest.Frequency "daily"}} checked{{end}}><span>{{$p.T "mail.digest.daily"}}</span></label>
+        <label class="check"><input type="radio" name="frequency" value="weekly"{{if eq $m.Digest.Frequency "weekly"}} checked{{end}}><span>{{$p.T "mail.digest.weekly"}}</span></label>
+      </fieldset>
+      <div class="form-actions">
+        <button class="btn solid" type="submit" name="do" value="on">{{if $m.Digest.NeedsConfirm}}{{$p.T "mail.digest.confirm_go"}}{{else}}{{$p.T "mail.digest.turn_on"}}{{end}}</button>
+        {{if $m.Digest.Enabled}}<button class="btn quiet" type="submit" name="do" value="off">{{$p.T "mail.digest.turn_off"}}</button>{{end}}
+      </div>
+    </form>
+    {{end}}
+  </section>
+{{end}}

@@ -1,0 +1,134 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/share.css"}}"><link rel="stylesheet" href="{{asset "css/connect.css"}}"><script src="{{asset "js/connect.js"}}" defer></script><script src="{{asset "js/arm.js"}}" defer></script>{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "wh.title"}}</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "webhooks" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "webhooks" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "webhooks" .Data.Project.Role}}{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}
+<div class="settings shl cx" id="cx" data-selected="{{$.T "cx.selected"}}">
+  <h1>{{$.T "wh.title"}}</h1>
+  <p class="sub">{{.Project.Title}}. {{$.T "wh.intro"}}</p>
+  <p class="cx-live" id="cx-live" role="status" aria-live="polite"></p>
+  {{if .Flash}}<p class="saved" role="status">{{.Flash}}</p>{{end}}
+  {{if .Error}}<p class="field-error" role="alert" id="wh-error">{{.Error}}</p>{{end}}
+  {{if not .List.Enabled}}<p class="notice-line cx-off" id="wh-off">{{if .List.Reason}}{{.List.Reason}}{{else}}{{$.T "wh.off"}}{{end}}</p>{{end}}
+
+  {{with .Once}}
+  <section class="shl-once" aria-labelledby="wh-once-h" id="wh-once">
+    <h2 id="wh-once-h">{{$.T "wh.once_h" "name" .Name}}</h2>
+    <p id="wh-once-note">{{$.T "wh.once_note"}}</p>
+    <div class="field"><label for="wh-secret">{{$.T "wh.secret"}}</label><input id="wh-secret" class="cx-mono" type="text" readonly value="{{.Secret}}" spellcheck="false" autocomplete="off" aria-describedby="wh-once-note" data-once></div>
+    <div class="form-actions"><button type="button" class="btn solid" data-copy="#wh-secret" data-done="{{$.T "wh.copied"}}" hidden>{{$.T "wh.copy"}}</button></div>
+    <h3>{{$.T "wh.verify_h"}}</h3>
+    <p class="fine" id="wh-verify-n">{{$.T "wh.verify"}}</p>
+    <pre class="cx-code" tabindex="0" aria-describedby="wh-verify-n">{{$.T "wh.verify_code"}}</pre>
+  </section>
+  {{end}}
+
+  {{if .Hooks}}<p class="fine" id="wh-queue">{{$.T "wh.queue" "pending" (num .Pending) "dead" (num .Dead)}}</p>{{end}}
+
+  <section id="wh-list" aria-labelledby="wh-list-h">
+    <h2 id="wh-list-h">{{$.T "wh.list_h"}}</h2>
+    {{if .Hooks}}<ul class="shl-list">{{range .Hooks}}{{$h := .}}
+      <li class="shl-link{{if not .Enabled}} is-off{{end}}" id="hook-{{.ID}}">
+        <h3>{{.Name}} <span class="shl-state {{if .Enabled}}is-active{{else}}is-off{{end}}">{{if .Enabled}}{{$.T "wh.s_on"}}{{else}}{{$.T "wh.s_off"}}{{end}}</span></h3>
+        {{if .DisabledReason}}<p class="notice-line is-warn">{{$.T "wh.off_reason"}} {{.DisabledReason}}</p>{{end}}
+        <ul class="shl-meta">
+          <li><code>{{.URL}}</code>{{if .URLPathSet}} {{$.T "wh.path_sealed"}}{{end}}</li>
+          <li>{{range $i, $e := .Webhook.Events}}{{if $i}}, {{end}}<code>{{$e}}</code>{{end}}</li>
+          <li>{{if .IncludeText}}<span class="cx-nudge">{{$.T "wh.m_text"}}</span>{{else}}{{$.T "wh.m_notext"}}{{end}}</li>
+          <li>{{$.T "wh.m_hint"}} <code>{{.SecretHint}}</code>{{if .PrevSecretLive}} {{$.T "wh.m_prev"}}{{end}}</li>
+        </ul>
+        <ul class="shl-meta" aria-label="{{$.T "wh.m_state"}}">
+          <li>{{if .LastAt}}{{$.T "wh.m_last" "when" .LastAt}} {{if .LastStatus}}<b>{{.LastStatus}}</b>{{else}}{{$.T "wh.m_noanswer"}}{{end}}{{else}}{{$.T "wh.m_never"}}{{end}}</li>
+          <li><b>{{num .Pending}}</b> {{$.T "wh.m_pending"}}</li>
+          <li><b>{{num .Dead}}</b> {{$.T "wh.m_dead"}}</li>
+          {{if .FailureStreak}}<li class="cx-bad">{{$.T "wh.m_streak" "n" .FailureStreak}}</li>{{end}}
+        </ul>
+        {{if and $d.Test (eq (index $d.Test "test_id") .ID)}}<p class="notice-line {{if index $d.Test "test_ok"}}{{else}}is-bad{{end}}" role="status" id="wh-test-result">{{if index $d.Test "test_ok"}}{{$.T "wh.test_ok" "status" (index $d.Test "test_status")}}{{else}}{{$.T "wh.test_bad" "status" (index $d.Test "test_status")}}{{with index $d.Test "test_error"}} {{$.T (printf "wh.err_%s" .)}}{{end}}{{with index $d.Test "test_excerpt"}} &ldquo;{{.}}&rdquo;{{end}}{{end}}</p>{{end}}
+        <div class="cx-actions">
+          {{if $d.List.Enabled}}<form method="post" action="/ui/projects/{{$d.ProjectID}}/webhooks/test"><input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="webhook_id" value="{{.ID}}"><button class="btn small" type="submit">{{$.T "wh.test"}}</button></form>{{end}}
+          {{if .Enabled}}<form method="post" action="/ui/projects/{{$d.ProjectID}}/webhooks/disable"><input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="webhook_id" value="{{.ID}}"><button class="btn small" type="submit">{{$.T "wh.disable"}}</button></form>
+          {{else}}<form method="post" action="/ui/projects/{{$d.ProjectID}}/webhooks/enable"><input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="webhook_id" value="{{.ID}}"><button class="btn small" type="submit">{{$.T "wh.enable"}}</button></form>{{end}}
+          <a class="btn small quiet" href="?log={{.ID}}#wh-log">{{$.T "wh.log"}}</a>
+        </div>
+        <details class="shl-edit"><summary>{{$.T "wh.edit"}}</summary>
+          <form class="form" method="post" action="/ui/projects/{{$d.ProjectID}}/webhooks/update">
+            <input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="webhook_id" value="{{.ID}}">
+            <div class="field"><label for="e-n-{{.ID}}">{{$.T "wh.name"}}</label><input id="e-n-{{.ID}}" name="name" type="text" maxlength="80" required value="{{.Name}}" autocomplete="off"></div>
+            <div class="field"><label for="e-u-{{.ID}}">{{$.T "wh.new_url"}}</label><input id="e-u-{{.ID}}" class="cx-mono" name="url" type="text" inputmode="url" maxlength="2000" spellcheck="false" autocomplete="off" aria-describedby="e-u-h-{{.ID}}"><span class="hint" id="e-u-h-{{.ID}}">{{$.T "wh.new_url_hint"}}</span></div>
+            <fieldset class="field"><legend>{{$.T "wh.events"}}</legend><ul class="cx-events">{{range $d.List.Events}}<li><label class="check"><input type="checkbox" name="event" value="{{.}}"{{if index $h.Events .}} checked{{end}}><span><code>{{.}}</code></span></label></li>{{end}}</ul></fieldset>
+            <label class="check"><input type="checkbox" name="include_text"{{if .IncludeText}} checked{{end}} aria-describedby="e-tw-{{.ID}}"><span>{{$.T "wh.text"}}</span></label>
+            <span class="hint" id="e-tw-{{.ID}}">{{$.T "wh.text_warn"}}</span>
+            <div class="form-actions"><button class="btn small" type="submit">{{$.T "wh.save"}}</button></div>
+          </form>
+          <form class="form" method="post" action="/ui/projects/{{$d.ProjectID}}/webhooks/rotate" data-arm="{{$.T "wh.rotate_ask"}}" data-arm-ok="{{$.T "wh.rotate_ok"}}" data-arm-cancel="{{$.T "wh.cancel"}}">
+            <input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="webhook_id" value="{{.ID}}">
+            <div class="field"><label for="e-k-{{.ID}}">{{$.T "wh.keep"}}</label><input id="e-k-{{.ID}}" name="keep_old_hours" type="number" min="0" max="168" value="24" inputmode="numeric" aria-describedby="e-k-h-{{.ID}}"><span class="hint" id="e-k-h-{{.ID}}">{{$.T "wh.keep_hint"}}</span></div>
+            <div class="form-actions"><button class="btn small" type="submit">{{$.T "wh.rotate"}}</button></div>
+          </form>
+          <form class="form-actions" method="post" action="/ui/projects/{{$d.ProjectID}}/webhooks/delete" data-arm="{{$.T "wh.delete_ask" "name" .Name}}" data-arm-ok="{{$.T "wh.delete_ok"}}" data-arm-cancel="{{$.T "wh.cancel"}}">
+            <input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="webhook_id" value="{{.ID}}">
+            <button class="btn quiet danger-text" type="submit" aria-describedby="del-note-{{.ID}}">{{$.T "wh.delete"}}</button>
+            <span class="hint" id="del-note-{{.ID}}">{{$.T "wh.delete_note"}}</span>
+          </form>
+        </details>
+      </li>{{end}}
+    </ul>{{else}}<p class="fine">{{$.T "wh.none"}}</p>{{end}}
+  </section>
+
+  {{with .Log}}
+  <section id="wh-log" aria-labelledby="wh-log-h">
+    <h2 id="wh-log-h" tabindex="-1">{{$.T "wh.log_h" "name" .Hook.Name}}</h2>
+    <p class="fine">{{$.T "wh.log_note"}}</p>
+    <ul class="cx-filter" aria-label="{{$.T "wh.log_filter"}}">
+      <li><a href="?log={{.Hook.ID}}#wh-log"{{if eq .State ""}} aria-current="true"{{end}}>{{$.T "wh.f_all"}}</a></li>
+      <li><a href="?log={{.Hook.ID}}&amp;state=pending#wh-log"{{if eq .State "pending"}} aria-current="true"{{end}}>{{$.T "wh.f_pending"}} ({{num .Pending}})</a></li>
+      <li><a href="?log={{.Hook.ID}}&amp;state=delivered#wh-log"{{if eq .State "delivered"}} aria-current="true"{{end}}>{{$.T "wh.f_delivered"}}</a></li>
+      <li><a href="?log={{.Hook.ID}}&amp;state=dead#wh-log"{{if eq .State "dead"}} aria-current="true"{{end}}>{{$.T "wh.f_dead"}} ({{num .Dead}})</a></li>
+    </ul>
+    {{if .Error}}<p class="field-error" role="alert">{{.Error}}</p>{{end}}
+    {{if .Items}}<ul class="cx-log">{{range .Items}}
+      <li id="dl-{{.ID}}">
+        <ul class="shl-meta">
+          <li><code>{{.Event}}</code></li>
+          <li><span class="shl-state {{if eq .State "delivered"}}is-active{{else if eq .State "dead"}}is-dead{{else}}is-off{{end}}">{{if eq .State "delivered"}}{{$.T "wh.d_delivered"}}{{else if eq .State "dead"}}{{$.T "wh.d_dead"}}{{else}}{{$.T "wh.d_pending"}}{{end}}</span></li>
+          <li>{{$.T "wh.d_attempts" "n" .Attempts}}</li>
+          <li>{{if .Status}}{{$.T "wh.d_status"}} <b>{{.Status}}</b>{{else}}{{$.T "wh.m_noanswer"}}{{end}}</li>
+          {{if .Error}}<li class="cx-bad">{{$.T (printf "wh.err_%s" .Error)}}</li>{{end}}
+          <li>{{$.T "wh.d_made" "when" .Created}}</li>
+          {{if .Next}}<li>{{$.T "wh.d_next" "when" .Next}}</li>{{end}}
+          {{if .Delivered}}<li>{{$.T "wh.d_at" "when" .Delivered}}</li>{{end}}
+        </ul>
+        {{if .Excerpt}}<p class="fine">&ldquo;{{.Excerpt}}&rdquo;</p>{{end}}
+        {{if .Replay}}<form method="post" action="/ui/projects/{{$d.ProjectID}}/webhooks/redeliver"><input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="webhook_id" value="{{.WebhookID}}"><input type="hidden" name="delivery_id" value="{{.ID}}"><button class="btn small quiet" type="submit">{{$.T "wh.replay"}}</button></form>{{end}}
+      </li>{{end}}
+    </ul>
+    {{if .Next}}<p><a class="btn small quiet" href="?log={{.Hook.ID}}&amp;state={{.State}}&amp;before={{.Next}}#wh-log">{{$.T "wh.older"}}</a></p>{{end}}
+    {{else}}<p class="fine">{{$.T "wh.log_none"}}</p>{{end}}
+  </section>
+  {{end}}
+
+  {{if .List.Enabled}}
+  <section id="wh-new" aria-labelledby="wh-new-h">
+    <h2 id="wh-new-h">{{$.T "wh.new_h"}}</h2>
+    <form class="form" method="post" action="/ui/projects/{{.ProjectID}}/webhooks/create">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field"><label for="wh-name">{{$.T "wh.name"}}</label><input id="wh-name" name="name" type="text" maxlength="80" required value="{{index .Form "name"}}" autocomplete="off"{{if eq (index .Form "field") "name"}} aria-invalid="true" aria-describedby="wh-error"{{end}}><span class="hint">{{$.T "wh.name_hint"}}</span></div>
+      <div class="field"><label for="wh-url">{{$.T "wh.url"}}</label><input id="wh-url" class="cx-mono" name="url" type="text" inputmode="url" maxlength="2000" required spellcheck="false" autocomplete="off" value="{{index .Form "url"}}" placeholder="https://" {{if eq (index .Form "field") "url"}}aria-invalid="true" aria-describedby="wh-error wh-url-hint"{{else}}aria-describedby="wh-url-hint"{{end}}>
+        <span class="hint" id="wh-url-hint">{{$.T "wh.url_rules"}} {{if .List.AllowPrivate}}{{$.T "wh.url_private_on"}}{{else}}{{$.T "wh.url_private_off"}}{{end}} {{$.T "wh.url_sealed"}}</span></div>
+      <fieldset class="field"{{if eq (index .Form "field") "events"}} aria-describedby="wh-error"{{end}}><legend>{{$.T "wh.events"}}</legend>
+        <ul class="cx-events">{{range .List.Events}}<li><label class="check"><input type="checkbox" name="event" value="{{.}}"{{if index $d.FormEvents .}} checked{{end}}><span><code>{{.}}</code></span></label><span class="hint">{{$.T (printf "wh.ev_%s" .)}}</span></li>{{end}}</ul>
+      </fieldset>
+      <label class="check"><input type="checkbox" name="include_text"{{if eq (index .Form "include_text") "on"}} checked{{end}} aria-describedby="wh-text-warn"><span>{{$.T "wh.text"}}</span></label>
+      <p class="notice-line is-warn" id="wh-text-warn">{{$.T "wh.text_warn"}}</p>
+      <p class="fine">{{$.T "wh.never"}}</p>
+      <div class="form-actions"><button class="btn solid" type="submit">{{$.T "wh.make"}}</button></div>
+    </form>
+  </section>
+  {{end}}
+</div>
+{{end}}
+{{end}}

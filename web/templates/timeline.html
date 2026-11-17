@@ -1,0 +1,66 @@
+{{define "head"}}
+<link rel="stylesheet" href="{{asset "css/timeline.css"}}">
+<script src="{{asset "js/timeline.js"}}" defer></script>
+{{end}}
+{{define "crumb"}}{{template "ccrumb" (dict "C" .Data.C "Here" "Timeline")}}{{end}}
+{{define "tab-write"}}{{template "ctab-phone" ctabs .Data.Slug "timeline"}}{{end}}
+{{define "projmore"}}{{template "cmore" ctabs .Data.Slug "timeline"}}{{end}}
+{{define "ptabs"}}{{template "ctab-desktop" ctabs .Data.Slug "timeline"}}{{end}}
+
+{{define "content"}}
+{{with .Data}}
+<section class="tl settings" id="tl" data-compendium="{{.C.ID}}" data-kind="compendium">
+  <h1 id="tl-h" tabindex="-1">Timeline</h1>
+  <p class="sub">{{.C.Name}}. What happens in this story world and when, whichever book tells it. Dates can be partial, such as a year alone.</p>
+  {{if .Saved}}<div class="tl-saved"><p class="saved" role="status">{{.Saved}}</p>
+  {{if and .UndoID .CanEdit}}<form class="tl-undo" method="post" action="/ui/timeline/events/{{.UndoID}}/restore"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn small" type="submit">Undo</button></form>{{end}}</div>{{end}}
+  {{if .Why}}<p class="tl-note">{{.Why}}</p>{{end}}
+
+  <div class="tl-actions">
+    {{if .CanEdit}}<a class="btn solid" href="/c/{{.Slug}}/timeline/events/new">Add an event</a>{{end}}
+    <a class="btn" href="?check=1#tl-check" hx-get="/ui/compendiums/{{.C.ID}}/timeline/check" hx-target="#tl-check-body" hx-swap="innerHTML" hx-push-url="false">Check timeline</a>
+    {{if .Filter.Trash}}<a class="btn quiet" href="/c/{{.Slug}}/timeline#tl-events">Back to the events</a>{{else}}<a class="btn quiet" href="?trash=1#tl-events">Show the trash</a>{{end}}
+  </div>
+
+  <section id="tl-check" class="tl-panel" aria-labelledby="tl-check-h">
+    <h2 id="tl-check-h">Check timeline</h2>
+    <div id="tl-check-body" aria-live="polite">{{with .Check}}{{template "tl-check" .}}{{else}}<p class="fine">Look for contradictions in what is written down, such as one person at two places at once. Nothing is changed.</p>{{end}}</div>
+  </section>
+
+  {{if not .Filter.Trash}}
+  <section id="tl-strip" class="tl-panel" aria-labelledby="tl-strip-h">
+    <h2 id="tl-strip-h">Over story time</h2>
+    {{if .Strip.Buckets}}<p class="fine">Each block counts the events that start in that stretch of story time. Choose a block to list them below.</p>{{end}}
+    {{template "tl-strip" .Strip}}
+  </section>
+  {{end}}
+
+  <section id="tl-events" aria-labelledby="tl-events-h">
+    <h2 id="tl-events-h">{{if .Filter.Trash}}Events in the trash{{else}}Events{{end}}</h2>
+    {{if .Error}}<p class="field-error" role="alert" id="tl-err">{{.Error}}</p>{{end}}
+    <form class="tl-filter" method="get" action="/c/{{.Slug}}/timeline#tl-events" aria-label="Filter the events">
+      {{if .Filter.Trash}}<input type="hidden" name="trash" value="1">{{end}}
+      <div class="field"><label for="f-entity">Who or where</label>
+        <select id="f-entity" name="entity"><option value="">Anyone or anywhere</option>{{range .Entities}}<option value="{{.ID}}"{{if eq .ID $.Data.Filter.Entity}} selected{{end}}>{{.Name}}</option>{{end}}</select></div>
+      <div class="field"><label for="f-from">From</label>
+        <input id="f-from" name="from" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="1998-04" value="{{.Filter.From}}" data-date aria-describedby="f-from-h"{{if eq .Field "from"}} aria-invalid="true"{{end}}></div>
+      <div class="field"><label for="f-to">To</label>
+        <input id="f-to" name="to" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="1999" value="{{.Filter.To}}" data-date aria-describedby="f-to-h"{{if eq .Field "to"}} aria-invalid="true"{{end}}></div>
+      {{if .Projects}}<div class="field"><label for="f-book">Told in</label>
+        <select id="f-book" name="project"><option value="">Any book</option>{{range .Projects}}<option value="{{.ID}}"{{if eq .ID $.Data.Filter.Project}} selected{{end}}>{{.Title}}</option>{{end}}</select></div>{{end}}
+      <div class="tl-fbtn"><button class="btn solid" type="submit">Show events</button>{{if .Filtered}}<a class="btn quiet" href="/c/{{.Slug}}/timeline{{if .Filter.Trash}}?trash=1{{end}}#tl-events">Clear the filters</a>{{end}}</div>
+      <p class="hint tl-hint" id="f-from-h" role="status" data-hint>From: for example 1998, 1998-04 or 1998-04-12.</p>
+      <p class="hint tl-hint" id="f-to-h" role="status" data-hint>To: the same kinds of date.</p>
+    </form>
+
+    {{if .Rows}}<p class="fine tl-count">Showing {{.First}} to {{.Last}} of {{num .Total}} {{plural .Total "event" "events"}}, in story order: events with a date first, earliest first, then those without one.</p>{{end}}
+    {{template "tl-rows" .}}
+    {{if not .Rows}}
+      {{if .Filter.Trash}}<p class="tl-empty">Nothing is in the trash.</p>
+      {{else if .Filtered}}<p class="tl-empty">No event matches these filters. Widen the dates, or <a href="/c/{{.Slug}}/timeline#tl-events">clear the filters</a>.</p>
+      {{else}}<p class="tl-empty">No events yet. An event is something that happens in the story world, with a date if you know it, a place, and the people who take part.{{if .CanEdit}} <a href="/c/{{.Slug}}/timeline/events/new">Add the first one</a>.{{end}}</p>{{end}}
+    {{end}}
+  </section>
+</section>
+{{end}}
+{{end}}

@@ -1,0 +1,28 @@
+{{define "release-live"}}
+<div id="rel-live" class="rel-live" data-poll="{{.Poll}}"{{if .Current}} data-src="/ui/projects/{{.Project.ID}}/release/{{.Current.ID}}?remote={{.Remote.ID}}"{{else if .Poll}} data-src="/ui/projects/{{.Project.ID}}/release/-?remote={{.Remote.ID}}"{{end}}{{if .Poll}} aria-busy="true"{{end}}>
+  {{if .Current}}{{with .Current}}
+  <section id="current" aria-labelledby="h-cur" tabindex="-1" data-result>
+    <h2 id="h-cur">{{$.Pg.T "git.rel.current"}}</h2>
+    <div class="banner" data-tone="{{.Tone}}"><p class="banner-head"><span class="mark" aria-hidden="true"></span><strong id="rel-headline">{{.Word}}</strong></p>{{if .Reason}}<p class="banner-detail">{{.Reason}}</p>{{end}}</div>
+    <dl class="facts git-facts">
+      <div><dt>{{$.Pg.T "git.publish.release_tag"}}</dt><dd>{{.Tag}}</dd></div>
+      <div><dt>{{$.Pg.T "git.publish.release_format"}}</dt><dd>{{.Format}}</dd></div>
+      {{if .AssetName}}<div><dt>{{$.Pg.T "git.rel.asset"}}</dt><dd class="wrap">{{.AssetName}} <span class="fine">{{.Size}}</span></dd></div>{{end}}
+      {{if .InputHash}}<div><dt>{{$.Pg.T "git.rel.manifest"}}</dt><dd class="wrap"><code>{{.InputHash}}</code></dd></div>{{end}}
+      {{if .FileSHA256}}<div><dt>SHA-256</dt><dd class="wrap"><code>{{.FileSHA256}}</code></dd></div>{{end}}
+      {{if .CommitSHA}}<div><dt>{{$.Pg.T "git.rel.commit"}}</dt><dd><code>{{sha7 .CommitSHA}}</code></dd></div>{{end}}
+    </dl>
+    {{if .ReleaseURL}}<p><a href="{{.ReleaseURL}}" rel="noopener noreferrer">{{$.Pg.T "git.rel.open"}}</a> <span class="fine">{{$.Pg.T "git.rel.leaves"}}</span></p>{{end}}
+    {{if eq .Status "error"}}<form method="post" action="/ui/projects/{{$.Project.ID}}/release/start"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="remote_id" value="{{$.Remote.ID}}"><input type="hidden" name="edition" value="{{.Format}}{{if .Preset}}:{{.Preset}}{{end}}"><input type="hidden" name="tag" value="{{.Tag}}"><p class="fine">{{$.Pg.T "git.rel.retry_note"}}</p><button class="btn" type="submit">{{$.Pg.T "git.rel.retry"}}</button></form>{{end}}
+  </section>
+  {{end}}{{end}}
+  <section id="past" aria-labelledby="h-past">
+    <h2 id="h-past">{{$.Pg.T "git.rel.past"}}</h2>
+    {{if .Items}}<ol class="pushes">{{range .Items}}
+      <li data-tone="{{.Tone}}"><p class="push-head"><span class="mark" aria-hidden="true"></span><strong>{{.Tag}}</strong> <span class="fine">{{.Format}}, {{.Word}}, {{.When}}</span></p>
+        {{if .Reason}}<p class="fine">{{.Reason}}</p>{{end}}
+        <a class="push-link" href="/p/{{$.Slug}}/git/release?remote={{$.Remote.ID}}&amp;release={{.ID}}#current">{{$.Pg.T "git.rel.details"}}</a></li>{{end}}</ol>
+    {{else}}<p class="fine">{{$.Pg.T "git.rel.none"}}</p>{{end}}
+  </section>
+</div>
+{{end}}

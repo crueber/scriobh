@@ -1,0 +1,25 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/privacy.css"}}">{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="{{$.T "project.gate.crumb"}}"><a href="/">{{template "icon" "chevron-left"}}<span>{{$.T "project.gate.library"}}</span></a></nav>
+{{end}}
+{{define "content"}}
+<section class="form-page gate-page" aria-labelledby="gate-title">
+  <form class="form" method="post" action="/ui/projects/{{.Data.ID}}/unlock">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <input type="hidden" name="next" value="{{.Data.Next}}">
+    <h1 id="gate-title">{{$.T "project.gate.title" "title" .Data.Title}}</h1>
+    <p class="lede">{{$.T "project.gate.lede"}}</p>
+    <div class="field">
+      <label for="gate-pass">{{$.T "project.gate.label"}}</label>
+      <input id="gate-pass" type="password" name="passphrase" autocomplete="off" spellcheck="false" enterkeyhint="go" autofocus required aria-describedby="gate-hint{{if .Data.Error}} gate-err{{end}}"{{if .Data.Error}} aria-invalid="true"{{end}}>
+      {{if .Data.Error}}<p class="field-error" id="gate-err" role="alert">{{.Data.Error}}</p>{{end}}
+    </div>
+    {{if .Data.Waiting}}<p class="hint">{{$.T "project.gate.after_wait"}}</p>{{end}}
+    <p class="hint" id="gate-hint">{{$.T "project.gate.notice"}} {{if .Data.Slug}}<a href="/p/{{.Data.Slug}}/passphrase">{{$.T "project.gate.what_link"}}</a>{{end}}</p>
+    <div class="form-actions">
+      <a class="btn quiet" href="/">{{$.T "project.gate.not_now"}}</a>
+      <button class="btn solid" type="submit">{{$.T "project.gate.unlock"}}</button>
+    </div>
+  </form>
+</section>
+{{end}}

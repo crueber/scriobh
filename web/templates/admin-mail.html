@@ -1,0 +1,128 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/admin.css"}}"><link rel="stylesheet" href="{{asset "css/mail.css"}}">{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "adm.title"}}</span></nav>
+{{end}}
+{{define "tab-write"}}{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}
+<div class="settings adm ml" id="adm">
+  <h1>{{$.T "adm.title"}}</h1>
+  {{template "admin-tabs" (dict "T" $ "Tab" "mail")}}
+  {{if .Flash}}<p class="saved" role="status">{{.Flash}}</p>{{end}}
+  {{if .PasswordCleared}}<p class="ml-note" role="status" data-tone="warn"><span class="ml-mark" aria-hidden="true"></span>{{$.T "mail.settings.password_cleared"}}</p>{{end}}
+  {{if .Error}}<p class="field-error" role="alert" id="ml-error">{{.Error}}</p>{{if .PasswordLost}}<p class="fine">{{$.T "mail.settings.password_again"}}</p>{{end}}{{end}}
+
+  <section id="state" aria-labelledby="ml-h">
+    <h2 id="ml-h">{{$.T "mail.settings.title"}}</h2>
+    <p class="sub">{{$.T "mail.settings.intro"}}</p>
+    {{if .Cfg.PausedByRestore}}
+    <div class="ml-banner" data-tone="warn" id="ml-paused">
+      <p class="ml-head"><span class="ml-mark" aria-hidden="true"></span><strong>{{$.T "mail.admin.state_off"}}</strong></p>
+      <p>{{$.T "mail.settings.paused"}}</p>
+      <form method="post" action="/ui/admin/mail/enable"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn solid" type="submit">{{$.T "mail.admin.paused_go"}}</button></form>
+    </div>
+    {{else if .Cfg.Enabled}}
+    <div class="ml-banner" data-tone="ok"><p class="ml-head"><span class="ml-mark" aria-hidden="true"></span><strong>{{$.T "mail.admin.state_on"}}</strong></p></div>
+    {{else}}
+    <div class="ml-banner" data-tone="info"><p class="ml-head"><span class="ml-mark" aria-hidden="true"></span><strong>{{$.T "mail.admin.state_off"}}</strong></p>{{if .OffReason}}<p>{{$.T .OffReason}}</p>{{end}}</div>
+    {{end}}
+    {{if .Cfg.Hold}}<div class="ml-banner" data-tone="warn"><p class="ml-head"><span class="ml-mark" aria-hidden="true"></span><strong>{{$.T "mail.settings.hold"}}</strong></p><p>{{$.T "mail.admin.hold_class" "why" .HoldWhy}}</p></div>{{end}}
+    {{if not .Cfg.SecretKey}}<p class="ml-note" data-tone="warn"><span class="ml-mark" aria-hidden="true"></span>{{$.T "mail.settings.no_key"}}</p>{{end}}
+    {{if not .Cfg.LinksEnabled}}<p class="fine">{{$.T "mail.settings.no_links"}}</p>{{end}}
+  </section>
+
+  <section id="relay" aria-labelledby="ml-relay-h">
+    <h2 id="ml-relay-h">{{$.T "mail.admin.relay_h"}}</h2>
+    <p class="sub">{{$.T "mail.admin.relay_intro"}}</p>
+    <form class="form" method="post" action="/ui/admin/mail/save">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field-row">
+        <div class="field"><label for="ml-host">{{$.T "mail.settings.host"}}</label><input id="ml-host" name="host" type="text" dir="ltr" spellcheck="false" autocapitalize="none" maxlength="253" value="{{if .Refused}}{{index .Values "host"}}{{else}}{{.Cfg.Host}}{{end}}"{{if eq .Field "host"}} aria-invalid="true" aria-describedby="ml-error"{{end}}></div>
+        <div class="field"><label for="ml-port">{{$.T "mail.settings.port"}}</label><input id="ml-port" name="port" type="number" inputmode="numeric" min="0" max="65535" dir="ltr" value="{{if .Refused}}{{index .Values "port"}}{{else}}{{.Cfg.Port}}{{end}}" aria-describedby="ml-port-h{{if eq .Field "port"}} ml-error{{end}}"{{if eq .Field "port"}} aria-invalid="true"{{end}}><span class="hint" id="ml-port-h">{{$.T "mail.settings.port_help"}}</span></div>
+      </div>
+      {{$sec := .Cfg.Security}}{{if .Refused}}{{$sec = index .Values "security"}}{{end}}
+      <div class="field"><label for="ml-sec">{{$.T "mail.settings.security"}}</label>
+        <select id="ml-sec" name="security"{{if eq .Field "security"}} aria-invalid="true" aria-describedby="ml-error"{{end}}>
+          <option value="starttls"{{if eq $sec "starttls"}} selected{{end}}>{{$.T "mail.settings.security_starttls"}}</option>
+          <option value="tls"{{if eq $sec "tls"}} selected{{end}}>{{$.T "mail.settings.security_tls"}}</option>
+          <option value="none"{{if eq $sec "none"}} selected{{end}}>{{$.T "mail.settings.security_none"}}</option>
+        </select></div>
+      <label class="check"><input type="checkbox" name="allow_private" value="1"{{if .Refused}}{{if eq (index .Values "allow_private") "1"}} checked{{end}}{{else if .Cfg.AllowPrivate}} checked{{end}} aria-describedby="ml-ap-h"><span>{{$.T "mail.settings.allow_private"}}</span></label>
+      <p class="hint" id="ml-ap-h">{{$.T "mail.settings.allow_private_help"}}</p>
+      <div class="field-row">
+        <div class="field"><label for="ml-user">{{$.T "mail.settings.username"}}</label><input id="ml-user" name="username" type="text" dir="ltr" spellcheck="false" autocapitalize="none" maxlength="255" autocomplete="off" value="{{if .Refused}}{{index .Values "username"}}{{else}}{{.Cfg.Username}}{{end}}" aria-describedby="ml-user-h{{if eq .Field "username"}} ml-error{{end}}"{{if eq .Field "username"}} aria-invalid="true"{{end}}><span class="hint" id="ml-user-h">{{$.T "mail.settings.username_help"}}</span></div>
+        <div class="field"><label for="ml-pass">{{$.T "mail.settings.password"}}</label><input id="ml-pass" name="password" type="password" dir="ltr" autocomplete="new-password" maxlength="512" aria-describedby="ml-pass-h{{if eq .Field "password"}} ml-error{{end}}"{{if eq .Field "password"}} aria-invalid="true"{{end}}><span class="hint" id="ml-pass-h">{{if .Cfg.PasswordSet}}{{$.T "mail.settings.password_set"}} {{end}}{{$.T "mail.settings.password_help"}}</span></div>
+      </div>
+      {{if .Cfg.PasswordSet}}<label class="check"><input type="checkbox" name="remove_password" value="1"><span>{{$.T "mail.settings.password_remove"}}</span></label>{{end}}
+      <div class="field-row ml-stack">
+        <div class="field"><label for="ml-from">{{$.T "mail.settings.from"}}</label><input id="ml-from" name="from_address" type="text" inputmode="email" dir="ltr" spellcheck="false" autocapitalize="none" maxlength="254" value="{{if .Refused}}{{index .Values "from_address"}}{{else}}{{.Cfg.FromAddress}}{{end}}" aria-describedby="ml-from-h{{if eq .Field "from_address"}} ml-error{{end}}"{{if eq .Field "from_address"}} aria-invalid="true"{{end}}><span class="hint" id="ml-from-h">{{$.T "mail.settings.from_help"}}</span></div>
+        <div class="field"><label for="ml-fname">{{$.T "mail.settings.from_name"}}</label><input id="ml-fname" name="from_name" type="text" maxlength="80" value="{{if .Refused}}{{index .Values "from_name"}}{{else}}{{.Cfg.FromName}}{{end}}"{{if eq .Field "from_name"}} aria-invalid="true" aria-describedby="ml-error"{{end}}></div>
+      </div>
+      <div class="field"><label for="ml-max">{{$.T "mail.settings.max_attachment"}}</label><input id="ml-max" name="max_attachment_mb" type="number" inputmode="numeric" min="1" max="40" value="{{if .Refused}}{{index .Values "max_attachment_mb"}}{{else}}{{.Cfg.MaxAttachmentMB}}{{end}}" aria-describedby="ml-max-h{{if eq .Field "max_attachment_mb"}} ml-error{{end}}"{{if eq .Field "max_attachment_mb"}} aria-invalid="true"{{end}}><span class="hint" id="ml-max-h">{{$.T "mail.settings.max_help"}}</span></div>
+      <details class="more"{{if or (eq .Field "tls_ca_pem") (and .Refused (index .Values "tls_ca_pem"))}} open{{end}}>
+        <summary>{{$.T "mail.settings.ca_summary"}}</summary>
+        {{if .Cfg.HasCA}}<p class="fine">{{$.T "mail.settings.ca_stored"}}</p>
+        <label class="check"><input type="checkbox" name="remove_ca" value="1"><span>{{$.T "mail.settings.ca_remove"}}</span></label>{{end}}
+        <div class="field"><label for="ml-ca">{{$.T "mail.settings.ca"}}</label><textarea id="ml-ca" name="tls_ca_pem" rows="6" dir="ltr" spellcheck="false" autocapitalize="none" maxlength="16384" aria-describedby="ml-ca-h{{if eq .Field "tls_ca_pem"}} ml-error{{end}}"{{if eq .Field "tls_ca_pem"}} aria-invalid="true"{{end}}>{{if .Refused}}{{index .Values "tls_ca_pem"}}{{end}}</textarea><span class="hint" id="ml-ca-h">{{$.T "mail.settings.ca_help"}}</span></div>
+      </details>
+      <p class="fine">{{$.T "mail.admin.save_note"}}</p>
+      <div class="form-actions"><button class="btn solid" type="submit">{{$.T "mail.settings.save"}}</button></div>
+    </form>
+  </section>
+
+  {{if not .Cfg.PausedByRestore}}
+  <section id="switch" aria-labelledby="ml-sw-h">
+    <h2 id="ml-sw-h">{{$.T "mail.admin.switch_h"}}</h2>
+    {{if .Cfg.Enabled}}
+    <p class="sub">{{$.T "mail.admin.disable_help"}}</p>
+    <form method="post" action="/ui/admin/mail/disable"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn" type="submit">{{$.T "mail.settings.disable"}}</button></form>
+    {{else}}
+    <p class="sub">{{$.T "mail.admin.enable_help"}}</p>
+    <form method="post" action="/ui/admin/mail/enable"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn solid" type="submit">{{$.T "mail.settings.enable"}}</button></form>
+    {{end}}
+  </section>
+  {{end}}
+
+  <section id="test" aria-labelledby="ml-test-h">
+    <h2 id="ml-test-h">{{$.T "mail.admin.test_h"}}</h2>
+    <p class="sub">{{$.T "mail.settings.test_help"}} {{$.T "mail.admin.test_note"}}</p>
+    {{with .Test}}<p class="ml-note" role="status" data-tone="{{if .OK}}ok{{else}}warn{{end}}" id="ml-test-result"><span class="ml-mark" aria-hidden="true"></span>{{.Text}}</p>{{end}}
+    {{if .LastTest}}<p class="fine">{{.LastTest}}</p>{{end}}
+    <form method="post" action="/ui/admin/mail/test"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn" type="submit">{{$.T "mail.settings.test"}}</button></form>
+  </section>
+
+  <section id="domains" aria-labelledby="ml-dom-h">
+    <h2 id="ml-dom-h">{{$.T "mail.admin.domains_h"}}</h2>
+    <p class="sub">{{$.T "mail.admin.domains_intro"}}</p>
+    <form class="form" method="post" action="/ui/admin/mail/domains">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field"><label for="ml-dom">{{$.T "mail.admin.domains_label"}}</label><textarea id="ml-dom" name="domains" rows="3" dir="ltr" spellcheck="false" autocapitalize="none" maxlength="2000" aria-describedby="ml-dom-w">{{.Domains}}</textarea></div>
+      <p class="ml-note" data-tone="warn" id="ml-dom-w"><span class="ml-mark" aria-hidden="true"></span>{{$.T "mail.admin.domains_warn"}}</p>
+      <label class="check"><input type="checkbox" name="understood" value="1"{{if eq .Field "understood"}} aria-invalid="true" aria-describedby="ml-error"{{end}}><span>{{$.T "mail.admin.domains_ok"}}</span></label>
+      <div class="form-actions"><button class="btn solid" type="submit">{{$.T "mail.admin.domains_save"}}</button><button class="btn quiet" type="submit" name="reset" value="1">{{$.T "mail.admin.domains_reset"}}</button></div>
+    </form>
+  </section>
+
+  <section id="queue" aria-labelledby="ml-q-h">
+    <h2 id="ml-q-h">{{$.T "mail.admin.outbox_h"}}</h2>
+    <p class="sub">{{$.T "mail.admin.outbox_note"}}</p>
+    <dl class="adm-facts ml-counts">
+      <div><dt>{{$.T "mail.admin.out_pending"}}</dt><dd>{{num .Out.Pending}}</dd></div>
+      <div><dt>{{$.T "mail.admin.out_sending"}}</dt><dd>{{num .Out.Sending}}</dd></div>
+      <div><dt>{{$.T "mail.admin.out_sent"}}</dt><dd>{{num .Out.Sent}}</dd></div>
+      <div><dt>{{$.T "mail.admin.out_dead"}}</dt><dd>{{num .Out.Dead}}</dd></div>
+      <div><dt>{{$.T "mail.admin.out_digests"}}</dt><dd>{{num .Out.Digests}}</dd></div>
+    </dl>
+    <p class="fine">{{$.T "mail.admin.limits" "a" .Cfg.Limits.PerPersonQueue "b" .Cfg.Limits.TotalQueue "c" .Cfg.Limits.KindlePerHour}}</p>
+    <h3>{{$.T "mail.admin.out_recent"}}</h3>
+    {{if .Rows}}<ul class="ml-list">{{range .Rows}}
+      <li data-state="{{.State}}">
+        <p class="ml-line"><strong>{{if eq .Kind "kindle"}}{{$.T "mail.admin.out_kind_kindle"}}{{else}}{{$.T "mail.admin.out_kind_digest"}}{{end}}</strong>
+          <span class="ml-state">{{if eq .State "pending"}}{{$.T "mail.admin.out_state_pending"}}{{else if eq .State "sending"}}{{$.T "mail.admin.out_state_sending"}}{{else if eq .State "sent"}}{{$.T "mail.admin.out_state_sent"}}{{else}}{{$.T "mail.admin.out_state_dead"}}{{end}}</span></p>
+        <p class="fine"><bdi dir="ltr">{{.When}}</bdi> · {{$.T "mail.admin.out_to"}} <bdi dir="ltr">{{.Domain}}</bdi>{{if .Attempts}} · {{$.T "mail.admin.out_attempts" "n" .Attempts}}{{end}}{{if .Error}} · {{.Error}}{{end}}</p>
+      </li>{{end}}
+    </ul>{{else}}<p class="fine">{{$.T "mail.admin.out_empty"}}</p>{{end}}
+  </section>
+</div>
+{{end}}
+{{end}}

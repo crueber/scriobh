@@ -1,0 +1,45 @@
+{{define "project-menu"}}
+<div class="form">
+  <div class="dialog-head">
+    <h2 id="dialog-title">{{.P.Title}}</h2>
+    <button type="button" class="icon-btn dialog-close" data-dialog-close aria-label="Close">{{template "icon" "close"}}</button>
+  </div>
+  <ul class="actions">
+    <li><a class="action-item" href="/p/{{.P.Slug}}">Open</a></li>
+    <li><a class="action-item" href="/p/{{.P.Slug}}/search">Search this project</a></li>
+    {{if or (eq .P.Role "owner") (eq .P.Role "editor")}}<li><a class="action-item" href="/ui/projects/{{.P.ID}}/export" hx-get="/ui/projects/{{.P.ID}}/export" hx-target="#dialog-body" hx-swap="innerHTML">Export as Markdown&hellip;</a></li>
+    <li><a class="action-item" href="/p/{{.P.Slug}}/import">Add files from a folder or zip&hellip;</a></li>
+    <li><a class="action-item" href="/p/{{.P.Slug}}/git">Git sync&hellip;</a></li>{{end}}
+    <li><a class="action-item" href="/p/{{.P.Slug}}/editions">Editions&hellip;</a></li>
+    {{if and .P.Protected (not .P.Locked) .LockWord}}<li><form method="post" action="/ui/projects/{{.P.ID}}/lock"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="action-item" type="submit">{{.LockWord}}</button></form></li>{{end}}
+    {{if eq .P.Role "owner"}}
+    <li>{{if .P.Archived}}{{template "project-action" (dict "P" .P "State" .State "CSRF" .CSRF "Verb" "unarchive" "Label" "Bring back to the library" "Danger" false)}}{{else}}{{template "project-action" (dict "P" .P "State" .State "CSRF" .CSRF "Verb" "archive" "Label" "Archive" "Danger" false)}}{{end}}</li>
+    <li>{{template "project-action" (dict "P" .P "State" .State "CSRF" .CSRF "Verb" "trash" "Label" "Move to the trash" "Danger" true)}}</li>
+    {{else}}<li><p class="fine">Only the owner can archive or trash this project.</p></li>{{end}}
+  </ul>
+  {{with .Mirror}}<div class="mirror-line" data-state="{{.State}}" role="status">
+    <p class="mirror-text"><strong>{{.Line}}</strong>{{if .Detail}} <span class="fine">{{.Detail}}</span>{{end}}</p>
+    {{if .CanRebuild}}<form method="post" action="/ui/projects/{{$.P.ID}}/mirror/rebuild" hx-post="/ui/projects/{{$.P.ID}}/mirror/rebuild" hx-target="#dialog-body" hx-swap="innerHTML"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="view" value="{{$.State}}"><button class="btn small" type="submit">Rebuild the copy</button></form>{{end}}
+  </div>{{end}}
+</div>
+{{end}}
+{{define "project-action"}}<form method="post" action="/ui/projects/{{.P.ID}}/{{.Verb}}" hx-post="/ui/projects/{{.P.ID}}/{{.Verb}}" hx-target="#shelf-wrap" hx-swap="outerHTML"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="view" value="{{.State}}"><button class="action-item{{if .Danger}} is-danger{{end}}" type="submit">{{.Label}}</button></form>{{end}}
+{{define "project-purge"}}
+<form id="project-purge-form" class="form" method="post" action="/ui/projects/{{.P.ID}}/purge" hx-post="/ui/projects/{{.P.ID}}/purge" hx-target="#project-purge-form" hx-swap="outerHTML">
+  <input type="hidden" name="_csrf" value="{{.CSRF}}">
+  <div class="dialog-head">
+    <h2 id="dialog-title">Delete &ldquo;{{.P.Title}}&rdquo; for good</h2>
+    <button type="button" class="icon-btn dialog-close" data-dialog-close aria-label="Close">{{template "icon" "close"}}</button>
+  </div>
+  <p class="lede">This deletes the project, all {{.P.DocumentCount}} {{plural .P.DocumentCount "document" "documents"}} in it and their conflict copies. It cannot be undone.</p>
+  <div class="field">
+    <label for="pp-title">Type the project title to confirm</label>
+    <input id="pp-title" type="text" name="confirm_title" value="{{.Typed}}" autocomplete="off" spellcheck="false" autofocus data-confirm="{{.P.Title}}"{{if .Error}} aria-invalid="true" aria-describedby="pp-err"{{end}}>
+    {{if .Error}}<p class="field-error" id="pp-err" role="alert">{{.Error}}</p>{{end}}
+  </div>
+  <div class="form-actions">
+    <button type="button" class="btn quiet" data-dialog-close>Cancel</button>
+    <button class="btn danger" type="submit" data-confirm-submit>Delete forever</button>
+  </div>
+</form>
+{{end}}

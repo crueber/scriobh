@@ -1,0 +1,48 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/entities.css"}}"><script src="{{asset "js/entity.js"}}" defer></script>{{end}}
+{{define "crumb"}}{{template "ccrumb" (dict "C" .Data.Compendium "Here" "Entities")}}{{end}}
+{{define "tab-write"}}{{template "ctab-phone" ctabs .Data.Slug "entities"}}{{end}}
+{{define "ptabs"}}{{template "ctab-desktop" ctabs .Data.Slug "entities"}}{{end}}
+{{define "projmore"}}{{template "cmore" ctabs .Data.Slug "entities"}}{{end}}
+{{define "content"}}
+{{with .Data}}
+<div class="settings ents" id="ents" data-compendium="{{.Compendium.ID}}" data-slug="{{.Slug}}">
+  {{template "live-marker" (dict "Scope" "compendium" "ID" .Compendium.ID)}}
+  <h1>Entities</h1>
+  <p class="sub">{{.Compendium.Name}}. You are {{.RoleWords}} of this Compendium{{if not .CanEdit}}, so everything here is read only{{end}}.{{if .Compendium.Trashed}} It is in the trash: restore it to change anything.{{end}}</p>
+  <p class="sr-only" id="ent-announce" role="status" aria-live="polite"></p>
+  {{if .Error}}<p class="field-error" role="alert" id="ent-error" tabindex="-1">{{.Error}}</p>{{end}}
+
+  <form class="ent-search" role="search" aria-label="Find an entity" method="get" action="/c/{{.Slug}}/entities">
+    <div class="field"><label for="ent-q">Find an entity</label><input id="ent-q" type="search" name="q" value="{{.Q}}" placeholder="A name, an alias or a word from its notes" autocomplete="off" spellcheck="false"{{if eq .Field "q"}} aria-invalid="true" aria-describedby="ent-error"{{end}}></div>
+    {{if .Kind}}<input type="hidden" name="kind" value="{{.Kind}}">{{end}}
+    <button class="btn" type="submit">Search</button>
+    {{if .Q}}<a class="btn quiet" href="/c/{{.Slug}}/entities{{if .Kind}}?kind={{.Kind}}{{end}}">Clear</a>{{end}}
+  </form>
+
+  <nav class="ent-kinds" aria-label="Kind of entity">
+    <a href="/c/{{.Slug}}/entities{{if .Q}}?q={{.QEsc}}{{end}}"{{if not .Kind}} aria-current="true"{{end}}>All</a>
+    {{range .Kinds}}<a href="/c/{{$.Data.Slug}}/entities?kind={{.ID}}{{if $.Data.Q}}&amp;q={{$.Data.QEsc}}{{end}}"{{if eq .ID $.Data.Kind}} aria-current="true"{{end}}>{{.Plural}}</a>{{end}}
+  </nav>
+
+  <div id="ent-list" data-src="{{.Src}}">{{template "entity-list" .}}</div>
+
+  <div class="ent-tools">
+    {{if .CanEdit}}<a class="btn quiet" href="/c/{{.Slug}}/entities?state={{if eq .State "trashed"}}live{{else}}trashed{{end}}">{{if eq .State "trashed"}}Back to the live entities{{else}}Show the trash{{end}}</a>{{end}}
+    <a class="btn quiet" href="/c/{{.Slug}}/fields">Custom fields</a>
+    {{if or (eq .Compendium.Role "owner") (eq .Compendium.Role "editor")}}<form method="post" action="/c/{{.Slug}}/export"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn quiet" type="submit">Export as Markdown (zip)</button></form>{{end}}
+  </div>
+
+  {{if .CanEdit}}
+  <section id="add" aria-labelledby="h-add">
+    <h2 id="h-add">Add an entity</h2>
+    <form class="form ent-add" method="post" action="/ui/compendiums/{{.Compendium.ID}}/entities">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field"><label for="ea-name">Name</label><input id="ea-name" type="text" name="name" value="{{index .Values "name"}}" maxlength="200" required autocomplete="off"{{if eq .Field "name"}} aria-invalid="true" aria-describedby="ent-error"{{end}}></div>
+      <div class="field"><label for="ea-kind">Kind</label><select id="ea-kind" name="kind">{{range .Kinds}}<option value="{{.ID}}"{{if eq .ID (index $.Data.Values "kind")}} selected{{else if and (eq .ID $.Data.Kind) (not (index $.Data.Values "kind"))}} selected{{end}}>{{.Singular}}</option>{{end}}</select></div>
+      <div class="form-actions"><button class="btn solid" type="submit">Add</button></div>
+    </form>
+  </section>
+  {{end}}
+</div>
+{{end}}
+{{end}}

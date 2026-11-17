@@ -1,0 +1,511 @@
+{
+  "schema": 1,
+  "machines": {
+    "darwin/arm64/16cpu": {
+      "recorded": "2026-11-15T09:29:15Z",
+      "go": "go1.27.4",
+      "generator": 1,
+      "seed": 20260401,
+      "sizes": {
+        "150k": {
+          "backup.create": {
+            "p50": 79.679,
+            "p95": 79.679,
+            "unit": "ms",
+            "runs": 1
+          },
+          "db.size": {
+            "p50": 7520256,
+            "p95": 7520256,
+            "unit": "bytes",
+            "runs": 1
+          },
+          "doc.get": {
+            "p50": 0.332,
+            "p95": 0.369,
+            "unit": "ms",
+            "runs": 30
+          },
+          "doc.list": {
+            "p50": 0.812,
+            "p95": 0.891,
+            "unit": "ms",
+            "runs": 30
+          },
+          "doc.update": {
+            "p50": 2.284,
+            "p95": 4.253,
+            "unit": "ms",
+            "runs": 30
+          },
+          "export.html.bundle": {
+            "p50": 14.326,
+            "p95": 16.844,
+            "unit": "ms",
+            "runs": 5
+          },
+          "export.html.single": {
+            "p50": 12,
+            "p95": 12.734,
+            "unit": "ms",
+            "runs": 5
+          },
+          "export.md.bundle": {
+            "p50": 2.738,
+            "p95": 3.048,
+            "unit": "ms",
+            "runs": 5
+          },
+          "export.md.single": {
+            "p50": 2.089,
+            "p95": 2.282,
+            "unit": "ms",
+            "runs": 5
+          },
+          "http.save": {
+            "p50": 2.386,
+            "p95": 3.18,
+            "unit": "ms",
+            "runs": 30
+          },
+          "import.epub": {
+            "p50": 625.1,
+            "p95": 635.3,
+            "unit": "ms",
+            "runs": 3
+          },
+          "mirror.full_write": {
+            "p50": 1489.4,
+            "p95": 1489.4,
+            "unit": "ms",
+            "runs": 1
+          },
+          "mirror.rebuild_noop": {
+            "p50": 17.459,
+            "p95": 17.459,
+            "unit": "ms",
+            "runs": 1
+          },
+          "outline.get": {
+            "p50": 0.7,
+            "p95": 0.773,
+            "unit": "ms",
+            "runs": 30
+          },
+          "page.chapter": {
+            "p50": 5.609,
+            "p95": 6.855,
+            "unit": "ms",
+            "runs": 30
+          },
+          "page.project": {
+            "p50": 5.453,
+            "p95": 6.296,
+            "unit": "ms",
+            "runs": 30
+          },
+          "page.search": {
+            "p50": 3.549,
+            "p95": 3.714,
+            "unit": "ms",
+            "runs": 30
+          },
+          "project.get": {
+            "p50": 0.222,
+            "p95": 0.256,
+            "unit": "ms",
+            "runs": 30
+          },
+          "project.list": {
+            "p50": 0.197,
+            "p95": 0.226,
+            "unit": "ms",
+            "runs": 30
+          },
+          "revision.diff": {
+            "p50": 0.286,
+            "p95": 0.325,
+            "unit": "ms",
+            "runs": 30
+          },
+          "revision.list": {
+            "p50": 0.177,
+            "p95": 0.282,
+            "unit": "ms",
+            "runs": 30
+          },
+          "search.prefix": {
+            "p50": 2.283,
+            "p95": 2.38,
+            "unit": "ms",
+            "runs": 30
+          },
+          "search.query": {
+            "p50": 3.243,
+            "p95": 3.426,
+            "unit": "ms",
+            "runs": 30
+          },
+          "search.rare": {
+            "p50": 0.589,
+            "p95": 0.661,
+            "unit": "ms",
+            "runs": 30
+          },
+          "search.rebuild": {
+            "p50": 35.359,
+            "p95": 35.359,
+            "unit": "ms",
+            "runs": 1
+          },
+          "search.semantic": {
+            "p50": 3.262,
+            "p95": 3.418,
+            "unit": "ms",
+            "runs": 30
+          },
+          "search.semantic.load": {
+            "p50": 30.987,
+            "p95": 30.987,
+            "unit": "ms",
+            "runs": 1
+          },
+          "studio.calendar.all": {
+            "p50": 16.896,
+            "p95": 17.402,
+            "unit": "ms",
+            "runs": 30
+          },
+          "studio.dashboard": {
+            "p50": 40.317,
+            "p95": 43.245,
+            "unit": "ms",
+            "runs": 30
+          }
+        },
+        "1m": {
+          "backup.create": {
+            "p50": 373.2,
+            "p95": 373.2,
+            "unit": "ms",
+            "runs": 1
+          },
+          "db.size": {
+            "p50": 36294656,
+            "p95": 36294656,
+            "unit": "bytes",
+            "runs": 1
+          },
+          "doc.get": {
+            "p50": 1.493,
+            "p95": 1.889,
+            "unit": "ms",
+            "runs": 30
+          },
+          "doc.list": {
+            "p50": 4.645,
+            "p95": 6.092,
+            "unit": "ms",
+            "runs": 30
+          },
+          "doc.update": {
+            "p50": 3.868,
+            "p95": 5.486,
+            "unit": "ms",
+            "runs": 30
+          },
+          "export.html.bundle": {
+            "p50": 94.516,
+            "p95": 99.649,
+            "unit": "ms",
+            "runs": 5
+          },
+          "export.html.single": {
+            "p50": 77.569,
+            "p95": 78.523,
+            "unit": "ms",
+            "runs": 5
+          },
+          "export.md.bundle": {
+            "p50": 15.941,
+            "p95": 17.936,
+            "unit": "ms",
+            "runs": 5
+          },
+          "export.md.single": {
+            "p50": 13.087,
+            "p95": 13.489,
+            "unit": "ms",
+            "runs": 5
+          },
+          "http.save": {
+            "p50": 3.934,
+            "p95": 5.261,
+            "unit": "ms",
+            "runs": 30
+          },
+          "mirror.full_write": {
+            "p50": 9133.2,
+            "p95": 9133.2,
+            "unit": "ms",
+            "runs": 1
+          },
+          "mirror.rebuild_noop": {
+            "p50": 72.344,
+            "p95": 72.344,
+            "unit": "ms",
+            "runs": 1
+          },
+          "outline.get": {
+            "p50": 3.35,
+            "p95": 4.22,
+            "unit": "ms",
+            "runs": 30
+          },
+          "page.chapter": {
+            "p50": 32.189,
+            "p95": 33.774,
+            "unit": "ms",
+            "runs": 30
+          },
+          "page.project": {
+            "p50": 32.783,
+            "p95": 33.714,
+            "unit": "ms",
+            "runs": 30
+          },
+          "page.search": {
+            "p50": 7.415,
+            "p95": 7.59,
+            "unit": "ms",
+            "runs": 30
+          },
+          "project.get": {
+            "p50": 0.505,
+            "p95": 0.536,
+            "unit": "ms",
+            "runs": 30
+          },
+          "project.list": {
+            "p50": 0.709,
+            "p95": 0.73,
+            "unit": "ms",
+            "runs": 30
+          },
+          "revision.diff": {
+            "p50": 0.264,
+            "p95": 0.296,
+            "unit": "ms",
+            "runs": 30
+          },
+          "revision.list": {
+            "p50": 0.146,
+            "p95": 0.173,
+            "unit": "ms",
+            "runs": 30
+          },
+          "search.prefix": {
+            "p50": 4.02,
+            "p95": 4.191,
+            "unit": "ms",
+            "runs": 30
+          },
+          "search.query": {
+            "p50": 7,
+            "p95": 7.115,
+            "unit": "ms",
+            "runs": 30
+          },
+          "search.rare": {
+            "p50": 2.543,
+            "p95": 2.623,
+            "unit": "ms",
+            "runs": 30
+          },
+          "search.rebuild": {
+            "p50": 201,
+            "p95": 201,
+            "unit": "ms",
+            "runs": 1
+          }
+        },
+        "500k": {
+          "backup.create": {
+            "p50": 209,
+            "p95": 209,
+            "unit": "ms",
+            "runs": 1
+          },
+          "db.size": {
+            "p50": 19595264,
+            "p95": 19595264,
+            "unit": "bytes",
+            "runs": 1
+          },
+          "doc.get": {
+            "p50": 0.891,
+            "p95": 0.986,
+            "unit": "ms",
+            "runs": 30
+          },
+          "doc.list": {
+            "p50": 2.527,
+            "p95": 2.745,
+            "unit": "ms",
+            "runs": 30
+          },
+          "doc.update": {
+            "p50": 3.058,
+            "p95": 4.414,
+            "unit": "ms",
+            "runs": 30
+          },
+          "export.html.bundle": {
+            "p50": 47.174,
+            "p95": 59.703,
+            "unit": "ms",
+            "runs": 5
+          },
+          "export.html.single": {
+            "p50": 39.024,
+            "p95": 43.019,
+            "unit": "ms",
+            "runs": 5
+          },
+          "export.md.bundle": {
+            "p50": 9.173,
+            "p95": 9.513,
+            "unit": "ms",
+            "runs": 5
+          },
+          "export.md.single": {
+            "p50": 6.518,
+            "p95": 6.782,
+            "unit": "ms",
+            "runs": 5
+          },
+          "http.save": {
+            "p50": 3.17,
+            "p95": 4.035,
+            "unit": "ms",
+            "runs": 30
+          },
+          "import.epub": {
+            "p50": 666.5,
+            "p95": 672.5,
+            "unit": "ms",
+            "runs": 3
+          },
+          "mirror.full_write": {
+            "p50": 4916.8,
+            "p95": 4916.8,
+            "unit": "ms",
+            "runs": 1
+          },
+          "mirror.rebuild_noop": {
+            "p50": 55.104,
+            "p95": 55.104,
+            "unit": "ms",
+            "runs": 1
+          },
+          "outline.get": {
+            "p50": 2.137,
+            "p95": 2.407,
+            "unit": "ms",
+            "runs": 30
+          },
+          "page.chapter": {
+            "p50": 17.091,
+            "p95": 17.911,
+            "unit": "ms",
+            "runs": 30
+          },
+          "page.project": {
+            "p50": 16.55,
+            "p95": 18.077,
+            "unit": "ms",
+            "runs": 30
+          },
+          "page.search": {
+            "p50": 6.053,
+            "p95": 6.316,
+            "unit": "ms",
+            "runs": 30
+          },
+          "project.get": {
+            "p50": 0.408,
+            "p95": 0.422,
+            "unit": "ms",
+            "runs": 30
+          },
+          "project.list": {
+            "p50": 0.364,
+            "p95": 0.378,
+            "unit": "ms",
+            "runs": 30
+          },
+          "revision.diff": {
+            "p50": 0.288,
+            "p95": 0.334,
+            "unit": "ms",
+            "runs": 30
+          },
+          "revision.list": {
+            "p50": 0.196,
+            "p95": 0.223,
+            "unit": "ms",
+            "runs": 30
+          },
+          "search.prefix": {
+            "p50": 3.386,
+            "p95": 3.536,
+            "unit": "ms",
+            "runs": 30
+          },
+          "search.query": {
+            "p50": 5.561,
+            "p95": 5.696,
+            "unit": "ms",
+            "runs": 30
+          },
+          "search.rare": {
+            "p50": 2.831,
+            "p95": 2.924,
+            "unit": "ms",
+            "runs": 30
+          },
+          "search.rebuild": {
+            "p50": 97.969,
+            "p95": 97.969,
+            "unit": "ms",
+            "runs": 1
+          },
+          "search.semantic": {
+            "p50": 4.083,
+            "p95": 4.255,
+            "unit": "ms",
+            "runs": 30
+          },
+          "search.semantic.load": {
+            "p50": 31.101,
+            "p95": 31.101,
+            "unit": "ms",
+            "runs": 1
+          },
+          "studio.calendar.all": {
+            "p50": 17.013,
+            "p95": 17.495,
+            "unit": "ms",
+            "runs": 30
+          },
+          "studio.dashboard": {
+            "p50": 40.843,
+            "p95": 42.532,
+            "unit": "ms",
+            "runs": 30
+          }
+        }
+      }
+    }
+  }
+}

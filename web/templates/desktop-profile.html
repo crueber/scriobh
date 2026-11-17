@@ -1,0 +1,17 @@
+{{define "content"}}
+{{with .Data}}
+<section class="notice" aria-labelledby="dp-title">
+  <p class="eyebrow">{{$.T "desktop.profile_eyebrow"}}</p>
+  <h1 id="dp-title">{{$.T "desktop.profile_h"}}</h1>
+  <p class="lede">{{$.T "desktop.profile_lede"}}</p>
+  <p id="dp-local">{{$.T "desktop.profile_local"}}</p>
+  {{if .Error}}<p class="field-error" role="alert" id="dp-error">{{.Error}}</p>{{end}}
+  <form class="form" method="post" action="/desktop/profile">
+    <input type="hidden" name="_csrf" value="{{.Token}}">
+    <div class="field"><label for="dp-name">{{$.T "desktop.profile_name"}}</label><input id="dp-name" type="text" name="name" value="{{.Name}}" required maxlength="80" autocomplete="name" aria-describedby="dp-name-h{{if eq .Field "name"}} dp-error{{end}}"{{if eq .Field "name"}} aria-invalid="true"{{end}}><span class="hint" id="dp-name-h">{{$.T "desktop.profile_name_hint"}}</span></div>
+    <div class="field"><label for="dp-email">{{$.T "desktop.profile_email"}}</label><input id="dp-email" type="text" inputmode="email" dir="ltr" name="email" value="{{.Email}}" maxlength="254" autocomplete="email" spellcheck="false" aria-describedby="dp-email-h{{if eq .Field "email"}} dp-error{{end}}"{{if eq .Field "email"}} aria-invalid="true"{{end}}><span class="hint" id="dp-email-h">{{$.T "desktop.profile_email_hint"}}</span></div>
+    <div class="form-actions"><button class="btn solid" type="submit">{{$.T "desktop.profile_go"}}</button></div>
+  </form>
+</section>
+{{end}}
+{{end}}

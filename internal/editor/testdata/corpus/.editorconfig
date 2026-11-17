@@ -1,0 +1,8 @@
+# Fixtures keep their exact bytes: no final newline, CRLF, CR, trailing whitespace.
+[*]
+end_of_line = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset
+charset = unset
+indent_style = unset
+indent_size = unset

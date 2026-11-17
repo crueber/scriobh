@@ -1,0 +1,17 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/ai.css"}}"><script src="{{asset "js/aiadmin.js"}}" defer></script>{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/settings">Settings</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">AI</span></nav>
+{{end}}
+{{define "content"}}
+{{with .Data}}
+<div class="settings ai-page" id="ai-settings" data-admin="{{.IsAdmin}}" data-writer="{{.Writer}}">
+  <h1>AI</h1>
+  <p class="sub">Providers are the model servers the writing partner can talk to. AI is off on a fresh install: nothing is sent anywhere until an administrator adds a provider and a project's owner turns AI on for that project. Keys are write-only: once stored they are never shown again.</p>
+  <p class="sr-only" id="ai-announce" role="status" aria-live="polite"></p>
+  <div id="ai-root" data-loading>
+    <p class="fine">Loading the AI settings&hellip;</p>
+    <noscript><p class="notice-line" role="note">This page needs its script to show and change the AI settings. Nothing about AI is on without it.</p></noscript>
+  </div>
+</div>
+{{end}}
+{{end}}

@@ -1,0 +1,30 @@
+{{define "research-tree"}}<div id="r-tree" class="r-tree" data-src="{{.TreeURL}}">
+{{if .Rows}}
+  <p class="fine r-count">{{if gt .Pages 1}}Showing {{.From}} to {{.To}} of {{num .Total}}.{{else}}{{num .Total}} {{plural .Total "entry" "entries"}}.{{end}}{{if .Tag}} Tagged &ldquo;{{.Tag}}&rdquo;. <a href="{{.Base}}/research">Show everything</a>{{end}}</p>
+  <ol class="r-list">{{range .Rows}}
+    <li class="r-row lv{{.Level}}{{if .Folder}} is-folder{{end}}" id="n-{{.ID}}" tabindex="-1" data-id="{{.ID}}">
+      <div class="r-main">
+        <span class="r-kind">{{.KindLabel}}</span>
+        {{if .Folder}}<strong class="r-name">{{if .Title}}{{.Title}}{{else}}Untitled{{end}}</strong>{{if .Kids}} <span class="fine">{{.Kids}} inside</span>{{end}}{{if not .Trashed}} <a class="r-open" href="{{$.Base}}/research/{{.ID}}">Rename</a>{{end}}
+        {{else}}<a class="r-name" href="{{$.Base}}/research/{{.ID}}">{{if .Title}}{{.Title}}{{else}}Untitled{{end}}</a>{{end}}
+        {{if not .Folder}}<span class="r-status" data-s="{{.Status}}">{{.StatusLabel}}</span>{{end}}
+      </div>
+      <p class="r-meta fine">{{range .TagViews}}<span class="tag"><span class="tagdot {{.Class}}" aria-hidden="true"></span>{{.Name}}</span> {{end}}{{if not .Folder}}{{num .WordCount}} {{plural .WordCount "word" "words"}}, {{end}}{{.When}}</p>
+      {{if $.CanEdit}}<div class="r-tools">
+        {{if eq $.View "trash"}}<form method="post" action="{{$.UI}}/research/restore"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="note_id" value="{{.ID}}"><button class="btn small" type="submit" aria-label="Restore {{if .Title}}{{.Title}}{{else}}Untitled{{end}}">Restore</button></form>
+        {{else}}
+        {{if or .CanUp .CanDown .CanIn .CanOut}}<form class="r-move" method="post" action="{{$.UI}}/research/move" aria-label="Move {{if .Title}}{{.Title}}{{else}}Untitled{{end}}"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="note_id" value="{{.ID}}"><input type="hidden" name="p" value="{{$.Page}}">
+          <button class="icon-btn" type="submit" name="act" value="up" aria-label="Move up {{if .Title}}{{.Title}}{{else}}Untitled{{end}}"{{if not .CanUp}} disabled{{end}}>{{template "icon" "arrow-up"}}</button><button class="icon-btn" type="submit" name="act" value="down" aria-label="Move down {{if .Title}}{{.Title}}{{else}}Untitled{{end}}"{{if not .CanDown}} disabled{{end}}>{{template "icon" "arrow-down"}}</button><button class="icon-btn" type="submit" name="act" value="out" aria-label="Move out of its folder {{if .Title}}{{.Title}}{{else}}Untitled{{end}}"{{if not .CanOut}} disabled{{end}}>{{template "icon" "outdent"}}</button><button class="icon-btn" type="submit" name="act" value="in" aria-label="Move into the folder above {{if .Title}}{{.Title}}{{else}}Untitled{{end}}"{{if not .CanIn}} disabled{{end}}>{{template "icon" "indent"}}</button>
+        </form>{{end}}
+        <form method="post" action="{{$.UI}}/research/trash"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="note_id" value="{{.ID}}"><button class="btn quiet small danger-text" type="submit" aria-label="Move {{if .Title}}{{.Title}}{{else}}Untitled{{end}} to the trash">Trash</button></form>
+        {{end}}
+      </div>{{end}}
+    </li>{{end}}
+  </ol>
+  {{if or .PrevURL .NextURL}}<p class="r-pager">{{if .PrevURL}}<a href="{{.PrevURL}}" rel="prev">Earlier</a>{{end}}{{if .NextURL}} <a href="{{.NextURL}}" rel="next">Later</a>{{end}}</p>{{end}}
+{{else}}
+  <div class="r-empty">{{if eq .View "trash"}}<p>The trash is empty.</p>
+  {{else if .Tag}}<p>No note has the tag &ldquo;{{.Tag}}&rdquo;. <a href="{{.Base}}/research">Show everything</a></p>
+  {{else}}<p>{{if eq .Kind "c"}}No research in this Compendium yet.{{else}}No research in this project yet.{{end}} {{if .CanEdit}}Add a note, a clipping (something you read elsewhere, with where you read it) or a folder to keep them in.{{else}}Nothing has been added yet.{{end}}</p>{{end}}</div>
+{{end}}
+</div>{{end}}

@@ -1,0 +1,188 @@
+/* Scríobh: the named themes beyond Paper and Ink. Tokens only; loaded on every page after app.css.
+
+   Three attributes on <html>, all rendered by the server so the first paint is right:
+     data-theme  light | dark, or absent to follow the system (the "theme" preference)
+     data-lt     the light theme in use: sepia (absent means Paper)   ("theme_light")
+     data-dk     the dark theme in use: slate or moss (absent means Ink)   ("theme_dark")
+   A named theme applies when its scheme is in force: data-theme names it, or data-theme is absent
+   and the system is in that scheme. Each theme is therefore written twice, once per case, with
+   identical tokens (scripts/check-contrast.py checks that they agree).
+
+   Light:  Paper (default), Sepia: warm parchment, brown accent.
+   Dark:   Ink (default), Slate: cool blue-grey, blue accent; Moss: deep green, sand accent.
+   Flat fills only, one accent each. Every pair passes the rules in scripts/check-contrast.py. */
+
+/* ---- Sepia (light) ---- */
+:root[data-theme="light"][data-lt="sepia"],
+.tsw[data-sw="sepia"] {
+  color-scheme: light;
+  --bg: #F1E7D0;
+  --surface: #FAF3E3;
+  --surface-2: #E9DDC2;
+  --fg: #33281C;
+  --fg-2: #54452F;
+  --muted: #6B5B43;
+  --line: #D6C6A2;
+  --line-2: #E0D2B2;
+  --accent: #7C4210;
+  --on-accent: #FFFBF0;
+  --accent-soft: #E8D6B4;
+  --danger: #9A3022;
+  --danger-soft: #F2DDD0;
+  --warn: #7A5410;
+  --lab: #837000;
+  --ok: #37663A;
+  --scrim: rgba(51, 40, 28, .45);
+  --sel: #DEC995;
+  --match: #EFD27F;
+  --comment: #EDD9A2;
+  --comment-line: #A0642A;
+  --sugg-ins: #D5E2BE;
+  --sugg-del: #9A3022;
+  --cover-fg: #FFFFFF;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme])[data-lt="sepia"] {
+    color-scheme: light;
+    --bg: #F1E7D0;
+    --surface: #FAF3E3;
+    --surface-2: #E9DDC2;
+    --fg: #33281C;
+    --fg-2: #54452F;
+    --muted: #6B5B43;
+    --line: #D6C6A2;
+    --line-2: #E0D2B2;
+    --accent: #7C4210;
+    --on-accent: #FFFBF0;
+    --accent-soft: #E8D6B4;
+    --danger: #9A3022;
+    --danger-soft: #F2DDD0;
+    --warn: #7A5410;
+    --lab: #837000;
+    --ok: #37663A;
+    --scrim: rgba(51, 40, 28, .45);
+    --sel: #DEC995;
+    --match: #EFD27F;
+    --comment: #EDD9A2;
+    --comment-line: #A0642A;
+    --sugg-ins: #D5E2BE;
+    --sugg-del: #9A3022;
+    --cover-fg: #FFFFFF;
+  }
+}
+/* ---- Slate (dark) ---- */
+:root[data-theme="dark"][data-dk="slate"],
+.tsw[data-sw="slate"] {
+  color-scheme: dark;
+  --bg: #1A1F26;
+  --surface: #212831;
+  --surface-2: #29313C;
+  --fg: #E4E9F0;
+  --fg-2: #BCC5D1;
+  --muted: #8F9BAC;
+  --line: #343D4A;
+  --line-2: #2B3340;
+  --accent: #8DB4E8;
+  --on-accent: #0E1A2B;
+  --accent-soft: #24334A;
+  --danger: #E39A8F;
+  --danger-soft: #33231F;
+  --warn: #D9B873;
+  --lab: #B8860B;
+  --ok: #92C79F;
+  --scrim: rgba(0, 0, 0, .6);
+  --sel: #2F4766;
+  --match: #54471F;
+  --comment: #3B3624;
+  --comment-line: #D9B873;
+  --sugg-ins: #25402F;
+  --sugg-del: #E39A8F;
+  --cover-fg: #FFFFFF;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme])[data-dk="slate"] {
+    color-scheme: dark;
+    --bg: #1A1F26;
+    --surface: #212831;
+    --surface-2: #29313C;
+    --fg: #E4E9F0;
+    --fg-2: #BCC5D1;
+    --muted: #8F9BAC;
+    --line: #343D4A;
+    --line-2: #2B3340;
+    --accent: #8DB4E8;
+    --on-accent: #0E1A2B;
+    --accent-soft: #24334A;
+    --danger: #E39A8F;
+    --danger-soft: #33231F;
+    --warn: #D9B873;
+    --lab: #B8860B;
+    --ok: #92C79F;
+    --scrim: rgba(0, 0, 0, .6);
+    --sel: #2F4766;
+    --match: #54471F;
+    --comment: #3B3624;
+    --comment-line: #D9B873;
+    --sugg-ins: #25402F;
+    --sugg-del: #E39A8F;
+    --cover-fg: #FFFFFF;
+  }
+}
+/* ---- Moss (dark) ---- */
+:root[data-theme="dark"][data-dk="moss"],
+.tsw[data-sw="moss"] {
+  color-scheme: dark;
+  --bg: #161E19;
+  --surface: #1D2620;
+  --surface-2: #252F28;
+  --fg: #E8EBE2;
+  --fg-2: #BEC6B8;
+  --muted: #939D8F;
+  --line: #303B33;
+  --line-2: #28322B;
+  --accent: #CDB67C;
+  --on-accent: #1C1708;
+  --accent-soft: #363220;
+  --danger: #E09A8A;
+  --danger-soft: #33231F;
+  --warn: #D6B26A;
+  --lab: #B8860B;
+  --ok: #93C49A;
+  --scrim: rgba(0, 0, 0, .6);
+  --sel: #3A4B3A;
+  --match: #5A4A1E;
+  --comment: #3A3520;
+  --comment-line: #D6B26A;
+  --sugg-ins: #26402C;
+  --sugg-del: #E09A8A;
+  --cover-fg: #FFFFFF;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme])[data-dk="moss"] {
+    color-scheme: dark;
+    --bg: #161E19;
+    --surface: #1D2620;
+    --surface-2: #252F28;
+    --fg: #E8EBE2;
+    --fg-2: #BEC6B8;
+    --muted: #939D8F;
+    --line: #303B33;
+    --line-2: #28322B;
+    --accent: #CDB67C;
+    --on-accent: #1C1708;
+    --accent-soft: #363220;
+    --danger: #E09A8A;
+    --danger-soft: #33231F;
+    --warn: #D6B26A;
+    --lab: #B8860B;
+    --ok: #93C49A;
+    --scrim: rgba(0, 0, 0, .6);
+    --sel: #3A4B3A;
+    --match: #5A4A1E;
+    --comment: #3A3520;
+    --comment-line: #D6B26A;
+    --sugg-ins: #26402C;
+    --sugg-del: #E09A8A;
+    --cover-fg: #FFFFFF;
+  }
+}

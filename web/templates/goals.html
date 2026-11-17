@@ -1,0 +1,138 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/goals.css"}}">{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">Goals</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "goals" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "goals" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "goals" .Data.Project.Role}}{{end}}
+{{define "content"}}
+{{with .Data}}
+<div class="settings goals">
+  <h1>Goals</h1>
+  <p class="sub">{{.Project.Title}}. Words you add count toward your goals. Cutting is part of writing and never counts against you, and these numbers are yours alone.</p>
+  {{if .Error}}<p class="field-error" role="alert" id="goals-error">{{.Error}}</p>{{end}}
+  {{if eq .Saved "daily"}}<p class="saved" role="status">Daily target saved.</p>
+  {{else if eq .Saved "daily_remove"}}<p class="saved" role="status">Daily target removed. Days you already met stay met.</p>
+  {{else if eq .Saved "own"}}<p class="saved" role="status">Your target saved.</p>
+  {{else if eq .Saved "own_remove"}}<p class="saved" role="status">Your target removed.</p>
+  {{else if eq .Saved "shared"}}<p class="saved" role="status">The project's shared target saved.</p>{{end}}
+
+  <section id="today" aria-labelledby="h-today">
+    <h2 id="h-today">Today</h2>
+    <p class="sub">{{.TodayLabel}}{{if .Timezone}}. Days follow your time zone, {{.Timezone}}; <a href="/settings#profile">change it in Settings</a>{{end}}.</p>
+    <p class="figure"><strong>{{num .Today.WordsAdded}}</strong> {{plural .Today.WordsAdded "word added" "words added"}}</p>
+    {{if .Today.HasGoal}}
+    <progress class="meter" value="{{.TodayCap}}" max="{{.Today.Target}}" aria-label="Words added today, of your daily target of {{num .Today.Target}}">{{num .Today.WordsAdded}} of {{num .Today.Target}}</progress>
+    <p class="fine">{{if .Today.Hit}}Daily target of {{num .Today.Target}} met.{{else}}{{num .Today.Remaining}} to go to reach {{num .Today.Target}}.{{end}}</p>
+    {{else}}<p class="fine">No daily target yet. Set one below and the days you meet it become a streak.</p>{{end}}
+    {{if ne .Today.WordsNet .Today.WordsAdded}}<p class="fine">Net change today: {{num .Today.WordsNet}} {{plural .Today.WordsNet "word" "words"}}. Cutting is work, and it never counts against the day.</p>{{end}}
+    <dl class="facts">
+      <div><dt>Streak</dt><dd>{{if .Today.HasGoal}}{{if .Today.Streak}}{{.Today.Streak}} {{plural .Today.Streak "day" "days"}}{{else}}None yet{{end}}{{else}}Needs a daily target{{end}}</dd></div>
+      <div><dt>Longest streak</dt><dd>{{if .Today.LongestStreak}}{{.Today.LongestStreak}} {{plural .Today.LongestStreak "day" "days"}}{{else}}None yet{{end}}</dd></div>
+      <div><dt>Time writing today</dt><dd>{{.Today.Minutes}} {{plural .Today.Minutes "minute" "minutes"}}</dd></div>
+    </dl>
+  </section>
+
+  <section id="daily" aria-labelledby="h-daily">
+    <h2 id="h-daily">Daily target</h2>
+    <p class="sub">Words you want to add each day. Raising it later never takes a finished day away.</p>
+    {{if .CanEdit}}
+    <form class="form" method="post" action="/ui/projects/{{.Project.ID}}/goals">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field">
+        <label for="g-daily">Words per day</label>
+        <input id="g-daily" name="daily_words" type="number" inputmode="numeric" min="1" max="100000" step="1" value="{{if .Values}}{{index .Values "daily_words"}}{{else if .Daily}}{{.Daily.TargetWords}}{{end}}" placeholder="500"{{if eq .Field "daily_words"}} aria-invalid="true" aria-describedby="goals-error"{{end}}>
+      </div>
+      <div class="form-actions"><button class="btn solid" type="submit" name="action" value="daily">Save daily target</button>{{if .Daily}}<button class="btn quiet" type="submit" name="action" value="daily_remove" formnovalidate>Remove</button>{{end}}</div>
+    </form>
+    {{else}}<p>{{if .Daily}}Your daily target is {{num .Daily.TargetWords}} words.{{else}}You have no daily target.{{end}} <span class="fine">Only people who can edit this project set goals.</span></p>{{end}}
+  </section>
+
+  <section id="target" aria-labelledby="h-target">
+    <h2 id="h-target">Project target</h2>
+    {{if .Proj.Target}}
+    <p class="sub">{{if eq .Proj.TargetSource "goal"}}Measured against the target you set for yourself.{{else}}Measured against the target set for the whole project.{{end}}</p>
+    <p class="figure"><strong>{{num .Proj.Words}}</strong> of {{num .Proj.Target}} words</p>
+    <progress class="meter" value="{{.Percent}}" max="100" aria-label="Progress toward {{num .Proj.Target}} words">{{.Proj.Percent}} percent</progress>
+    <p class="fine">{{if .Proj.Reached}}The target is reached.{{else}}{{num .Proj.Remaining}} words to go ({{.Proj.Percent}} percent done).{{end}}{{if .Proj.Deadline}} Deadline {{.DeadlineLabel}}.{{end}}</p>
+    {{if or .Pace.Needed .Pace.Projected .Pace.HasAverage}}
+    <ul class="pace">
+      {{if .Pace.Needed}}<li>To finish by {{.DeadlineLabel}} ({{.Pace.DaysLeft}} {{plural .Pace.DaysLeft "day" "days"}} left, counting today) the project needs about {{num .Pace.Needed}} {{plural .Pace.Needed "word" "words"}} a day.</li>{{end}}
+      {{if .Pace.HasAverage}}<li>Over the last {{.Proj.PaceWindowDays}} days the project grew by about {{num .Pace.Average}} {{plural .Pace.Average "word" "words"}} a day.</li>{{end}}
+      {{if .Pace.Projected}}<li>At that pace it would reach the target around {{.Pace.Projected}}. This is only an estimate.</li>{{end}}
+    </ul>
+    {{end}}
+    {{else}}<p class="sub">No target yet. Set one below to see how far along the project is.</p>{{end}}
+
+    {{if .CanEdit}}
+    <form class="form" method="post" action="/ui/projects/{{.Project.ID}}/goals">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <h3>Your own target</h3>
+      <p class="hint">Only you see this one. When you set it, this page measures against it.</p>
+      <div class="field-row">
+        <div class="field">
+          <label for="g-own">Total words</label>
+          <input id="g-own" name="own_words" type="number" inputmode="numeric" min="1" max="10000000" step="1" value="{{if .Values}}{{index .Values "own_words"}}{{else if .Own}}{{.Own.TargetWords}}{{end}}" placeholder="80000"{{if eq .Field "own_words"}} aria-invalid="true" aria-describedby="goals-error"{{end}}>
+        </div>
+        <div class="field">
+          <label for="g-own-end">Deadline, if any</label>
+          <input id="g-own-end" name="own_end" type="date" value="{{if .Values}}{{index .Values "own_end"}}{{else if .Own}}{{.Own.EndDate}}{{end}}"{{if eq .Field "own_end"}} aria-invalid="true" aria-describedby="goals-error"{{end}}>
+        </div>
+      </div>
+      <div class="form-actions"><button class="btn solid" type="submit" name="action" value="own">Save my target</button>{{if .Own}}<button class="btn quiet" type="submit" name="action" value="own_remove" formnovalidate>Remove</button>{{end}}</div>
+    </form>
+    {{end}}
+    {{if .IsOwner}}
+    <details class="shared"{{if or (eq .Field "shared_words") (eq .Field "shared_end")}} open{{end}}>
+      <summary>Shared target for the whole project</summary>
+      <form class="form" method="post" action="/ui/projects/{{.Project.ID}}/goals">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <p class="hint">Everyone on the project sees this target, and it appears on the library tile. A target you set for yourself above takes its place on this page.</p>
+        <div class="field-row">
+          <div class="field">
+            <label for="g-shared">Total words</label>
+            <input id="g-shared" name="shared_words" type="number" inputmode="numeric" min="0" max="10000000" step="1" value="{{if .Values}}{{index .Values "shared_words"}}{{else if .SharedWords}}{{.SharedWords}}{{end}}" placeholder="None"{{if eq .Field "shared_words"}} aria-invalid="true" aria-describedby="goals-error"{{end}}>
+          </div>
+          <div class="field">
+            <label for="g-shared-end">Deadline, if any</label>
+            <input id="g-shared-end" name="shared_end" type="date" value="{{if .Values}}{{index .Values "shared_end"}}{{else}}{{.SharedDeadline}}{{end}}"{{if eq .Field "shared_end"}} aria-invalid="true" aria-describedby="goals-error"{{end}}>
+          </div>
+        </div>
+        <div class="form-actions"><button class="btn" type="submit" name="action" value="shared">Save shared target</button></div>
+      </form>
+    </details>
+    {{end}}
+    {{if not .CanEdit}}<p class="fine">Only people who can edit this project set targets.</p>{{end}}
+  </section>
+
+  <section id="history" aria-labelledby="h-history">
+    <h2 id="h-history">Your writing</h2>
+    <p class="sub">{{.Summary}}</p>
+    <nav class="ranges" aria-label="Length of history">
+      <a href="/p/{{.Slug}}/goals?days=30#history"{{if eq .Days 30}} aria-current="true"{{end}}>30 days</a>
+      <a href="/p/{{.Slug}}/goals?days=90#history"{{if eq .Days 90}} aria-current="true"{{end}}>90 days</a>
+    </nav>
+    {{if .Weeks}}
+    <table class="cal">
+      <caption class="sr-only">Words added each day over the last {{.Days}} days, one row a week, Monday first.</caption>
+      <thead><tr><th scope="col" abbr="Monday">Mon</th><th scope="col" abbr="Tuesday">Tue</th><th scope="col" abbr="Wednesday">Wed</th><th scope="col" abbr="Thursday">Thu</th><th scope="col" abbr="Friday">Fri</th><th scope="col" abbr="Saturday">Sat</th><th scope="col" abbr="Sunday">Sun</th></tr></thead>
+      <tbody>
+      {{range .Weeks}}<tr>{{range .}}{{if .Blank}}<td class="blank"></td>{{else}}<td class="day lv{{.Level}}{{if .Hit}} hit{{end}}{{if .Today}} today{{end}}"><span class="sr-only">{{.Label}}</span><span class="n" aria-hidden="true">{{.Text}}</span><span class="bar" aria-hidden="true"></span></td>{{end}}{{end}}</tr>
+      {{end}}
+      </tbody>
+    </table>
+    <p class="fine key">The bar grows with the words you added that day. A tick marks a day you met your daily target, and an outline marks today. A day with nothing is simply empty.</p>
+    {{end}}
+  </section>
+
+  <section id="studio" aria-labelledby="h-studio">
+    <h2 id="h-studio">{{$.T "studio.ui.pg.h"}}</h2>
+    <p class="sub">{{$.T "studio.ui.pg.intro"}}</p>
+    {{if .OwnWeeks}}<table class="weeks"><thead><tr><th scope="col">{{$.T "studio.ui.pg.week"}}</th><th scope="col">{{$.T "studio.ui.pg.words"}}</th><th scope="col">{{$.T "studio.ui.pg.days"}}</th></tr></thead>
+      <tbody>{{range .OwnWeeks}}<tr><th scope="row">{{.Start}}</th><td>{{.Words}}</td><td>{{.Days}}</td></tr>{{end}}</tbody></table>
+    {{else}}<p class="fine">{{$.T "studio.ui.pg.empty"}}</p>{{end}}
+    <p class="form-actions"><a class="btn" href="/studio">{{$.T "studio.ui.pg.open"}}</a>{{if .CanEdit}}<a class="btn quiet" href="/studio/goals?project={{.Project.ID}}#new">{{$.T "studio.ui.pg.goal"}}</a>{{end}}</p>
+  </section>
+</div>
+{{end}}
+{{end}}

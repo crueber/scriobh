@@ -1,0 +1,34 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/git.css"}}">{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="{{$.T "git.crumb"}}"><a href="/">{{template "icon" "chevron-left"}}<span>{{$.T "git.library"}}</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}/git">{{$.T "git.title"}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "git.pushpage.crumb"}}</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "git" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "git" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "git" .Data.Project.Role}}{{end}}
+{{define "content"}}
+{{with .Data}}
+<div class="settings git">
+  <h1>{{.Push.Word}}</h1>
+  <p class="sub">{{.Push.When}}{{if .Push.Trigger}}, {{$.T "git.pushpage.started_by"}} {{$.T (printf "git.trig.%s" .Push.Trigger)}}{{end}}{{if .Branch}}, {{$.T "git.pushpage.branch"}} {{.Branch}}{{end}}.</p>
+  <dl class="facts git-facts">
+    {{if .Push.Short}}<div><dt>{{$.T "git.pushpage.commit"}}</dt><dd><code>{{.Push.CommitSHA}}</code></dd></div>{{end}}
+    {{if .Subject}}<div><dt>{{$.T "git.pushpage.message"}}</dt><dd class="wrap">{{.Subject}}</dd></div>{{end}}
+    <div><dt>{{$.T "git.pushpage.files"}}</dt><dd>{{.Push.FilesChanged}}</dd></div>
+    {{if .Finished}}<div><dt>{{$.T "git.pushpage.finished"}}</dt><dd>{{.Finished}}</dd></div>{{end}}
+  </dl>
+  {{if .Push.ErrorMessage}}<p class="banner-detail">{{.Push.ErrorMessage}}</p>{{end}}
+  {{if .Bundle}}<p class="fine">{{$.T "git.pushpage.bundle1"}} <code>{{.Bundle}}</code> {{$.T "git.pushpage.bundle2"}} <code>data/backups/git</code>.</p>{{end}}
+  {{if .Foreign}}<section aria-labelledby="h-foreign"><h2 id="h-foreign">{{$.T "git.pushpage.foreign"}}</h2>
+    <ol class="commits">{{range .Foreign}}<li><code>{{sha7 .SHA}}</code> <span class="c-subject">{{.Subject}}</span> <span class="fine">{{.Author}}</span></li>{{end}}</ol></section>{{end}}
+  {{if .Docs}}<section aria-labelledby="h-docs"><h2 id="h-docs">{{$.T "git.pushpage.changed"}}</h2>
+    <ul class="docs">{{range .Docs}}<li><span class="chg">{{.Change}}</span> <span class="wrap">{{.Path}}</span> <span class="fine">{{if gt .Words 0}}{{$.T "git.pushpage.added" "n" (num .Words)}}{{else if lt .Words 0}}{{$.T "git.pushpage.removed" "n" (num .Abs)}}{{else}}{{$.T "git.pushpage.nochange"}}{{end}}</span></li>{{end}}</ul></section>{{end}}
+  <section aria-labelledby="h-man"><h2 id="h-man">{{$.T "git.pushpage.everything"}}</h2>
+    {{if .Files}}<p class="sub">{{$.T "git.pushpage.everything_sub"}}</p>
+    <table class="manifest"><caption class="sr-only">{{$.T "git.pushpage.caption"}}</caption><thead><tr><th scope="col">{{$.T "git.pushpage.file"}}</th><th scope="col">SHA-256</th></tr></thead><tbody>{{range .Files}}<tr><td class="wrap">{{.Path}}</td><td><code>{{.Hash}}</code></td></tr>{{end}}</tbody></table>
+    {{if .Hidden}}<p class="fine">{{$.T "git.pushpage.more" "n" .Hidden}}</p>{{end}}
+    {{else}}<p class="fine">{{$.T "git.pushpage.nolist"}}</p>{{end}}
+  </section>
+  <p><a href="/p/{{.Slug}}/git">{{$.T "git.pushpage.back"}}</a></p>
+</div>
+{{end}}
+{{end}}

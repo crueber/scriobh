@@ -1,0 +1,10 @@
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/compendiums?state=trashed">Compendiums</a></nav>
+{{end}}
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/compendium.css"}}">{{end}}
+{{define "content"}}
+<section class="form-page comp" aria-labelledby="dialog-title">
+  <h1 class="sr-only">Delete a Compendium for good</h1>
+  {{template "compendium-purge" .Data}}
+</section>
+{{end}}

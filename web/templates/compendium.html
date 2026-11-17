@@ -1,0 +1,102 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/compendium.css"}}"><script src="{{asset "js/compendium.js"}}" defer></script>{{end}}
+{{define "crumb"}}{{template "ccrumb" (dict "C" .Data.Compendium "Here" "")}}{{end}}
+{{define "tab-write"}}{{template "ctab-phone" ctabs .Data.Slug "overview"}}{{end}}
+{{define "ptabs"}}{{template "ctab-desktop" ctabs .Data.Slug "overview"}}{{end}}
+{{define "projmore"}}{{template "cmore" ctabs .Data.Slug "overview"}}{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}
+<div class="settings comp" id="comp-page">
+  {{template "live-marker" (dict "Scope" "compendium" "ID" .Compendium.ID)}}
+  <h1>{{.Compendium.Name}}</h1>
+  <p class="sub">{{if eq .Compendium.Kind "nonfiction"}}Nonfiction{{else}}Fiction{{end}} Compendium{{if .Compendium.Archived}}, archived{{end}}{{if .Compendium.Trashed}}, in the trash{{end}}.</p>
+  {{if .Error}}<p class="field-error" role="alert" id="comp-error">{{.Error}}</p>{{end}}
+  {{if .SavedText}}<p class="saved" role="status">{{.SavedText}}</p>{{end}}
+  {{if .Compendium.Trashed}}<p class="notice-line" role="note"><strong>This Compendium is in the trash.</strong> Projects do not show its entities until it is restored.{{if not .IsOwner}} Only its owner can restore it.{{end}}</p>{{end}}
+  {{if .Compendium.Description}}<p class="comp-desc">{{.Compendium.Description}}</p>{{end}}
+  <p class="rolebox" data-role="{{.Compendium.Role}}"><strong>{{if eq .Compendium.Role "owner"}}Owner{{else if eq .Compendium.Role "editor"}}Editor{{else}}Reader{{end}}.</strong> {{.RoleWords}}</p>
+
+  <nav class="clinks" aria-label="In this Compendium">
+    <a class="btn" href="/c/{{.Slug}}/entities">Entities <span class="fine">{{num .Compendium.EntityCount}}</span></a>
+    <a class="btn" href="/c/{{.Slug}}/research">Research</a>
+    <a class="btn" href="/c/{{.Slug}}/files">Attachments</a>
+    <a class="btn" href="/c/{{.Slug}}/scratch">Scratchpad</a>
+    {{if .CanEdit}}<a class="btn" href="/c/{{.Slug}}/export">Export as a zip</a>{{end}}
+    {{if and .IsOwner (not .Compendium.Trashed)}}<a class="btn" href="/c/{{.Slug}}/manage">{{$.T "cmg.title"}}</a>{{end}}
+  </nav>
+
+  <div id="cfrag" data-live-refresh>
+  <section id="projects" aria-labelledby="h-projects">
+    <h2 id="h-projects">Projects that use it</h2>
+    {{if .Detail.Projects}}<ul class="plainlist">{{range .Detail.Projects}}<li><span>{{.Title}}</span> <span class="fine">{{if eq .Relation "primary"}}primary Compendium{{else}}referenced as a whole{{end}}</span></li>{{end}}</ul>
+    {{else if not .Detail.HiddenProjects}}<p class="fine">No project uses it yet. Open a project's Compendium tab to make it the project's primary, or to reference it.</p>{{end}}
+    {{if .Detail.HiddenProjects}}<p class="fine">{{.Detail.HiddenProjects}} {{plural .Detail.HiddenProjects "project that you cannot open also uses" "projects that you cannot open also use"}} it.</p>{{end}}
+    <p class="fine">A project that uses a Compendium sees its entities. Being on a project is not the same as being on the Compendium: the people below decide who can open it.</p>
+  </section>
+
+  <section id="people" aria-labelledby="h-people">
+    <h2 id="h-people">People</h2>
+    {{if .ShowPeople}}
+    <ul class="people">{{range .Members}}<li>
+      <div class="p-who"><strong>{{.DisplayName}}</strong> <span class="fine">{{.Email}}</span></div>
+      <div class="p-role">{{if eq .Role "owner"}}<span class="ctag">Owner</span>{{else}}
+        <form class="inline" method="post" action="/ui/compendiums/{{$d.Compendium.ID}}/member-role"><input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="user_id" value="{{.UserID}}">
+          <label class="sr-only" for="mr-{{.UserID}}">Role of {{.DisplayName}}</label>
+          <select id="mr-{{.UserID}}" name="role"><option value="editor"{{if eq .Role "editor"}} selected{{end}}>Editor</option><option value="reader"{{if eq .Role "reader"}} selected{{end}}>Reader</option></select>
+          <button class="btn small" type="submit" aria-label="Change the role of {{.DisplayName}}">Change</button></form>
+        <form class="inline" method="post" action="/ui/compendiums/{{$d.Compendium.ID}}/member-remove"><input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="user_id" value="{{.UserID}}"><button class="btn quiet small danger-text" type="submit" aria-label="Take {{.DisplayName}} off this Compendium">Remove</button></form>{{end}}</div>
+    </li>{{end}}</ul>
+    <form class="form" method="post" action="/ui/compendiums/{{.Compendium.ID}}/member-add" id="add-member">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <h3>Give someone access</h3>
+      <div class="field-row">
+        <div class="field"><label for="am-email">Their email address</label><input id="am-email" type="text" inputmode="email" name="email" value="{{index .Values "email"}}" autocomplete="off" spellcheck="false" required aria-describedby="am-hint{{if eq .Field "email"}} comp-error{{end}}"{{if eq .Field "email"}} aria-invalid="true"{{end}}></div>
+        <div class="field"><label for="am-role">Role</label><select id="am-role" name="role" aria-describedby="am-hint"><option value="editor">Editor</option><option value="reader"{{if eq (index .Values "role") "reader"}} selected{{end}}>Reader</option></select></div>
+      </div>
+      <p class="hint" id="am-hint">They must have signed in to Scríobh once. <strong>Editor</strong>: reads everything and adds or changes entities and research. <strong>Reader</strong>: reads everything, changes nothing. Neither can share, archive or delete it. Access here is separate from access to any project.</p>
+      <div class="form-actions"><button class="btn solid" type="submit">Add</button></div>
+    </form>
+    {{else}}<p class="fine">Only the owner sees who has access.</p>{{end}}
+  </section>
+
+  <section id="refs" aria-labelledby="h-refs">
+    <h2 id="h-refs">Other Compendiums it reads</h2>
+    <p class="fine">A Compendium can reference another one, read-only: a shared world, a common history, a house style. References go one level only. If a project uses this Compendium, it does not also see what this Compendium references; the project references that one itself.</p>
+    {{if .Detail.References}}<ul class="plainlist">{{range .Detail.References}}<li><span>{{.Name}}</span>
+      {{if and $d.IsOwner (not $d.Compendium.Trashed)}}<form class="inline" method="post" action="/ui/compendiums/{{$d.Compendium.ID}}/ref-remove"><input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="target_id" value="{{.CompendiumID}}"><button class="btn quiet small danger-text" type="submit" aria-label="Stop referencing {{.Name}}">Stop referencing</button></form>{{end}}</li>{{end}}</ul>
+    {{else}}<p class="fine">It references no other Compendium.</p>{{end}}
+    {{if .Detail.HiddenRefs}}<p class="fine">{{.Detail.HiddenRefs}} more {{plural .Detail.HiddenRefs "reference goes" "references go"}} to {{plural .Detail.HiddenRefs "a Compendium" "Compendiums"}} you are not a member of.</p>{{end}}
+    {{if .Detail.ReferencedBy}}<p class="fine">{{.Detail.ReferencedBy}} other {{plural .Detail.ReferencedBy "Compendium references" "Compendiums reference"}} this one.</p>{{end}}
+    {{if and .IsOwner .RefChoices (not .Compendium.Trashed)}}<form class="form" method="post" action="/ui/compendiums/{{.Compendium.ID}}/ref-add">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field"><label for="ra-target">Reference another Compendium</label><select id="ra-target" name="target_id">{{range .RefChoices}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></div>
+      <div class="form-actions"><button class="btn" type="submit">Reference it</button></div>
+    </form>{{end}}
+  </section>
+  </div>
+
+  {{if and .IsOwner (not .Compendium.Trashed)}}<section id="settings" aria-labelledby="h-edit">
+    <h2 id="h-edit">Name and description</h2>
+    <form class="form" method="post" action="/ui/compendiums/{{.Compendium.ID}}/update">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field"><label for="ce-name">Name</label><input id="ce-name" type="text" name="name" value="{{if index .Values "name"}}{{index .Values "name"}}{{else}}{{.Compendium.Name}}{{end}}" maxlength="200" required autocomplete="off"{{if eq .Field "name"}} aria-invalid="true" aria-describedby="comp-error"{{end}}></div>
+      <div class="field"><label for="ce-kind">Kind</label><select id="ce-kind" name="kind"><option value="fiction"{{if ne .Compendium.Kind "nonfiction"}} selected{{end}}>Fiction</option><option value="nonfiction"{{if eq .Compendium.Kind "nonfiction"}} selected{{end}}>Nonfiction</option></select></div>
+      <div class="field"><label for="ce-desc">Description</label><textarea id="ce-desc" name="description" rows="4" maxlength="5000"{{if eq .Field "description"}} aria-invalid="true" aria-describedby="comp-error"{{end}}>{{if index .Values "description"}}{{index .Values "description"}}{{else}}{{.Compendium.Description}}{{end}}</textarea></div>
+      <div class="form-actions"><button class="btn solid" type="submit">Save</button></div>
+    </form>
+  </section>
+  <section id="state" aria-labelledby="h-state">
+    <h2 id="h-state">Archive or delete</h2>
+    <div class="row-actions">
+      {{if .Compendium.Trashed}}
+      <form method="post" action="/ui/compendiums/{{.Compendium.ID}}/restore"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn" type="submit">Restore from the trash</button></form>
+      <a class="btn danger" href="/ui/compendiums/{{.Compendium.ID}}/purge" hx-get="/ui/compendiums/{{.Compendium.ID}}/purge" hx-target="#dialog-body" hx-swap="innerHTML">Delete for good&hellip;</a>
+      {{else}}
+      <form method="post" action="/ui/compendiums/{{.Compendium.ID}}/{{if .Compendium.Archived}}unarchive{{else}}archive{{end}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn" type="submit">{{if .Compendium.Archived}}Bring back to the list{{else}}Archive{{end}}</button></form>
+      <form method="post" action="/ui/compendiums/{{.Compendium.ID}}/trash"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn quiet danger-text" type="submit">Move to the trash</button></form>
+      {{end}}
+    </div>
+    <p class="fine">Archived: hidden from the default list, still readable, still used by its projects. In the trash: projects stop showing its entities until you restore it. Deleting for good needs the name typed, and cannot be undone.</p>
+  </section>{{end}}
+</div>
+{{end}}
+{{end}}

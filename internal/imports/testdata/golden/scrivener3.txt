@@ -1,0 +1,128 @@
+project: {title:The Salt Road subtitle: kind:blank author:Ada Fixture language:}
+layout: scrivener
+
+== front_matter: Front Matter [status draft, compile true, date "", source "Draft/Front Matter"]
+   | 
+  == scene: Title Page [status draft, compile true, date "", source "Draft/Front Matter/Title Page"]
+     | The Salt Road
+     | 
+     | by Ada Fixture
+== part: Part One [status draft, compile true, date "", source "Draft/Part One"]
+   | 
+  == chapter: The Road [status draft, compile true, date "", source "Draft/Part One/The Road"]
+     | 
+    == scene: Dusk [status draft, compile true, date "", source "Draft/Part One/The Road/Dusk"]
+       synopsis: "They arrive at the crossroads and Mara decides to go on." long: ""
+       | The bus left them at the crossroads. %%Check the timeline: is it still August?%%**Bold** words and *italic ones*, underlined.
+       | 
+       | She said, “Salt is a kind of memory”.[^1]
+       | 
+       | [[Dawn]] was coming; see [the salt page](https://example.org/salt?a=1&b=2).
+       | 
+       | 100% sure, \%\% not a note, \[\[not a link\]\]
+       | 
+       | *\[image\]*
+       | 
+       | [^1]: The crossroads is invented.
+    == scene: Dawn [status done, compile false, date "", source "Draft/Part One/The Road/Dawn"]
+       synopsis: "A short one." long: ""
+       | Dawn came up grey.
+  == chapter: The Wall [status draft, compile true, date "", source "Draft/Part One/The Wall"]
+     | 
+    == scene: Rain [status draft, compile true, date "", source "Draft/Part One/The Wall/Rain"]
+       | Rain on the road. Café au lait.
+== chapter: Epilogue [status draft, compile true, date "", source "Draft/Epilogue"]
+   | Years later the road was paved.
+   | 
+   | %%Notes: Consider cutting this. Maybe move it earlier%%
+== back_matter: Acknowledgements [status draft, compile true, date "", source "Draft/Acknowledgements"]
+   | 
+  == scene: Thanks [status draft, compile true, date "", source "Draft/Acknowledgements/Thanks"]
+     | Thanks to everyone.
+
+-- research research/1 (in "") folder "Characters" tags=[] candidate=""
+   | 
+
+-- research research/2 (in "research/1") note "Mara" tags=[protagonist] candidate="character"
+   | *Synopsis:* The protagonist.
+   | 
+   | Mara, a courier of salt. Age 34.
+
+-- research research/3 (in "") folder "Places" tags=[] candidate=""
+   | 
+
+-- research research/4 (in "research/3") note "The Crossroads" tags=[] candidate="place"
+   | Where the two roads meet.
+
+-- research research/5 (in "") note "Timeline notes" tags=[Idea plot] candidate=""
+   | 1\. First thing
+   | 
+   | 2\. Second thing
+
+-- research research/6 (in "") note "Map of the road" tags=[] candidate=""
+   | *\[attachment: Map of the road (Image) was not imported\]*
+
+-- research research/7 (in "") note "Salt tax ledger" tags=[] candidate=""
+   | *\[attachment: Salt tax ledger (PDF) was not imported\]*
+
+report: {
+ "scrivener": {
+  "annotations": 1,
+  "binary_bytes_skipped": 0,
+  "comments": 1,
+  "document_links": 1,
+  "document_links_made": 1,
+  "documents": 11,
+  "excluded_from_compile": 1,
+  "files_not_read": 0,
+  "files_not_read_by_type": {
+   ".autosave": 1,
+   ".pdf": 1,
+   ".plist": 1
+  },
+  "footnotes": 1,
+  "images": 1,
+  "items": 22,
+  "keywords": {
+   "night": 1,
+   "travel": 1
+  },
+  "labels": {
+   "Chapter": 1,
+   "Scene": 1
+  },
+  "links": 1,
+  "notes_documents": 1,
+  "outside_draft_research": 0,
+  "pictures_in_text": 0,
+  "research_images": 1,
+  "research_items": 7,
+  "research_other": 0,
+  "research_pdfs": 1,
+  "research_pictures": 0,
+  "research_web_pages": 0,
+  "snapshot_files": 1,
+  "statuses_not_mapped": {
+   "Needs Courage": 1
+  },
+  "synopses": 2,
+  "table_rows": 0,
+  "trashed": 1,
+  "underline": 1,
+  "unreadable": 0
+ }
+}
+
+warnings:
+- 1 item(s) in the Trash were left out.
+- 2 annotation(s) and comment(s) found inside the text files became private notes (%%…%%): they are never exported, shared or sent to AI.
+- 1 underlined passage(s) became plain text: Markdown has no underline. In a manuscript underline often means italics; check them.
+- 1 image(s) in the text were not imported; each is marked [image].
+- Research holds 1 image(s), 1 PDF(s), 0 web page(s) and 0 other file(s) that were not imported; a note names each.
+- Status not known to Scríobh, imported as draft: Needs Courage (1).
+- Labels are not kept (a document has none): 2 label(s) were in use. They are listed in the import's record.
+- Keywords of manuscript documents are not kept: 2 keyword(s) were in use. Keywords on research notes became tags.
+- 1 snapshot file(s) were not imported.
+- Files of the project this reader does not open: .autosave (1), .pdf (1), .plist (1).
+- Collections, custom metadata, targets and the project's settings are not imported.
+- 2 research note(s) look like character or place sheets. They will be imported as research notes; choose to make them entities, or make entities from them in the Compendium later.

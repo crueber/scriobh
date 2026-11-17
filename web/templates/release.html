@@ -1,0 +1,54 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/git.css"}}"><link rel="stylesheet" href="{{asset "css/publish.css"}}"><script src="{{asset "js/publish.js"}}" defer></script>{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="{{$.T "git.crumb"}}"><a href="/">{{template "icon" "chevron-left"}}<span>{{$.T "git.library"}}</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}/git?remote={{.Data.Remote.ID}}">{{$.T "git.title"}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "git.rel.crumb"}}</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "git" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "git" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "git" .Data.Project.Role}}{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}
+<div class="settings git pub" id="rel">
+  <h1>{{$.T "git.publish.release"}}</h1>
+  <p class="sub">{{.Project.Title}}. {{$.T "git.rel.intro" "remote" .Remote.Name "host" .Remote.Host}}</p>
+  <p class="sr-only" id="rel-announce" role="status" aria-live="polite"></p>
+  {{if .Error}}<p class="field-error" role="alert" id="rel-error" tabindex="-1" data-result>{{.Error}}</p>{{end}}
+  {{if not .Eligible}}
+  <p class="notice-line" role="note">{{if .Remote.OnlyDone}}{{$.T "git.rel.only_done"}}{{else}}{{$.T "git.rel.not_eligible"}}{{end}}</p>
+  {{else}}
+  {{with .Preview}}
+  <section id="rel-preview" aria-labelledby="h-rel-prev" tabindex="-1" data-result>
+    <h2 id="h-rel-prev">{{$.T "git.rel.preview_h"}}</h2>
+    <dl class="facts git-facts">
+      <div><dt>{{$.T "git.pub.plan_repo"}}</dt><dd class="wrap">{{.Repository}}</dd></div>
+      <div><dt>{{$.T "git.publish.release_tag"}}</dt><dd>{{index $d.Values "tag"}}</dd></div>
+      <div><dt>{{$.T "git.rel.edition"}}</dt><dd>{{range $d.Editions}}{{if eq .Value (index $d.Values "edition")}}{{$.T .Key}}{{end}}{{end}}</dd></div>
+      <div><dt>{{$.T "git.rel.commit"}}</dt><dd><code>{{sha7 .Commit}}</code></dd></div>
+      <div><dt>{{$.T "git.rel.size"}}</dt><dd>{{$.T "git.rel.size_v" "mb" $d.PreviewMB}}</dd></div>
+    </dl>
+    {{if .ReleaseExists}}<p class="fine">{{$.T "git.rel.exists"}}</p>{{end}}
+    <p class="notice-line" role="note">{{$.T "git.rel.who"}}</p>
+    <p class="fine">{{$.T "git.rel.forced"}}</p>
+    <form class="form" method="post" action="/ui/projects/{{$d.Project.ID}}/release/start">
+      <input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="remote_id" value="{{$d.Remote.ID}}">
+      <input type="hidden" name="edition" value="{{index $d.Values "edition"}}"><input type="hidden" name="tag" value="{{index $d.Values "tag"}}">
+      <div class="form-actions"><button class="btn solid" type="submit">{{$.T "git.rel.go"}}</button></div>
+    </form>
+  </section>
+  {{end}}
+  <section aria-labelledby="h-rel-new">
+    <h2 id="h-rel-new">{{$.T "git.rel.new"}}</h2>
+    <p class="sub">{{$.T "git.rel.what"}}</p>
+    <form class="form" method="post" action="/ui/projects/{{.Project.ID}}/release/preview">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="remote_id" value="{{.Remote.ID}}">
+      <div class="field"><label for="rl-format">{{$.T "git.rel.edition"}}</label>
+        <select id="rl-format" name="edition">{{$cur := index .Values "edition"}}{{range .Editions}}<option value="{{.Value}}"{{if eq .Value $cur}} selected{{end}}>{{$.T .Key}}</option>{{end}}</select></div>
+      <div class="field"><label for="rl-tag">{{$.T "git.publish.release_tag"}}</label><input id="rl-tag" type="text" name="tag" value="{{index .Values "tag"}}" placeholder="v1.0" maxlength="64" autocomplete="off" spellcheck="false" required aria-describedby="rl-tag-h{{if eq .Field "tag"}} rel-error{{end}}"{{if eq .Field "tag"}} aria-invalid="true"{{end}}><span class="hint" id="rl-tag-h">{{$.T "git.rel.tag_hint"}}</span></div>
+      <div class="form-actions"><button class="btn solid" type="submit">{{$.T "git.rel.preview"}}</button></div>
+    </form>
+  </section>
+  {{end}}
+
+  {{template "release-live" .}}
+</div>
+{{end}}
+{{end}}

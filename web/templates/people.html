@@ -1,0 +1,63 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/compendium.css"}}"><script src="{{asset "js/compendium.js"}}" defer></script><script src="{{asset "js/arm.js"}}" defer></script>{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "ppl.title"}}</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "people" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "people" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "people" .Data.Project.Role}}{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}
+<div class="settings comp" id="comp-page">
+  {{template "live-marker" (dict "Scope" "project" "ID" .Project.ID)}}
+  <h1>{{$.T "ppl.title"}}</h1>
+  <p class="sub">{{.Project.Title}}. {{$.T "mem.intro"}}</p>
+  <dl class="roles" id="roles">
+    <dt>{{$.T "mem.owner"}}</dt><dd>{{$.T "mem.owner_d"}}</dd>
+    <dt>{{$.T "mem.editor"}}</dt><dd>{{$.T "mem.editor_d"}}</dd>
+    <dt>{{$.T "mem.reviewer"}}</dt><dd>{{$.T "mem.reviewer_d"}}</dd>
+    <dt>{{$.T "mem.reader"}}</dt><dd>{{$.T "mem.reader_d"}}</dd>
+  </dl>
+  {{if .Error}}<p class="field-error" role="alert" id="comp-error">{{.Error}}</p>{{end}}
+  {{if .SavedText}}<p class="saved" role="status">{{.SavedText}}</p>{{end}}
+  {{if .Result}}<p class="notice-line" role="status" id="grant-result">{{.Result}}</p>{{end}}
+
+  {{if .ShowMembers}}
+  <div id="cfrag" data-live-refresh>
+  <section id="members" aria-labelledby="h-members">
+    <h2 id="h-members">{{$.T "ppl.on"}}</h2>
+    <ul class="people">{{range .Members}}<li>
+      <div class="p-who"><strong>{{.DisplayName}}</strong> <span class="fine">{{.Email}}</span>{{if .CompendiumRole}}<span class="fine">{{$.T "ppl.on_comp" "role" .CompendiumRole}}</span>{{end}}</div>
+      <div class="p-role">{{if eq .Role "owner"}}<span class="ctag">{{$.T "mem.owner"}}</span>{{else}}
+        <form class="inline" method="post" action="/ui/projects/{{$d.Project.ID}}/people/role"><input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="user_id" value="{{.UserID}}">
+          <label class="sr-only" for="pr-{{.UserID}}">{{$.T "ppl.role_of" "name" .DisplayName}}</label>
+          <select id="pr-{{.UserID}}" name="role"><option value="editor"{{if eq .Role "editor"}} selected{{end}}>{{$.T "mem.editor"}}</option><option value="reviewer"{{if eq .Role "reviewer"}} selected{{end}}>{{$.T "mem.reviewer"}}</option><option value="reader"{{if eq .Role "reader"}} selected{{end}}>{{$.T "mem.reader"}}</option></select>
+          <button class="btn small" type="submit" aria-label="{{$.T "ppl.change_aria" "name" .DisplayName}}">{{$.T "ppl.change"}}</button></form>
+        <form class="inline" method="post" action="/ui/projects/{{$d.Project.ID}}/people/remove" data-arm="{{$.T "mem.remove_ask" "name" .DisplayName}}" data-arm-ok="{{$.T "mem.remove"}}" data-arm-cancel="{{$.T "rq.cancel"}}"><input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="user_id" value="{{.UserID}}"><button class="btn quiet small danger-text" type="submit" aria-label="{{$.T "mem.remove_aria" "name" .DisplayName}}">{{$.T "mem.remove"}}</button></form>{{end}}</div>
+    </li>{{end}}</ul>
+  </section>
+  </div>
+  <section id="add" aria-labelledby="h-add">
+    <h2 id="h-add">{{$.T "ppl.add_h"}}</h2>
+    <form class="form" method="post" action="/ui/projects/{{.Project.ID}}/people/add">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field-row">
+        <div class="field"><label for="pa-email">{{$.T "ppl.email"}}</label><input id="pa-email" type="text" inputmode="email" name="email" value="{{index .Values "email"}}" autocomplete="off" spellcheck="false" required aria-describedby="pa-hint{{if eq .Field "email"}} comp-error{{end}}"{{if eq .Field "email"}} aria-invalid="true"{{end}}></div>
+        <div class="field"><label for="pa-role">{{$.T "ppl.role"}}</label><select id="pa-role" name="role"><option value="editor"{{if or (not (index .Values "role")) (eq (index .Values "role") "editor")}} selected{{end}}>{{$.T "mem.editor"}}</option><option value="reviewer"{{if eq (index .Values "role") "reviewer"}} selected{{end}}>{{$.T "mem.reviewer"}}</option><option value="reader"{{if eq (index .Values "role") "reader"}} selected{{end}}>{{$.T "mem.reader"}}</option></select></div>
+      </div>
+      <p class="hint" id="pa-hint">{{$.T "ppl.hint"}}</p>
+      {{if .HasPrimary}}<fieldset class="field radios"><legend>{{$.T "ppl.c_legend"}}</legend>
+        <label class="check"><input type="radio" name="compendium" value="default"{{if or (not (index .Values "compendium")) (eq (index .Values "compendium") "default")}} checked{{end}}><span>{{$.T "ppl.c_default"}}</span></label>
+        <label class="check"><input type="radio" name="compendium" value="yes"{{if eq (index .Values "compendium") "yes"}} checked{{end}}><span>{{$.T "ppl.c_yes"}}</span></label>
+        <label class="check"><input type="radio" name="compendium" value="no"{{if eq (index .Values "compendium") "no"}} checked{{end}}><span>{{$.T "ppl.c_no"}}</span></label>
+        <span class="hint">{{$.T "ppl.c_hint"}}</span>
+      </fieldset>{{else}}<p class="fine">{{$.T "ppl.no_primary"}}</p>{{end}}
+      <div class="form-actions"><button class="btn solid" type="submit">{{$.T "ppl.add"}}</button></div>
+    </form>
+  </section>
+  {{else}}
+  <section aria-labelledby="h-who"><h2 id="h-who">{{$.T "ppl.on"}}</h2>
+    <p class="fine">{{$.T "ppl.only_owner"}}</p></section>
+  {{end}}
+</div>
+{{end}}
+{{end}}

@@ -1,0 +1,106 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/privacy.css"}}">{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="{{$.T "project.gate.crumb"}}"><a href="/">{{template "icon" "chevron-left"}}<span>{{$.T "project.gate.library"}}</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "search.semantic.title"}}</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "semantic" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "semantic" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "semantic" .Data.Project.Role}}{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}
+<div class="settings priv" id="sem">
+  <h1>{{$.T "search.semantic.title"}}</h1>
+  <p class="sub">{{iso .Project.Title}}. {{$.T "search.semantic.intro"}}</p>
+  {{if eq .Saved "enabled"}}<p class="saved" role="status">{{$.T "sem.saved_enabled"}}</p>{{else if eq .Saved "disabled"}}<p class="saved" role="status">{{$.T "sem.saved_disabled"}}</p>{{else if eq .Saved "rebuilt"}}<p class="saved" role="status">{{$.T "sem.saved_rebuilt"}}</p>{{else if eq .Saved "purged"}}<p class="saved" role="status">{{$.T "sem.saved_purged"}}</p>{{end}}
+  {{if and .Error (not .Preview)}}<p class="field-error" role="alert" id="sem-error">{{.Error}}</p>{{end}}
+
+  <section class="priv-words" aria-labelledby="sem-status-h">
+    <h2 id="sem-status-h">{{$.T "sem.status_h"}}</h2>
+    <div class="sem-card">
+      <p class="sem-state" data-state="{{.St.State}}"><strong>{{.State}}</strong>{{if .Reason}} <span>{{.Reason}}</span>{{end}}</p>
+      {{if eq .St.State "off"}}{{if not .HasIndex}}<p>{{$.T "search.semantic.off"}} {{$.T "sem.off_nothing_sent"}}</p>{{end}}{{end}}
+      {{if or .St.Endpoint .HasIndex .St.Enabled}}<dl class="sem-facts">
+        {{with .St.Endpoint}}<dt>{{$.T "sem.f_endpoint"}}</dt><dd>{{.Name}}{{if $.Data.St.Model}} ({{$.Data.St.Model}}){{end}}</dd>
+        <dt>{{$.T "sem.f_where"}}</dt><dd>{{$d.Where}}</dd>{{end}}
+        <dt>{{$.T "sem.f_documents"}}</dt><dd>{{$.T "sem.f_documents_v" "indexed" (num .St.Indexed) "eligible" (num .St.Eligible)}}</dd>
+        <dt>{{$.T "sem.f_queue"}}</dt><dd>{{num .St.QueueDepth}}</dd>
+        <dt>{{$.T "sem.f_chunks"}}</dt><dd>{{$.N "sem.f_chunks_v" .St.Chunks "b" (num (int .St.VectorBytes)) "dim" (num .St.Dim)}}</dd>
+        {{if .St.Failed}}<dt>{{$.T "sem.f_refused"}}</dt><dd>{{$.N "sem.failed_docs" .St.Failed}}</dd>{{end}}
+        {{if .St.LastError}}<dt>{{$.T "sem.f_error"}}</dt><dd>{{.LastErr}}{{if .St.LastErrorAt}} <span class="fine">{{utcWhen .St.LastErrorAt}}</span>{{end}}</dd>{{end}}
+        {{if .St.IndexedAt}}<dt>{{$.T "sem.f_caught"}}</dt><dd>{{utcWhen .St.IndexedAt}}</dd>{{end}}
+      </dl>{{end}}
+      {{if .St.Enabled}}<p class="fine">{{$.T "sem.sent_while_on"}}</p>{{end}}
+    </div>
+  </section>
+
+  {{if .Preview}}{{with .Preview}}
+  <section aria-labelledby="sem-prev-h" id="sem-preview">
+    <h2 id="sem-prev-h">{{$.T "search.semantic.what_sent"}}</h2>
+    {{if $d.Error}}<p class="field-error" role="alert" id="sem-error">{{$d.Error}}</p>{{end}}
+    <dl class="sem-facts">
+      <dt>{{$.T "sem.f_documents"}}</dt><dd>{{num .Documents}}</dd>
+      <dt>{{$.T "sem.f_pieces"}}</dt><dd>{{num .Chunks}}</dd>
+      <dt>{{$.T "sem.f_words"}}</dt><dd>{{num .Words}}</dd>
+      <dt>{{$.T "sem.f_bytes"}}</dt><dd>{{num .Bytes}}</dd>
+      <dt>{{$.T "sem.f_cost"}}</dt><dd>{{$d.Cost}}</dd>
+      <dt>{{$.T "sem.f_endpoint"}}</dt><dd>{{.Endpoint.Name}} ({{.Endpoint.Model}})</dd>
+      <dt>{{$.T "sem.f_where"}}</dt><dd>{{if .Remote}}{{$.T "sem.where_remote" "host" (iso .ConfirmHost)}}{{else}}{{$d.Where}}{{end}}</dd>
+    </dl>
+    {{if .Remote}}<div class="sem-remote" role="note"><p><strong>{{$.T "sem.remote_h"}}</strong> {{$.T "sem.remote_body" "host" (iso .ConfirmHost)}}</p></div>{{end}}
+    <div class="sem-never" role="note"><p><strong>{{$.T "sem.never_h"}}</strong></p><p>{{$.T "sem.never_text"}}</p>
+      {{range $k, $n := .NeverEmbedded}}{{if $n}}<p class="fine">{{$.N "sem.left_out" $n "why" ($.T (print "sem.why_" $k))}}</p>{{end}}{{end}}
+    </div>
+    {{if .TruncatedDocs}}<p class="fine">{{$.N "sem.truncated" .TruncatedDocs}}</p>{{end}}
+    {{if .OverLimit}}<p class="fine">{{$.N "sem.over_limit" .ProjectLimit}}</p>{{end}}
+    {{if .Blocked}}<p class="field-error" role="alert">{{.Blocked.Message}}</p>
+    <div class="sem-actions"><a class="btn" href="/p/{{$d.Slug}}/semantic">{{$.T "sem.back"}}</a></div>
+    {{else}}
+    <form class="form" method="post" action="/ui/projects/{{$d.Project.ID}}/semantic/enable" autocomplete="off">
+      <input type="hidden" name="_csrf" value="{{$d.CSRF}}">
+      <input type="hidden" name="provider_id" value="{{$d.Pick}}">
+      <input type="hidden" name="model" value="{{$d.Model}}">
+      <input type="hidden" name="consent_token" value="{{.ConsentToken}}">
+      {{if .Remote}}<div class="field"><label for="sem-host">{{$.T "search.semantic.confirm_remote" "host" (iso .ConfirmHost)}}</label><input id="sem-host" type="text" name="confirm_remote" autocomplete="off" spellcheck="false" required data-confirm="{{.ConfirmHost}}"></div>{{end}}
+      <div class="sem-actions"><button class="btn solid" type="submit"{{if .Remote}} data-confirm-submit{{end}}>{{$.T "search.semantic.enable"}}</button><a class="btn quiet" href="/p/{{$d.Slug}}/semantic">{{$.T "sem.back"}}</a></div>
+    </form>
+    {{end}}
+  </section>
+  {{end}}
+  {{else}}
+
+  {{if or (not .St.Enabled)}}
+  <section aria-labelledby="sem-pick-h">
+    <h2 id="sem-pick-h">{{if .HasIndex}}{{$.T "sem.again_h"}}{{else}}{{$.T "sem.on_h"}}{{end}}</h2>
+    {{if .Providers}}
+    <form class="form" method="post" action="/ui/projects/{{.Project.ID}}/semantic/preview">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field"><label for="sem-prov">{{$.T "sem.provider"}}</label><select id="sem-prov" name="provider_id">{{range .Providers}}<option value="{{.ID}}"{{if eq .ID $d.Pick}} selected{{end}}>{{.Name}} · {{.Where}}</option>{{end}}</select></div>
+      <div class="field"><label for="sem-model">{{$.T "sem.model"}}</label><input id="sem-model" type="text" name="model" value="{{.Model}}" list="sem-models" autocomplete="off" spellcheck="false" required aria-describedby="sem-model-hint"><span class="hint" id="sem-model-hint">{{$.T "sem.model_hint"}}</span>
+        <datalist id="sem-models">{{range .Providers}}{{range .Models}}<option value="{{.}}">{{end}}{{end}}</datalist></div>
+      <p class="fine">{{$.T "sem.preview_sends_nothing"}}</p>
+      <div class="sem-actions"><button class="btn solid" type="submit">{{$.T "sem.preview"}}</button></div>
+    </form>
+    {{else}}<p>{{$.T "sem.no_providers"}} <a href="/settings/ai">{{$.T "sem.providers_link"}}</a></p>{{end}}
+  </section>
+  {{end}}
+
+  {{if or .St.Enabled .HasIndex}}
+  <section aria-labelledby="sem-manage-h">
+    <h2 id="sem-manage-h">{{$.T "sem.manage_h"}}</h2>
+    <div class="sem-actions">
+      {{if .St.Enabled}}<form method="post" action="/ui/projects/{{.Project.ID}}/semantic/disable"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn" type="submit">{{$.T "sem.pause"}}</button></form>
+      <form method="post" action="/ui/projects/{{.Project.ID}}/semantic/rebuild"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn" type="submit">{{$.T "search.semantic.rebuild"}}</button></form>{{end}}
+    </div>
+    {{if .St.Enabled}}<p class="fine">{{$.T "sem.pause_hint"}} {{$.T "sem.rebuild_hint"}}</p>{{end}}
+    <h3>{{$.T "search.semantic.purge"}}</h3>
+    <form class="form" method="post" action="/ui/projects/{{.Project.ID}}/semantic/purge" autocomplete="off">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <p>{{$.T "search.semantic.purge_hint"}}</p>
+      <div class="field"><label for="sem-purge">{{$.T "sem.purge_type"}}</label><input id="sem-purge" type="text" name="confirm_title" autocomplete="off" spellcheck="false" data-confirm="{{.Project.Title}}"{{if .Error}} aria-invalid="true" aria-describedby="sem-error"{{end}}></div>
+      <div class="sem-actions"><button class="btn danger" type="submit" data-confirm-submit>{{$.T "search.semantic.purge"}}</button></div>
+    </form>
+  </section>
+  {{end}}
+  {{end}}
+</div>
+{{end}}
+{{end}}

@@ -1,0 +1,17 @@
+{{define "compendium-card"}}{{$c := .C}}
+<li class="ccard" data-role="{{$c.Role}}">
+  <div class="ccard-main">
+    <h2 class="ccard-title">{{if $c.Trashed}}<span>{{$c.Name}}</span>{{else}}<a href="/c/{{$c.Slug}}">{{$c.Name}}</a>{{end}}</h2>
+    <p class="ccard-meta"><span>{{if eq $c.Kind "nonfiction"}}Nonfiction{{else}}Fiction{{end}}</span><span>{{num $c.EntityCount}} {{plural $c.EntityCount "entity" "entities"}}</span><span class="crole">{{if eq $c.Role "owner"}}You own it{{else if eq $c.Role "editor"}}You can edit{{else}}You can read{{end}}</span>{{if $c.Archived}}<span class="ctag">Archived</span>{{end}}{{if $c.Trashed}}<span class="ctag">In the trash</span>{{end}}</p>
+    {{if $c.Description}}<p class="ccard-desc">{{$c.Description}}</p>{{end}}
+  </div>
+  {{if eq $c.Role "owner"}}<div class="ccard-actions">
+    {{if $c.Trashed}}
+    <form method="post" action="/ui/compendiums/{{$c.ID}}/restore"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="view" value="{{.State}}"><button class="btn small" type="submit" aria-label="Restore {{$c.Name}} from the trash">Restore</button></form>
+    <a class="btn quiet small danger-text" href="/ui/compendiums/{{$c.ID}}/purge" hx-get="/ui/compendiums/{{$c.ID}}/purge" hx-target="#dialog-body" hx-swap="innerHTML" aria-label="Delete {{$c.Name}} for good">Delete forever</a>
+    {{else}}
+    <form method="post" action="/ui/compendiums/{{$c.ID}}/{{if $c.Archived}}unarchive{{else}}archive{{end}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="view" value="{{.State}}"><button class="btn quiet small" type="submit" aria-label="{{if $c.Archived}}Bring {{$c.Name}} back to the list{{else}}Archive {{$c.Name}}{{end}}">{{if $c.Archived}}Bring back{{else}}Archive{{end}}</button></form>
+    <form method="post" action="/ui/compendiums/{{$c.ID}}/trash"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="view" value="{{.State}}"><button class="btn quiet small danger-text" type="submit" aria-label="Move {{$c.Name}} to the trash">Trash</button></form>
+    {{end}}
+  </div>{{end}}
+</li>{{end}}

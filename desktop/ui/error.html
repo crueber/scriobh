@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scríobh could not start</title>
+<link rel="stylesheet" href="error.css">
+<script src="error.js" defer></script>
+</head>
+<body>
+<main>
+  <h1 id="title">Scríobh has stopped</h1>
+  <p id="lead">The part of Scríobh that keeps your writing is not running. Nothing you saved is lost: your writing is in the data folder on this computer.</p>
+  <p id="advice">Restart tries again. If it keeps happening, the lines below say what went wrong.</p>
+  <p class="actions">
+    <a class="button primary" href="/action/restart" id="restart">Restart</a>
+    <a class="button" href="/action/quit" id="quit">Quit</a>
+  </p>
+  <section id="details" hidden>
+    <h2 id="details-title">What the server said last</h2>
+    <pre id="tail" tabindex="0"></pre>
+  </section>
+</main>
+</body>
+</html>

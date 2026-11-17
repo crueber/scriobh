@@ -1,0 +1,94 @@
+project: {title:Salt Journal subtitle: kind:blog author:Ada Fixture language:}
+layout: ghost
+
+== chapter: HTML Only [status done, compile true, date "2021-01-01", source "ghost/post/html-only"]
+   | From the **html** field. [Link](https://example.org/)
+   | 
+   | *\[image: b\]*
+== chapter: Markdown Post [status done, compile true, date "2022-05-03", source "ghost/post/markdown-post"]
+   synopsis: "A post written in Markdown." long: ""
+   | * * *
+   | 
+   | ## title: injected
+   | 
+   | # Heading one
+   | 
+   | Some *emphasis* and **strong**, with a [link](https://example.org/x) and `code`.
+   | 
+   | \%\% secret \%\% and \[\[Wiki Link\]\] and ghost
+   | 
+   | - item one
+   | - item two
+   | 
+   | > quoted
+   | 
+   | *\[image: alt text\]*
+   | 
+   | ```
+   | code block
+   | ```
+   | 
+   | * * *
+   | 
+   | End.
+== chapter: A Draft [status draft, compile false, date "2023-01-01", source "ghost/post/a-draft"]
+   | Draft text.
+== chapter: Scheduled [status outline, compile false, date "2030-01-01", source "ghost/post/scheduled"]
+   | Soon.
+== part: Pages [status draft, compile true, date "", source "ghost/pages"]
+   | 
+  == chapter: About [status done, compile true, date "2020-01-01", source "ghost/page/about"]
+     | About page.
+
+report: {
+ "ghost": {
+  "authors": 1,
+  "embeds_noted": 0,
+  "file": "ghost-4.json",
+  "footnotes": 0,
+  "forms_dropped": 0,
+  "ghost_version": "4.48.0",
+  "iframes_dropped": 1,
+  "image_addresses": [
+   "https://cdn.example/b.png",
+   "https://cdn.example/a.png"
+  ],
+  "images": 2,
+  "imported_pages": 1,
+  "imported_posts": 4,
+  "links": 2,
+  "links_not_kept": 0,
+  "markdown_broken_up": 0,
+  "markdown_not_read": 0,
+  "markdown_raw_html_dropped": 4,
+  "not_imported": {},
+  "pictures_from_zip": 0,
+  "posts_in_file": 5,
+  "scripts_dropped": 0,
+  "sources": {
+   "html": 4,
+   "mobiledoc markdown card": 1
+  },
+  "statuses": {
+   "draft": 1,
+   "published": 3,
+   "scheduled": 1
+  },
+  "tags": {
+   "News": 2,
+   "Notes": 1
+  },
+  "unknown_nodes": {},
+  "visibility": {
+   "members": 1,
+   "public": 1
+  }
+ }
+}
+
+warnings:
+- Drafts, scheduled and sent posts were imported and marked do not compile.
+- 2 image(s) were not imported; each is marked in the text with its description.
+- Left out: 0 script(s), 1 iframe(s), 0 form(s), 0 embed(s), 0 audio or video element(s).
+- 4 piece(s) of raw HTML in Markdown cards were dropped.
+- Tags (2) and authors (1) are not kept; they are listed in the import's record. E-mail addresses were not read.

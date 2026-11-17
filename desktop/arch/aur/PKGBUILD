@@ -1,0 +1,68 @@
+# Maintainer: the owner of the Scriobh repository (this file is staged for a future AUR package and is NOT published).
+#
+# scriobh-desktop-bin: the Scriobh desktop app, repackaged from the .deb that the project's release publishes. Nothing is
+# compiled. It is the same recipe as desktop/arch/PKGBUILD (which makes the package the release also carries, from
+# the .deb the same run built); internal/repocheck fails when the two package() functions differ.
+#
+# STAGED, NOT PUBLISHED. The AUR is public and needs the owner's account; nothing here has been pushed. It can only
+# be built once a public release exists, because the source below is that release's .deb. The host in `url` is
+# rewritten to the public GitHub repository when the tree is published (scripts/publish/rewrite.py); the published
+# copy of this file names GitHub and nothing else. Do not put the private forge in the AUR.
+#
+# TO PUBLISH (owner, on Arch, after the GitHub release of the tag exists; docs/DESKTOP.md, "Arch Linux and Omarchy"):
+#   1. cp this folder's PKGBUILD and .SRCINFO, and the repository's LICENSE and NOTICE, into a clone of
+#      ssh://aur@aur.archlinux.org/scriobh-desktop-bin.git
+#   2. set pkgver (the .deb's version) and _tag (the release's tag) below; pkgrel=1 for a new version
+#   3. updpkgsums            fills all three sha256sums (it downloads the .deb)
+#   4. makepkg --printsrcinfo > .SRCINFO
+#   5. namcap PKGBUILD && makepkg -f && namcap *.pkg.tar.zst, in a clean chroot if you have one
+#   6. git add PKGBUILD .SRCINFO LICENSE NOTICE && git commit && git push
+# The first sum below is a placeholder that makepkg refuses, so a copy made before step 3 cannot build. The other two
+# are the sums of the repository's LICENSE and NOTICE as they are now; internal/repocheck keeps them current.
+#
+# depends, and why they are what they are: see desktop/arch/PKGBUILD.
+pkgname=scriobh-desktop-bin
+pkgver=2.0.0
+pkgrel=1
+_tag=v2.0
+pkgdesc='Scriobh, a private place to write long things: the desktop app (prebuilt)'
+arch=('x86_64')
+url='https://github.com/crueber/scriobh'
+license=('MIT')
+depends=('webkit2gtk-4.1' 'gtk3' 'glib2' 'cairo' 'gdk-pixbuf2' 'libsoup3' 'dbus' 'xdg-utils')
+optdepends=('gnome-keyring: keeps the key that protects saved AI and Git credentials in the system keychain (any Secret Service provider does)')
+provides=("scriobh-desktop=$pkgver")
+conflicts=('scriobh-desktop')
+options=('!strip' '!debug')
+_deb="Scriobh_${pkgver}_amd64.deb"
+source=("$_deb::$url/releases/download/$_tag/$_deb" 'LICENSE' 'NOTICE')
+noextract=("$_deb")
+sha256sums=('REPLACE_WITH_SHA256_OF_THE_DEB' '0f757729e389ffded5d96b06f0531856f19067b57aa5d7c8d33be95d3fd48901' 'e70eabe0fd012dbc2064ae85b27b3f9e6a1ab22526a6b45766a7c7a42c11f168')
+
+package() {
+  # A .deb is an ar archive; bsdtar (libarchive) reads it. data.tar.* is the install tree.
+  bsdtar -xf "$srcdir/$_deb" -C "$srcdir" --include 'data.tar.*'
+  bsdtar -xpf "$srcdir"/data.tar.* -C "$pkgdir" --no-same-owner
+
+  # Only /usr: anything else in the .deb is a surprise to look at, not to install.
+  local top
+  for top in "$pkgdir"/* "$pkgdir"/.[!.]*; do
+    [ -e "$top" ] || continue
+    [ "$top" = "$pkgdir/usr" ] || { echo "the .deb holds ${top#"$pkgdir"/}, not only usr" >&2; return 1; }
+  done
+  chmod 755 "$pkgdir"
+  find "$pkgdir" -type d -exec chmod 755 {} +
+
+  # What the package is for must be there.
+  local f
+  for f in usr/bin/scriobh-desktop usr/bin/scriobh-desktop-server; do
+    [ -f "$pkgdir/$f" ] || { echo "the .deb has no $f" >&2; return 1; }
+    chmod 755 "$pkgdir/$f"
+  done
+  compgen -G "$pkgdir/usr/share/applications/*.desktop" >/dev/null || { echo 'the .deb has no desktop entry' >&2; return 1; }
+  compgen -G "$pkgdir/usr/share/icons/hicolor/*/apps/scriobh-desktop.png" >/dev/null || { echo 'the .deb has no icon' >&2; return 1; }
+  grep -q 'x-scheme-handler/scriobh' "$pkgdir"/usr/share/applications/*.desktop || { echo 'the desktop entry does not register scriobh://' >&2; return 1; }
+
+  install -Dm644 "$srcdir/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "$srcdir/NOTICE" "$pkgdir/usr/share/licenses/$pkgname/NOTICE"
+}

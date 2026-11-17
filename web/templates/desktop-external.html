@@ -1,0 +1,10 @@
+{{define "content"}}
+<section class="notice" aria-labelledby="dx-title">
+  <p class="eyebrow">{{$.T "desktop.ext_eyebrow"}}</p>
+  <h1 id="dx-title">{{$.T "desktop.ext_h"}}</h1>
+  <p class="lede">{{$.T "desktop.ext_lede"}}</p>
+  <p><code id="dx-address" dir="ltr">{{.Data.Address}}</code></p>
+  <p>{{$.T "desktop.ext_keep"}}</p>
+  <p class="fine">{{$.T "desktop.ext_back"}}</p>
+</section>
+{{end}}

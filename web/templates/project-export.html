@@ -1,0 +1,9 @@
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a></nav>
+{{end}}
+{{define "content"}}
+<section class="form-page" aria-labelledby="dialog-title">
+  <h1 class="sr-only">Export a project</h1>
+  {{template "project-export" .Data}}
+</section>
+{{end}}

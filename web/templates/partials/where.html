@@ -1,0 +1,38 @@
+{{define "where-project"}}{{with .}}
+<section id="where" class="where" aria-labelledby="h-where"{{if .Indexing}} data-indexing="1"{{end}}>
+  <h2 id="h-where">Where this appears</h2>
+  {{if .Failed}}<p class="fine">This could not be read just now. Reload the page to try again.</p>
+  {{else if not .Rows}}<p class="fine">{{if .Indexing}}Still looking through the book for this name. This fills in within a moment.{{else}}No document in this book names it yet. A name or alias written in the text, or a [[link]] to it, counts.{{end}}</p>
+  {{else}}
+  <p class="sub">Named {{num .Mentions}} {{plural .Mentions "time" "times"}} in {{num .Documents}} {{plural .Documents "document" "documents"}}.{{if .FirstHref}} It first appears in <a href="{{.FirstHref}}">{{.FirstText}}</a>.{{end}}{{if .Indexing}} The count may be a little behind.{{end}}</p>
+  <ul class="where-list">{{range .Rows}}
+    <li class="where-row">
+      <span class="where-main"><a href="{{.Href}}">{{.Title}}</a>{{if .First}} <span class="where-tag">First appearance</span>{{end}}{{if .Ambiguous}} <span class="where-tag">Could also mean another entity</span>{{end}}</span>
+      <span class="where-n">named {{num .Count}} {{plural .Count "time" "times"}}{{if .Explicit}}, linked {{num .Explicit}} {{plural .Explicit "time" "times"}}{{end}}</span>
+      {{if .Crumb}}<span class="where-crumb">in {{.Crumb}}</span>{{end}}
+      {{if .Snippet}}<p class="where-snip">{{.Snippet}}</p>{{end}}
+    </li>{{end}}
+  </ul>
+  {{if or .Prev .Next}}<nav class="where-pages" aria-label="More places it appears">{{if .Prev}}<a class="btn quiet" href="{{.Prev}}">Earlier documents</a>{{end}}{{if .Next}}<a class="btn quiet" href="{{.Next}}">Later documents</a>{{end}}</nav>{{end}}
+  {{end}}
+</section>
+{{end}}{{end}}
+
+{{define "where-comp"}}{{with .}}
+<section id="where" class="where" aria-labelledby="h-where"{{if or .Indexing (and (not .Books) (not .Hidden) (not .Failed))}} data-indexing="1"{{end}}>
+  <h2 id="h-where">Where this appears</h2>
+  {{if .Failed}}<p class="fine">This could not be read just now. Reload the page to try again.</p>
+  {{else if and (not .Books) (not .Hidden)}}<p class="fine">{{if .Indexing}}Still looking through the books for this name. This fills in within a moment.{{else}}No book names it yet. A book that uses this Compendium shows it here once a name, an alias or a [[link]] in its text matches.{{end}}</p>
+  {{else}}
+  {{if .Books}}<p class="sub">Named in {{num .Documents}} {{plural .Documents "document" "documents"}} of {{len .Books}} {{plural (len .Books) "book" "books"}} you can open.{{if .Indexing}} The counts may be a little behind.{{end}}</p>
+  <ul class="where-list">{{range .Books}}
+    <li class="where-row">
+      <span class="where-main"><a href="{{.Href}}">{{.Title}}</a></span>
+      <span class="where-n">{{num .Mentions}} {{plural .Mentions "mention" "mentions"}} in {{num .Documents}} {{plural .Documents "document" "documents"}}</span>
+      {{if .FirstHref}}<span class="where-crumb">first in <a href="{{.FirstHref}}">{{.FirstText}}</a></span>{{end}}
+    </li>{{end}}
+  </ul>{{end}}
+  {{if .Hidden}}<p class="fine">{{num .Hidden}} other {{plural .Hidden "book" "books"}} also {{plural .Hidden "mentions" "mention"}} it. You are not a member of {{plural .Hidden "that book" "those books"}}, so {{plural .Hidden "it is" "they are"}} counted and not named.</p>{{end}}
+  {{end}}
+</section>
+{{end}}{{end}}

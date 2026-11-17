@@ -1,0 +1,53 @@
+/* The corkboard and the status board. Loaded on /p/{slug}/cards and /p/{slug}/board only; tokens come from
+   app.css, so every theme works. Flat fills, hairlines, no motion. A status is always a word as well as a mark. */
+.boards { max-width: 76rem; margin: 0 auto; padding: var(--s-5) var(--s-4) var(--s-8); }
+.boards h1 { margin: 0 0 var(--s-3); font: 400 var(--text-2xl)/var(--lh-2xl) var(--font-prose); }
+.boards h1:focus { outline: none; }
+.b-help, .b-count { margin: 0 0 var(--s-3); font-size: var(--text-sm); line-height: var(--lh-sm); color: var(--muted); }
+.b-filter { display: flex; align-items: flex-end; gap: var(--s-3); margin: 0 0 var(--s-3); }
+.b-filter .field { flex: 0 1 14rem; }
+.b-empty p { max-width: 44ch; font: 400 var(--text-lg)/var(--lh-lg) var(--font-prose); color: var(--fg-2); }
+
+.lane { margin-top: var(--s-5); }
+.lane-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-1) var(--s-3); margin: 0 0 var(--s-3); padding-bottom: var(--s-2); border-bottom: 1px solid var(--line); font: 400 var(--text-xl)/var(--lh-xl) var(--font-prose); }
+.lane-words, .bwords, .bcount { font: 400 var(--text-sm)/var(--lh-sm) var(--font-ui); color: var(--muted); font-variant-numeric: tabular-nums; }
+.cards-list, .bcards { display: grid; gap: var(--s-3); margin: 0; padding: 0; list-style: none; }
+.cards-list { grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); }
+
+.ccard, .bcard { position: relative; display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; padding: var(--s-3); border: 1px solid var(--line); border-radius: var(--r-1); background: var(--surface); }
+.ccard.is-active, .bcard.is-active { border-color: var(--accent); background: var(--accent-soft); }
+.ccard:focus-visible, .bcard:focus-visible { outline-offset: 2px; }
+.ccard-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--s-1) var(--s-2); }
+.ccard-kind { font: 500 var(--text-xs)/var(--lh-xs) var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.ccard-status { padding: 0 var(--s-2); border: 1px solid var(--line); border-radius: var(--r-1); font: 500 var(--text-xs)/18px var(--font-ui); color: var(--fg-2); white-space: nowrap; }
+.ccard-status[data-s="done"] { border-color: var(--accent); color: var(--accent); }
+.ccard-status[data-s="done"]::before { content: "\2713\00a0" / ""; }
+.ccard-status[data-s="idea"] { border-style: dashed; }
+.ccard-title { font: 400 var(--text-lg)/var(--lh-lg) var(--font-prose); color: var(--fg); text-decoration: none; overflow-wrap: anywhere; }
+.ccard-title:hover { color: var(--accent); text-decoration: underline; }
+.ccard-syn { margin: 0; font: 400 var(--prose-sm)/var(--lh-base) var(--font-prose); color: var(--fg-2); overflow-wrap: anywhere; }
+.ccard-syn.is-empty { color: var(--muted); font-style: italic; }
+.ccard-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-3); margin-top: auto; padding-top: var(--s-1); font-size: var(--text-sm); line-height: var(--lh-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
+.ccard-bar { appearance: none; -webkit-appearance: none; display: block; width: 6rem; height: 4px; border: 0; border-radius: 0; background: var(--line); color: var(--accent); }
+.ccard-bar::-webkit-progress-bar { background: var(--line); }
+.ccard-bar::-webkit-progress-value { background: var(--accent); }
+.ccard-bar::-moz-progress-bar { background: var(--accent); }
+
+.ctools { display: flex; flex-wrap: wrap; gap: var(--s-1); margin-top: var(--s-2); }
+.ctools .btn { min-width: var(--target); padding: 0 var(--s-2); }
+.cedit { display: flex; flex-direction: column; gap: var(--s-2); margin-top: var(--s-2); }
+.cedit textarea { width: 100%; padding: var(--s-2) var(--s-3); border: 1px solid var(--field-line); border-radius: var(--r-1); background: var(--bg); color: var(--fg); font: inherit; font-size: var(--text-sm); line-height: var(--lh-sm); }
+.cedit .row, .cmove .row { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.cmove { display: flex; flex-direction: column; gap: var(--s-2); margin-top: var(--s-2); }
+.cconf { padding: var(--s-2) var(--s-3); border: 1px solid var(--line); border-left: 3px solid var(--warn); border-radius: var(--r-1); background: var(--surface-2); font-size: var(--text-sm); }
+.cconf p { margin: 0 0 var(--s-2); }
+.boards .field-error { margin: 0; }
+
+.bcols { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-4); }
+.bcol { min-width: 0; padding: var(--s-3); border: 1px solid var(--line); border-radius: var(--r-1); background: var(--surface-2); }
+.bcol-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-2); margin: 0; font: 500 var(--text-base)/var(--lh-base) var(--font-ui); }
+.bwords { margin: 0 0 var(--s-3); }
+.bnone { margin: 0; font-size: var(--text-sm); color: var(--muted); }
+@media (min-width: 900px) { .bcols { grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: start; } }
+@media (prefers-reduced-motion: reduce) { .ccard, .bcard { transition: none; } }
+.lane-tools { display: flex; flex-wrap: wrap; gap: var(--s-1); margin: calc(var(--s-1) * -1) 0 var(--s-3); }

@@ -1,0 +1,51 @@
+/* The mail screens: /admin/mail, the Kindle address and digest sections of /settings, the Send to Kindle section of the
+   Compile page, and /p/{slug}/kindle. Tokens only, flat fills, hairline rules, logical properties. State is always words
+   and a mark, never colour alone. */
+.ml { max-inline-size: 44rem; }
+.ml.adm { max-inline-size: 56rem; }
+.ml h3 { margin: var(--s-4) 0 var(--s-1); font: 500 var(--text-base)/var(--lh-base) var(--font-ui); color: var(--fg); }
+.ml textarea, .ml input[type="password"], .ml input[type="number"] { inline-size: 100%; padding: var(--s-2) var(--s-3); border: 1px solid var(--field-line); border-radius: var(--r-1); background: var(--surface); color: var(--fg); font: inherit; }
+.ml input[type="password"], .ml input[type="number"] { min-block-size: max(var(--target), 40px); }
+.ml textarea[dir="ltr"], .ml input[dir="ltr"] { font-family: var(--font-mono); font-size: var(--text-sm); }
+#ml-ca { font-size: var(--text-xs); }
+:is(.ml, .ml-sec) .hint { font-size: var(--text-xs); line-height: var(--lh-xs); color: var(--muted); }
+.ml .more, .ml-sec .more { margin: var(--s-3) 0; border-block-start: 1px solid var(--line-2); padding-block-start: var(--s-1); }
+.ml .more summary, .ml-sec .more summary { min-block-size: var(--target); display: flex; align-items: center; cursor: pointer; font-size: var(--text-sm); font-weight: 500; color: var(--fg-2); }
+.ml .more summary::-webkit-details-marker, .ml-sec .more summary::-webkit-details-marker { display: none; }
+.ml .more summary::before, .ml-sec .more summary::before { content: "\25B8"; margin-inline-end: .5em; color: var(--muted); }
+.ml .more[open] > summary::before, .ml-sec .more[open] > summary::before { content: "\25BE"; }
+.ml .radios, .ml-sec .radios { border: 0; padding: 0; margin: 0 0 var(--s-3); min-inline-size: 0; }
+.ml .radios legend, .ml-sec .radios legend { padding: 0; font-size: var(--text-sm); font-weight: 500; color: var(--fg-2); }
+.ml-mark { flex: none; display: inline-block; inline-size: 1.1em; text-align: center; font-weight: 600; }
+[data-tone="ok"] > .ml-head .ml-mark::before, .ml-note[data-tone="ok"] .ml-mark::before { content: "\2713"; }
+[data-tone="warn"] > .ml-head .ml-mark::before, .ml-note[data-tone="warn"] .ml-mark::before { content: "\25B2"; font-size: .8em; }
+[data-tone="info"] > .ml-head .ml-mark::before, .ml-note[data-tone="info"] .ml-mark::before { content: "\2022"; }
+.ml-banner, .ml-note { margin: var(--s-3) 0; padding: var(--s-3) var(--s-4); border: 1px solid var(--line); border-inline-start: 4px solid var(--muted); border-radius: var(--r-1); background: var(--surface); font-size: var(--text-sm); line-height: var(--lh-sm); color: var(--fg-2); }
+.ml-banner[data-tone="ok"], .ml-note[data-tone="ok"] { border-inline-start-color: var(--ok); }
+.ml-banner[data-tone="warn"], .ml-note[data-tone="warn"] { border-inline-start-color: var(--warn); }
+.ml-banner[data-tone="info"], .ml-note[data-tone="info"] { border-inline-start-color: var(--accent); }
+.ml-head { display: flex; gap: var(--s-2); align-items: baseline; margin: 0; font-size: var(--text-base); line-height: var(--lh-base); color: var(--fg); }
+.ml-banner p { margin: var(--s-1) 0 0; }
+.ml-banner form { margin-block-start: var(--s-3); }
+.ml-counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: var(--s-3); margin: var(--s-3) 0; }
+.ml-counts div { padding: var(--s-3); border: 1px solid var(--line); border-radius: var(--r-1); background: var(--surface); min-inline-size: 0; }
+.ml-list { margin: 0; padding: 0; list-style: none; }
+.ml-list li { padding: var(--s-3) 0; border-block-start: 1px solid var(--line-2); }
+.ml-line { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-3); align-items: baseline; margin: 0; font-size: var(--text-sm); color: var(--fg); overflow-wrap: anywhere; }
+.ml-state { padding: 0 .5em; border: 1px solid var(--line); border-radius: var(--r-1); font-size: var(--text-xs); color: var(--fg-2); }
+.ml-list li[data-state="dead"] .ml-state, .ml-list li[data-state="failed"] .ml-state, .ml-list li[data-state="unknown"] .ml-state { border-color: var(--warn); color: var(--warn); }
+.ml-list li[data-state="sent"] .ml-state { border-color: var(--ok); color: var(--ok); }
+.ml-list .fine { margin: 2px 0 0; overflow-wrap: anywhere; }
+.ml-facts { display: grid; gap: var(--s-2); margin: var(--s-3) 0; }
+.ml-facts div { padding: var(--s-2) var(--s-3); border: 1px solid var(--line); border-radius: var(--r-1); background: var(--surface); min-inline-size: 0; }
+.ml-facts dt { font-size: var(--text-xs); line-height: var(--lh-xs); color: var(--muted); }
+.ml-facts dd { margin: 2px 0 0; font-size: var(--text-sm); color: var(--fg); overflow-wrap: anywhere; }
+.ml .form-actions { flex-wrap: wrap; }
+.ml .btn { max-inline-size: 100%; white-space: normal; }
+
+/* the sender address and name each get a row of their own on a phone, so an address is not clipped */
+.ml-stack { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 640px) { .ml-stack { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); } }
+/* a note or a group of choices after a button or a paragraph does not sit on it */
+.ml-sec .form-actions + p, .ml-sec .form-actions + .fine, .ml-sec p + fieldset, .ml-sec p + .field { margin-top: var(--s-3); }
+.ml-sec fieldset { margin-top: var(--s-3); }

@@ -1,0 +1,92 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/admin.css"}}">{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="{{$.T "desktop.crumb"}}"><a href="/">{{template "icon" "chevron-left"}}<span>{{$.T "desktop.library"}}</span></a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "desktop.id_title"}}</span></nav>
+{{end}}
+{{define "tab-write"}}{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}{{$s := .S}}
+<div class="settings adm" id="desk-id">
+  <h1>{{$.T "desktop.id_title"}}</h1>
+  <p class="sub">{{$.T "desktop.id_intro"}}</p>
+  {{if .Error}}<p class="field-error" role="alert" id="di-error">{{.Error}}</p>{{end}}
+  {{if .Saved}}<p class="saved" role="status">{{$.T "desktop.id_saved"}}</p>{{end}}
+  {{if .Verified}}<p class="saved" role="status">{{$.T "desktop.id_verified_line"}}</p>{{end}}
+
+  <section aria-labelledby="di-now-h">
+    <h2 id="di-now-h">{{$.T "desktop.id_now_h"}}</h2>
+    <dl class="adm-facts">
+      <div><dt>{{$.T "desktop.id_now"}}</dt><dd id="di-running" data-mode="{{$s.Running}}">{{if eq $s.Running "embedded"}}{{$.T "desktop.id_mode_embedded"}}{{else}}{{$.T "desktop.id_mode_external"}}{{end}}</dd></div>
+      {{if and (eq $s.Running "external") $s.External}}<div><dt>{{$.T "desktop.id_issuer"}}</dt><dd class="wrap"><code dir="ltr">{{$s.External.Issuer}}</code></dd></div>{{end}}
+    </dl>
+    {{if $s.Problem}}<p class="notice-line" role="note" id="di-problem">{{$.T "desktop.id_problem" "why" $s.Problem}}</p>{{end}}
+    {{if $s.Pending}}
+    <p class="notice-line" role="note" id="di-pending">{{if eq $s.Pending "external"}}{{$.T "desktop.id_pending_external"}}{{else}}{{$.T "desktop.id_pending_embedded"}}{{end}}</p>
+    <form method="post" action="/ui/desktop/identity/cancel"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn" type="submit">{{$.T "desktop.id_cancel"}}</button></form>
+    {{end}}
+  </section>
+
+  {{if eq $s.Running "embedded"}}
+  <section aria-labelledby="di-ext-h">
+    <h2 id="di-ext-h">{{$.T "desktop.id_ext_h"}}</h2>
+    <p class="sub">{{$.T "desktop.id_ext_p"}}</p>
+    <p class="fine">{{$.T "desktop.id_redirect" }} <code dir="ltr">{{$s.RedirectHint}}</code></p>
+    <form class="form" method="post" action="/ui/desktop/identity/save" autocomplete="off">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field"><label for="di-issuer">{{$.T "desktop.id_issuer"}}</label><input id="di-issuer" type="text" inputmode="url" dir="ltr" name="issuer" value="{{.Issuer}}" required maxlength="512" spellcheck="false" autocomplete="off" aria-describedby="di-issuer-h{{if eq .Field "issuer"}} di-error{{end}}"{{if eq .Field "issuer"}} aria-invalid="true"{{end}}><span class="hint" id="di-issuer-h">{{$.T "desktop.id_issuer_hint"}}</span></div>
+      <div class="field"><label for="di-client">{{$.T "desktop.id_client"}}</label><input id="di-client" type="text" dir="ltr" name="client_id" value="{{.Client}}" required maxlength="256" spellcheck="false" autocomplete="off"{{if eq .Field "client_id"}} aria-invalid="true" aria-describedby="di-error"{{end}}></div>
+      <div class="field"><label for="di-secret">{{$.T "desktop.id_secret"}}</label><input id="di-secret" type="password" dir="ltr" name="client_secret" maxlength="1024" autocomplete="new-password" aria-describedby="di-secret-h{{if eq .Field "client_secret"}} di-error{{end}}"{{if eq .Field "client_secret"}} aria-invalid="true"{{end}}><span class="hint" id="di-secret-h">{{if and $s.External $s.External.SecretSet}}{{$.T "desktop.id_secret_kept"}}{{else}}{{$.T "desktop.id_secret_hint"}}{{end}}</span></div>
+      <div class="field"><label class="check" for="di-nosecret"><input id="di-nosecret" type="checkbox" name="no_secret" value="1"><span>{{$.T "desktop.id_no_secret"}}</span></label></div>
+      <div class="field"><label for="di-admin">{{$.T "desktop.id_admin_group"}}</label><input id="di-admin" type="text" name="admin_group" value="{{.Admin}}" maxlength="128" autocomplete="off" aria-describedby="di-admin-h"><span class="hint" id="di-admin-h">{{$.T "desktop.id_admin_group_hint"}}</span></div>
+      <div class="field"><label for="di-writer">{{$.T "desktop.id_writer_group"}}</label><input id="di-writer" type="text" name="writer_group" value="{{.Writer}}" maxlength="128" autocomplete="off" aria-describedby="di-groups-h"></div>
+      <div class="field"><label for="di-reader">{{$.T "desktop.id_reader_group"}}</label><input id="di-reader" type="text" name="reader_group" value="{{.Reader}}" maxlength="128" autocomplete="off" aria-describedby="di-groups-h"><span class="hint" id="di-groups-h">{{$.T "desktop.id_groups_hint"}}</span></div>
+      <div class="field"><label for="di-port">{{$.T "desktop.id_port"}}</label><input id="di-port" type="number" name="port" value="{{.Port}}" min="1024" max="65535" inputmode="numeric" aria-describedby="di-port-h{{if eq .Field "port"}} di-error{{end}}"{{if eq .Field "port"}} aria-invalid="true"{{end}}><span class="hint" id="di-port-h">{{$.T "desktop.id_port_hint"}}</span></div>
+      <div class="form-actions"><button class="btn solid" type="submit">{{$.T "desktop.id_save"}}</button></div>
+    </form>
+  </section>
+
+  {{if and $s.External (not $s.Pending)}}
+  <section aria-labelledby="di-switch-h" id="di-switch">
+    <h2 id="di-switch-h">{{$.T "desktop.id_switch_h"}}</h2>
+    <p class="sub">{{$.T "desktop.id_switch_p"}}</p>
+    <ol class="di-steps">
+      <li>
+        <p>{{$.T "desktop.id_step_prove"}}</p>
+        {{if $s.Verified}}<p id="di-verified">{{$.T "desktop.id_verified_as" "name" $s.Verified.Name "email" $s.Verified.Email}}</p>{{end}}
+        <p class="fine">{{$.T "desktop.id_browser_p"}}</p>
+        {{if .Ticket}}<p id="di-ticket"><code dir="ltr">{{.Ticket}}</code></p><p class="fine">{{$.T "desktop.id_ticket_note"}}</p>{{end}}
+        <form method="post" action="/ui/desktop/identity/ticket"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn" type="submit" id="di-ticket-go">{{$.T "desktop.id_ticket_go"}}</button></form>
+      </li>
+      <li>
+        <p>{{$.T "desktop.id_step_switch"}}</p>
+        {{if $s.Verified}}
+        <form class="form" method="post" action="/ui/desktop/identity/switch" autocomplete="off">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="identity" value="{{$s.Verified.Fingerprint}}">
+          <div class="field"><label for="di-confirm">{{$.T "desktop.id_confirm_issuer"}}</label><input id="di-confirm" type="text" dir="ltr" name="confirm" required spellcheck="false" autocomplete="off" aria-describedby="di-confirm-h{{if eq .Field "confirm"}} di-error{{end}}"{{if eq .Field "confirm"}} aria-invalid="true"{{end}}><span class="hint" id="di-confirm-h"><code dir="ltr">{{$s.External.Issuer}}</code></span></div>
+          <div class="form-actions"><button class="btn danger" type="submit">{{$.T "desktop.id_switch_go"}}</button></div>
+        </form>
+        {{else}}<p class="fine">{{$.T "desktop.id_switch_needs"}}</p>{{end}}
+      </li>
+    </ol>
+  </section>
+  {{end}}
+  {{else}}
+  {{if not $s.Pending}}
+  <section aria-labelledby="di-back-h" id="di-back">
+    <h2 id="di-back-h">{{$.T "desktop.id_back_h"}}</h2>
+    <p class="sub">{{$.T "desktop.id_back_p"}}</p>
+    <form class="form" method="post" action="/ui/desktop/identity/back" autocomplete="off">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field"><label for="di-confirm-back">{{$.T "desktop.id_confirm_name"}}</label><input id="di-confirm-back" type="text" name="confirm" required autocomplete="off" aria-describedby="di-confirm-back-h{{if eq .Field "confirm"}} di-error{{end}}"{{if eq .Field "confirm"}} aria-invalid="true"{{end}}><span class="hint" id="di-confirm-back-h">{{$s.LocalProfile}}</span></div>
+      <div class="form-actions"><button class="btn danger" type="submit">{{$.T "desktop.id_back_go"}}</button></div>
+    </form>
+  </section>
+  {{end}}
+  {{end}}
+
+  <section aria-labelledby="di-more-h">
+    <h2 id="di-more-h">{{$.T "desktop.id_more_h"}}</h2>
+    <p><a href="/desktop/local-model">{{$.T "desktop.lm_title"}}</a></p>
+  </section>
+</div>
+{{end}}
+{{end}}

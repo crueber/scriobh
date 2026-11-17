@@ -1,0 +1,13 @@
+{
+  "name": "scriobh-scripts",
+  "private": true,
+  "type": "module",
+  "description": "Build-time verification scripts. Not part of the runtime; nothing here ships in the binary or the image.",
+  "scripts": {
+    "csp-smoke": "node csp-smoke.mjs",
+    "ui-check": "node ui-check.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.0"
+  }
+}

@@ -1,0 +1,48 @@
+[package]
+name = "scriobh-desktop"
+version = "2.0.0"
+description = "The desktop shell for Scríobh: a window around the unchanged server binary"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+publish = false
+
+[lib]
+name = "scriobh_desktop"
+path = "src/lib.rs"
+
+[[bin]]
+name = "scriobh-desktop"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.7", features = [] }
+
+[dependencies]
+tauri = { version = "2.12", features = [] }
+tauri-plugin-single-instance = "2.5"
+tauri-plugin-deep-link = "2.6"
+# Native dialogs, called directly. The Tauri dialog plugin is deliberately not used: it replaces
+# window.alert and window.confirm in every page with its own script.
+rfd = { version = "0.17", default-features = false, features = ["common-controls-v6", "gtk3"] }
+tauri-plugin-opener = "2.7"
+tauri-plugin-updater = "2.14"
+keyring = "4.2"
+getrandom = "0.4"
+zeroize = "1.9"
+# The proof the server gives on /healthz (launch.rs): HMAC-SHA-256, checked in constant time.
+hmac = "0.13"
+sha2 = "0.11"
+serde_json = "1"
+# The queue that shows one dialog at a time on Linux (dialogs.rs): its channel only. Already in the tree through Tauri.
+tokio = { version = "1", default-features = false, features = ["sync"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

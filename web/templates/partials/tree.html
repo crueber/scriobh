@@ -1,0 +1,13 @@
+{{define "tree"}}<div id="tree-box" class="tree-box" data-project="{{.ProjectID}}" data-total="{{.Total}}">
+{{if .Rows}}<div id="tree" class="tree" role="tree" aria-label="Manuscript, {{len .Rows}} {{plural (len .Rows) "document" "documents"}}" aria-orientation="vertical">
+{{range .Rows}}<div class="tree-row{{if .Current}} is-current{{end}}" role="treeitem" id="tr-{{.ID}}" aria-label="{{if .Number}}{{.Number}}, {{end}}{{.Title}}, {{num .Count}} {{plural .Count "word" "words"}}" data-id="{{.ID}}" data-parent="{{.ParentID}}" data-kind="{{.Kind}}" data-level="{{.Level}}" data-words="{{.Words}}" {{if .Target}} aria-describedby="tg-{{.ID}}"{{end}} aria-level="{{.Level}}" aria-posinset="{{.PosInSet}}" aria-setsize="{{.SetSize}}"{{if .HasChildren}} aria-expanded="true"{{end}}{{if .Current}} aria-current="page" aria-selected="true"{{else}} aria-selected="false"{{end}} tabindex="{{if .Current}}0{{else}}-1{{end}}">
+  {{range .Guides}}<span class="guide" aria-hidden="true"></span>{{end}}<span class="twist" aria-hidden="true">{{if .HasChildren}}{{template "icon" "chevron-down"}}{{end}}</span>
+  <a class="tree-link" href="/p/{{$.Slug}}/d/{{.ID}}" tabindex="-1" draggable="false">{{if .Number}}<span class="tree-num">{{.Number}}</span>{{end}}<span class="tree-title">{{.Title}}</span></a>
+  <span class="tree-count" data-count>{{if .Count}}{{num .Count}}{{else}}&ndash;{{end}}</span>
+  {{if .Target}}<span class="tree-count tree-goal" id="tg-{{.ID}}"><span aria-hidden="true">/{{num .Target}}</span><span class="sr-only">{{$.TargetText .Target}}</span></span>{{end}}
+  {{if $.CanEdit}}<button type="button" class="tree-more" data-row-menu tabindex="-1" aria-label="Actions for {{.Title}}" aria-haspopup="dialog">{{template "icon" "more"}}</button>{{end}}
+</div>
+{{end}}</div>
+{{else}}<p class="tree-empty">No chapters yet. Add one to begin.</p>
+{{end}}<p class="tree-foot"><span class="tree-foot-label">Project</span><span class="tree-foot-count" id="tree-total">{{num .Total}}</span><span class="sr-only"> words</span></p>
+</div>{{end}}

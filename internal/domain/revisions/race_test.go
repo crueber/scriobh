@@ -1,0 +1,7 @@
+//go:build race
+
+package revisions
+
+// The race detector slows Go code by an order of magnitude, so timing budgets
+// are scaled when it is on. They are asserted at full strength otherwise.
+const timingFactor = 15

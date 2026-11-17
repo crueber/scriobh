@@ -1,0 +1,42 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/compendium.css"}}"><link rel="stylesheet" href="{{asset "css/cmanage.css"}}">{{end}}
+{{define "crumb"}}{{template "ccrumb" (dict "C" .Data.C "Here" ($.T "cmg.record_title"))}}{{end}}
+{{define "tab-write"}}{{template "ctab-phone" ctabs .Data.Slug "manage"}}{{end}}
+{{define "ptabs"}}{{template "ctab-desktop" ctabs .Data.Slug "manage"}}{{end}}
+{{define "projmore"}}{{template "cmore" ctabs .Data.Slug "manage"}}{{end}}
+{{define "content"}}
+{{with .Data}}
+<div class="settings comp cmg" id="cmg-record">
+  <h1>{{$.T "cmg.record_title"}}</h1>
+  <p class="sub">{{if eq .Ch.Kind "merge"}}{{$.T "cmg.kind_merge"}}{{else}}{{$.T "cmg.kind_split"}}{{end}}: {{$.T "cmg.log_line" "from" (iso .Src) "into" (iso .Dst)}}. {{$.T "cmg.record_by" "who" (iso .Who) "when" .When}}</p>
+  {{if .Saved}}<p class="saved" role="status">{{$.T "compendium.manage.done"}}</p>{{end}}
+  <section class="cmg-nolink-box" aria-labelledby="h-nolink">
+    <h2 id="h-nolink">{{$.T "cmg.no_undo_h"}}</h2>
+    <p>{{$.T "cmg.no_undo"}}</p>
+    <p>{{$.T "cmg.record_use"}}</p>
+    <p class="fine">{{$.T "compendium.manage.record_note"}}</p>
+  </section>
+  <section aria-labelledby="h-rec-moved">
+    <h2 id="h-rec-moved">{{$.T "compendium.manage.record_h"}}</h2>
+    <ul class="cmg-counts">
+      <li>{{$.N "cmg.moving" .Moved}}</li>
+      <li>{{$.N "cmg.staying" .Staying}}</li>
+      {{if .B.Merged}}<li>{{$.N "cmg.rec_merged" (len .B.Merged)}}</li>{{end}}
+      {{if .B.AliasesDropped}}<li>{{$.N "cmg.rec_aliases" (len .B.AliasesDropped)}}</li>{{end}}
+      {{if .B.RelationsDropped}}<li>{{$.N "cmg.rec_relations" (len .B.RelationsDropped)}}</li>{{end}}
+      {{if .B.PeopleDropped}}<li>{{$.N "cmg.rec_people" (len .B.PeopleDropped)}}</li>{{end}}
+      {{if .B.LocationsCleared}}<li>{{$.N "cmg.rec_places" (len .B.LocationsCleared)}}</li>{{end}}
+      {{if .B.KeysRepointed}}<li>{{$.N "cmg.rec_keys" (len .B.KeysRepointed)}}</li>{{end}}
+      {{if .B.RefsAdded}}<li>{{$.N "cmg.rec_refs" (len .B.RefsAdded)}}</li>{{end}}
+    </ul>
+    {{if .B.Moved}}<h3>{{$.T "cmg.rec_moved_h"}}</h3>
+    <ul class="cmg-names">{{range .B.Moved}}<li>{{iso .Name}}{{if .NewName}} <span class="fine">{{$.T "cmg.rec_renamed" "name" (iso .NewName)}}</span>{{end}} <span class="fine">{{$.N "cmg.rec_rev" .Revision}}</span></li>{{end}}</ul>{{end}}
+    {{if .B.Merged}}<h3>{{$.T "cmg.rec_merged_h"}}</h3>
+    <ul class="cmg-merged">{{range .B.Merged}}<li><details><summary>{{iso .Snapshot.Name}} <span class="fine">{{$.T (print "cmg.kind_" .Snapshot.Kind)}}</span></summary>
+      {{if .Snapshot.Summary}}<p>{{.Snapshot.Summary}}</p>{{end}}{{if .Snapshot.Body}}<pre class="cmg-body">{{.Snapshot.Body}}</pre>{{end}}
+      {{if .Snapshot.Aliases}}<p class="fine">{{$.T "cmg.rec_alias_list"}} {{range $i, $a := .Snapshot.Aliases}}{{if $i}}, {{end}}{{$a.Alias}}{{end}}</p>{{end}}</details></li>{{end}}</ul>{{end}}
+    {{if .B.AliasesDropped}}<h3>{{$.T "cmg.rec_aliases_h"}}</h3><ul>{{range .B.AliasesDropped}}<li>{{index . "alias"}}</li>{{end}}</ul>{{end}}
+  </section>
+  <p><a class="btn" href="/c/{{.Slug}}/changes">{{$.T "cmg.back_changes"}}</a> <a class="btn quiet" href="/c/{{.Slug}}/manage">{{$.T "cmg.back_manage"}}</a></p>
+</div>
+{{end}}
+{{end}}

@@ -1,0 +1,41 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/studio.css"}}">{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/studio">{{$.T "studio.ui.title"}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "studio.ui.t_sprints"}}</span></nav>
+{{end}}
+{{define "tab-write"}}<a class="tab" href="/studio" aria-current="page">{{template "icon" "goals"}}<span>{{$.T "studio.ui.tab"}}</span></a>{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}
+<div class="settings studio-sub" id="studio-sprints">
+  <h1>{{$.T "studio.ui.sprints.title"}}</h1>
+  <p class="sub">{{$.T "studio.ui.sprints.intro"}}</p>
+  {{template "studio-tabs" (dict "P" $ "Tab" "sprints")}}
+  {{if .Flash}}<p class="saved" role="status" tabindex="-1" autofocus data-result>{{.Flash}}</p>{{end}}
+  {{if .Error}}<p class="field-error" role="alert" id="st-error" tabindex="-1" autofocus data-result>{{.Error}}</p>{{end}}
+
+  <section id="sprint" aria-labelledby="h-sprint">
+    <h2 id="h-sprint">{{if .Sprint}}{{$.T "studio.ui.sprint.now"}}{{else}}{{$.T "studio.ui.sprint.h"}}{{end}}</h2>
+    {{if .Sprint}}{{template "studio-sprint-now" (dict "P" $ "S" .Sprint "CSRF" .CSRF "Back" "sprints")}}
+    {{else if .Writable}}<p class="sub">{{$.T "studio.ui.sprint.intro"}}</p>
+    {{template "studio-sprint-form" (dict "P" $ "B" $d "Projects" .Writable "Pick" (or (.V "project_id") .Resume) "Back" "sprints")}}
+    {{else}}<p class="st-empty">{{$.T "studio.ui.sprint.none"}}</p>{{end}}
+  </section>
+
+  <section id="stats" aria-labelledby="h-stats">
+    <div class="st-ph"><h2 id="h-stats">{{$.T "studio.ui.sprints.stats"}}</h2>
+      <nav class="st-ranges" aria-label="{{$.T "studio.ui.chart.ranges"}}">{{range .Ranges}}<a href="/studio/sprints?range={{.}}#stats"{{if eq . $d.Range}} aria-current="true"{{end}}>{{$.T (printf "studio.ui.range.%s" .)}}</a>{{end}}</nav></div>
+    {{if .None}}<p class="st-empty">{{$.T "studio.ui.sprints.empty"}}</p>
+    {{else}}
+    <dl class="st-facts">{{range .Facts}}<div><dt>{{.Text}}</dt><dd>{{.URL}}</dd></div>{{end}}</dl>
+    {{if .Best}}<p class="st-msg">{{.Best}}</p>{{end}}
+    <h3>{{$.T "studio.ui.sprints.parts"}}</h3>
+    <ul class="st-bars">{{range .Parts}}<li><span class="st-bl">{{.Label}}</span><progress class="st-meter" value="{{.Value}}" max="{{.Max}}" aria-label="{{.Label}}">{{.Text}}</progress><span class="st-bv">{{.Text}}</span></li>{{end}}</ul>
+    <h3>{{$.T "studio.ui.sprints.recent"}}</h3>
+    <div class="st-scroll" role="region" aria-label="{{$.T "studio.ui.sprints.recent"}}" tabindex="0">
+    <table class="st-table"><thead><tr><th scope="col">{{$.T "studio.ui.sprints.c_day"}}</th><th scope="col">{{$.T "studio.ui.sprints.c_len"}}</th><th scope="col">{{$.T "studio.ui.compare.words"}}</th><th scope="col">{{$.T "studio.ui.sprints.c_state"}}</th></tr></thead>
+      <tbody>{{range .Recent}}<tr><th scope="row">{{.Day}}</th><td>{{.Length}}</td><td>{{.Words}}</td><td>{{.State}}</td></tr>{{end}}</tbody></table></div>
+    <p class="fine">{{$.T "studio.ui.sprints.note"}}</p>
+    {{end}}
+  </section>
+</div>
+{{end}}
+{{end}}

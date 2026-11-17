@@ -1,0 +1,43 @@
+{{/* The Writing Studio's part of the Settings page: the progress email, beside the digest, and the nudges. P is the page, S what
+   the studio and mail ops answered. Both are plain forms that answer with a redirect back here. */}}
+{{define "settings-studio"}}{{$p := .P}}{{$s := .S}}{{$csrf := .CSRF}}
+  <section id="progress" class="ml-sec" aria-labelledby="h-progress">
+    <h2 id="h-progress">{{$p.T "studio.mail.title"}}</h2>
+    <p class="sub">{{$p.T "studio.mail.what"}}</p>
+    <p class="sub">{{$p.T "studio.ui.mail.quiet"}}</p>
+    {{if and $s.Flash (eq $s.Where "progress")}}<p class="saved" role="status" tabindex="-1" autofocus data-result>{{$s.Flash}}</p>{{end}}
+    {{if and $s.Error (eq $s.Where "progress")}}<p class="field-error" role="alert" id="st-p-error" tabindex="-1" autofocus data-result>{{$s.Error}}</p>{{end}}
+    {{if not $s.Progress.MailAvailable}}<p class="ml-note" data-tone="info" id="st-p-state"><span class="ml-mark" aria-hidden="true"></span>{{$p.T "studio.ui.mail.off_server"}}</p>
+    {{else if not $s.Progress.Email}}<p class="ml-note" data-tone="info" id="st-p-state"><span class="ml-mark" aria-hidden="true"></span>{{$p.T "studio.ui.mail.no_email"}}</p>
+    {{else}}
+    {{if $s.Progress.NeedsConfirm}}<p class="ml-note" data-tone="warn" id="st-p-state"><span class="ml-mark" aria-hidden="true"></span>{{$p.T "studio.ui.mail.confirm" "email" $s.Progress.Email}}</p>
+    {{else if $s.Progress.Enabled}}<p class="ml-note" data-tone="ok" id="st-p-state"><span class="ml-mark" aria-hidden="true"></span>{{if eq $s.Progress.Frequency "monthly"}}{{$p.T "studio.ui.mail.on_monthly"}}{{else}}{{$p.T "studio.ui.mail.on_weekly"}}{{end}}</p>
+    {{else}}<p class="ml-note" data-tone="info" id="st-p-state"><span class="ml-mark" aria-hidden="true"></span>{{$p.T "studio.mail.off"}}</p>{{end}}
+    <p class="fine">{{$p.T "studio.ui.mail.to" "email" $s.Progress.Email}} {{$p.T "studio.ui.mail.when" "zone" $s.Zone}}</p>
+    <form class="form" method="post" action="/ui/settings/progress">
+      <input type="hidden" name="_csrf" value="{{$csrf}}">
+      <fieldset class="field radios" aria-describedby="st-p-state{{if and (eq $s.Where "progress") $s.Error}} st-p-error{{end}}">
+        <legend>{{$p.T "studio.ui.mail.frequency"}}</legend>
+        <label class="check"><input type="radio" name="frequency" value="weekly"{{if eq $s.Progress.Frequency "weekly"}} checked{{end}}><span>{{$p.T "studio.ui.mail.weekly"}}</span></label>
+        <label class="check"><input type="radio" name="frequency" value="monthly"{{if eq $s.Progress.Frequency "monthly"}} checked{{end}}><span>{{$p.T "studio.ui.mail.monthly"}}</span></label>
+      </fieldset>
+      <div class="form-actions">
+        <button class="btn solid" type="submit" name="do" value="on">{{if $s.Progress.NeedsConfirm}}{{$p.T "studio.ui.mail.confirm_go"}}{{else if $s.Progress.Enabled}}{{$p.T "studio.ui.mail.save"}}{{else}}{{$p.T "studio.ui.mail.turn_on"}}{{end}}</button>
+        {{if or $s.Progress.Enabled $s.Progress.NeedsConfirm}}<button class="btn quiet" type="submit" name="do" value="off">{{$p.T "studio.ui.mail.turn_off"}}</button>{{end}}
+      </div>
+    </form>
+    {{end}}
+  </section>
+
+  <section id="studio" class="ml-sec" aria-labelledby="h-studio">
+    <h2 id="h-studio">{{$p.T "studio.ui.title"}}</h2>
+    <p class="sub">{{$p.T "studio.ui.nudges.what"}}</p>
+    {{if and $s.Flash (eq $s.Where "nudges")}}<p class="saved" role="status" tabindex="-1" autofocus data-result>{{$s.Flash}}</p>{{end}}
+    <form class="form" method="post" action="/ui/settings/nudges">
+      <input type="hidden" name="_csrf" value="{{$csrf}}">
+      <label class="check" for="st-nudges"><input id="st-nudges" type="checkbox" name="nudges" value="true"{{if $s.NudgesOn}} checked{{end}}><span>{{$p.T "studio.ui.nudges.label"}}</span></label>
+      <div class="form-actions"><button class="btn" type="submit">{{$p.T "studio.ui.nudges.save"}}</button></div>
+    </form>
+    <p class="fine"><a href="/studio">{{$p.T "studio.ui.nudges.open"}}</a> &middot; <a href="/studio/card">{{$p.T "studio.ui.t_card"}}</a></p>
+  </section>
+{{end}}

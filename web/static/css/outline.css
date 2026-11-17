@@ -1,0 +1,100 @@
+/* The outline page: every document with its synopsis, status and target, in reading order.
+   Loaded on /p/{slug}/outline only; tokens come from app.css. Flat fills, hairlines, no motion. */
+
+.outline { max-width: 62rem; margin: 0 auto; padding: var(--s-5) var(--s-4) var(--s-8); }
+.outline h1 { margin: 0 0 var(--s-3); font: 400 var(--text-2xl)/var(--lh-2xl) var(--font-prose); }
+.outline h1:focus { outline: none; }
+
+.o-summary { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-4); }
+.o-summary p { margin: 0; }
+.o-total { font-size: var(--text-base); color: var(--fg-2); }
+.o-total strong { color: var(--fg); font-variant-numeric: tabular-nums; }
+.o-mix, .orow-mix { font-size: var(--text-sm); line-height: var(--lh-sm); color: var(--muted); }
+.o-bar, .orow-bar { appearance: none; -webkit-appearance: none; display: block; width: 9rem; height: 4px; border: 0; border-radius: 0; background: var(--line); color: var(--accent); }
+.o-bar::-webkit-progress-bar, .orow-bar::-webkit-progress-bar { background: var(--line); }
+.o-bar::-webkit-progress-value, .orow-bar::-webkit-progress-value { background: var(--accent); }
+.o-bar::-moz-progress-bar, .orow-bar::-moz-progress-bar { background: var(--accent); }
+
+.o-list { margin: var(--s-4) 0 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+.orow { position: relative; padding: var(--s-3) var(--s-2) var(--s-3) var(--s-2); border-bottom: 1px solid var(--line-2); }
+.o-d1 { padding-left: calc(var(--s-2) + 20px); }
+.o-d2 { padding-left: calc(var(--s-2) + 40px); }
+.o-d3 { padding-left: calc(var(--s-2) + 60px); }
+.o-d4 { padding-left: calc(var(--s-2) + 80px); }
+.o-d5 { padding-left: calc(var(--s-2) + 100px); }
+.orow[data-kind="part"] { background: var(--surface-2); border-bottom-color: var(--line); }
+.orow.is-active { background: var(--accent-soft); }
+.orow:focus-visible { outline-offset: -2px; }
+
+.orow-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-1) var(--s-2); }
+.orow-kind { font: 500 var(--text-xs)/var(--lh-xs) var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.orow-title { flex: 1 1 12rem; min-width: 0; font: 400 var(--text-lg)/var(--lh-lg) var(--font-prose); color: var(--fg); text-decoration: none; overflow-wrap: anywhere; }
+.orow-title:hover { color: var(--accent); text-decoration: underline; }
+.orow[data-kind="part"] .orow-title { font-size: var(--text-xl); line-height: var(--lh-xl); }
+.orow-status { padding: 0 var(--s-2); border: 1px solid var(--line); border-radius: var(--r-1); font: 500 var(--text-xs)/18px var(--font-ui); color: var(--fg-2); white-space: nowrap; }
+.orow-status[data-s="done"] { border-color: var(--accent); color: var(--accent); }
+.orow-status[data-s="done"]::before { content: "\2713\00a0" / ""; }
+.orow-status[data-s="idea"] { border-style: dashed; }
+.orow-syn { margin: var(--s-1) 0 0; font: 400 var(--prose-sm)/var(--lh-base) var(--font-prose); color: var(--fg-2); overflow-wrap: anywhere; }
+.orow-syn.is-empty { color: var(--muted); font-style: italic; }
+.orow-nums { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-3); margin-top: var(--s-2); font-size: var(--text-sm); line-height: var(--lh-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.o-empty { margin: var(--s-6) 0; padding: var(--s-6) var(--s-4); border: 1px dashed var(--line); border-radius: var(--r-1); color: var(--fg-2); text-align: center; }
+.o-empty p { margin: 0; }
+
+/* Tools: added by outline.js to the active row only. */
+.orow-tools { display: none; flex-wrap: wrap; align-items: center; gap: var(--s-1); margin-top: var(--s-2); }
+.orow.is-active .orow-tools, .orow:focus-within .orow-tools { display: flex; }
+.orow-tools .icon-btn { border: 1px solid var(--line); background: var(--surface); color: var(--fg-2); }
+.orow-tools .icon-btn:hover { color: var(--fg); background: var(--surface-2); }
+.orow-tools .icon-btn[disabled] { opacity: .4; }
+.orow-tools .btn { min-height: var(--target); padding: 0 var(--s-3); font-size: var(--text-sm); }
+.orow-grip { touch-action: none; cursor: grab; }
+.orow.is-dragging { opacity: .45; }
+.orow.drop-before { box-shadow: inset 0 3px 0 var(--accent); }
+.orow.drop-after { box-shadow: inset 0 -3px 0 var(--accent); }
+.o-list.drop-end { box-shadow: inset 0 -3px 0 var(--accent); }
+.orow.drop-into { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* The inline editor. */
+.orow-edit { display: grid; gap: var(--s-3); margin-top: var(--s-3); padding: var(--s-3); border: 1px solid var(--line); border-radius: var(--r-1); background: var(--surface); }
+.orow-edit .grid { align-items: start; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s-3); }
+.orow-edit textarea { width: 100%; min-height: 4.5rem; padding: var(--s-2) var(--s-3); border: 1px solid var(--field-line); border-radius: var(--r-1); background: var(--surface); color: var(--fg); font: 400 var(--text-base)/var(--lh-base) var(--font-ui); resize: vertical; }
+.orow-edit textarea:hover { border-color: var(--fg); }
+.orow-edit .oe-actions { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.orow-edit .conflict { margin: 0; padding: var(--s-3); border-left: 3px solid var(--danger); background: var(--danger-soft); color: var(--fg); font-size: var(--text-sm); line-height: var(--lh-sm); }
+.orow-edit .conflict p { margin: 0 0 var(--s-2); }
+
+.o-add .btn { min-height: max(var(--target), 40px); }
+.o-add { display: grid; grid-template-columns: 11rem minmax(0, 1fr) auto; gap: var(--s-3); align-items: end; margin-top: var(--s-6); padding-top: var(--s-4); border-top: 1px solid var(--line); }
+
+@media (max-width: 640px) {
+  .outline { padding-left: var(--s-3); padding-right: var(--s-3); }
+  .o-d1 { padding-left: calc(var(--s-2) + 12px); }
+  .o-d2 { padding-left: calc(var(--s-2) + 24px); }
+  .o-d3, .o-d4, .o-d5 { padding-left: calc(var(--s-2) + 36px); }
+  .orow-edit .grid, .o-add { grid-template-columns: 1fr; }
+  .orow-bar, .o-bar { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { .orow, .orow-tools { transition: none; } }
+
+/* The order of the outline, and which columns show. A current order is marked by a tick and a bar, not by colour alone. */
+.o-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); margin: var(--s-3) 0 var(--s-4); }
+.o-sort { display: flex; flex-wrap: wrap; gap: var(--s-1); }
+.o-sort a { display: inline-flex; align-items: center; min-height: var(--target); padding: 0 var(--s-3); border: 1px solid var(--line); border-radius: var(--r-1); color: var(--fg-2); font: 500 var(--text-sm)/var(--lh-sm) var(--font-ui); text-decoration: none; }
+.o-sort a:hover { background: var(--surface-2); color: var(--fg); }
+.o-sort a[aria-current="true"] { border-color: var(--accent); color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
+.o-sort a[aria-current="true"]::before { content: "\2713\00a0" / ""; }
+.o-colsel summary { display: inline-flex; align-items: center; min-height: var(--target); padding: 0 var(--s-3); border: 1px solid transparent; border-radius: var(--r-1); color: var(--fg-2); font: 500 var(--text-sm)/var(--lh-sm) var(--font-ui); cursor: pointer; }
+.o-colsel[open] summary { border-color: var(--line); }
+.o-colbox { display: flex; flex-wrap: wrap; gap: 0 var(--s-4); padding: var(--s-2) var(--s-3); }
+.o-note { margin: 0 0 var(--s-3); color: var(--fg-2); font-size: var(--text-sm); line-height: var(--lh-sm); max-width: 60ch; }
+.o-grp { margin-top: var(--s-5); }
+.o-gh { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-1) var(--s-3); margin: 0; padding: var(--s-2); border-bottom: 1px solid var(--line); font: 400 var(--text-lg)/var(--lh-lg) var(--font-prose); }
+.o-gn { font: 400 var(--text-sm)/var(--lh-sm) var(--font-ui); color: var(--muted); font-variant-numeric: tabular-nums; }
+.o-sub { margin-top: 0; border-top: 0; }
+.orow-crumb { margin: var(--s-1) 0 0; font-size: var(--text-xs); line-height: var(--lh-xs); color: var(--muted); overflow-wrap: anywhere; }
+.orow-date, .orow-pov { display: none; padding: 0 var(--s-2); border: 1px solid var(--line-2); border-radius: var(--r-1); font: 500 var(--text-xs)/18px var(--font-ui); color: var(--fg-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.orow-date[data-undated] { border-style: dashed; color: var(--muted); }
+[data-cols~="date"] .orow-date, [data-cols~="pov"] .orow-pov { display: inline-block; }
+[data-cols]:not([data-cols~="status"]) .orow-status, [data-cols]:not([data-cols~="words"]) .orow-nums { display: none; }

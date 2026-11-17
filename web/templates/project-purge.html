@@ -1,0 +1,9 @@
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a></nav>
+{{end}}
+{{define "content"}}
+<section class="form-page" aria-labelledby="dialog-title">
+  <h1 class="sr-only">Delete a project for good</h1>
+  {{template "project-purge" .Data}}
+</section>
+{{end}}

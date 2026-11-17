@@ -1,0 +1,12 @@
+{
+  "bundle": {
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://REPLACE-WITH-YOUR-RELEASE-HOST/desktop/{{target}}-{{arch}}/latest.json"],
+      "pubkey": "REPLACE-WITH-THE-CONTENTS-OF-updater.key.pub",
+      "requireSignedVersion": true
+    }
+  }
+}

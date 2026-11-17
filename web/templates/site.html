@@ -1,0 +1,162 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/share.css"}}"><link rel="stylesheet" href="{{asset "css/connect.css"}}"><script src="{{asset "js/connect.js"}}" defer></script><script src="{{asset "js/arm.js"}}" defer></script>{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "site.title"}}</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "site" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "site" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "site" .Data.Project.Role}}{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}
+<div class="settings shl cx" id="cx" data-selected="{{$.T "cx.selected"}}">
+  <h1>{{$.T "site.title"}}</h1>
+  <p class="sub">{{.Project.Title}}. {{$.T "site.intro"}}</p>
+  <p class="cx-live" id="cx-live" role="status" aria-live="polite"></p>
+  {{if not .Status.Enabled}}
+  <p class="notice-line cx-off" id="site-off">{{$.T "site.off"}}</p>
+  {{else}}
+  {{if .Flash}}<p class="saved" role="status">{{.Flash}}</p>{{end}}
+  {{if .Error}}<p class="field-error" role="alert" id="site-error"><span class="cx-op">{{.Error}}</span></p>{{end}}
+
+  <section id="site-status" aria-labelledby="site-status-h">
+    <h2 id="site-status-h">{{$.T "site.status_h"}}</h2>
+    {{with .Published}}<p class="notice-line" role="status" id="site-done">{{$.T "site.done" "posts" (index . "posts") "pages" (index . "pages") "files" (index . "files")}} {{if index . "replaced"}}{{$.T "site.done_replaced"}}{{end}}</p>{{end}}
+    <dl class="cx-facts">
+      <div><dt>{{$.T "site.f_publish"}}</dt><dd id="site-pubstate">{{if .PublishedAt}}{{$.T "site.published" "when" .PublishedAt "n" (num .Status.Publish.Posts)}}{{if .ChangedPublish}} <span class="cx-nudge">{{$.T "site.changed"}}</span>{{else if .Preview}} <span class="cx-ok">{{$.T "site.same"}}</span>{{end}}{{else}}{{$.T "site.never"}}{{end}}</dd></div>
+      <div><dt>{{$.T "site.f_build"}}</dt><dd>{{if .BuiltAt}}{{$.T "site.built" "when" .BuiltAt}}{{if .ChangedBuild}} <span class="cx-nudge">{{$.T "site.changed"}}</span>{{end}}{{else}}{{$.T "site.never_built"}}{{end}}</dd></div>
+      {{if .Status.PublishEnabled}}<div><dt>{{$.T "site.f_where"}}</dt><dd>{{if .Status.Location}}<code id="site-loc">{{.Status.Location}}</code> <button type="button" class="btn small quiet" data-copy="#site-loc" data-done="{{$.T "site.copied"}}" hidden>{{$.T "site.copy"}}</button><br><span class="fine">{{$.T "site.where_note"}}</span>{{else}}{{$.T "site.where_none"}}{{end}}</dd></div>{{end}}
+      <div><dt>{{$.T "site.f_base"}}</dt><dd>{{if .Status.BaseURL}}<a href="{{.Status.BaseURL}}" rel="noopener noreferrer" target="_blank">{{.Status.BaseURL}}</a>{{else}}<span class="cx-nudge">{{$.T "site.no_base"}}</span>{{end}}</dd></div>
+      {{with .Preview}}<div><dt>{{$.T "site.f_would"}}</dt><dd>{{$.T "site.would" "posts" (num (len .Posts)) "pages" (num (len .Pages)) "files" (num .Files) "words" (num .Words)}}</dd></div>{{end}}
+    </dl>
+    {{if not .Status.PublishEnabled}}<p class="notice-line is-warn" id="site-nopub">{{$.T "site.no_publish"}}</p>{{end}}
+    {{if .PreviewErr}}<p class="notice-line is-warn" role="status" id="site-perr"><span class="cx-op">{{.PreviewErr}}</span></p>{{end}}
+    <div class="cx-actions">
+      <form method="post" action="/ui/projects/{{.ProjectID}}/site/build"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn" type="submit" id="site-build"{{if not .Preview}} disabled{{end}}>{{$.T "site.build"}}</button></form>
+      {{if .Status.PublishEnabled}}
+      <form method="post" action="/ui/projects/{{.ProjectID}}/site/publish" id="site-publish-form" data-arm="{{if .Status.Location}}{{$.T "site.publish_ask_replace" "where" .Status.Location}}{{else}}{{$.T "site.publish_ask"}}{{end}}" data-arm-ok="{{$.T "site.publish_ok"}}" data-arm-cancel="{{$.T "site.cancel"}}">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        {{if .CanOverwrite}}<label class="check"><input type="checkbox" name="overwrite_edited" id="site-overwrite"><span>{{$.T "site.overwrite"}}</span></label>{{end}}
+        <button class="btn solid" type="submit" id="site-publish"{{if not .Preview}} disabled{{end}}>{{$.T "site.publish"}}</button>
+      </form>
+      {{end}}
+    </div>
+    <p class="fine">{{$.T "site.explicit"}}</p>
+  </section>
+
+  {{with .Preview}}
+  <section id="site-warnings" aria-labelledby="site-warn-h">
+    <h2 id="site-warn-h">{{$.T "site.warn_h"}} <span class="shl-state">{{num $d.Warnings}}</span></h2>
+    {{if $d.Warnings}}
+    <p class="fine">{{$.T "site.warn_note"}}</p>
+    {{range $d.SiteWarn}}<p class="cx-warn"><b>{{$.T (printf "site.w_%s" .Code)}}</b> {{range .Items}}<span class="cx-op">{{.Message}}</span> {{end}}</p>{{end}}
+    {{range $d.DocWarn}}<details class="cx-fold"><summary>{{$.T (printf "site.w_%s" .Code)}} ({{num (len .Items)}})</summary>
+      <ul class="cx-log">{{range .Items}}<li><a href="#doc-{{.DocumentID}}">{{if .Title}}<span class="cx-their">{{.Title}}</span>{{else}}{{$.T "site.untitled"}}{{end}}</a> <span class="fine cx-op">{{.Message}}</span></li>{{end}}</ul>
+    </details>{{end}}
+    {{else}}<p class="fine">{{$.T "site.warn_none"}}</p>{{end}}
+  </section>
+
+  <section id="site-posts" aria-labelledby="site-posts-h">
+    <h2 id="site-posts-h">{{$.T "site.posts_h"}} <span class="shl-state">{{num (len .Posts)}}</span></h2>
+    {{if $d.Posts}}<ul class="shl-list">{{range $d.Posts}}{{template "site-doc" (dict "P" . "D" $d "Page" $)}}{{end}}</ul>{{else}}<p class="fine">{{$.T "site.posts_none"}}</p>{{end}}
+    {{if $d.MorePosts}}<p><a class="btn small quiet" href="?all=1#site-posts">{{$.T "site.more" "n" (num $d.MorePosts)}}</a></p>{{end}}
+  </section>
+
+  <section id="site-pages" aria-labelledby="site-pages-h">
+    <h2 id="site-pages-h">{{$.T "site.pages_h"}} <span class="shl-state">{{num (len .Pages)}}</span></h2>
+    {{if $d.Pages}}<ul class="shl-list">{{range $d.Pages}}{{template "site-doc" (dict "P" . "D" $d "Page" $)}}{{end}}</ul>{{else}}<p class="fine">{{$.T "site.pages_none"}}</p>{{end}}
+  </section>
+
+  <section id="site-out" aria-labelledby="site-out-h">
+    <h2 id="site-out-h">{{$.T "site.out_h"}} <span class="shl-state">{{num (len .Excluded)}}</span></h2>
+    <p class="fine">{{$.T "site.out_note"}}{{if .Notes}} {{$.T "site.notes" "n" (num .Notes)}}{{end}}</p>
+    {{if $d.Excluded}}<ul class="cx-log">{{range $d.Excluded}}
+      <li id="doc-{{.ID}}"><b>{{if .Title}}<span class="cx-their">{{.Title}}</span>{{else}}{{$.T "site.untitled"}}{{end}}</b> <span class="fine cx-op">{{.Reason}}</span>
+        {{if .Status}}<span class="fine"><a href="/p/{{$d.Slug}}/outline">{{$.T "site.status_fix"}}</a></span>{{end}}
+        {{if .Pinned}}<p class="fine">{{$.T "site.pinned_kept" "slug" .Pinned}}</p>{{end}}
+        <div class="cx-actions">
+          {{if and .CanPost (ne .Role "post")}}<form method="post" action="/ui/projects/{{$d.ProjectID}}/site/role"><input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="document_id" value="{{.ID}}"><input type="hidden" name="role" value="post"><button class="btn small quiet" type="submit">{{$.T "site.make_post"}}</button></form>{{end}}
+          {{if ne .Role "skip"}}<form method="post" action="/ui/projects/{{$d.ProjectID}}/site/role"><input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="document_id" value="{{.ID}}"><input type="hidden" name="role" value="skip"><button class="btn small quiet" type="submit">{{$.T "site.make_skip"}}</button></form>{{end}}
+          {{if ne .Role "auto"}}<form method="post" action="/ui/projects/{{$d.ProjectID}}/site/role"><input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="document_id" value="{{.ID}}"><input type="hidden" name="role" value="auto"><button class="btn small quiet" type="submit">{{$.T "site.make_auto"}}</button></form>{{end}}
+          {{if .Pinned}}<form method="post" action="/ui/projects/{{$d.ProjectID}}/site/unpin"><input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="document_id" value="{{.ID}}"><button class="btn small quiet" type="submit">{{$.T "site.unpin"}}</button></form>{{end}}
+        </div>
+      </li>{{end}}
+    </ul>{{else}}<p class="fine">{{$.T "site.out_none"}}</p>{{end}}
+  </section>
+  {{end}}
+
+  <section id="site-options" aria-labelledby="site-opt-h">
+    <h2 id="site-opt-h">{{$.T "site.opt_h"}}</h2>
+    <p class="fine">{{$.T "site.opt_note"}}</p>
+    {{$o := .Options}}
+    <form class="form" method="post" action="/ui/projects/{{.ProjectID}}/site/options">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field"><label for="so-title">{{$.T "site.o_title"}}</label><input id="so-title" name="title" type="text" maxlength="120" value="{{$o.Title}}" placeholder="{{.Project.Title}}" autocomplete="off"><span class="hint">{{$.T "site.o_title_hint"}}</span></div>
+      <div class="field"><label for="so-tagline">{{$.T "site.o_tagline"}}</label><input id="so-tagline" name="tagline" type="text" maxlength="200" value="{{$o.Tagline}}" autocomplete="off"></div>
+      <div class="field"><label for="so-base">{{$.T "site.o_base"}}</label><input id="so-base" class="cx-mono" name="base_url" type="text" inputmode="url" maxlength="300" value="{{$o.BaseURL}}" placeholder="https://" spellcheck="false" autocomplete="off" aria-describedby="so-base-hint"{{if eq $d.Field "base_url"}} aria-invalid="true"{{end}}><span class="hint" id="so-base-hint">{{$.T "site.o_base_hint"}}</span></div>
+      <div class="field-row">
+        <div class="field"><label for="so-lang">{{$.T "site.o_lang"}}</label><input id="so-lang" name="language" type="text" maxlength="16" value="{{$o.Language}}" placeholder="{{.Project.Language}}" spellcheck="false" autocomplete="off"><span class="hint">{{$.T "site.o_lang_hint"}}</span></div>
+        <div class="field"><label for="so-dir">{{$.T "site.o_dir"}}</label><select id="so-dir" name="dir"><option value=""{{if eq $o.Dir ""}} selected{{end}}>{{$.T "site.o_dir_auto"}}</option><option value="ltr"{{if eq $o.Dir "ltr"}} selected{{end}}>{{$.T "site.o_dir_ltr"}}</option><option value="rtl"{{if eq $o.Dir "rtl"}} selected{{end}}>{{$.T "site.o_dir_rtl"}}</option></select></div>
+      </div>
+      <fieldset class="field radios"><legend>{{$.T "site.o_posts"}}</legend>
+        <label class="check"><input type="radio" name="posts" value="chapters"{{if eq $o.Posts "chapters"}} checked{{end}}><span>{{$.T "site.o_posts_chapters"}}</span></label>
+        <label class="check"><input type="radio" name="posts" value="top_level"{{if eq $o.Posts "top_level"}} checked{{end}}><span>{{$.T "site.o_posts_top"}}</span></label>
+      </fieldset>
+      <label class="check"><input type="checkbox" name="include_drafts"{{if $o.IncludeDrafts}} checked{{end}}><span>{{$.T "site.o_drafts"}}</span></label>
+      <label class="check"><input type="checkbox" name="parts_as_categories"{{if $o.PartsAsCats}} checked{{end}}><span>{{$.T "site.o_parts"}}</span></label>
+      <div class="field-row">
+        <div class="field"><label for="so-ppp">{{$.T "site.o_ppp"}}</label><input id="so-ppp" name="posts_per_page" type="number" min="1" max="100" value="{{$o.PostsPerPage}}" inputmode="numeric"></div>
+        <div class="field"><label for="so-img">{{$.T "site.o_img"}}</label><input id="so-img" name="image_max_width" type="number" min="200" max="2400" value="{{$o.ImageMaxWidth}}" inputmode="numeric"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="so-feed">{{$.T "site.o_feed"}}</label><select id="so-feed" name="feed_content"><option value="full"{{if eq $o.FeedContent "full"}} selected{{end}}>{{$.T "site.o_feed_full"}}</option><option value="excerpt"{{if eq $o.FeedContent "excerpt"}} selected{{end}}>{{$.T "site.o_feed_excerpt"}}</option></select></div>
+        <div class="field"><label for="so-items">{{$.T "site.o_items"}}</label><input id="so-items" name="feed_items" type="number" min="1" max="100" value="{{$o.FeedItems}}" inputmode="numeric"></div>
+      </div>
+      <fieldset class="field"><legend>{{$.T "site.o_show"}}</legend>
+        <label class="check"><input type="checkbox" name="show_dates"{{if $o.ShowDates}} checked{{end}}><span>{{$.T "site.o_dates"}}</span></label>
+        <label class="check"><input type="checkbox" name="show_author"{{if $o.ShowAuthor}} checked{{end}}><span>{{$.T "site.o_author"}}</span></label>
+        <label class="check"><input type="checkbox" name="show_reading_time"{{if $o.ShowReading}} checked{{end}}><span>{{$.T "site.o_reading"}}</span></label>
+        <label class="check"><input type="checkbox" name="show_cover"{{if $o.ShowCover}} checked{{end}}><span>{{$.T "site.o_cover"}}</span></label>
+      </fieldset>
+      <fieldset class="field"><legend>{{$.T "site.o_accent"}}</legend><div class="cx-sws">{{range .Accents}}<label class="cx-sw"><input type="radio" name="accent" value="{{.}}"{{if eq $o.Accent .}} checked{{end}}><span class="cx-chip a-{{.}}" aria-hidden="true"><i></i><i></i></span><span>{{$.T (printf "site.ac_%s" .)}}</span></label>{{end}}</div><span class="hint">{{$.T "site.o_accent_hint"}}</span></fieldset>
+      <div class="field"><label for="so-about">{{$.T "site.o_about"}}</label><select id="so-about" name="about_id"><option value="">{{$.T "site.o_about_none"}}</option>{{range .About}}<option value="{{.DocumentID}}"{{if eq $o.AboutID .DocumentID}} selected{{end}}>{{.Title}}</option>{{end}}</select><span class="hint">{{$.T "site.o_about_hint"}}</span></div>
+      <fieldset class="field"><legend>{{$.T "site.o_nav"}}</legend><span class="hint" id="so-nav-hint">{{$.T "site.o_nav_hint"}}</span>
+        {{range $i, $n := .Nav}}<div class="cx-nav-row"><div class="field"><label for="so-nl-{{$i}}">{{$.T "site.o_nav_label"}}</label><input id="so-nl-{{$i}}" name="nav_label" type="text" maxlength="40" value="{{$n.Label}}" autocomplete="off"></div><div class="field"><label for="so-nu-{{$i}}">{{$.T "site.o_nav_url"}}</label><input id="so-nu-{{$i}}" class="cx-mono" name="nav_url" type="text" inputmode="url" maxlength="300" value="{{$n.URL}}" spellcheck="false" autocomplete="off"></div></div>{{end}}
+      </fieldset>
+      <div class="field"><label for="so-footer">{{$.T "site.o_footer"}}</label><input id="so-footer" name="footer_text" type="text" maxlength="300" value="{{$o.FooterText}}" autocomplete="off"></div>
+      <label class="check"><input type="checkbox" name="noindex"{{if $o.NoIndex}} checked{{end}} aria-describedby="so-noindex-hint"><span>{{$.T "site.o_noindex"}}</span></label>
+      <span class="hint" id="so-noindex-hint">{{$.T "site.o_noindex_hint"}}</span>
+      <div class="form-actions"><button class="btn solid" type="submit">{{$.T "site.o_save"}}</button></div>
+    </form>
+    <form class="form-actions" method="post" action="/ui/projects/{{.ProjectID}}/site/reset" data-arm="{{$.T "site.o_reset_ask"}}" data-arm-ok="{{$.T "site.o_reset_ok"}}" data-arm-cancel="{{$.T "site.cancel"}}">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn quiet" type="submit">{{$.T "site.o_reset"}}</button>
+    </form>
+  </section>
+  {{end}}
+</div>
+{{end}}
+{{end}}
+{{define "site-doc"}}{{$p := .P}}{{$d := .D}}{{$pg := .Page}}
+<li class="shl-link" id="doc-{{$p.DocumentID}}">
+  <h3>{{if $p.Title}}<span class="cx-their">{{$p.Title}}</span>{{else}}{{$pg.T "site.untitled"}}{{end}}</h3>
+  <ul class="shl-meta">
+    <li><code>{{$p.Path}}</code> {{if eq $p.SlugFrom "pinned"}}{{$pg.T "site.slug_pinned"}}{{else if eq $p.SlugFrom "set"}}{{$pg.T "site.slug_set"}}{{else}}{{$pg.T "site.slug_title"}}{{end}}</li>
+    {{if $p.Date}}<li>{{$p.Date}}{{if eq $p.DateFrom "created"}} <span class="cx-nudge">{{$pg.T "site.date_created"}}</span>{{end}}</li>{{end}}
+    <li>{{$pg.T "site.minutes" "n" $p.Minutes "words" (num $p.Words)}}</li>
+    {{if $p.Category}}<li><span class="cx-their">{{$pg.T "site.category" "name" $p.Category}}</span></li>{{end}}
+    {{if $p.Tags}}<li><span class="cx-their">{{range $i, $t := $p.Tags}}{{if $i}}, {{end}}#{{$t}}{{end}}</span></li>{{end}}
+  </ul>
+  {{if $p.Excerpt}}<p class="fine"><span class="cx-their">{{$p.Excerpt}}</span>{{if eq $p.ExcerptSrc "body"}} <span class="cx-nudge">{{$pg.T "site.excerpt_body"}}</span>{{end}}</p>{{end}}
+  <details class="shl-edit"><summary>{{$pg.T "site.d_edit"}}</summary>
+    <form class="form" method="post" action="/ui/projects/{{$d.ProjectID}}/site/doc">
+      <input type="hidden" name="_csrf" value="{{$d.CSRF}}"><input type="hidden" name="document_id" value="{{$p.DocumentID}}">
+      <div class="field-row">
+        <div class="field"><label for="d-r-{{$p.DocumentID}}">{{$pg.T "site.d_role"}}</label><select id="d-r-{{$p.DocumentID}}" name="role">{{range $r := $d.Roles}}<option value="{{$r}}"{{if eq $p.Row.Role $r}} selected{{end}}>{{$pg.T (printf "site.role_%s" $r)}}</option>{{end}}</select></div>
+        <div class="field"><label for="d-d-{{$p.DocumentID}}">{{$pg.T "site.d_date"}}</label><input id="d-d-{{$p.DocumentID}}" name="published_at" type="date" value="{{$p.RowDate}}"></div>
+      </div>
+      <div class="field"><label for="d-s-{{$p.DocumentID}}">{{$pg.T "site.d_slug"}}</label><input id="d-s-{{$p.DocumentID}}" class="cx-mono" name="slug" type="text" maxlength="60" value="{{$p.Row.Slug}}" placeholder="{{$p.Slug}}" spellcheck="false" autocomplete="off"><span class="hint">{{$pg.T "site.d_slug_hint"}}</span></div>
+      {{if $p.Row.PinnedSlug}}<label class="check"><input type="checkbox" name="unpin"><span>{{$pg.T "site.d_unpin" "slug" $p.Row.PinnedSlug}}</span></label>{{end}}
+      <div class="field"><label for="d-e-{{$p.DocumentID}}">{{$pg.T "site.d_excerpt"}}</label><textarea id="d-e-{{$p.DocumentID}}" name="excerpt" rows="3" maxlength="300">{{$p.Row.Excerpt}}</textarea><span class="hint">{{$pg.T "site.d_excerpt_hint"}}</span></div>
+      <div class="field"><label for="d-t-{{$p.DocumentID}}">{{$pg.T "site.d_tags"}}</label><input id="d-t-{{$p.DocumentID}}" name="tags" type="text" maxlength="440" value="{{$p.TagsText}}" autocomplete="off"><span class="hint">{{$pg.T "site.d_tags_hint"}}</span></div>
+      <div class="form-actions"><button class="btn small" type="submit">{{$pg.T "site.d_save"}}</button></div>
+    </form>
+  </details>
+</li>{{end}}

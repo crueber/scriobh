@@ -1,0 +1,2 @@
+# Applied migrations are checksummed: a CRLF checkout must not change their bytes.
+internal/db/migrations/*.sql text eol=lf

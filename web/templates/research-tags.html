@@ -1,0 +1,44 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/research.css"}}">{{end}}
+{{define "crumb"}}{{template "res-crumb" (dict "O" .Data "Mid" "Research" "Here" "Tags")}}{{end}}
+{{define "tab-write"}}{{template "res-tab" (dict "O" .Data "Active" "research")}}{{end}}
+{{define "ptabs"}}{{template "res-ptabs" (dict "O" .Data "Active" "research")}}{{end}}
+{{define "projmore"}}{{template "res-more" (dict "O" .Data "Active" "research")}}{{end}}
+{{define "content"}}
+{{with .Data}}
+<div class="research tags-page" id="research" data-owner="{{.Kind}}">
+  <h1 id="r-title" tabindex="-1">Tags</h1>
+  <p class="sub">Tags are labels for research notes in {{if eq .Kind "c"}}this Compendium{{else}}this project{{end}}. A tag has a name and one of eight colours; the name always shows beside the colour. Renaming, merging and deleting work on every note at once, and deleting a tag never deletes a note.</p>
+  {{template "res-subnav" (dict "O" . "Active" "tags")}}
+  {{if .Error}}<p class="field-error" role="alert" id="r-error">{{.Error}}</p>{{end}}
+  {{if .SavedText}}<p class="saved" role="status">{{.SavedText}}</p>{{end}}
+  {{if .CanEdit}}
+  <form class="form t-new" method="post" action="{{.UI}}/research/tag-create" aria-labelledby="t-new-h">
+    <h2 id="t-new-h">New tag</h2>
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div class="field"><label for="t-name">Name</label><input id="t-name" type="text" name="name" maxlength="40" required autocomplete="off" value="{{.Values.name}}"{{if eq .Field "name"}} aria-invalid="true" aria-describedby="r-error"{{end}}></div>
+    <fieldset class="field radios t-colors"><legend>Colour</legend>{{range $i, $c := .Colors}}<label class="check"><input type="radio" name="color" value="{{$c.Token}}"{{if eq $i 0}} checked{{end}}><span class="tagdot {{$c.Class}}" aria-hidden="true"></span><span>{{$c.Word}}</span></label>{{end}}</fieldset>
+    <div class="form-actions"><button class="btn solid" type="submit">Add the tag</button></div>
+  </form>
+  {{end}}
+  <section aria-labelledby="t-all-h">
+    <h2 id="t-all-h">{{if .Tags}}{{len .Tags}} {{plural (len .Tags) "tag" "tags"}}{{else}}No tags yet{{end}}</h2>
+    {{if not .Tags}}<p class="fine">Tag a note on its own page, or make a tag above.</p>{{end}}
+    <ul class="t-list">{{range .Tags}}{{$t := .}}
+      <li class="t-item">
+        <p class="t-head"><span class="tag"><span class="tagdot {{.Class}}" aria-hidden="true"></span>{{.Name}}</span> <span class="fine">{{.Word}}, {{.Notes}} {{plural .Notes "note" "notes"}}</span> <a class="fine" href="{{$.Data.Base}}/research?tag={{.Name}}">Show them</a></p>
+        {{if $.Data.CanEdit}}<details class="more"><summary>Change {{.Name}}</summary>
+          <form class="form" method="post" action="{{$.Data.UI}}/research/tag-update"><input type="hidden" name="_csrf" value="{{$.Data.CSRF}}"><input type="hidden" name="tag_id" value="{{.ID}}">
+            <div class="field"><label for="tn-{{.ID}}">Name</label><input id="tn-{{.ID}}" type="text" name="name" value="{{.Name}}" maxlength="40" required autocomplete="off"></div>
+            <div class="field"><label for="tc-{{.ID}}">Colour</label><select id="tc-{{.ID}}" name="color">{{range $.Data.Colors}}<option value="{{.Token}}"{{if eq .Token $t.Color}} selected{{end}}>{{.Word}}</option>{{end}}</select></div>
+            <div class="form-actions"><button class="btn" type="submit">Save</button></div></form>
+          {{if gt (len $.Data.Tags) 1}}<form class="form" method="post" action="{{$.Data.UI}}/research/tag-merge"><input type="hidden" name="_csrf" value="{{$.Data.CSRF}}"><input type="hidden" name="tag_id" value="{{.ID}}">
+            <div class="field"><label for="tm-{{.ID}}">Merge into</label><select id="tm-{{.ID}}" name="into_id">{{range $.Data.Tags}}{{if ne .ID $t.ID}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{end}}</select><span class="hint">Its notes take the other tag, and this one goes. A note that has both keeps one.</span></div>
+            <div class="form-actions"><button class="btn" type="submit">Merge</button></div></form>{{end}}
+          <form method="post" action="{{$.Data.UI}}/research/tag-delete"><input type="hidden" name="_csrf" value="{{$.Data.CSRF}}"><input type="hidden" name="tag_id" value="{{.ID}}"><p class="fine">{{.Notes}} {{plural .Notes "note loses" "notes lose"}} this tag and {{plural .Notes "is" "are"}} otherwise unchanged.</p><button class="btn danger" type="submit">Delete the tag {{.Name}}</button></form>
+        </details>{{end}}
+      </li>{{end}}
+    </ul>
+  </section>
+</div>
+{{end}}
+{{end}}

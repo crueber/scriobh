@@ -1,0 +1,70 @@
+# Maintainer: the owner of the Scriobh repository
+#
+# The Scriobh desktop app as an Arch package, made from the .deb the release already builds.
+#
+# This is a -bin package: nothing is compiled. The Tauri bundler's .deb holds the whole install tree under /usr (the
+# shell, the bundled server beside it, the .desktop entry with its MimeType= line for scriobh:// and for .md and
+# .epub, and the icons); this takes that tree as it is, so the entry and the registrations are the .deb's by
+# construction and cannot drift from it. The .deb carries no licence, so LICENSE and NOTICE come from the source tree.
+#
+# Do not run makepkg on this file by hand: desktop/scripts/arch-pkg.sh stages the .deb, LICENSE and NOTICE beside a
+# copy of it, sets pkgver and _deb from the .deb's own control file and pins the three checksums below, and runs
+# makepkg as an unprivileged user (it refuses root). The release workflow and the on-demand desktop workflow call it.
+# The version here is what a hand-run would use; internal/repocheck keeps it equal to tauri.conf.json's.
+#
+# depends: what the shell links, read from the source and checked in CI, not guessed.
+#   webkit2gtk-4.1, gtk3          the webview and the toolkit (the .deb says libwebkit2gtk-4.1-0, libgtk-3-0)
+#   glib2 cairo gdk-pixbuf2       linked directly through the gtk-rs crates; listed because they are linked, although
+#                                 gtk3 brings them (pango is not: namcap on a real build said it is not needed)
+#   libsoup3                      linked directly by the webkit2gtk crate
+#   dbus                          libdbus-1, linked by the window library's dbus feature (default in Tauri 2)
+#   xdg-utils                     the app opens a web or mail link in the person's browser through xdg-open
+#   NOT libayatana-appindicator / libappindicator-gtk3: the shell has no tray icon (cargo tree for Linux builds no
+#   tray-icon, and libxdo is not in Cargo.lock either), so neither is needed. The Linux job's apt list names them
+#   because Tauri's own prerequisites do.
+# `namcap` runs in CI after the package is installed and lists any library that no dependency covers. Its first run
+# (forge run 169, v2.0) found none missing; it called pango and desktop-file-utils unneeded (the latter is a package
+# whose hook runs by itself when installed) and xdg-utils unlinked, which is right: the app runs xdg-open.
+#
+pkgname=scriobh-desktop
+pkgver=2.0.0
+pkgrel=1
+pkgdesc='Scriobh, a private place to write long things: the desktop app'
+arch=('x86_64')
+url='https://github.com/crueber/scriobh'
+license=('MIT')
+depends=('webkit2gtk-4.1' 'gtk3' 'glib2' 'cairo' 'gdk-pixbuf2' 'libsoup3' 'dbus' 'xdg-utils')
+optdepends=('gnome-keyring: keeps the key that protects saved AI and Git credentials in the system keychain (any Secret Service provider does)')
+options=('!strip' '!debug')
+_deb=Scriobh_2.0.0_amd64.deb
+source=("$_deb" 'LICENSE' 'NOTICE')
+noextract=("$_deb")
+sha256sums=('SKIP' 'SKIP' 'SKIP')   # local files; arch-pkg.sh replaces this line with their real sums
+
+package() {
+  # A .deb is an ar archive; bsdtar (libarchive) reads it. data.tar.* is the install tree.
+  bsdtar -xf "$srcdir/$_deb" -C "$srcdir" --include 'data.tar.*'
+  bsdtar -xpf "$srcdir"/data.tar.* -C "$pkgdir" --no-same-owner
+
+  # Only /usr: anything else in the .deb is a surprise to look at, not to install.
+  local top
+  for top in "$pkgdir"/* "$pkgdir"/.[!.]*; do
+    [ -e "$top" ] || continue
+    [ "$top" = "$pkgdir/usr" ] || { echo "the .deb holds ${top#"$pkgdir"/}, not only usr" >&2; return 1; }
+  done
+  chmod 755 "$pkgdir"
+  find "$pkgdir" -type d -exec chmod 755 {} +
+
+  # What the package is for must be there.
+  local f
+  for f in usr/bin/scriobh-desktop usr/bin/scriobh-desktop-server; do
+    [ -f "$pkgdir/$f" ] || { echo "the .deb has no $f" >&2; return 1; }
+    chmod 755 "$pkgdir/$f"
+  done
+  compgen -G "$pkgdir/usr/share/applications/*.desktop" >/dev/null || { echo 'the .deb has no desktop entry' >&2; return 1; }
+  compgen -G "$pkgdir/usr/share/icons/hicolor/*/apps/scriobh-desktop.png" >/dev/null || { echo 'the .deb has no icon' >&2; return 1; }
+  grep -q 'x-scheme-handler/scriobh' "$pkgdir"/usr/share/applications/*.desktop || { echo 'the desktop entry does not register scriobh://' >&2; return 1; }
+
+  install -Dm644 "$srcdir/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "$srcdir/NOTICE" "$pkgdir/usr/share/licenses/$pkgname/NOTICE"
+}

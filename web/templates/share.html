@@ -1,0 +1,53 @@
+{{define "head"}}
+<link rel="stylesheet" href="{{asset "css/read.css"}}">
+<link rel="stylesheet" href="{{asset "css/share.css"}}">
+<script src="{{asset "js/share.js"}}" defer></script>
+{{end}}
+{{/* The page a share link opens. It holds nothing of the project: the script reads the link from the address and fetches
+   everything through /api, sending the passphrase's proof as a header, so this page is the same for every link that
+   opens and carries no word of the book. */}}
+{{define "content"}}
+<div class="sh" id="sh" data-state="loading">
+  <header class="sh-head">
+    <h1 id="sh-title">{{$.T "sh.title"}}</h1>
+    <p class="sh-sub" id="sh-sub"></p>
+  </header>
+  <noscript><p class="sh-note">{{$.T "sh.noscript"}}</p></noscript>
+  <p class="sh-note" id="sh-loading" role="status">{{$.T "sh.loading"}}</p>
+  <section class="sh-unlock" id="sh-unlock" aria-labelledby="sh-unlock-h" hidden>
+    <h2 id="sh-unlock-h">{{$.T "sh.unlock_h"}}</h2>
+    <form id="sh-unlock-form" autocomplete="off">
+      <div class="field"><label for="sh-pass">{{$.T "sh.passphrase"}}</label><input id="sh-pass" name="passphrase" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" required></div>
+      <p class="field-error" id="sh-unlock-err" role="alert" hidden></p>
+      <div class="form-actions"><button class="btn solid" type="submit">{{$.T "sh.unlock"}}</button></div>
+    </form>
+  </section>
+  <section class="sh-gone" id="sh-gone" aria-labelledby="sh-gone-h" hidden>
+    <h2 id="sh-gone-h">{{$.T "sh.gone_h"}}</h2>
+    <p>{{$.T "sh.gone"}}</p>
+  </section>
+  <div class="sh-body" id="sh-main" hidden>
+    <nav class="sh-toc" id="sh-toc" aria-label="{{$.T "sh.toc"}}"><details id="sh-toc-d" open><summary>{{$.T "sh.toc"}}</summary><ol id="sh-toc-list"></ol></details></nav>
+    <div class="sh-tools" id="sh-tools">
+      <button type="button" class="btn quiet small" id="sh-all" hidden>{{$.T "sh.load_all"}}</button>
+      <a class="btn quiet small" id="sh-dl" hidden download>{{$.T "sh.download"}}</a>
+      <button type="button" class="btn quiet small" id="sh-print">{{$.T "sh.print"}}</button>
+    </div>
+    <section class="sh-who" id="sh-who" aria-labelledby="sh-who-h" hidden>
+      <h2 id="sh-who-h">{{$.T "sh.name_h"}}</h2>
+      <p class="fine">{{$.T "sh.name_note"}}</p>
+      <div class="field"><label for="sh-name">{{$.T "sh.name"}}</label><input id="sh-name" type="text" maxlength="60" autocomplete="name"></div>
+    </section>
+    <article class="paper reading-paper" id="sh-book" dir="auto" tabindex="-1"></article>
+    <aside class="sh-margin" id="sh-comments" aria-labelledby="sh-c-h" hidden>
+      <h2 id="sh-c-h">{{$.T "sh.comments"}}</h2>
+      <p class="fine">{{$.T "sh.how"}}</p>
+      <div id="sh-compose" hidden></div>
+      <ol class="sh-threads" id="sh-threads"></ol>
+    </aside>
+    <div class="sh-pop" id="sh-pop" hidden><button type="button" class="btn solid small" id="sh-pop-b">{{$.T "sh.comment"}}</button></div>
+  </div>
+  <div class="sr-only" id="sh-live" role="status" aria-live="polite" aria-atomic="true"></div>
+  <div id="sh-msg" hidden data-msg="{{json ($.Msgs "share.js.")}}"></div>
+</div>
+{{end}}

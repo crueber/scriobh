@@ -1,0 +1,38 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/compendium.css"}}"><script src="{{asset "js/compendium.js"}}" defer></script>{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}
+<section class="library comp" aria-labelledby="library-title">
+  <header class="library-head">
+    <div>
+      <h1 id="library-title" tabindex="-1">Compendiums</h1>
+      <p class="sub">{{len .Items}} {{plural (len .Items) "Compendium" "Compendiums"}}{{if ne .State "active"}}, {{if eq .State "archived"}}archived{{else}}in the trash{{end}}{{end}}</p>
+    </div>
+    {{if .IsWriter}}<div class="head-actions"><a class="btn solid" href="/ui/compendiums/new" hx-get="/ui/compendiums/new" hx-target="#dialog-body" hx-swap="innerHTML">New Compendium</a></div>{{end}}
+  </header>
+  <nav class="views" aria-label="Library views">
+    <a href="/">Your work</a>
+    <a href="/?state=archived">Archived</a>
+    <a href="/?state=trashed">Trash</a>
+    <a href="/compendiums" aria-current="page">Compendiums</a>
+  </nav>
+  <p class="sub comp-intro">A Compendium is a bible for a book or a series: characters, places, items, organisations and ideas, with research beside them. One can serve several projects, or stand alone with no project at all.</p>
+  {{if .SavedText}}<p class="saved" role="status">{{.SavedText}}</p>{{end}}
+  <nav class="cstates" aria-label="Which Compendiums">
+    <a href="/compendiums"{{if eq .State "active"}} aria-current="true"{{end}}>Active</a>
+    <a href="/compendiums?state=archived"{{if eq .State "archived"}} aria-current="true"{{end}}>Archived</a>
+    <a href="/compendiums?state=trashed"{{if eq .State "trashed"}} aria-current="true"{{end}}>Trash</a>
+  </nav>
+  <div id="cfrag" data-live-refresh>
+  {{if .Items}}
+  <ul class="ccards" aria-label="Compendiums">
+    {{range .Items}}{{template "compendium-card" (dict "C" . "State" $d.State "CSRF" $d.CSRF)}}{{end}}
+  </ul>
+  {{else if eq .State "archived"}}<div class="empty"><p>Nothing is archived.</p></div>
+  {{else if eq .State "trashed"}}<div class="empty"><p>The trash holds no Compendiums that you own.</p></div>
+  {{else}}<div class="empty"><p>No Compendiums yet. Make one for a book, or for a world that several books share.</p>
+    {{if .IsWriter}}<div class="head-actions"><a class="btn solid" href="/ui/compendiums/new" hx-get="/ui/compendiums/new" hx-target="#dialog-body" hx-swap="innerHTML">New Compendium</a></div>{{else}}<p class="fine">Ask an administrator to give you a writer account, or ask a Compendium's owner to add you.</p>{{end}}</div>
+  {{end}}
+  </div>
+</section>
+{{end}}
+{{end}}

@@ -1,0 +1,23 @@
+{{define "head"}}
+<link rel="stylesheet" href="{{asset "css/boards.css"}}">
+{{if .Data.CanEdit}}<script src="{{asset "js/boards.js"}}" defer></script>{{end}}
+{{end}}
+
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">Status board</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "board" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "board" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "board" .Data.Project.Role}}{{end}}
+
+{{define "content"}}
+{{with .Data}}
+<section class="boards" id="board" aria-labelledby="b-title" data-view="board" data-project="{{.ProjectID}}" data-slug="{{.Slug}}" data-can-edit="{{.CanEdit}}" data-statuses="{{.StatusMap}}">
+  <h1 id="b-title" tabindex="-1">Status board</h1>
+  <p class="b-help">Each card is a chapter, scene or other document, in the column for its status.{{if .CanEdit}} Focus a card, then press the left or right arrow, or use its buttons, to move it to another status.{{end}}</p>
+  <div id="b-body">{{template "board-body" .}}</div>
+  <div id="b-live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+  {{template "live-marker" (dict "Scope" "project" "ID" .ProjectID)}}
+</section>
+{{end}}
+{{end}}

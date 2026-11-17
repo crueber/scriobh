@@ -1,0 +1,6 @@
+{
+  "identifier": "none",
+  "description": "The only capability of the Scríobh desktop shell, and it grants nothing. It names the shell's windows so that the list of what a page may ask of the shell is written down and is empty. It has no `remote` entry, so a page loaded from http://127.0.0.1 is outside every capability. src-tauri/tests/lockdown.rs fails if a permission or a remote origin is ever added here.",
+  "windows": ["main-*", "error-*"],
+  "permissions": []
+}

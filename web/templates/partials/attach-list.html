@@ -1,0 +1,19 @@
+{{define "attach-list"}}<div id="att-list" class="att-list" data-list="{{.Owner.ListPath}}{{if or .Kind .Cursor}}?{{if .Cursor}}cursor={{.Cursor}}{{end}}{{if and .Kind .Cursor}}&amp;{{end}}{{if .Kind}}kind={{.Kind}}{{end}}{{end}}">
+{{if .Rows}}<ul class="att-grid">{{range .Rows}}
+  <li class="att-card" data-id="{{.ID}}">
+    <a class="att-thumb" href="{{$.Owner.Base}}/files/{{.ID}}" tabindex="-1" aria-hidden="true">{{if .IsImage}}<img src="{{.URL}}" alt="" loading="lazy" decoding="async">{{else}}<span class="att-badge">{{.KindLabel}}</span>{{end}}</a>
+    <div class="att-info">
+      <h3><a href="{{$.Owner.Base}}/files/{{.ID}}">{{.Filename}}</a></h3>
+      <p class="fine">{{.KindLabel}}, {{.Size}}{{if .Width}}, {{.Width}} by {{.Height}}{{end}}</p>
+      <p class="fine">{{if .When}}Added {{.When}}. {{end}}{{if .Refs}}Used in {{.Refs}} {{plural .Refs "place" "places"}}.{{else}}Not used yet.{{end}}</p>
+      {{if .Alt}}<p class="att-alt">{{.Alt}}</p>{{end}}
+      <button type="button" class="btn small quiet" data-copy="{{.Markdown}}" aria-label="Copy the Markdown for {{.Filename}}" hidden>Copy Markdown</button>
+    </div>
+  </li>{{end}}
+</ul>
+{{if .Next}}<p class="pager"><a class="btn" href="{{.Owner.Base}}/files?cursor={{.Next}}{{if .Kind}}&amp;kind={{.Kind}}{{end}}">Show more files</a></p>{{end}}
+{{else}}<div class="empty-line">
+  <p>{{if .Kind}}No files of this kind yet.{{else}}No files yet.{{end}}</p>
+  {{if .Owner.CanEdit}}<p class="fine">Add a picture, a PDF or a text file above, or drop an image into a chapter while you write.</p>{{else}}<p class="fine">Only editors can add files.</p>{{end}}
+</div>{{end}}
+</div>{{end}}

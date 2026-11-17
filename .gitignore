@@ -1,0 +1,48 @@
+# Data and runtime
+data/
+!internal/publish/font/data/
+*.db
+*.db-wal
+*.db-shm
+conflicts/
+backups/
+tmp/
+
+# Secrets and local config
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Build output
+/scriobh
+/scriobh-cli
+/dist/
+/build/
+*.test
+*.out
+coverage.*
+
+# Editor and OS
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Agent session state
+.opencode/
+scriobh.env
+!internal/db/testdata/*.db
+__pycache__/
+
+
+# Scrivener fixtures hold a Files/Data folder
+!internal/imports/testdata/**/Data/
+!scripts/fixtures/**/Data/
+/cmd/scriobh/scriobh
+/cmd/scriobh-cli/scriobh-cli
+/cmd/scriobh-skillgen/scriobh-skillgen
+/cmd/scriobh-dev-idp/scriobh-dev-idp
+/cmd/scriobh-dev-gitserver/scriobh-dev-gitserver

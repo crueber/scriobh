@@ -1,0 +1,115 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/compile.css"}}"><script src="{{asset "js/compile.js"}}" defer></script><script src="{{asset "js/compile-print.js"}}" defer></script>{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "cmp.title"}}</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "compile" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "compile" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "compile" .Data.Project.Role}}{{end}}
+{{define "content"}}
+{{with .Data}}
+<div class="settings cmp" id="cmp" data-project="{{.ProjectID}}" data-presets="{{.Presets}}" data-options="{{.Options}}" data-cover="{{.Cover}}" data-dir="{{.Dir}}" data-lang="{{.Lang}}" data-csrf="{{.CSRF}}" data-pandoc="{{.Pandoc}}">
+  <h1>{{$.T "cmp.title"}}</h1>
+  <p class="sub">{{.Project.Title}}. {{$.T "cmp.intro"}}</p>
+  {{if .Flash}}<p class="saved" role="status">{{.Flash}}</p>{{end}}
+  {{if .Error}}<p class="field-error" role="alert">{{.Error}}</p>{{end}}
+  <noscript><p class="field-error">{{$.T "cmp.noscript"}}</p></noscript>
+
+  <div class="cmp-grid">
+  <div class="cmp-setup">
+    <section aria-labelledby="cmp-p-h">
+      <h2 id="cmp-p-h">{{$.T "cmp.preset"}}</h2>
+      <div class="field"><label for="cmp-preset">{{$.T "cmp.preset_pick"}}</label><select id="cmp-preset"></select></div>
+      <p class="fine" id="cmp-desc"></p>
+      <div class="cmp-presetbar" id="cmp-presetbar">
+        <button type="button" class="btn quiet small" id="cmp-save-new">{{$.T "cmp.save_new"}}</button>
+        <button type="button" class="btn quiet small" id="cmp-update" hidden>{{$.T "cmp.update"}}</button>
+        <button type="button" class="btn quiet small danger-text" id="cmp-delete" hidden>{{$.T "cmp.delete"}}</button>
+      </div>
+      <form class="cmp-namebox" id="cmp-namebox" hidden>
+        <div class="field"><label for="cmp-name">{{$.T "cmp.name"}}</label><input id="cmp-name" type="text" maxlength="80" autocomplete="off"></div>
+        <div class="form-actions"><button type="button" class="btn quiet small" id="cmp-name-cancel">{{$.T "cmp.cancel"}}</button><button type="submit" class="btn solid small">{{$.T "cmp.save"}}</button></div>
+      </form>
+    </section>
+    <section aria-labelledby="cmp-o-h">
+      <h2 id="cmp-o-h">{{$.T "cmp.options"}}</h2>
+      <p class="fine">{{$.T "cmp.options_note"}}</p>
+      <div id="cmp-opts"></div>
+    </section>
+    <div class="cmp-actions">
+      <div class="field"><label for="cmp-show">{{$.T "cmp.show"}}</label><select id="cmp-show"><option value="3">3</option><option value="6">6</option><option value="12">12</option></select></div>
+      <button type="button" class="btn solid" id="cmp-preview">{{$.T "cmp.preview"}}</button>
+      <button type="button" class="btn" id="cmp-download">{{$.T "cmp.download"}}</button>
+      <button type="button" class="btn" id="cmp-submit">{{$.T "cmp.submission"}}</button>
+    </div>
+    <p class="fine" id="cmp-subnote">{{$.T "cmp.sub_note"}}</p>
+    <p class="fine" id="cmp-printnote" hidden>{{$.T "cmp.print_note"}}</p>
+    <p class="cmp-status" id="cmp-status" role="status" aria-live="polite"></p>
+    <section class="cmp-manifest" id="cmp-manifest" aria-labelledby="cmp-m-h" hidden>
+      <h2 id="cmp-m-h">{{$.T "cmp.manifest"}}</h2>
+      <dl class="cmp-facts" id="cmp-mfacts"></dl>
+    </section>
+
+    <section class="cmp-cover" id="cmp-cover" aria-labelledby="cmp-cv-h" hidden>
+      <h2 id="cmp-cv-h">{{$.T "cmp.cover"}}</h2>
+      <p class="fine">{{$.T "cmp.cover_note"}}</p>
+      <form id="cmp-cv-form" novalidate>
+        <div class="field"><label for="cv-thick">{{$.T "cmp.cv_thick"}}</label><input id="cv-thick" type="number" inputmode="decimal" step="any" min="0.0005" max="0.01" required aria-describedby="cv-thick-h"><span class="hint" id="cv-thick-h">{{$.T "cmp.cv_thick_hint"}}</span></div>
+        <div class="field-row">
+          <div class="field"><label for="cv-pages">{{$.T "cmp.cv_pages"}}</label><input id="cv-pages" type="number" inputmode="numeric" step="1" min="2" max="1500" aria-describedby="cv-pages-h"><span class="hint" id="cv-pages-h">{{$.T "cmp.cv_pages_hint"}}</span></div>
+          <div class="field"><label for="cv-bleed">{{$.T "cmp.cv_bleed"}}</label><input id="cv-bleed" type="number" inputmode="decimal" step="any" min="0" max="0.5" placeholder="0.125" aria-describedby="cv-bleed-h"><span class="hint" id="cv-bleed-h">{{$.T "cmp.cv_bleed_hint"}}</span></div>
+        </div>
+        <div class="field"><label class="check"><input type="checkbox" id="cv-guides"><span>{{$.T "cmp.cv_guides"}}</span></label></div>
+        <div class="field"><label class="check"><input type="checkbox" id="cv-barcode"><span>{{$.T "cmp.cv_barcode"}}</span></label></div>
+        <div class="cmp-actions"><button type="submit" class="btn solid">{{$.T "cmp.cv_measure"}}</button><button type="button" class="btn" id="cv-download">{{$.T "cmp.cv_download"}}</button></div>
+      </form>
+      <div id="cv-out" hidden>
+        <div class="cmp-wrap" id="cv-art"></div>
+        <p class="fine">{{$.T "cmp.cv_art_note"}}</p>
+        <dl class="cmp-facts" id="cv-facts"></dl>
+        <div id="cv-warn"></div>
+      </div>
+    </section>
+
+    {{template "compile-kindle" (dict "P" $ "K" .Kindle "ID" .ProjectID "Slug" .Slug "CSRF" .CSRF)}}
+    <section id="contact" aria-labelledby="cmp-c-h">
+      <h2 id="cmp-c-h">{{$.T "cmp.contact"}}</h2>
+      <p class="notice-line">{{$.T "cmp.contact_note"}}</p>
+      <form class="form" method="post" action="/ui/projects/{{.ProjectID}}/compile/contact">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <div class="field-row">
+          <div class="field"><label for="ct-name">{{$.T "cmp.c_name"}}</label><input id="ct-name" name="name" type="text" maxlength="200" value="{{.Contact.Name}}" autocomplete="name"></div>
+          <div class="field"><label for="ct-surname">{{$.T "cmp.c_surname"}}</label><input id="ct-surname" name="surname" type="text" maxlength="100" value="{{.Contact.Surname}}"><span class="hint">{{$.T "cmp.c_surname_hint"}}</span></div>
+        </div>
+        <div class="field"><label for="ct-address">{{$.T "cmp.c_address"}}</label><textarea id="ct-address" name="address" rows="4" maxlength="600">{{.Contact.Address}}</textarea></div>
+        <div class="field-row">
+          <div class="field"><label for="ct-email">{{$.T "cmp.c_email"}}</label><input id="ct-email" name="email" type="text" inputmode="email" maxlength="200" value="{{.Contact.Email}}" autocomplete="email"></div>
+          <div class="field"><label for="ct-phone">{{$.T "cmp.c_phone"}}</label><input id="ct-phone" name="phone" type="text" inputmode="tel" maxlength="60" value="{{.Contact.Phone}}" autocomplete="tel"></div>
+        </div>
+        <div class="form-actions"><button class="btn small" type="submit">{{$.T "cmp.c_save"}}</button></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="cmp-result" id="cmp-result">
+    <h2 id="cmp-r-h" tabindex="-1">{{$.T "cmp.result"}}</h2>
+    <p class="fine" id="cmp-empty">{{$.T "cmp.empty"}}</p>
+    <div id="cmp-out" hidden>
+    <p class="cmp-sum" id="cmp-sum"></p>
+    <div id="cmp-notices"></div>
+    <div class="cmp-viewer" id="cmp-viewer" role="region" aria-label="{{$.T "cmp.viewer"}}" tabindex="0" dir="{{.Dir}}" lang="{{.Lang}}" aria-describedby="cmp-viewhint">
+      <div class="cmp-bar"><button type="button" class="btn quiet small" id="cmp-prev">{{$.T "cmp.prev"}}</button><span class="cmp-pos" id="cmp-pos" aria-live="polite"></span><button type="button" class="btn quiet small" id="cmp-next">{{$.T "cmp.next"}}</button></div>
+      <div class="cmp-paper" id="cmp-paper"></div>
+    </div>
+    <p class="fine" id="cmp-viewhint">{{$.T "cmp.viewhint"}}</p>
+    <p class="fine" id="cmp-proofnote" hidden>{{$.T "cmp.proof_note"}}</p>
+    <dl class="cmp-facts cmp-pfacts" id="cmp-pfacts" hidden></dl>
+    <details class="cmp-fold" id="cmp-check-d" hidden><summary>{{$.T "cmp.check"}}</summary><ul class="cmp-list cmp-check" id="cmp-check"></ul></details>
+    <details open class="cmp-fold"><summary>{{$.T "cmp.outline"}}</summary><ol class="cmp-outline" id="cmp-outline"></ol></details>
+    <details class="cmp-fold" id="cmp-excl-d"><summary id="cmp-excl-s"></summary><ul class="cmp-list" id="cmp-excl"></ul></details>
+    </div>
+  </div>
+  </div>
+  <div id="cmp-msg" hidden data-msg="{{json ($.Msgs "cmp.js.")}}"></div>
+</div>
+{{end}}
+{{end}}

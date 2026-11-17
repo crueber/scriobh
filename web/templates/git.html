@@ -1,0 +1,83 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/git.css"}}"><script src="{{asset "js/git.js"}}" defer></script><script src="{{asset "js/arm.js"}}" defer></script>{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="{{$.T "git.crumb"}}"><a href="/">{{template "icon" "chevron-left"}}<span>{{$.T "git.library"}}</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "git.title"}}</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "git" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "git" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "git" .Data.Project.Role}}{{end}}
+{{define "content"}}
+{{with .Data}}
+<div class="settings git">
+  <h1>{{$.T "git.title"}}</h1>
+  <p class="sub">{{.Project.Title}}. {{$.T "git.intro"}}</p>
+  <p class="sr-only" id="git-announce" role="status" aria-live="polite"></p>
+  {{if .Error}}<p class="field-error" role="alert" id="git-error" tabindex="-1" data-result>{{.Error}}</p>{{end}}
+  {{if .SavedText}}<p class="saved" role="status"{{if not .NewSecret}} tabindex="-1" data-result{{end}}>{{.SavedText}}</p>{{end}}
+  {{if .NewSecret}}<div class="once" role="status" id="git-once" tabindex="-1" data-result>
+    <p><strong>{{$.T "git.remotes.trigger_secret"}}</strong> {{$.T "git.remotes.trigger_secret_once"}}</p>
+    <div class="keybox"><code id="git-secret" class="wrap">{{.NewSecret}}</code><button type="button" class="btn small" data-copy="#git-secret" data-copied="{{$.T "git.copied_secret"}}" data-selected="{{$.T "git.selected_secret"}}" hidden>{{$.T "git.copy_secret"}}</button></div>
+    <p class="fine">{{$.T "git.trigger.verify"}}</p>
+    <p class="fine">{{$.T "git.trigger.once_note"}}</p>
+  </div>{{else if .SecretGone}}<p class="notice-line" role="status" id="git-once" tabindex="-1" data-result>{{$.T "git.trigger.gone"}}</p>{{end}}
+  {{if .TriggerOK}}<p class="saved" role="status" id="git-trigger-result" tabindex="-1" data-result>{{$.T "git.trigger.result"}} {{.TriggerOK}}</p>{{end}}
+
+  {{if not .Enabled}}<p class="notice-line" role="note"><strong>{{$.T "git.banner.no_secret"}}</strong> {{.Disabled}}</p>{{end}}
+
+  {{if .Rows}}{{template "git-remotes" .}}{{end}}
+
+  {{if .Remote}}
+    {{template "git-live" .}}
+    <section id="setup" aria-labelledby="h-setup">
+      <h2 id="h-setup">{{$.T "git.setup.h"}}</h2>
+      {{template "git-setup" .}}
+    </section>
+    <section id="settings" aria-labelledby="h-settings">
+      <h2 id="h-settings">{{$.T "git.settings.h"}}</h2>
+      {{template "git-settings" .}}
+    </section>
+    <section id="carries" aria-labelledby="h-carries">
+      <h2 id="h-carries">{{$.T "git.carries.h"}}</h2>
+      {{template "git-carries" .}}
+    </section>
+    {{if .IsOwner}}<section id="signing" aria-labelledby="h-signing">
+      <h2 id="h-signing">{{$.T "git.signing.h"}}</h2>
+      {{template "git-signing" .}}
+    </section>
+    <section id="trigger" aria-labelledby="h-trigger">
+      <h2 id="h-trigger">{{$.T "git.trigger.h"}}</h2>
+      {{template "git-trigger" .}}
+    </section>{{end}}
+    {{with .Mirror}}<section id="mirror" aria-labelledby="h-mirror">
+      <h2 id="h-mirror">{{$.T "git.mirror.h"}}</h2>
+      <p class="sub">{{$.T "git.mirror.sub"}}</p>
+      <div class="mirror-line" data-state="{{.State}}" role="status"><p class="mirror-text"><strong>{{.Line}}</strong>{{if .Detail}} <span class="fine">{{.Detail}}</span>{{end}}</p></div>
+      {{if .CanRebuild}}<form method="post" action="/ui/projects/{{$.Data.Project.ID}}/mirror/rebuild"><input type="hidden" name="_csrf" value="{{$.Data.CSRF}}"><input type="hidden" name="back" value="/p/{{$.Data.Slug}}/git?remote={{$.Data.Remote.ID}}#mirror"><button class="btn small" type="submit">{{$.T "git.mirror.rebuild"}}</button></form>{{end}}
+    </section>{{end}}
+    {{if .CanAdd}}<section id="add" aria-labelledby="h-add">
+      <h2 id="h-add">{{$.T "git.add.another"}}</h2>
+      {{template "git-add" .AddView}}
+    </section>{{else if .IsOwner}}<p class="fine" id="add">{{$.T "git.remotes.limit" "n" .MaxRemotes}}</p>{{end}}
+    {{if .IsOwner}}<section id="danger" aria-labelledby="h-danger">
+      <h2 id="h-danger">{{$.T "git.danger.h"}}</h2>
+      <p class="sub">{{$.T "git.danger.sub"}}</p>
+      <form class="form" method="post" action="/ui/projects/{{.Project.ID}}/git/delete">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="remote_id" value="{{.Remote.ID}}">
+        <div class="field"><label for="gd-confirm">{{$.T "git.danger.type"}} <strong>{{.Remote.Name}}</strong></label>
+          <input id="gd-confirm" type="text" name="confirm" autocomplete="off" spellcheck="false" data-confirm="{{.Remote.Name}}"{{if eq .Field "confirm"}} aria-invalid="true" aria-describedby="git-error"{{end}}></div>
+        <div class="form-actions"><button class="btn danger" type="submit" data-confirm-submit>{{$.T "git.danger.go"}}</button></div>
+      </form>
+    </section>{{end}}
+  {{else}}
+    <section id="add" aria-labelledby="h-add">
+      <h2 id="h-add">{{$.T "git.add.h"}}</h2>
+      {{if .IsOwner}}
+      {{template "git-add" .}}
+      {{if .CanPublish}}<p class="fine">{{$.T "git.add.publish_hint"}} <a href="/p/{{.Slug}}/git/publish">{{$.T "git.publish.title"}}</a></p>{{end}}
+      {{else}}
+      <p class="empty-line">{{$.T "git.add.none"}}</p>
+      {{end}}
+    </section>
+  {{end}}
+</div>
+{{end}}
+{{end}}

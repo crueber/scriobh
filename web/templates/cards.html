@@ -1,0 +1,27 @@
+{{define "head"}}
+<link rel="stylesheet" href="{{asset "css/boards.css"}}">
+{{if .Data.CanEdit}}<script src="{{asset "js/boards.js"}}" defer></script>{{end}}
+{{end}}
+
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">Corkboard</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "cards" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "cards" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "cards" .Data.Project.Role}}{{end}}
+
+{{define "content"}}
+{{with .Data}}
+<section class="boards" id="cards" aria-labelledby="b-title" data-view="cards" data-project="{{.ProjectID}}" data-slug="{{.Slug}}" data-can-edit="{{.CanEdit}}" data-filter="{{.Filter}}" data-targets="{{.TargetsJSON}}">
+  <h1 id="b-title" tabindex="-1">Corkboard</h1>
+  {{if .Cards}}<form class="b-filter" method="get" action="/p/{{.Slug}}/cards" aria-label="Filter the cards">
+    <div class="field"><label for="b-status">Show</label>
+      <select id="b-status" name="status"><option value="">Every status</option>{{range .Statuses}}<option value="{{.Value}}"{{if eq .Value $.Data.Filter}} selected{{end}}>{{.Label}}</option>{{end}}</select></div>
+    <button class="btn" type="submit">Show</button>
+  </form>{{end}}
+  <div id="b-body">{{template "cards-body" .}}</div>
+  <div id="b-live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+  {{template "live-marker" (dict "Scope" "project" "ID" .ProjectID)}}
+</section>
+{{end}}
+{{end}}

@@ -1,0 +1,1 @@
+{{define "kind-label"}}{{$k := .}}{{range kinds}}{{if eq .Value $k}}{{.Label}}{{end}}{{end}}{{end}}

@@ -1,0 +1,91 @@
+{{define "git-live"}}{{$r := .Remote}}
+<div id="git-live" class="git-live" data-poll="{{.Poll}}" data-src="/ui/projects/{{.Project.ID}}/git/status?remote={{$r.ID}}" data-state="{{$r.Status.State}}"{{if .Poll}} aria-busy="true"{{end}}>
+  <section id="status" aria-labelledby="h-status">
+    <h2 id="h-status">{{$.Pg.T "git.status.h"}}</h2>
+    <div class="banner" data-tone="{{.Banner.Tone}}" id="git-banner">
+      <p class="banner-head"><span class="mark" aria-hidden="true"></span><strong id="git-headline">{{.Banner.Headline}}</strong></p>
+      {{if .Banner.Detail}}<p class="banner-detail">{{.Banner.Detail}}</p>{{end}}
+      {{if .Banner.Hint}}<p class="banner-hint">{{.Banner.Hint}}</p>{{end}}
+    </div>
+    <dl class="facts git-facts">
+      <div><dt>{{$.Pg.T "git.status.remote"}}</dt><dd>{{$r.Name}}</dd></div>
+      <div><dt>{{$.Pg.T "git.facts.address"}}</dt><dd class="wrap">{{$r.URL}}</dd></div>
+      <div><dt>{{$.Pg.T "git.facts.branch"}}</dt><dd>{{$r.Branch}}{{if $r.PathPrefix}}, {{$.Pg.T "git.status.folder"}} {{$r.PathPrefix}}{{end}}</dd></div>
+      <div><dt>{{$.Pg.T "git.remotes.audience"}}</dt><dd>{{if eq $r.Audience "public"}}{{$.Pg.T "git.audience.public.short"}}{{if $r.OnlyDone}}, {{$.Pg.T "git.remotes.only_done"}}{{end}}{{else}}{{$.Pg.T "git.audience.private.short"}}{{end}}</dd></div>
+      <div><dt>{{$.Pg.T "git.status.commits_as"}}</dt><dd class="wrap">{{$r.Author}}</dd></div>
+    </dl>
+    {{if .CanEdit}}<div class="row-actions">
+      {{if $r.RestorePaused}}
+      {{if .IsOwner}}<form method="post" action="/ui/projects/{{.Project.ID}}/git/enable"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="remote_id" value="{{$r.ID}}"><button class="btn solid" type="submit">{{$.Pg.T "git.remotes.switch_on"}}</button></form>{{else}}<p class="fine">{{$.Pg.T "git.owner_only"}}</p>{{end}}
+      {{else}}
+      {{if $r.Status.Running}}
+      <form method="post" action="/ui/projects/{{.Project.ID}}/git/cancel"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="remote_id" value="{{$r.ID}}"><button class="btn" type="submit">{{$.Pg.T "git.status.cancel"}}</button></form>
+      {{else}}
+      <form method="post" action="/ui/projects/{{.Project.ID}}/git/push"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="remote_id" value="{{$r.ID}}"><button class="btn solid" type="submit"{{if not $r.Enabled}} disabled{{end}}>{{$.Pg.T "git.status.push"}}</button></form>
+      {{end}}
+      {{if .IsOwner}}<form method="post" action="/ui/projects/{{.Project.ID}}/git/{{if $r.Enabled}}disable{{else}}enable{{end}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="remote_id" value="{{$r.ID}}"><button class="btn quiet" type="submit">{{if $r.Enabled}}{{$.Pg.T "git.status.off"}}{{else}}{{$.Pg.T "git.status.on"}}{{end}}</button></form>{{end}}
+      {{if and .IsOwner (eq $r.AuthKind "https_token") (or (eq $r.Preset "github") (eq $r.Preset "forgejo"))}}<a class="btn quiet" href="/p/{{.Slug}}/git/release?remote={{$r.ID}}">{{$.Pg.T "git.publish.release"}}</a>{{end}}
+      {{end}}
+    </div>{{end}}
+  </section>
+
+  {{if eq $r.Status.State "rejected"}}
+  <section id="diverged" aria-labelledby="h-div">
+    <h2 id="h-div">{{$.Pg.T "git.div.h"}}</h2>
+    {{with $r.Status.Rejected}}<p class="sub">{{$.Pg.T "git.div.sub" "host" $r.Host}}{{if .MoreCommits}} {{$.Pg.T "git.div.more"}}{{end}} {{$.Pg.T "git.div.sub2"}}</p>
+    {{if .Commits}}<ol class="commits">{{range .Commits}}<li><code>{{sha7 .SHA}}</code> <span class="c-subject">{{.Subject}}</span> <span class="fine">{{.Author}}{{with utcWhen .When}}, {{.}}{{end}}</span></li>{{end}}</ol>
+    {{else}}<p class="fine">{{$.Pg.T "git.div.unread"}}</p>{{end}}{{else}}<p class="sub">{{$.Pg.T "git.div.none" "host" $r.Host}}</p>{{end}}
+    <h3>{{$.Pg.T "git.div.two"}}</h3>
+    <div class="exits">
+      <div class="exit">
+        <h4>{{$.Pg.T "git.div.replace_h"}}</h4>
+        <p>{{$.Pg.T "git.div.replace"}}</p>
+        {{if $.IsOwner}}<a class="btn danger" href="/p/{{$.Slug}}/git/force?remote={{$r.ID}}" hx-get="/ui/projects/{{$.Project.ID}}/git/force?remote={{$r.ID}}" hx-target="#dialog-body" hx-swap="innerHTML">{{$.Pg.T "git.div.replace_go"}}</a>
+        {{else}}<p class="fine">{{$.Pg.T "git.owner_only_this"}}</p>{{end}}
+      </div>
+      <div class="exit">
+        <h4>{{$.Pg.T "git.div.import_h"}}</h4>
+        <p>{{$.Pg.T "git.div.import"}}</p>
+        {{if $.IsOwner}}<a class="btn" href="/import/git?project={{$.Slug}}">{{$.Pg.T "git.div.import_go"}}</a>
+        {{else}}<p class="fine">{{$.Pg.T "git.owner_only_this"}}</p>{{end}}
+      </div>
+    </div>
+  </section>
+  {{end}}
+
+  {{if $.Secrets}}
+  <section id="secrets" aria-labelledby="h-sec">
+    <h2 id="h-sec">{{$.Pg.T "git.sec.h"}}</h2>
+    <p class="sub">{{$.Pg.T "git.sec.sub"}}</p>
+    <ul class="secrets">{{range $.Secrets}}
+      <li>
+        <p><strong class="wrap">{{.Path}}</strong> {{$.Pg.T "git.sec.looks"}} {{.Rule}} <span class="fine">({{$.Pg.T "git.sec.fp"}} {{.Short}})</span></p>
+        {{if $.IsOwner}}<form method="post" action="/ui/projects/{{$.Project.ID}}/git/secret-ack"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="remote_id" value="{{$r.ID}}"><input type="hidden" name="path" value="{{.Path}}"><input type="hidden" name="sha256" value="{{.SHA}}"><button class="btn small" type="submit">{{$.Pg.T "git.sec.ack"}}</button></form>
+        {{else}}<p class="fine">{{$.Pg.T "git.sec.owner_only"}}</p>{{end}}
+      </li>{{end}}
+    </ul>
+    <p class="fine"><strong>{{$.Pg.T "git.sec.edit"}}</strong> {{$.Pg.T "git.sec.edit2"}}</p>
+  </section>
+  {{end}}
+  {{if $r.Acknowledged}}
+  <section id="acked" aria-labelledby="h-ack">
+    <h2 id="h-ack">{{$.Pg.T "git.ack.h"}}</h2>
+    <ul class="secrets">{{range $r.Acknowledged}}<li><p><strong class="wrap">{{.Path}}</strong> <span class="fine">{{$.Pg.T "git.ack.note"}}</span></p>
+      {{if $.IsOwner}}<form method="post" action="/ui/projects/{{$.Project.ID}}/git/secret-unack"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="remote_id" value="{{$r.ID}}"><input type="hidden" name="path" value="{{.Path}}"><input type="hidden" name="sha256" value="{{.SHA256}}"><button class="btn quiet small" type="submit">{{$.Pg.T "git.ack.off"}}</button></form>{{end}}</li>{{end}}</ul>
+  </section>
+  {{end}}
+
+  <section id="history" aria-labelledby="h-hist">
+    <h2 id="h-hist">{{$.Pg.T "git.hist.h"}}</h2>
+    {{if .Pushes}}<ol class="pushes">{{range .Pushes}}
+      <li data-tone="{{.Tone}}">
+        <p class="push-head"><span class="mark" aria-hidden="true"></span><strong>{{.Word}}</strong> <span class="fine">{{.When}}{{if .Trigger}}, {{$.Pg.T (printf "git.trig.%s" .Trigger)}}{{end}}</span></p>
+        {{if .Subject}}<p class="push-sub">{{.Subject}}</p>{{end}}
+        <p class="fine">{{if .Short}}{{$.Pg.T "git.hist.commit"}} <code>{{.Short}}</code>{{end}}{{if .FilesChanged}}{{if .Short}}, {{end}}{{$.Pg.N "git.hist.files" .FilesChanged}}{{end}}</p>
+        {{if .Detail}}<p class="fine">{{.Detail}}</p>{{end}}
+        {{if .Short}}<a class="push-link" href="/p/{{$.Slug}}/git/pushes/{{.ID}}">{{$.Pg.T "git.hist.sent"}}</a>{{end}}
+      </li>{{end}}</ol>
+    {{else}}<p class="fine">{{$.Pg.T "git.hist.none"}}</p>{{end}}
+  </section>
+</div>
+{{end}}

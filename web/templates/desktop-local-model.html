@@ -1,0 +1,44 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/admin.css"}}">{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="{{$.T "desktop.crumb"}}"><a href="/">{{template "icon" "chevron-left"}}<span>{{$.T "desktop.library"}}</span></a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "desktop.lm_title"}}</span></nav>
+{{end}}
+{{define "tab-write"}}{{end}}
+{{define "content"}}
+{{with .Data}}
+<div class="settings adm" id="desk-lm">
+  <h1>{{$.T "desktop.lm_title"}}</h1>
+  <p class="sub">{{$.T "desktop.lm_intro"}}</p>
+  {{if .Error}}<p class="field-error" role="alert" id="lm-error">{{.Error}}</p>{{end}}
+  {{if .Added}}<p class="saved" role="status" id="lm-added">{{$.T "desktop.lm_added"}} <a href="/settings/ai">{{$.T "desktop.lm_added_link"}}</a></p>{{end}}
+
+  <section aria-labelledby="lm-look-h">
+    <h2 id="lm-look-h">{{$.T "desktop.lm_look_h"}}</h2>
+    <p>{{$.T "desktop.lm_look_p"}}</p>
+    <form method="post" action="/ui/desktop/local-model/detect"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn solid" type="submit" id="lm-detect">{{$.T "desktop.lm_look_go"}}</button></form>
+  </section>
+
+  {{if .Looked}}
+  <section aria-labelledby="lm-result-h" id="lm-result">
+    <h2 id="lm-result-h">{{$.T "desktop.lm_result_h"}}</h2>
+    {{if not .Found}}
+    <p role="status" id="lm-none">{{$.T "desktop.lm_not_found"}}</p>
+    <p class="fine">{{$.T "desktop.lm_not_found_help"}}</p>
+    {{else if not .Models}}
+    <p role="status" id="lm-empty">{{$.T "desktop.lm_no_models"}}</p>
+    {{else}}
+    <p role="status">{{$.N "desktop.lm_found" (len .Models)}}</p>
+    <ul class="lm-models">
+      {{range .Models}}<li><form method="post" action="/ui/desktop/local-model/use"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="model" value="{{.Name}}"><span class="lm-name" dir="ltr">{{.Name}}</span>{{if .Parameters}} <span class="fine" dir="ltr">{{.Parameters}}</span>{{end}} <button class="btn" type="submit">{{$.T "desktop.lm_use" "model" .Name}}</button></form></li>{{end}}
+    </ul>
+    {{end}}
+  </section>
+  {{end}}
+
+  <section aria-labelledby="lm-about-h">
+    <h2 id="lm-about-h">{{$.T "desktop.lm_about_h"}}</h2>
+    <p>{{$.T "desktop.lm_about_p"}}</p>
+    <p class="fine">{{$.T "desktop.lm_about_fine"}}</p>
+  </section>
+</div>
+{{end}}
+{{end}}

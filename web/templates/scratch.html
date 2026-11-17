@@ -1,0 +1,31 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/research.css"}}"><script src="{{asset "js/pad.js"}}" defer></script>{{end}}
+{{define "crumb"}}{{template "res-crumb" (dict "O" .Data "Here" "Scratchpad")}}{{end}}
+{{define "tab-write"}}{{template "res-tab" (dict "O" .Data "Active" "scratch")}}{{end}}
+{{define "ptabs"}}{{template "res-ptabs" (dict "O" .Data "Active" "scratch")}}{{end}}
+{{define "projmore"}}{{template "res-more" (dict "O" .Data "Active" "scratch")}}{{end}}
+{{define "content"}}
+{{with .Data}}
+<div class="research scratch-page" id="research" data-owner="{{.Kind}}">
+  <h1 id="r-title" tabindex="-1">Scratchpad</h1>
+  <p class="r-private" role="note"><strong>Private to you.</strong> Nobody else can read this pad through Scríobh, an administrator included. It is never searched, exported, mirrored, pushed to Git or counted. It is kept in the server's database, so a backup of the database holds it, and it is not encrypted there.</p>
+  <p class="sub">One pad for you on {{if eq .Kind "c"}}this Compendium{{else}}this project{{end}}, up to {{.MaxKB}} KB. It saves by itself a moment after you stop typing, and a copy is kept in this browser until the server has it.</p>
+  {{if .Error}}<p class="field-error" role="alert" id="r-error">{{.Error}}</p>{{end}}
+  {{if .Saved}}<p class="saved" role="status">Saved.</p>{{end}}
+  <div id="pad-bars" aria-live="polite"></div>
+  {{if .Conflict}}<section class="r-conflict" id="r-conflict" aria-labelledby="r-conf-h">
+    <h2 id="r-conf-h">The version saved elsewhere</h2>
+    <p class="fine">Your text is in the box below. To keep it, press Save: it replaces what is shown here. To take this version instead, <a href="{{.Base}}/scratch">open the pad again</a>.</p>
+    {{if .Conflict.Theirs}}<pre class="r-theirs" tabindex="0" aria-label="The version saved elsewhere, read only">{{.Conflict.Theirs}}</pre>{{end}}
+  </section>{{end}}
+  {{if .Compendium.Trashed}}<p class="fine">This Compendium is in the trash, so the scratchpad is read only until it is restored. Your notes are shown so they can be copied.</p>
+  <pre class="r-theirs" tabindex="0" aria-label="Your scratch notes, read only">{{.Content}}</pre>
+  {{else}}  <form class="pad scratch-form" id="r-note" method="post" action="{{.UI}}/scratch" data-pad="scratch" data-method="PUT" data-url="{{.API}}/scratchpad" data-draft="{{.DraftKey}}" data-can-edit="true" data-updated="{{.Updated}}">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="rev" value="{{if .Conflict}}{{.Conflict.Revision}}{{else}}{{.Revision}}{{end}}">
+    <div class="field"><label for="sc-content">Your scratch notes</label>
+      <textarea id="sc-content" name="content" rows="22" spellcheck="true" maxlength="262144">{{.Content}}</textarea></div>
+    <div class="form-actions"><button class="btn solid" type="submit">Save</button> <span class="pad-state" id="pad-state" role="status" aria-live="polite" data-state="saved">{{if .Conflict}}Not saved{{else}}Saved{{end}}</span> <span class="fine">{{num .Words}} {{plural .Words "word" "words"}}{{if .Updated}}, last saved {{.Updated}}{{end}}</span></div>
+  </form>
+  {{end}}
+</div>
+{{end}}
+{{end}}

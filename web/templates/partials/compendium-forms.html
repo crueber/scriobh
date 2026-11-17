@@ -1,0 +1,59 @@
+{{define "compendium-new"}}
+<form id="compendium-new-form" class="form" method="post" action="/ui/compendiums" hx-post="/ui/compendiums" hx-target="#compendium-new-form" hx-swap="outerHTML">
+  <input type="hidden" name="_csrf" value="{{.CSRF}}">
+  <div class="dialog-head">
+    <h2 id="dialog-title">New Compendium</h2>
+    <button type="button" class="icon-btn dialog-close" data-dialog-close aria-label="Close">{{template "icon" "close"}}</button>
+  </div>
+  {{with index .Errors "form"}}<p class="field-error" role="alert">{{.}}</p>{{end}}
+  <div class="field">
+    <label for="cn-name">Name</label>
+    <input id="cn-name" type="text" name="name" value="{{index .Values "name"}}" maxlength="200" required autofocus autocomplete="off"{{with index .Errors "name"}} aria-invalid="true" aria-describedby="cn-name-err"{{end}}>
+    {{with index .Errors "name"}}<p class="field-error" id="cn-name-err" role="alert">{{.}}</p>{{end}}
+  </div>
+  <div class="field">
+    <label for="cn-kind">Kind</label>
+    <select id="cn-kind" name="kind"><option value="fiction"{{if ne (index .Values "kind") "nonfiction"}} selected{{end}}>Fiction</option><option value="nonfiction"{{if eq (index .Values "kind") "nonfiction"}} selected{{end}}>Nonfiction</option></select>
+  </div>
+  <div class="field">
+    <label for="cn-desc">What it is for <span class="optional">optional</span></label>
+    <textarea id="cn-desc" name="description" rows="3" maxlength="5000"{{with index .Errors "description"}} aria-invalid="true" aria-describedby="cn-desc-err"{{end}}>{{index .Values "description"}}</textarea>
+    {{with index .Errors "description"}}<p class="field-error" id="cn-desc-err" role="alert">{{.}}</p>{{end}}
+  </div>
+  <label class="check"><input type="checkbox" name="starter" value="1"{{if index .Values "starter"}} checked{{end}}><span>Start with the usual fields (a character's role, age, voice and so on)</span></label>
+  <div class="field">
+    <label for="cn-project">Use it for a project <span class="optional">optional</span></label>
+    <select id="cn-project" name="project_id" aria-describedby="cn-project-hint"><option value="">No project: it stands alone</option>{{range .Projects}}<option value="{{.ID}}"{{if eq .ID (index $.Values "project_id")}} selected{{end}}>{{.Title}}</option>{{end}}</select>
+  </div>
+  <p class="hint" id="cn-project-hint">Only projects you own that have no primary Compendium yet are listed. Other projects can reference it later.</p>
+  {{with index .Errors "project_id"}}<p class="field-error" role="alert">{{.}}</p>{{end}}
+  <div class="form-actions">
+    <button type="button" class="btn quiet" data-dialog-close>Cancel</button>
+    <button class="btn solid" type="submit">Create Compendium</button>
+  </div>
+</form>
+{{end}}
+
+{{define "compendium-purge"}}
+<form id="compendium-purge-form" class="form" method="post" action="/ui/compendiums/{{.C.ID}}/purge" hx-post="/ui/compendiums/{{.C.ID}}/purge" hx-target="#compendium-purge-form" hx-swap="outerHTML">
+  <input type="hidden" name="_csrf" value="{{.CSRF}}">
+  <div class="dialog-head">
+    <h2 id="dialog-title">Delete &ldquo;{{.C.Name}}&rdquo; for good</h2>
+    <button type="button" class="icon-btn dialog-close" data-dialog-close aria-label="Close">{{template "icon" "close"}}</button>
+  </div>
+  <p class="lede">This deletes the Compendium with its {{num .C.EntityCount}} {{plural .C.EntityCount "entity" "entities"}}, their aliases, relationships, fields, project overrides, links and references. It cannot be undone.</p>
+  {{if .Detail.Projects}}<div class="detach"><p><strong>These projects use it and will lose it:</strong></p>
+    <ul>{{range .Detail.Projects}}<li>{{.Title}} <span class="fine">({{if eq .Relation "primary"}}its primary Compendium{{else}}referenced{{end}})</span></li>{{end}}</ul></div>{{end}}
+  {{if .Detail.HiddenProjects}}<p class="fine">{{.Detail.HiddenProjects}} more {{plural .Detail.HiddenProjects "project that you cannot open also uses" "projects that you cannot open also use"}} it. They are not named here, and they lose it too.</p>{{end}}
+  {{if and (not .Detail.Projects) (not .Detail.HiddenProjects)}}<p class="fine">No project uses it.</p>{{end}}
+  <div class="field">
+    <label for="cp-name">Type the Compendium's name to confirm</label>
+    <input id="cp-name" type="text" name="confirm_name" value="{{.Typed}}" autocomplete="off" spellcheck="false" autofocus data-confirm="{{.C.Name}}"{{if .Error}} aria-invalid="true" aria-describedby="cp-err"{{end}}>
+    {{if .Error}}<p class="field-error" id="cp-err" role="alert">{{.Error}}</p>{{end}}
+  </div>
+  <div class="form-actions">
+    <button type="button" class="btn quiet" data-dialog-close>Cancel</button>
+    <button class="btn danger" type="submit" data-confirm-submit>Delete forever</button>
+  </div>
+</form>
+{{end}}

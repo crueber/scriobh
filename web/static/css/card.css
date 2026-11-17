@@ -1,0 +1,10 @@
+/* The page a private progress card's link opens: numbers only, no way into the application, no script. It follows the
+   system's light or dark; the picture is the same in both, a light card. */
+body.share-body { background: var(--bg); color: var(--fg); }
+.pc { max-inline-size: 40rem; margin: 0 auto; padding: var(--s-6) var(--s-4) var(--s-7); }
+.pc h1 { margin: 0 0 var(--s-4); font: 400 var(--text-2xl)/var(--lh-2xl) var(--font-prose); }
+.pc svg { display: block; inline-size: 100%; block-size: auto; }
+.pc ul { margin: var(--s-4) 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--s-1); color: var(--fg-2); }
+.pc ul li:first-child { color: var(--fg); font-weight: 500; }
+.pc .fine { margin-block-start: var(--s-4); }
+.pc a { display: inline-flex; align-items: center; min-block-size: var(--target); color: var(--accent); }

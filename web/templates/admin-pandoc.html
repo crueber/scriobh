@@ -1,0 +1,62 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/admin.css"}}">{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/admin/users">{{$.T "adm.title"}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "pandoc.title"}}</span></nav>
+{{end}}
+{{define "tab-write"}}{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}{{$c := .Cfg}}
+<div class="settings adm" id="adm">
+  <h1>{{$.T "adm.title"}}</h1>
+  {{template "admin-tabs" (dict "T" $ "Tab" .Tab)}}
+  <section aria-labelledby="pd-h">
+    <h2 id="pd-h">{{$.T "pandoc.title"}}</h2>
+    <p class="sub">{{$.T "pandoc.intro"}}</p>
+    {{if .Saved}}<p class="saved" role="status">{{$.T "pandoc.saved_line"}}</p>{{end}}
+    {{if $c.RestorePaused}}<p class="notice-line" role="note" id="pd-restored">{{$.T "pandoc.restored"}}</p>{{end}}
+
+    <h3 class="pd-h3" id="pd-state-h">{{$.T "pandoc.state_h"}}</h3>
+    <dl class="adm-facts pd-facts" aria-labelledby="pd-state-h">
+      <div><dt>{{$.T "pandoc.state"}}</dt><dd id="pd-state">{{if $c.Enabled}}{{$.T "pandoc.state_on"}}{{else}}{{$.T "pandoc.state_off"}}{{end}}</dd></div>
+      <div><dt>{{$.T "pandoc.program"}}</dt><dd id="pd-program">{{if $c.Found}}{{$.T "pandoc.found"}}{{if $c.Version}}, {{$.T "pandoc.version" "v" $c.Version}}{{end}}{{else if not $c.PlatformOK}}{{$.T "pandoc.platform"}}{{else if eq $c.ProblemKind "disabled"}}{{$.T "pandoc.not_checked"}}{{else if eq $c.ProblemKind "not_found"}}{{$.T "pandoc.not_found"}}{{else if eq $c.ProblemKind "unsafe_binary"}}{{$.T "pandoc.unsafe"}}{{else if eq $c.ProblemKind "version"}}{{$.T "pandoc.min_version" "v" $c.MinVersion}}{{else if $c.Problem}}{{$c.Problem}}{{else}}{{$.T "pandoc.not_found"}}{{end}}</dd></div>
+      {{if $c.Found}}<div><dt>{{$.T "pandoc.resolved"}}</dt><dd class="wrap"><code dir="ltr">{{$c.ResolvedPath}}</code></dd></div>{{end}}
+      <div><dt>{{$.T "pandoc.limits"}}</dt><dd>{{if $c.Limits}}{{$.T "pandoc.limits_on"}}{{else}}{{$.T "pandoc.limits_off"}}{{end}}</dd></div>
+    </dl>
+    {{if eq $c.ProblemKind "version"}}<p class="fine">{{$c.Problem}}</p>{{end}}
+  </section>
+
+  <section aria-labelledby="pd-set-h">
+    <h2 id="pd-set-h">{{$.T "pandoc.settings_h"}}</h2>
+    {{if .Error}}<p class="field-error" role="alert" id="pd-error">{{.Error}}</p>{{end}}
+    <form class="form" method="post" action="/ui/admin/pandoc/save">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field"><label class="check" for="pd-enabled"><input id="pd-enabled" type="checkbox" name="enabled" value="1"{{if .Enabled}} checked{{end}} aria-describedby="pd-enabled-h"><span>{{$.T "pandoc.enabled"}}</span></label><span class="hint" id="pd-enabled-h">{{$.T "pandoc.enabled_hint"}}</span></div>
+      <div class="field"><label for="pd-path">{{$.T "pandoc.path"}}</label><input id="pd-path" type="text" dir="ltr" name="path" value="{{.Path}}" placeholder="{{$.T "pandoc.path_placeholder"}}" autocomplete="off" spellcheck="false" aria-describedby="pd-path-h{{if eq .Field "path"}} pd-error{{end}}"{{if eq .Field "path"}} aria-invalid="true"{{end}}><span class="hint" id="pd-path-h">{{$.T "pandoc.path_hint"}}</span></div>
+      <div class="field"><label for="pd-mem">{{$.T "pandoc.memory"}}</label><input id="pd-mem" type="number" name="memory_mb" value="{{.Memory}}" min="0" max="65536" inputmode="numeric" aria-describedby="pd-mem-h{{if eq .Field "memory_mb"}} pd-error{{end}}"{{if eq .Field "memory_mb"}} aria-invalid="true"{{end}}><span class="hint" id="pd-mem-h">{{$.T "pandoc.memory_hint"}}</span></div>
+      <p class="fine">{{$.T "pandoc.min_version" "v" $c.MinVersion}}</p>
+      <div class="form-actions"><button class="btn solid" type="submit">{{$.T "pandoc.save"}}</button></div>
+    </form>
+  </section>
+
+  <section aria-labelledby="pd-test-h" id="pd-test">
+    <h2 id="pd-test-h">{{$.T "pandoc.test_h"}}</h2>
+    <p class="sub">{{$.T "pandoc.test_help"}}</p>
+    {{with .Test}}<div class="pd-result" id="test" role="status" data-ok="{{.OK}}">
+      <p><strong>{{if .OK}}{{$.T "pandoc.test_all_ok"}}{{else}}{{$.T "pandoc.test_not_ok"}}{{end}}</strong>{{if .Version}} {{$.T "pandoc.test_version" "v" .Version}}{{end}}</p>
+      <ul>
+        <li>{{if .In.OK}}{{$.T "pandoc.test_in_ok" "format" .In.Format "ms" .In.LatencyMS}}{{else}}{{$.T "pandoc.test_in_fail" "format" .In.Format "why" .In.Problem}}{{end}}</li>
+        <li>{{if .Out.OK}}{{$.T "pandoc.test_out_ok" "format" .Out.Format "ms" .Out.LatencyMS}}{{else}}{{$.T "pandoc.test_out_fail" "format" .Out.Format "why" .Out.Problem}}{{end}}</li>
+      </ul>
+    </div>{{end}}
+    {{if $c.Enabled}}<form method="post" action="/ui/admin/pandoc/test#pd-test"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn" type="submit">{{$.T "pandoc.test"}}</button></form>
+    {{else}}<p class="fine">{{$.T "pandoc.test_off"}}</p>{{end}}
+  </section>
+
+  <section aria-labelledby="pd-fmt-h">
+    <h2 id="pd-fmt-h">{{$.T "pandoc.formats_h"}}</h2>
+    <p>{{$.T "pandoc.formats_in" "list" .ImportList}}</p>
+    <p>{{$.T "pandoc.formats_out" "list" .ExportList}}</p>
+    <p class="fine">{{$.T "pandoc.formats_note"}}</p>
+  </section>
+</div>
+{{end}}
+{{end}}

@@ -1,0 +1,125 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/entities.css"}}"><script src="{{asset "js/entity.js"}}" defer></script>{{end}}
+{{define "crumb"}}{{template "ccrumb" (dict "C" .Data.Compendium "Here" .Data.E.Name)}}{{end}}
+{{define "tab-write"}}{{template "ctab-phone" ctabs .Data.Slug "entities"}}{{end}}
+{{define "ptabs"}}{{template "ctab-desktop" ctabs .Data.Slug "entities"}}{{end}}
+{{define "projmore"}}{{template "cmore" ctabs .Data.Slug "entities"}}{{end}}
+{{define "content"}}
+{{with .Data}}{{$e := .E}}
+<div class="settings ents sheet" id="sheet" data-entity="{{$e.ID}}" data-compendium="{{.Compendium.ID}}" data-revision="{{$e.Revision}}">
+  {{template "live-marker" (dict "Scope" "compendium" "ID" .Compendium.ID)}}
+  <p class="sr-only" id="ent-announce" role="status" aria-live="polite"></p>
+  <div id="ent-changed" class="ent-note" role="status" aria-live="polite" hidden></div>
+  <h1>{{template "entity-swatch" .Color}} {{$e.Name}}</h1>
+  <p class="sub">{{.Kind}} in {{.Compendium.Name}}. You are {{.RoleWords}} of this Compendium{{if not .CanEdit}}, so this sheet is read only{{end}}.</p>
+  {{if .SavedText}}<p class="saved" role="status">{{.SavedText}}</p>{{end}}
+  {{if .Followed}}<p class="ent-note" role="status">You opened the address of an entity that was merged into this one. Its old address keeps working for a year, and leads here.</p>{{end}}
+  {{if .Merged}}<p class="ent-note" role="status">The merge is done. The other entity is gone, and its old address leads here for a year.</p>{{end}}
+  {{if $e.Trashed}}<p class="ent-note" role="note"><strong>This entity is in the trash.</strong> Its name and aliases are free for other entities. Restoring takes them back, and is refused if someone has used one meanwhile.</p>{{end}}
+  {{if and .Error (ne .Scope "alias") (ne .Scope "relation")}}{{template "ent-err" .}}{{end}}
+
+  {{if and .CanEdit (not $e.Trashed)}}
+  <form class="form ent-details" id="details" method="post" action="/ui/entities/{{$e.ID}}/save">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="base_revision" value="{{if .Conflict}}{{.Conflict.Revision}}{{else}}{{$e.Revision}}{{end}}">
+    <h2>Details</h2>
+    <div class="field"><label for="es-name">Name</label><input id="es-name" type="text" name="name" value="{{$e.Name}}" maxlength="200" required autocomplete="off"{{if eq .Field "name"}} aria-invalid="true" aria-describedby="ent-error"{{end}}></div>
+    <div class="field"><label for="es-sort">Sort name</label><input id="es-sort" type="text" name="sort_name" value="{{$e.SortName}}" maxlength="200" autocomplete="off" aria-describedby="es-sort-h"><span class="hint" id="es-sort-h">Lists sort by this when it is set (a surname first). Leave it empty to sort by the name.</span></div>
+    <div class="field"><label for="es-summary">Summary</label><textarea id="es-summary" name="summary" rows="2" maxlength="1000"{{if eq .Field "summary"}} aria-invalid="true" aria-describedby="ent-error"{{end}}>{{$e.Summary}}</textarea><span class="hint">One or two lines, shown in lists.</span></div>
+    <fieldset class="swatches"><legend>Colour</legend>
+      <div class="swatch-row">
+        <label class="swatch"><input type="radio" name="color" value=""{{if not $e.Color}} checked{{end}}><span class="chip chip-none"></span><span class="sr-only">No colour</span></label>
+        {{range .Swatches}}<label class="swatch"><input type="radio" name="color" value="{{.Hex}}"{{if eq .Hex $e.Color}} checked{{end}}><span class="chip {{.Class}}"></span><span class="sr-only">{{.Hex}}</span></label>{{end}}
+      </div>
+    </fieldset>
+    {{if .Fields}}<h3>Fields</h3>
+    {{range .Fields}}{{if .Value}}{{template "ent-field" .}}{{end}}{{end}}
+    <details class="more"><summary>Fields with nothing in them yet</summary>
+    {{range .Fields}}{{if not .Value}}{{template "ent-field" .}}{{end}}{{end}}</details>
+    <p class="hint">An empty field is cleared. Fields are defined for the whole Compendium, on <a href="/c/{{.Slug}}/fields">the fields page</a>.</p>{{end}}
+    {{range .Orphans}}<p class="hint">Also held, under a field this Compendium no longer defines: <strong>{{.Key}}</strong> {{.Value}}</p>{{end}}
+    <div class="field"><label for="es-body">Notes (Markdown)</label><textarea id="es-body" name="body" rows="12" spellcheck="true">{{$e.Body}}</textarea>
+      <div class="ent-prevbar"><button type="button" class="btn small" id="es-preview" data-src="/ui/md-preview" data-csrf="{{.CSRF}}" hidden>Preview</button></div>
+      <div id="es-prev" class="md-preview" role="region" aria-label="Preview of the notes" aria-live="polite" hidden></div></div>
+    {{if .Conflict}}<details class="more" open><summary>What is saved now</summary>
+      <p><strong>{{.Conflict.Theirs.Name}}</strong></p>{{if .Conflict.Theirs.Summary}}<p>{{.Conflict.Theirs.Summary}}</p>{{end}}{{if .Conflict.Theirs.Body}}<pre class="theirs">{{.Conflict.Theirs.Body}}</pre>{{end}}</details>
+    <div class="form-actions"><button class="btn solid" type="submit">Keep mine</button><a class="btn" href="/c/{{.Slug}}/e/{{$e.ID}}">Use theirs</a></div>
+    {{else}}<div class="form-actions sticky-save"><button class="btn solid" type="submit">Save</button></div>{{end}}
+  </form>
+  {{else}}
+  <section class="ent-read" aria-label="The entity">
+    {{if $e.Summary}}<p class="lede">{{$e.Summary}}</p>{{end}}
+    {{if $e.Aliases}}<p class="fine">Also called: {{range $i, $a := $e.Aliases}}{{if $i}}, {{end}}{{$a.Alias}}{{end}}</p>{{end}}
+    {{if .Fields}}<dl class="facts">{{range .Fields}}{{if .Value}}<div><dt>{{.Label}}</dt><dd>{{.Value}}</dd></div>{{end}}{{end}}</dl>{{end}}
+    {{if $e.Body}}<div class="md">{{.BodyHTML}}</div>{{end}}
+  </section>
+  {{end}}
+
+  <section id="aliases" aria-labelledby="h-al">
+    <h2 id="h-al">Aliases</h2>
+    <p class="sub">Other names this entity goes by. Two entities cannot answer to one word, so a word another entity uses is refused, and the refusal names that entity.</p>
+    {{if $e.Aliases}}<ul class="ent-list">{{range $e.Aliases}}<li><span>{{.Alias}}{{if .Notes}} <span class="fine">{{.Notes}}</span>{{end}}</span>
+      {{if and $.Data.CanEdit (not $e.Trashed)}}<form method="post" action="/ui/entities/{{$e.ID}}/unalias"><input type="hidden" name="_csrf" value="{{$.Data.CSRF}}"><input type="hidden" name="alias_id" value="{{.ID}}"><button class="btn quiet small" type="submit" aria-label="Remove the alias {{.Alias}}">Remove</button></form>{{end}}</li>{{end}}</ul>
+    {{else}}<p class="fine">No aliases.</p>{{end}}
+    {{if and .CanEdit (not $e.Trashed)}}{{if and .Error (eq .Scope "alias")}}{{template "ent-err" .}}{{end}}<form class="form" method="post" action="/ui/entities/{{$e.ID}}/alias">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field"><label for="ea-alias">New alias</label><input id="ea-alias" type="text" name="alias" value="{{if eq .Scope "alias"}}{{index .Values "alias"}}{{end}}" maxlength="200" autocomplete="off"{{if and (eq .Scope "alias") .Error}} aria-invalid="true" aria-describedby="ent-error"{{end}}></div>
+      <div class="field"><label for="ea-notes">Where it comes from <span class="optional">optional</span></label><input id="ea-notes" type="text" name="notes" value="{{if eq .Scope "alias"}}{{index .Values "notes"}}{{end}}" maxlength="1000" autocomplete="off"></div>
+      <div class="form-actions"><button class="btn" type="submit">Add the alias</button></div>
+    </form>{{end}}
+  </section>
+
+  <section id="relations" aria-labelledby="h-rel">
+    <h2 id="h-rel">Relationships</h2>
+    <p class="sub">Each reads from this entity's side. A symmetric one reads the same from both.</p>
+    {{if .Relations}}<ul class="ent-list">{{range .Relations}}<li><span><strong>{{.Label}}</strong> <a href="/c/{{$.Data.Slug}}/e/{{.OtherID}}">{{.OtherName}}</a> <span class="ent-kind">{{.Kind}}</span> <span class="ent-kind">{{if eq .Direction "both"}}both ways{{else if eq .Direction "out"}}from this entity{{else}}from the other{{end}}</span>{{if .Notes}} <span class="fine">{{.Notes}}</span>{{end}}</span>
+      {{if and $.Data.CanEdit (not $e.Trashed)}}<form method="post" action="/ui/entities/{{$e.ID}}/unrelate"><input type="hidden" name="_csrf" value="{{$.Data.CSRF}}"><input type="hidden" name="relation_id" value="{{.ID}}"><button class="btn quiet small" type="submit" aria-label="Remove the relationship with {{.OtherName}}">Remove</button></form>{{end}}</li>{{end}}</ul>
+    {{if $e.RelationsTruncated}}<p class="fine">Only the first 500 are shown.</p>{{end}}
+    {{else}}<p class="fine">No relationships.</p>{{end}}
+    {{if and .CanEdit (not $e.Trashed)}}{{if and .Error (eq .Scope "relation")}}{{template "ent-err" .}}{{end}}<form class="form" method="post" action="/ui/entities/{{$e.ID}}/relation">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field"><label for="er-other">The other entity, by name</label><input id="er-other" type="text" name="other" value="{{if eq .Scope "relation"}}{{index .Values "other"}}{{end}}" maxlength="200" autocomplete="off" aria-describedby="er-other-h"{{if and (eq .Scope "relation") .Error}} aria-invalid="true"{{end}}><span class="hint" id="er-other-h">Its name or one of its aliases, as written on its sheet.</span></div>
+      <div class="field-row"><div class="field"><label for="er-kind">Kind</label><select id="er-kind" name="kind">{{range .Kinds}}<option value="{{.}}"{{if eq . (index $.Data.Values "kind")}} selected{{end}}>{{.}}</option>{{end}}</select></div>
+        <div class="field"><label for="er-label">Reads as</label><input id="er-label" type="text" name="label" value="{{if eq .Scope "relation"}}{{index .Values "label"}}{{end}}" maxlength="100" placeholder="mother of" autocomplete="off"></div></div>
+      <div class="field"><label for="er-inv">Reads from the other side as <span class="optional">optional</span></label><input id="er-inv" type="text" name="inverse_label" value="{{if eq .Scope "relation"}}{{index .Values "inverse_label"}}{{end}}" maxlength="100" placeholder="daughter of" autocomplete="off"></div>
+      <label class="check"><input type="checkbox" name="symmetric" value="1"><span>The same both ways (siblings, rivals)</span></label>
+      <div class="field"><label for="er-notes">Notes <span class="optional">optional</span></label><input id="er-notes" type="text" name="notes" maxlength="1000" autocomplete="off"></div>
+      <div class="form-actions"><button class="btn" type="submit">Add the relationship</button></div>
+    </form>{{end}}
+  </section>
+
+  {{if not $e.Trashed}}{{template "where-comp" .Where}}{{end}}
+
+  {{if and .CanEdit (not $e.Trashed) .Projects}}<section id="link" aria-labelledby="h-link">
+    <h2 id="h-link">Use in a project</h2>
+    <p class="sub">A project that is not built on this Compendium can still read this one entity: link it in. The project reads this entry, and can keep its own overrides, and sees nothing else of the Compendium.</p>
+    {{if and (eq .Scope "link") .Error}}{{end}}
+    <form class="form" method="post" action="/ui/entities/{{$e.ID}}/link">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field"><label for="el-project">Project</label><select id="el-project" name="project_id">{{range .Projects}}<option value="{{.ID}}">{{.Title}}</option>{{end}}</select></div>
+      <div class="form-actions"><button class="btn" type="submit">Link into the project</button></div>
+    </form>
+  </section>{{end}}
+
+  {{if .CanEdit}}<section id="state" aria-labelledby="h-st">
+    <h2 id="h-st">Merge and trash</h2>
+    {{if $e.Trashed}}
+    <form method="post" action="/ui/entities/{{$e.ID}}/restore"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn" type="submit">Restore from the trash</button></form>
+    {{else}}
+    <p class="sub">Merging folds this entity into another of the same kind and shows exactly what will change first. Trashing keeps it, and frees its name and aliases.</p>
+    <div class="row-actions"><a class="btn" href="/c/{{.Slug}}/e/{{$e.ID}}/merge">Merge into another&hellip;</a>
+      <form method="post" action="/ui/entities/{{$e.ID}}/trash"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn quiet danger-text" type="submit">Move to the trash</button></form></div>
+    {{end}}
+  </section>{{end}}
+</div>
+{{end}}
+{{end}}
+
+{{define "ent-err"}}<div class="ent-error" role="alert" id="ent-error" tabindex="-1"><p>{{.Error}}</p>
+  {{with .Collision}}<p><a href="/c/{{$.Slug}}/e/{{.ID}}">Open &ldquo;{{.Name}}&rdquo;</a>, which already uses that word as its {{.Via}}. If they are the same, <a href="/c/{{$.Slug}}/e/{{$.E.ID}}/merge?into={{.ID}}">merge the two</a>.</p>{{end}}</div>{{end}}
+
+{{define "ent-field"}}<div class="field"><label for="ef-{{.Key}}">{{.Label}}</label>
+  {{if eq .Type "choice"}}<select id="ef-{{.Key}}" name="f.{{.Key}}"><option value="">Not set</option>{{$v := .Value}}{{range .Choices}}<option value="{{.}}"{{if eq . $v}} selected{{end}}>{{.}}</option>{{end}}</select>
+  {{else if eq .Type "number"}}<input id="ef-{{.Key}}" type="text" inputmode="decimal" name="f.{{.Key}}" value="{{.Value}}" autocomplete="off" aria-describedby="ef-{{.Key}}-h"><span class="hint" id="ef-{{.Key}}-h">A number.</span>
+  {{else if eq .Type "date"}}<input id="ef-{{.Key}}" type="text" name="f.{{.Key}}" value="{{.Value}}" placeholder="YYYY, YYYY-MM or YYYY-MM-DD" autocomplete="off" aria-describedby="ef-{{.Key}}-h"><span class="hint" id="ef-{{.Key}}-h">A year, a month or a day.</span>
+  {{else if .Multi}}<textarea id="ef-{{.Key}}" name="f.{{.Key}}" rows="2">{{.Value}}</textarea>
+  {{else}}<input id="ef-{{.Key}}" type="text" name="f.{{.Key}}" value="{{.Value}}" autocomplete="off">{{end}}
+</div>{{end}}

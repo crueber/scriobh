@@ -1,0 +1,28 @@
+/* Merge, split and the record of each (F-478). Previews are sections of text and radio groups, never a table, so a phone
+   scrolls them like any page; every state is a word as well as a colour. */
+.cmg-nolink { margin: var(--s-3) 0; padding: var(--s-3) var(--s-4); border: 1px solid var(--line); border-inline-start: 3px solid var(--warn); border-radius: var(--r-1); background: var(--surface); max-inline-size: 62ch; }
+.cmg-nolink-box { margin-block-start: var(--s-5); }
+.cmg h3 { margin: var(--s-4) 0 var(--s-2); }
+.cmg-pick { min-inline-size: 0; margin: 0; padding: var(--s-3) var(--s-4); border: 1px solid var(--line); border-radius: var(--r-1); }
+.cmg-pick legend, .cmg-choice legend, .cmg-item legend, .cmg-fc legend { padding-inline: var(--s-1); font: 600 var(--text-sm)/var(--lh-sm) var(--font-ui); color: var(--fg-2); }
+.cmg-ents { max-block-size: 22rem; overflow: auto; margin: var(--s-2) 0 0; padding: 0; list-style: none; border-block-start: 1px solid var(--line-2); }
+.cmg-ents li { border-block-end: 1px solid var(--line-2); }
+.cmg-counts { margin: var(--s-2) 0; padding-inline-start: var(--s-4); list-style: disc; color: var(--fg-2); }
+.cmg-counts li { margin-block: var(--s-1); }
+.cmg-block { margin: var(--s-3) 0; padding: var(--s-3) var(--s-4); border: 1px solid var(--danger); border-radius: var(--r-1); background: var(--danger-soft); }
+.cmg-block strong { color: var(--danger); }
+.cmg-items { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--s-3); }
+.cmg-item fieldset, .cmg-choice { min-inline-size: 0; margin: 0; padding: var(--s-3) var(--s-4); border: 1px solid var(--line); border-radius: var(--r-1); }
+.cmg-choice { margin-block-start: var(--s-3); }
+.cmg-sub { margin-inline-start: calc(18px + var(--s-3)); margin-block-end: var(--s-2); }
+.cmg-fc { margin-block-start: var(--s-3); }
+.cmg-fc fieldset { margin-block-start: var(--s-2); border: 0; padding: 0; }
+.cmg-projects { margin: 0; padding-inline-start: var(--s-4); list-style: disc; }
+.cmg-moving summary { cursor: pointer; min-block-size: var(--target); display: flex; align-items: center; font: 500 var(--text-sm)/var(--lh-sm) var(--font-ui); }
+.cmg-confirm { margin-block-start: var(--s-5); padding-block-start: var(--s-4); border-block-start: 1px solid var(--line); }
+.cmg-log { margin: var(--s-3) 0; padding: 0; list-style: none; }
+.cmg-log li { padding-block: var(--s-3); border-block-start: 1px solid var(--line-2); display: flex; flex-direction: column; gap: var(--s-1); }
+.cmg-names, .cmg-merged { margin: 0; padding-inline-start: var(--s-4); }
+.cmg-body { white-space: pre-wrap; overflow-wrap: anywhere; padding: var(--s-3); border: 1px solid var(--line); border-radius: var(--r-1); background: var(--surface-2); font: 400 var(--text-sm)/var(--lh-sm) var(--font-mono); }
+.cmg .form { max-inline-size: 36rem; }
+.cmg .check { align-items: flex-start; }

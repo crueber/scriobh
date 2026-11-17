@@ -1,0 +1,18 @@
+/* The Lab: marks drawn in the text. A mark is a line under the words and nothing else: it adds no width, so it cannot move the
+   text, and it is not read as part of it. Each of the nine kinds has its own shape and weight (solid, double, dotted, dashed, wavy,
+   thin or thick), so no kind is told apart by colour; the list names each kind with its letter. The colour is the Lab's own muted
+   amber (--lab), apart from the alternatives' accent underline and the comment line in every theme. --lab is a line colour only:
+   it is never used for text (scripts/check-contrast.py checks both). Tokens only. */
+.lab-mark { text-decoration-line: underline; text-decoration-color: var(--lab); text-underline-offset: .22em; text-decoration-skip-ink: none; cursor: pointer; }
+.lab-long_sentence { text-decoration-style: solid; text-decoration-thickness: 1px; }
+.lab-trim_dialogue_tags { text-decoration-style: solid; text-decoration-thickness: 2px; }
+.lab-punctuation_fix { text-decoration-style: double; text-decoration-thickness: 1px; }
+.lab-hedge_words { text-decoration-style: dotted; text-decoration-thickness: 2px; }
+.lab-trim_adverbs { text-decoration-style: dotted; text-decoration-thickness: 1px; }
+.lab-tone_mismatch { text-decoration-style: dashed; text-decoration-thickness: 1px; }
+.lab-trim_filler { text-decoration-style: dashed; text-decoration-thickness: 2px; }
+.lab-convoluted_sentence { text-decoration-style: wavy; text-decoration-thickness: 1px; }
+.lab-trim_repetition { text-decoration-style: wavy; text-decoration-thickness: 2px; }
+.insp-tag.lab-tag { display: inline-flex; align-items: center; gap: var(--s-1); text-decoration: none; border-color: var(--lab); }
+.lab-g { display: inline-grid; place-items: center; min-width: 1.2em; font: 600 var(--text-xs)/1 var(--font-ui); color: var(--fg); }
+@media print { .lab-mark { text-decoration: none; } }

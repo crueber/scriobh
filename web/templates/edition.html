@@ -1,0 +1,51 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/git.css"}}"><link rel="stylesheet" href="{{asset "css/editions.css"}}">{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="{{$.T "git.crumb"}}"><a href="/">{{template "icon" "chevron-left"}}<span>{{$.T "git.library"}}</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}/editions">{{$.T "editions.title"}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{.Data.One.Label}}</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "editions" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "editions" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "editions" .Data.Project.Role}}{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}{{with .One}}{{$e := .}}
+<div class="settings git edn">
+  <h1>{{.Label}}</h1>
+  <p class="sub">{{if .Source}}{{$.T "editions.kind_file" "kind" .KindWord "name" .Source}}{{else}}{{.KindWord}}{{end}} <span>{{$.T "editions.detail_intro"}}</span></p>
+  {{if $d.Notice}}<p class="saved" role="status" tabindex="-1" autofocus data-result>{{$d.Notice}}</p>{{end}}
+  {{if $d.Error}}<p class="field-error" role="alert" tabindex="-1" autofocus data-result>{{$d.Error}}</p>{{end}}
+  <dl class="facts git-facts edn-facts">
+    <div><dt>{{$.T "editions.imported"}}</dt><dd>{{.When}}</dd></div>
+    <div><dt>{{$.T "editions.size"}}</dt><dd>{{.SizeText}}</dd></div>
+    <div><dt>{{$.T "editions.chapters"}}</dt><dd>{{.Chapters}}</dd></div>
+    {{if .Identifier}}<div><dt>{{$.T "editions.identifier"}}</dt><dd class="wrap">{{.Identifier}}</dd></div>{{end}}
+    {{if .ByName}}<div><dt>{{$.T "editions.imported_by"}}</dt><dd class="wrap">{{.ByName}}</dd></div>{{end}}
+    <div class="edn-wide"><dt>{{$.T "editions.checksum"}}</dt><dd><code class="wrap">{{.SHA256}}</code></dd></div>
+  </dl>
+  <p class="row-actions"><a class="btn" href="/p/{{$d.Slug}}/editions/{{.ID}}/diff">{{$.T "editions.diff.link"}}</a>{{if $d.CanGet}}<a class="btn quiet" href="/p/{{$d.Slug}}/editions/compare?edition={{.ID}}">{{$.T "editions.diff.compare_link"}}</a>{{end}}</p>
+  {{if $d.CanGet}}
+  <section aria-labelledby="edn-file">
+    <h2 id="edn-file">{{$.T "editions.file_h"}}</h2>
+    {{if .HasFile}}
+    <p class="row-actions"><a class="btn" href="/p/{{$d.Slug}}/editions/{{.ID}}/download" download>{{$.T "editions.download"}}</a></p>
+    <p class="fine">{{$.T "editions.download_note"}} {{$.T "editions.keep_a"}}</p>
+    {{else}}<p class="notice-line" role="note">{{$.T "editions.no_file"}}</p>{{end}}
+  </section>
+  {{end}}
+  <section aria-labelledby="edn-chapters">
+    <h2 id="edn-chapters">{{$.T "editions.chapters_h"}}</h2>
+    <p class="fine">{{$.T "editions.chapters_hint"}}</p>
+    <ol class="edn-chapters" aria-labelledby="edn-chapters">
+      {{range $d.Chapters}}
+      <li class="edn-ch" data-depth="{{.Depth}}" data-kind="{{.Kind}}">
+        <span class="edn-title">{{.Title}}</span>
+        <span class="fine edn-meta">{{$.T (printf "editions.kind.%s" .Kind)}}, {{if eq .Words 1}}{{$.T "editions.words_one"}}{{else}}{{$.T "editions.words" "n" (num .Words)}}{{end}}</span>
+        <span class="fine edn-src wrap" title="{{.SourcePath}}">{{$.T "editions.chapter.source"}}: {{.Short}}</span>
+        <span class="fine edn-became">{{if .Left}}{{$.T "editions.chapter.left_out"}}{{else if .JoinedInto}}{{$.T "editions.chapter.joined" "t" .JoinedInto}} <a href="/p/{{$d.Slug}}/d/{{.DocumentID}}">{{$.T "editions.chapter.open_joined"}}</a>{{else}}<a href="/p/{{$d.Slug}}/d/{{.DocumentID}}">{{$.T "editions.chapter.open"}}</a>{{end}}</span>
+      </li>
+      {{end}}
+    </ol>
+    {{if $d.Hidden}}<p class="fine">{{$.T "editions.chapters_more" "n" $d.Hidden}}</p>{{end}}
+  </section>
+  <p><a href="/p/{{$d.Slug}}/editions">{{$.T "editions.back"}}</a></p>
+</div>
+{{end}}{{end}}
+{{end}}

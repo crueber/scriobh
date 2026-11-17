@@ -1,0 +1,48 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/git.css"}}"><link rel="stylesheet" href="{{asset "css/editions.css"}}">{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="{{$.T "git.crumb"}}"><a href="/">{{template "icon" "chevron-left"}}<span>{{$.T "git.library"}}</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "editions.title"}}</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "editions" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "editions" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "editions" .Data.Project.Role}}{{end}}
+{{define "content"}}
+{{with .Data}}{{$d := .}}
+<div class="settings git edn">
+  <h1>{{$.T "editions.title"}}</h1>
+  <p class="sub">{{.Project.Title}}. {{$.T "editions.intro"}}</p>
+  {{if .Notice}}<p class="saved" role="status" tabindex="-1" autofocus data-result>{{.Notice}}</p>{{end}}
+  {{if .Error}}<p class="field-error" role="alert" tabindex="-1" autofocus data-result>{{.Error}}</p>{{end}}
+  {{if .Items}}
+  <ul class="edn-list" aria-label="{{$.T "editions.list_label"}}">
+    {{range .Items}}
+    <li class="edn-item">
+      <h2 class="edn-name"><a href="/p/{{$d.Slug}}/editions/{{.ID}}">{{.Label}}</a></h2>
+      <p class="fine edn-line">{{if .Source}}{{$.T "editions.kind_file" "kind" .KindWord "name" .Source}}{{else}}{{.KindWord}}{{end}}</p>
+      <dl class="facts git-facts edn-facts">
+        <div><dt>{{$.T "editions.imported"}}</dt><dd>{{.When}}</dd></div>
+        <div><dt>{{$.T "editions.size"}}</dt><dd>{{.SizeText}}</dd></div>
+        <div><dt>{{$.T "editions.chapters"}}</dt><dd>{{.Chapters}}</dd></div>
+        <div><dt>{{$.T "editions.checksum_short"}}</dt><dd><code>{{.Short}}</code></dd></div>
+        {{if .ByName}}<div><dt>{{$.T "editions.imported_by"}}</dt><dd class="wrap">{{.ByName}}</dd></div>{{end}}
+      </dl>
+      <p class="row-actions">
+        <a class="btn" href="/p/{{$d.Slug}}/editions/{{.ID}}">{{$.T "editions.open"}}</a>
+        <a class="btn quiet" href="/p/{{$d.Slug}}/editions/{{.ID}}/diff">{{$.T "editions.diff.link"}}</a>
+        {{if $d.CanGet}}{{if .HasFile}}<a class="btn quiet" href="/p/{{$d.Slug}}/editions/{{.ID}}/download" download aria-label="{{$.T "editions.download_named" "name" .Label}}">{{$.T "editions.download"}}</a>{{else}}<span class="fine">{{$.T "editions.no_file_short"}}</span>{{end}}{{end}}
+      </p>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p class="empty-line" role="note"><strong>{{$.T "editions.empty"}}</strong> {{$.T "editions.empty_hint"}}{{if .CanGet}} <a href="/p/{{.Slug}}/import">{{$.T "editions.empty_link"}}</a>{{end}}</p>
+  {{end}}
+  {{if and .Items .CanGet}}<p class="row-actions"><a class="btn quiet" href="/p/{{.Slug}}/editions/compare">{{$.T "editions.diff.compare_link"}}</a></p>{{end}}
+  <section aria-labelledby="edn-keep">
+    <h2 id="edn-keep">{{$.T "editions.keep_h"}}</h2>
+    <p class="fine">{{$.T "editions.keep_a"}}</p>
+    <p class="fine">{{$.T "editions.limits" "max" .Max "mb" .MaxFileMB "n" (len .Items)}}</p>
+    {{if not .CanGet}}<p class="fine">{{$.T "editions.readonly_note"}}</p>{{end}}
+  </section>
+</div>
+{{end}}
+{{end}}

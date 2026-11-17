@@ -1,0 +1,20 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/ai.css"}}"><script src="{{asset "js/aiadmin.js"}}" defer></script>{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">AI</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "ai" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "ai" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "ai" .Data.Project.Role}}{{end}}
+{{define "content"}}
+{{with .Data}}
+<div class="settings ai-page" id="ai-project" data-project="{{.Project.ID}}" data-slug="{{.Slug}}" data-owner="{{.IsOwner}}" data-edit="{{.CanEdit}}" data-state="{{.State.State}}">
+  <h1>AI</h1>
+  <p class="sub">{{.Project.Title}}. What the writing partner may do on this project, and what it costs. Nothing leaves this server unless you have seen exactly what is sent and said so, and nothing it writes enters a chapter without your accept.</p>
+  <p class="sr-only" id="ai-announce" role="status" aria-live="polite"></p>
+  <div id="ai-root" data-loading>
+    <p class="fine">Loading the AI settings&hellip;</p>
+    <noscript><p class="notice-line" role="note">This page needs its script to show and change the AI settings. Nothing about AI is on without it.</p></noscript>
+  </div>
+</div>
+{{end}}
+{{end}}

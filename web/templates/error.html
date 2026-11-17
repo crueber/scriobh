@@ -1,0 +1,10 @@
+{{define "content"}}
+<section class="notice" aria-labelledby="error-title">
+  {{if .Data.Code}}<p class="eyebrow">Error {{.Data.Code}}</p>{{end}}
+  <h1 id="error-title">{{.Data.Heading}}</h1>
+  <p class="lede">{{.Data.Message}}</p>
+  <p class="notice-actions">
+    {{if .Data.Retry}}<a class="btn solid" href="{{.Data.Retry}}">Try again</a>{{else if .User}}<a class="btn solid" href="/">Back to the library</a>{{else}}<a class="btn solid" href="/">Go to sign-in</a>{{end}}
+  </p>
+</section>
+{{end}}

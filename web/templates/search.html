@@ -1,0 +1,59 @@
+{{define "head"}}{{if .Data.Sem.Offered}}<link rel="stylesheet" href="{{asset "css/privacy.css"}}">{{end}}{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a>{{with .Data.Project}}<span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Slug}}">{{.Title}}</a>{{end}}<span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">Search</span></nav>
+{{end}}
+{{define "tab-write"}}{{with .Data.Project}}{{template "ptab-phone" ptabs .Slug "" "search" .Role}}{{end}}{{end}}
+{{define "ptabs"}}{{with .Data.Project}}{{template "ptab-desktop" ptabs .Slug "" "search" .Role}}{{end}}{{end}}
+{{define "projmore"}}{{with .Data.Project}}{{template "project-more" ptabs .Slug "" "search" .Role}}{{end}}{{end}}
+{{define "content"}}
+{{with .Data}}
+<section class="search" aria-labelledby="search-title">
+  <h1 id="search-title">{{if .Project}}Search {{.Project.Title}}{{else}}Search every project{{end}}</h1>
+  {{if and .Project .Sem.Offered}}<nav class="sem-modes" aria-label="{{$.T "sem.modes"}}"><a href="/p/{{.Project.Slug}}/search{{if .Q}}?q={{urlquery .Q}}{{end}}"{{if ne .Sem.Mode "meaning"}} aria-current="page"{{end}}>{{$.T "sem.mode_words"}}</a><a href="/p/{{.Project.Slug}}/search?mode=meaning"{{if eq .Sem.Mode "meaning"}} aria-current="page"{{end}}>{{$.T "sem.mode_meaning"}}</a></nav>{{end}}
+  <form class="search-form" role="search" aria-label="{{if .Project}}Search this project{{else}}Search every project{{end}}" method="{{if eq .Sem.Mode "meaning"}}post{{else}}get{{end}}" action="{{if eq .Sem.Mode "meaning"}}/ui/projects/{{.Project.ID}}/search/meaning{{else if .Project}}/p/{{.Project.Slug}}/search{{else}}/search{{end}}">
+    {{if eq .Sem.Mode "meaning"}}<input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <label class="sr-only" for="search-q">{{$.T "search.semantic.query"}}</label>
+    <input id="search-q" type="search" name="q" value="{{.Q}}" placeholder="{{$.T "sem.placeholder"}}" autocomplete="off" spellcheck="false" autofocus aria-describedby="search-sent">
+    <button class="btn solid" type="submit">{{$.T "search.semantic.search"}}</button>
+    {{else}}<label class="sr-only" for="search-q">Words to look for</label>
+    <input id="search-q" type="search" name="q" value="{{.Q}}" placeholder="Words in titles, synopses and text" autocomplete="off" spellcheck="false" autofocus{{if .Message}} aria-invalid="true" aria-describedby="search-msg"{{end}}>
+    <button class="btn solid" type="submit">Search</button>{{end}}
+  </form>
+  {{if eq .Sem.Mode "meaning"}}
+  <p class="fine" id="search-sent">{{if .Sem.Sent}}{{.Sem.Sent}}{{else}}{{$.T "sem.sent_none"}}{{end}}</p>
+  {{if .Sem.Message}}<p class="notice-line" role="status">{{.Sem.Message}}</p>{{end}}
+  {{if and .Sem.Ran (not .Sem.Message)}}
+    {{if .Sem.Hits}}<p class="fine search-count" role="status">{{$.N "sem.count" .Sem.Count}}</p>
+    <ol class="sem-hits">{{range .Sem.Hits}}<li class="sem-hit"><a href="{{.URL}}">{{.Title}}</a><span class="fine"> {{.Meta}}</span><p>{{.Snippet}}</p></li>{{end}}</ol>
+    {{if .Sem.Pending}}<p class="fine">{{$.N "sem.partial" .Sem.Pending}}</p>{{end}}
+    {{else}}<div class="empty"><p>{{$.T "search.semantic.none"}}</p>{{if .Sem.Pending}}<p class="fine">{{$.N "sem.partial" .Sem.Pending}}</p>{{end}}</div>{{end}}
+  {{else if not .Sem.Message}}<p class="fine search-hint">{{$.T "sem.hint"}}</p>{{end}}
+  {{else}}
+  {{if .Message}}<p class="field-error" id="search-msg" role="alert">{{.Message}}</p>{{end}}
+  {{if .Searched}}
+    {{if .Total}}
+    <p class="fine search-count" role="status">{{num .Total}} {{plural .Total "document matches" "documents match"}}{{if .Project}}, showing {{num .From}} to {{num .To}}{{end}}.{{if .Degraded}} The search index could not be read, so a slower search answered. An administrator can rebuild it.{{end}}</p>
+    {{range .Groups}}
+    <section class="result-group"{{if not $.Data.Project}} aria-label="{{.Project.Title}}"{{end}}>
+      {{if not $.Data.Project}}<h2><a href="/p/{{.Project.Slug}}">{{.Project.Title}}</a><span class="fine"> &middot; {{num .Total}} {{plural .Total "match" "matches"}}</span></h2>{{end}}
+      <ol class="results">
+        {{range .Hits}}<li class="result">
+          <a class="result-title" href="{{.URL}}">{{.Title}}</a>
+          <span class="result-meta">{{.Kind}} &middot; {{num .Words}} {{plural .Words "word" "words"}} &middot; {{if eq .MatchedIn "body"}}in the text{{else if eq .MatchedIn "synopsis"}}in the synopsis{{else}}in the title{{end}}</span>
+          <p class="snippet">{{range .Parts}}{{if .Mark}}<mark>{{.Text}}</mark>{{else}}{{.Text}}{{end}}{{end}}</p>
+        </li>{{end}}
+      </ol>
+      {{if .More}}<p class="result-more"><a href="{{.More}}">All {{num .Total}} in this project</a></p>{{end}}
+    </section>
+    {{end}}
+    {{if or .Prev .Next}}<nav class="pager" aria-label="Pages of results">{{if .Prev}}<a href="{{.Prev}}" rel="prev">Earlier results</a>{{else}}<span></span>{{end}}{{if .Next}}<a href="{{.Next}}" rel="next">More results</a>{{end}}</nav>{{end}}
+    {{else}}
+    <div class="empty"><p>Nothing matches &ldquo;{{.Q}}&rdquo;. Try fewer or shorter words; every word has to match, and the last may be a beginning.</p></div>
+    {{end}}
+  {{else if not .Message}}
+  <p class="fine search-hint">Every word has to match, in any order. The last word may be a beginning: <em>harb</em> finds <em>harbour</em>. Capitals and accents are ignored.</p>
+  {{end}}
+  {{end}}
+</section>
+{{end}}
+{{end}}

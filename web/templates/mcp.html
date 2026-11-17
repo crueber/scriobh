@@ -1,0 +1,95 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/share.css"}}"><link rel="stylesheet" href="{{asset "css/connect.css"}}"><script src="{{asset "js/connect.js"}}" defer></script>{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/settings">Settings</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "mcp.title"}}</span></nav>
+{{end}}
+{{define "content"}}
+{{with .Data}}
+<div class="settings shl cx" id="cx" data-origin="{{.Origin}}" data-selected="{{$.T "cx.selected"}}">
+  <h1>{{$.T "mcp.title"}}</h1>
+  <p class="sub">{{$.T "mcp.intro"}}</p>
+  <p class="cx-live" id="cx-live" role="status" aria-live="polite"></p>
+  {{if not .Enabled}}
+  <p class="notice-line cx-off" id="mcp-off">{{$.T "mcp.off"}}</p>
+  {{else}}
+  <p class="notice-line" id="mcp-on">{{$.T "mcp.on" "n" (num .Tools)}}</p>
+
+  <section aria-labelledby="mcp-addr-h">
+    <h2 id="mcp-addr-h">{{$.T "mcp.addr_h"}}</h2>
+    <div class="field"><label for="mcp-url">{{$.T "mcp.addr"}}</label><input id="mcp-url" type="text" readonly value="{{.URL}}" data-snippet spellcheck="false" aria-describedby="mcp-addr-note"></div>
+    <p class="fine" id="mcp-addr-note">{{$.T "mcp.addr_note"}}</p>
+    <div class="form-actions"><button type="button" class="btn small" data-copy="#mcp-url" data-done="{{$.T "mcp.copied"}}" hidden>{{$.T "mcp.copy_addr"}}</button></div>
+  </section>
+
+  <section aria-labelledby="mcp-pick-h">
+    <h2 id="mcp-pick-h">{{$.T "mcp.pick_h"}}</h2>
+    <form class="form" method="get" action="/settings/mcp#mcp-config">
+      <fieldset class="field radios"><legend>{{$.T "mcp.set"}}</legend>
+        <label class="check"><input type="radio" name="set" value="core"{{if eq .Set "core"}} checked{{end}}><span>{{$.T "mcp.set_core"}}</span></label>
+        <label class="check"><input type="radio" name="set" value="bible"{{if eq .Set "bible"}} checked{{end}}><span>{{$.T "mcp.set_bible"}}</span></label>
+        <label class="check"><input type="radio" name="set" value="both"{{if eq .Set "both"}} checked{{end}}><span>{{$.T "mcp.set_both"}}</span></label>
+        <label class="check"><input type="radio" name="set" value="all"{{if eq .Set "all"}} checked{{end}}><span>{{$.T "mcp.set_all"}}</span></label>
+      </fieldset>
+      <label class="check"><input type="checkbox" name="readonly" value="1"{{if .ReadOnly}} checked{{end}} aria-describedby="mcp-ro-hint"><span>{{$.T "mcp.readonly"}}</span></label>
+      <span class="hint" id="mcp-ro-hint">{{$.T "mcp.readonly_hint"}}</span>
+      <div class="form-actions"><button class="btn small" type="submit">{{$.T "mcp.apply"}}</button></div>
+    </form>
+  </section>
+
+  <section id="mcp-config" aria-labelledby="mcp-config-h">
+    <h2 id="mcp-config-h">{{$.T "mcp.config_h"}}</h2>
+    <p class="fine">{{$.T "mcp.config_note"}}</p>
+    {{range .Snippets}}
+    <div class="cx-snip">
+      <h3 id="{{.ID}}-h">{{.Title}}</h3>
+      <p class="fine" id="{{.ID}}-n">{{.Note}}</p>
+      <pre class="cx-code" id="{{.ID}}" tabindex="0" aria-labelledby="{{.ID}}-h" aria-describedby="{{.ID}}-n" data-snippet>{{.Text}}</pre>
+      <button type="button" class="btn small" data-copy="#{{.ID}}" data-done="{{$.T "mcp.copied"}}" aria-describedby="{{.ID}}-h" hidden>{{$.T "mcp.copy"}}</button>
+    </div>
+    {{end}}
+  </section>
+
+  <section id="mcp-keys" aria-labelledby="mcp-keys-h">
+    <h2 id="mcp-keys-h">{{$.T "mcp.keys_h"}}</h2>
+    <p>{{$.T "mcp.keys_what"}}</p>
+    <ul class="cx-bullets">
+      <li>{{$.T "mcp.keys_read"}}</li>
+      <li>{{$.T "mcp.keys_write"}}</li>
+      <li>{{$.T "mcp.keys_pin"}}</li>
+      <li>{{$.T "mcp.keys_cookie"}}</li>
+    </ul>
+    {{if .CanKeys}}
+    {{if .Keys}}<ul class="sessions" aria-label="{{$.T "mcp.keys_yours"}}">{{range .Keys}}<li><div class="session-main"><span class="session-agent">{{.Name}} <span class="this-device">{{if eq .Scope "read"}}{{$.T "mcp.k_read"}}{{else if eq .Scope "admin"}}{{$.T "mcp.k_admin"}}{{else}}{{$.T "mcp.k_write"}}{{end}}</span></span><span class="session-when"><code>{{.Prefix}}</code> &middot; {{.Pin}}</span></div></li>{{end}}</ul>
+    {{else}}<p class="fine">{{$.T "mcp.keys_none"}}</p>{{end}}
+    <p><a class="btn small" href="/settings#keys">{{$.T "mcp.keys_make"}}</a></p>
+    {{else}}<p class="fine">{{$.T "mcp.keys_cannot"}}</p>{{end}}
+  </section>
+
+  <section id="mcp-groups" aria-labelledby="mcp-groups-h">
+    <h2 id="mcp-groups-h">{{$.T "mcp.groups_h"}}</h2>
+    <p class="fine">{{$.T "mcp.groups_note"}}</p>
+    <table class="cx-table">
+      <caption class="sr-only">{{$.T "mcp.groups_h"}}</caption>
+      <thead><tr><th scope="col">{{$.T "mcp.g_name"}}</th><th scope="col">{{$.T "mcp.g_read"}}</th><th scope="col">{{$.T "mcp.g_write"}}</th><th scope="col">{{$.T "mcp.g_in"}}</th></tr></thead>
+      <tbody>{{range .Groups}}<tr><th scope="row"><code>{{.Name}}</code></th><td>{{.Read}}</td><td>{{.Write}}</td><td>{{if .Core}}{{$.T "mcp.g_core"}}{{else if .Bible}}{{$.T "mcp.g_bible"}}{{else}}&ndash;{{end}}</td></tr>{{end}}</tbody>
+    </table>
+    <p class="fine">{{if .PermanentTools}}{{$.T "mcp.perm_on"}}{{else}}{{$.T "mcp.perm_off"}}{{end}} {{if .AdminTools}}{{$.T "mcp.admin_on"}}{{else}}{{$.T "mcp.admin_off"}}{{end}}</p>
+  </section>
+  {{end}}
+
+  <section id="mcp-never" aria-labelledby="mcp-never-h">
+    <h2 id="mcp-never-h">{{$.T "mcp.never_h"}}</h2>
+    <ul class="cx-bullets">
+      <li>{{$.T "mcp.never_keys"}}</li>
+      <li>{{$.T "mcp.never_share"}}</li>
+      <li>{{$.T "mcp.never_git"}}</li>
+      <li>{{$.T "mcp.never_ai"}}</li>
+      <li>{{$.T "mcp.never_import"}}</li>
+      <li>{{$.T "mcp.never_contact"}}</li>
+      <li>{{$.T "mcp.never_purge"}}</li>
+      <li>{{$.T "mcp.never_cred"}}</li>
+    </ul>
+    <p class="fine">{{$.T "mcp.data_note"}}</p>
+  </section>
+</div>
+{{end}}
+{{end}}

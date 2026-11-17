@@ -1,0 +1,110 @@
+/* The import page: the chooser, the preview as a tree, and the words around it. Tokens only. */
+.import { max-width: 760px; margin: 0 auto; padding: var(--s-5) var(--s-4) var(--s-8); }
+.import h1 { font: 400 28px/34px var(--font-prose); letter-spacing: -.01em; }
+.import h2 { margin: 0; font: 400 var(--text-xl)/var(--lh-xl) var(--font-prose); }
+.import .lede { margin: var(--s-2) 0 0; }
+.imp-pick { display: flex; flex-direction: column; gap: var(--s-4); margin-top: var(--s-5); }
+.imp-pick input[type="file"] { min-height: var(--target); font: inherit; color: var(--fg-2); }
+.imp-pick input[type="file"]::file-selector-button { min-height: var(--target); margin-right: var(--s-3); padding: 0 var(--s-4); border: 1px solid var(--field-line); border-radius: var(--r-1); background: var(--surface); color: var(--fg); font: inherit; cursor: pointer; }
+.imp-pick input[type="file"]::file-selector-button:hover { background: var(--surface-2); }
+.imp-status { min-height: var(--lh-sm); margin: var(--s-4) 0 0; font-size: var(--text-sm); line-height: var(--lh-sm); color: var(--fg-2); }
+.imp-status[data-bad] { color: var(--danger); }
+.imp-sum { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-4); margin: var(--s-2) 0 0; color: var(--fg-2); font-size: var(--text-sm); }
+.imp-fields { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); gap: var(--s-3); margin: var(--s-4) 0; }
+.imp-note { margin: var(--s-3) 0 0; padding: var(--s-2) var(--s-3); border: 1px solid var(--line); border-left-width: 3px; border-radius: var(--r-1); font-size: var(--text-sm); line-height: var(--lh-sm); }
+.imp-note[data-kind="warn"] { border-left-color: var(--warn); }
+.imp-tree, .imp-tree ul { margin: 0; padding: 0; list-style: none; }
+.imp-tree ul { margin-inline-start: var(--s-3); padding-inline-start: var(--s-3); border-inline-start: 1px solid var(--line-2); }
+/* deeper than four levels the indent stops (the level is said in words), so the controls of a deep chapter keep their room */
+.imp-tree ul ul ul ul ul { margin-inline-start: 0; padding-inline-start: 0; border-inline-start: 0; }
+.imp-tree { margin-top: var(--s-3); border-top: 1px solid var(--line-2); }
+.imp-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s-3); border-bottom: 1px solid var(--line-2); }
+.imp-title { flex: 1 1 11rem; min-width: 0; padding: var(--s-2) 0; overflow-wrap: anywhere; }
+.imp-node[data-kind="part"] > .imp-row .imp-title { font-weight: 600; }
+.imp-meta { color: var(--muted); font-size: var(--text-xs); line-height: var(--lh-xs); font-variant-numeric: tabular-nums; }
+.imp-edit { min-width: 0; max-width: 100%; }
+.imp-edit[open] { flex-basis: 100%; }
+.imp-edit summary { display: inline-flex; align-items: center; justify-content: center; min-height: var(--target); min-width: var(--target); padding: 0 var(--s-2); color: var(--fg-2); font-size: var(--text-sm); cursor: pointer; }
+.imp-edit summary:hover { color: var(--fg); }
+.imp-edit-body { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); flex-basis: 100%; padding: 0 0 var(--s-3); }
+.imp-edit-body input[type="text"] { flex: 1 1 14rem; width: auto; min-width: 0; }
+.imp-edit-body { min-width: 0; }
+.imp-edit-body select { width: auto; min-width: 0; max-width: 100%; }
+.imp-edit-body .btn { min-width: var(--target); max-width: 100%; white-space: normal; }
+.imp-warn { flex-basis: 100%; margin: 0; padding-bottom: var(--s-2); color: var(--fg-2); font-size: var(--text-xs); line-height: var(--lh-xs); }
+.imp-left, .imp-skipped, .imp-more > details { margin-top: var(--s-4); }
+.imp-left summary, .imp-skipped summary, .imp-more summary { min-height: var(--target); display: list-item; list-style-position: inside; padding-block: calc((var(--target) - 1.4em) / 2); cursor: pointer; font-size: var(--text-sm); line-height: 1.4; color: var(--fg-2); }
+.imp-left li, .imp-skipped li, .imp-rep li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--s-3); padding: var(--s-1) 0; border-bottom: 1px solid var(--line-2); font-size: var(--text-sm); overflow-wrap: anywhere; }
+.imp-left ul, .imp-skipped ul, .imp-rep { margin: 0; padding: 0; list-style: none; }
+.imp-skipped .why, .imp-rep .why { color: var(--muted); }
+.imp-go { display: flex; flex-wrap: wrap; gap: var(--s-3); margin-top: var(--s-5); }
+.imp-go .btn { max-width: 100%; white-space: normal; }
+@media (max-width: 600px) {
+  .imp-fields { grid-template-columns: 1fr; }
+}
+
+/* Import from a Git repository */
+.imp-tabs { display: flex; gap: var(--s-1); margin-bottom: var(--s-4); border-bottom: 1px solid var(--line); }
+.imp-tabs a { display: inline-flex; align-items: center; min-height: var(--target); padding: 0 var(--s-3); border-bottom: 2px solid transparent; margin-bottom: -1px; color: var(--muted); font: 500 var(--text-sm)/var(--lh-sm) var(--font-ui); text-decoration: none; }
+.imp-tabs a:hover { color: var(--fg); }
+.imp-tabs a[aria-current="page"] { color: var(--fg); border-bottom-color: var(--accent); }
+.rg-form { display: flex; flex-direction: column; gap: var(--s-4); margin-top: var(--s-5); }
+.rg-form input[type="password"] { width: 100%; min-height: max(var(--target), 40px); padding: 0 var(--s-3); border: 1px solid var(--field-line); border-radius: var(--r-1); background: var(--surface); color: var(--fg); }
+.rg-src { margin: 0; padding: 0; border: 0; min-width: 0; }
+.rg-src legend { padding: 0; font-size: var(--text-sm); line-height: var(--lh-sm); font-weight: 500; color: var(--fg-2); }
+.rg-src input { width: 18px; height: 18px; accent-color: var(--accent); }
+.rg-block { display: flex; flex-direction: column; gap: var(--s-3); }
+.rg-block[hidden] { display: none; }
+.rg-job, .rg-record, .rg-jobs { margin-top: var(--s-5); }
+.rg-job { padding: var(--s-3) var(--s-4); border: 1px solid var(--line); border-left-width: 3px; border-radius: var(--r-1); }
+.rg-job[data-bad] { border-left-color: var(--danger); }
+.rg-job h2:focus { outline: none; }
+.import #imp-result:not([hidden]) { margin-top: var(--s-5); }
+.rg-line, .rg-hint { margin: var(--s-2) 0 0; }
+.rg-hint { color: var(--fg-2); font-size: var(--text-sm); line-height: var(--lh-sm); }
+.rg-meta { color: var(--muted); font-size: var(--text-xs); line-height: var(--lh-xs); overflow-wrap: anywhere; }
+.rg-list { margin: var(--s-3) 0 0; padding: 0; list-style: none; border-top: 1px solid var(--line-2); }
+.rg-item { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-2) var(--s-3); padding: var(--s-2) 0; border-bottom: 1px solid var(--line-2); }
+.rg-item-main { display: flex; flex-direction: column; min-width: 0; flex: 1 1 14rem; }
+.rg-url { overflow-wrap: anywhere; }
+.rg-state { font-size: var(--text-sm); line-height: var(--lh-sm); color: var(--fg-2); }
+.rg-state::before { content: "\2022\00a0"; }
+.rg-state[data-s="failed"]::before { content: "\00d7\00a0"; }
+.rg-state[data-s="preview"]::before, .rg-state[data-s="done"]::before { content: "\2713\00a0"; }
+.rg-err { font-size: var(--text-xs); line-height: var(--lh-xs); color: var(--danger); overflow-wrap: anywhere; }
+.rg-acts { display: flex; gap: var(--s-1); }
+
+/* Books and tracked changes: the cut and the radios that explain it, what the preview says of a book, a PDF or a Word file's
+   changes, and the picker that nests or joins a chapter. State is words with a mark, never colour alone. */
+.imp-radios .check { align-items: flex-start; padding: var(--s-1) 0; line-height: var(--lh-sm); }
+.imp-radios .check input { margin-top: 2px; flex: none; }
+.imp-retry { margin: var(--s-2) 0 0; }
+.imp-retry [hidden], .imp-pick[hidden] { display: none; }
+.import h3 { margin: var(--s-5) 0 var(--s-2); font: 500 var(--text-base)/var(--lh-base) var(--font-ui); }
+.import h4 { margin: var(--s-4) 0 var(--s-1); font: 500 var(--text-sm)/var(--lh-sm) var(--font-ui); color: var(--fg-2); }
+.imp-book .field { margin-top: var(--s-3); }
+.imp-dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: var(--s-2) var(--s-4); margin: var(--s-2) 0; }
+.imp-dl > div { min-width: 0; }
+.imp-dl dt { color: var(--muted); font-size: var(--text-xs); line-height: var(--lh-xs); }
+.imp-dl dd { margin: 0; overflow-wrap: anywhere; font-size: var(--text-sm); line-height: var(--lh-sm); }
+.imp-line { margin: var(--s-2) 0 0; font-size: var(--text-sm); line-height: var(--lh-sm); color: var(--fg-2); }
+.imp-facts { margin: var(--s-2) 0; padding-block: 0; padding-inline: var(--s-4) 0; list-style: disc; font-size: var(--text-sm); line-height: var(--lh-sm); }
+.imp-facts li { margin: var(--s-1) 0; padding-inline-start: var(--s-1); overflow-wrap: anywhere; }
+.imp-facts li[data-ok] { list-style: none; display: flex; gap: var(--s-2); margin-inline-start: calc(var(--s-4) * -1); }
+.imp-facts li.imp-sub { list-style: none; }
+.imp-facts li.imp-sub > .imp-facts { margin: 0; }
+.imp-mark { flex: none; width: 1.1em; text-align: center; font-weight: 600; }
+.imp-facts li[data-ok="true"] .imp-mark::before { content: "\2713"; color: var(--ok); }
+.imp-facts li[data-ok="false"] .imp-mark::before { content: "\2715"; color: var(--fg-2); }
+.imp-files { margin-top: var(--s-3); }
+.imp-files summary { min-height: var(--target); display: list-item; list-style-position: inside; padding-block: calc((var(--target) - 1.4em) / 2); cursor: pointer; font-size: var(--text-sm); color: var(--fg-2); }
+.imp-filelist { margin: 0; padding: 0; list-style: none; }
+.imp-filelist li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 var(--s-3); padding: var(--s-1) 0; border-bottom: 1px solid var(--line-2); font-size: var(--text-sm); overflow-wrap: anywhere; }
+.imp-filelist .why { color: var(--muted); }
+.imp-path { font-family: var(--font-mono); font-size: var(--text-xs); }
+.imp-to { min-width: 0; max-width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); flex-basis: 100%; }
+.imp-to select { flex: 1 1 14rem; min-width: 0; max-width: 100%; }
+.imp-to .imp-warn { flex-basis: 100%; padding: 0; }
+.imp-to .btn { min-width: var(--target); }
+.imp-why { flex-basis: 100%; padding: 0; }
+.imp-map .fine { margin: var(--s-4) 0 0; }

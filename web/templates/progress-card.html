@@ -1,0 +1,21 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/card.css"}}">{{end}}
+{{/* A private progress card: numbers only, no project unless its owner ticked that, no word of any text. The SVG is drawn on
+   the server and holds no script; the list under it is the same figures as text. The page has no script, no cookie and no
+   link into the application. */}}
+{{define "content"}}
+{{with .Data}}
+<div class="pc">
+  <h1>{{$.T "studio.card.title"}}</h1>
+  {{.SVG}}
+  <ul>
+    {{if .View.WritingDays30}}<li>{{$.N "studio.card.days30" .View.WritingDays30}}</li>{{end}}
+    {{if .View.Streak}}<li>{{$.N "studio.card.streak_line" .View.Streak}}</li>{{end}}
+    {{if .View.Longest}}<li>{{$.N "studio.card.longest" .View.Longest}}</li>{{end}}
+    <li>{{$.N "studio.card.goals" .View.GoalsActive "active" .View.GoalsActive "done" .View.GoalsDone}}</li>
+    {{range .Goals}}<li>{{.}}</li>{{end}}
+  </ul>
+  <p><a href="{{.SVGPath}}" download="progress.svg">{{$.T "studio.card.download"}}</a></p>
+  <p class="fine">{{$.T "studio.ui.card.public_note"}}</p>
+</div>
+{{end}}
+{{end}}

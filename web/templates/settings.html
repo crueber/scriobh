@@ -1,0 +1,126 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/mail.css"}}"><script src="{{asset "js/themes.js"}}" defer></script>{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">Settings</span></nav>
+{{end}}
+{{define "content"}}
+{{with .Data}}
+<div class="settings">
+  <h1>Settings</h1>
+  {{if .Error}}<p class="field-error" role="alert" id="settings-error">{{.Error}}</p>{{end}}
+
+  <section id="profile" aria-labelledby="h-profile">
+    <h2 id="h-profile">Profile</h2>
+    <p class="sub">{{.Profile.Email}} &middot; signed in through your identity provider.</p>
+    <form class="form" method="post" action="/ui/settings/profile">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field">
+        <label for="pf-name">Display name</label>
+        <input id="pf-name" type="text" name="display_name" value="{{.Profile.DisplayName}}" maxlength="80" required autocomplete="name"{{if eq .Field "display_name"}} aria-invalid="true" aria-describedby="settings-error"{{end}}>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="pf-tz">Time zone</label>
+          <input id="pf-tz" type="text" name="timezone" list="tz-list" value="{{.Profile.Timezone}}" placeholder="Europe/Dublin" autocomplete="off" spellcheck="false" {{if eq .Field "timezone"}} aria-invalid="true" aria-describedby="pf-tz-hint settings-error"{{else}} aria-describedby="pf-tz-hint"{{end}}>
+          </div>
+        <div class="field">
+          <label for="pf-locale">Language</label>
+          <select id="pf-locale" name="locale">{{$cur := .Profile.Locale}}{{range .Locales}}<option value="{{.Value}}"{{if eq .Value $cur}} selected{{end}}>{{.Label}}</option>{{end}}</select>
+        </div>
+      </div>
+      <span class="hint" id="pf-tz-hint">The time zone sets where a writing day begins and ends. Pick one from the list or type its name.</span>
+      <datalist id="tz-list">{{range .Zones}}<option value="{{.}}">{{end}}</datalist>
+      <div class="form-actions"><button class="btn solid" type="submit">Save profile</button></div>
+      {{if eq .Saved "profile"}}<p class="saved" role="status">Profile saved.</p>{{end}}
+    </form>
+  </section>
+
+  <form method="post" action="/ui/settings/prefs" class="prefs-form">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <section id="appearance" aria-labelledby="h-look">
+      <h2 id="h-look">Appearance</h2>
+      <p class="sub">Applied before the page paints, on every device you sign in on.</p>
+      <div class="form">
+        {{range .Look}}{{template "select-field" .}}{{if eq .Name "theme"}}
+        {{template "theme-group" dict "Name" "theme_light" "Legend" "Light theme" "Hint" "Used whenever the page is light: always, or when your system is." "Opts" $.Data.LightThemes}}
+        {{template "theme-group" dict "Name" "theme_dark" "Legend" "Dark theme" "Hint" "Used whenever the page is dark: always, or when your system is." "Opts" $.Data.DarkThemes}}{{end}}{{end}}
+      </div>
+    </section>
+    <section id="editor" aria-labelledby="h-editor">
+      <h2 id="h-editor">Writing</h2>
+      <p class="sub">How the page looks and behaves while you write.</p>
+      <div class="form">
+        {{range .Editor}}{{template "select-field" .}}{{end}}
+        {{range .Checks}}<div class="field"><input type="hidden" name="{{.Name}}" value="false"><label class="check" for="ck-{{.Name}}"><input id="ck-{{.Name}}" type="checkbox" name="{{.Name}}" value="true"{{if .On}} checked{{end}}><span>{{.Label}}</span></label><span class="hint">{{.Hint}}</span></div>{{end}}
+        <div class="preview paper" data-size="{{.Prefs.Size}}" data-lh="{{.Prefs.LH}}" data-font="{{.Prefs.Font}}" data-measure="{{.Prefs.Measure}}" role="note" aria-label="A sample of the page"><p>The tide had gone out and taken the light with it. By four o&rsquo;clock the harbour was a bowl of black mud, and the boats lay over on their sides like animals that had surrendered.</p></div>
+        <div class="form-actions"><button class="btn solid" type="submit">Save settings</button></div>
+        {{if eq .Saved "prefs"}}<p class="saved" role="status">Settings saved.</p>{{end}}
+      </div>
+    </section>
+  </form>
+
+  {{if .CanKeys}}
+  <section id="keys" aria-labelledby="h-keys">
+    <h2 id="h-keys">API keys</h2>
+    <p class="sub">A key lets a script or a coding agent work in Scríobh as you, limited to what you choose here. Treat it like a password.</p>
+    <p class="sub"><a href="/settings/mcp">Connect an agent over MCP</a>: the address, the configuration to paste, and what each key lets it see.</p>
+    {{if .NewSecret}}
+    <div class="key-secret" role="status">
+      <p><strong>Key &ldquo;{{.NewKeyName}}&rdquo; created.</strong> Copy it now; it is shown once and cannot be recovered.</p>
+      <p><code class="secret" id="new-key" tabindex="0">{{.NewSecret}}</code></p>
+      <p class="hint">Save it where the tool will find it, for example: <code>scriobh-cli login --url &lt;this server&gt; --key -</code></p>
+    </div>
+    {{end}}
+    {{if .Keys}}<ul class="sessions">
+      {{range .Keys}}<li>
+        <div class="session-main"><span class="session-agent">{{.Name}} <span class="this-device">{{.Scope}}</span></span><span class="session-when">{{.Prefix}}&hellip; &middot; {{.Restricted}} &middot; {{.LastUsed}} &middot; {{.Expires}}</span>{{range .Protected}}<span class="session-when">{{.}}</span>{{end}}</div>
+        <form method="post" action="/ui/keys/{{.ID}}/revoke"><input type="hidden" name="_csrf" value="{{$.Data.CSRF}}"><button class="btn quiet" type="submit">Revoke</button></form>
+      </li>{{end}}
+    </ul>{{else}}<p class="sub">You have no keys.</p>{{end}}
+    {{if eq .Saved "keys"}}<p class="saved" role="status">Done.</p>{{end}}
+    <form class="form" method="post" action="/ui/keys">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field">
+        <label for="key-name">Name</label>
+        <input id="key-name" type="text" name="name" maxlength="80" required placeholder="Claude, salt road" autocomplete="off"{{if eq .Field "name"}} aria-invalid="true" aria-describedby="settings-error"{{end}}>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="key-scope">What it may do</label>
+          <select id="key-scope" name="scope"><option value="read">Read only</option><option value="write" selected>Read and write</option></select>
+        </div>
+        <div class="field">
+          <label for="key-days">Expires after (days)</label>
+          <input id="key-days" type="number" name="expires_in_days" min="0" max="3650" value="90" inputmode="numeric" aria-describedby="key-days-hint">
+        </div>
+      </div>
+      <span class="hint" id="key-days-hint">0 means the key never expires. A key that outlives its task is a liability.</span>
+      <div class="field">
+        <label for="key-project">Restrict to one project</label>
+        <select id="key-project" name="project_id"><option value="">Everything I can open</option>{{range .KeyProjects}}<option value="{{.Value}}">{{.Label}}</option>{{end}}</select>
+      </div>
+      <div class="form-actions"><button class="btn solid" type="submit">Create key</button></div>
+    </form>
+  </section>
+  {{end}}
+
+  <section id="sessions" aria-labelledby="h-sessions">
+    <h2 id="h-sessions">Signed-in devices</h2>
+    <p class="sub">Every browser that is signed in to your account. Sign one out if you no longer use it.</p>
+    <ul class="sessions">
+      {{range .Sessions}}<li>
+        <div class="session-main"><span class="session-agent">{{.Agent}}{{if .Current}}<span class="this-device">This device</span>{{end}}</span><span class="session-when">{{.When}}</span></div>
+        <form method="post" action="/ui/sessions/{{.ID}}/revoke"{{if .Current}} data-signs-out data-m-unsaved="{{$.T "confirm.signout_unsaved"}}" data-m-locked="{{$.T "confirm.signout_locked"}}" data-m-ok="{{$.T "confirm.signout_ok"}}" data-m-cancel="{{$.T "confirm.cancel"}}"{{end}}><input type="hidden" name="_csrf" value="{{$.Data.CSRF}}"><button class="btn quiet" type="submit">{{if .Current}}Sign out here{{else}}Sign out{{end}}</button></form>
+      </li>{{end}}
+    </ul>
+    {{if .Others}}<form method="post" action="/ui/sessions/revoke-others" class="form-actions"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn" type="submit">Sign out the other {{.Others}} {{plural .Others "device" "devices"}}</button></form>{{end}}
+    {{if eq .Saved "sessions"}}<p class="saved" role="status">Done.</p>{{end}}
+  </section>
+  {{with .Mail}}{{template "settings-mail" (dict "P" $ "M" . "CSRF" $.Data.CSRF)}}{{end}}
+  {{with .Studio}}{{template "settings-studio" (dict "P" $ "S" . "CSRF" $.Data.CSRF)}}{{end}}
+  {{with .Backups}}{{template "settings-backups" (dict "B" . "CSRF" $.Data.CSRF "Saved" $.Data.Saved)}}{{end}}
+</div>
+{{end}}
+{{end}}
+{{define "theme-group"}}<fieldset class="field theme-pick" aria-describedby="tp-{{.Name}}-hint"><legend>{{.Legend}}</legend><span class="hint" id="tp-{{.Name}}-hint">{{.Hint}}</span>
+  <div class="theme-opts">{{$n := .Name}}{{range .Opts}}<label class="theme-opt"><input type="radio" name="{{$n}}" value="{{.ID}}" data-theme-pick="{{$n}}"{{if .Checked}} checked{{end}}><span class="tsw" data-sw="{{.ID}}" aria-hidden="true"><span class="tsw-aa">Aa</span><span class="tsw-lines"><i></i><i></i><i class="tsw-short"></i></span><span class="tsw-chip"></span></span><span class="theme-name">{{.Label}}</span><span class="theme-tick" aria-hidden="true">{{template "icon" "check"}}</span></label>{{end}}</div></fieldset>{{end}}
+{{define "select-field"}}<div class="field"><label for="sf-{{.Name}}">{{.Label}}</label>{{if .Hint}}<span class="hint" id="sf-{{.Name}}-hint">{{.Hint}}</span>{{end}}<select id="sf-{{.Name}}" name="{{.Name}}"{{if .Hint}} aria-describedby="sf-{{.Name}}-hint"{{end}}{{if .Live}} data-live="{{.Live}}"{{end}}>{{$cur := .Current}}{{range .Options}}<option value="{{.Value}}"{{if eq .Value $cur}} selected{{end}}>{{.Label}}</option>{{end}}</select></div>{{end}}

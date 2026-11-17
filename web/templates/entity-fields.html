@@ -1,0 +1,52 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/entities.css"}}">{{end}}
+{{define "crumb"}}{{template "ccrumb" (dict "C" .Data.Compendium "Here" "Custom fields")}}{{end}}
+{{define "tab-write"}}{{template "ctab-phone" ctabs .Data.Slug "entities"}}{{end}}
+{{define "ptabs"}}{{template "ctab-desktop" ctabs .Data.Slug "entities"}}{{end}}
+{{define "projmore"}}{{template "cmore" ctabs .Data.Slug "entities"}}{{end}}
+{{define "content"}}
+{{with .Data}}
+<div class="settings ents fields" id="fields">
+  <h1>Custom fields</h1>
+  <p class="sub">The extra facts each kind of entity in {{.Compendium.Name}} keeps: an age, a birthday, an allegiance. Every entity of the kind gets the field, and a sheet shows it only where it has a value.{{if not .CanEdit}} You can read these, and an owner or an editor can change them.{{end}}</p>
+  {{if .Saved}}<p class="saved" role="status">{{.Saved}}</p>{{end}}
+  {{if and .Error (eq .Scope "new")}}<p class="field-error" role="alert" id="fe-error">{{.Error}}</p>{{end}}
+  {{range .Groups}}<section id="{{.Kind}}" aria-labelledby="h-{{.Kind}}">
+    <h2 id="h-{{.Kind}}">{{.Plural}}</h2>
+    {{if .Defs}}{{range .Defs}}{{$sc := printf "%s:%s" .Kind .Key}}
+    <div class="fdef" role="group" aria-label="{{.Label}}">
+      <h3>{{.Label}} <span class="ent-kind">{{.Type}}</span> <span class="fine">key {{.Key}}</span></h3>
+      {{if and (eq $.Data.Scope $sc) $.Data.Error}}<p class="field-error" role="alert">{{$.Data.Error}}</p>{{end}}
+      {{if $.Data.CanEdit}}
+      <form class="form" method="post" action="/ui/compendiums/{{$.Data.Compendium.ID}}/fields/set">
+        <input type="hidden" name="_csrf" value="{{$.Data.CSRF}}"><input type="hidden" name="kind" value="{{.Kind}}"><input type="hidden" name="key" value="{{.Key}}"><input type="hidden" name="type" value="{{.Type}}"><input type="hidden" name="existing" value="1">
+        <div class="field"><label for="fl-{{.Kind}}-{{.Key}}">Name on the sheet</label><input id="fl-{{.Kind}}-{{.Key}}" type="text" name="label" value="{{.Label}}" maxlength="60" autocomplete="off"></div>
+        {{if eq .Type "choice"}}<div class="field"><label for="fc-{{.Kind}}-{{.Key}}">Choices, one on each line</label><textarea id="fc-{{.Kind}}-{{.Key}}" name="choices" rows="4">{{range $i, $c := .Choices}}{{if $i}}
+{{end}}{{$c}}{{end}}</textarea><span class="hint">Taking a choice away is refused while an entity uses it.</span></div>{{end}}
+        <div class="form-actions"><button class="btn" type="submit" aria-label="Save {{.Label}}">Save</button></div>
+      </form>
+      <form class="form" method="post" action="/ui/compendiums/{{$.Data.Compendium.ID}}/fields/remove">
+        <input type="hidden" name="_csrf" value="{{$.Data.CSRF}}"><input type="hidden" name="kind" value="{{.Kind}}"><input type="hidden" name="key" value="{{.Key}}">
+        <label class="check"><input type="checkbox" name="drop_values" value="1"><span>Also delete the values entities hold in it, and any project&rsquo;s override of it</span></label>
+        <p class="hint">Without this box, removing a field that has values is refused and nothing is lost. With it, those values are deleted and cannot be brought back.</p>
+        <div class="form-actions"><button class="btn quiet danger-text" type="submit" aria-label="Remove the field {{.Label}}">Remove the field</button></div>
+      </form>
+      {{end}}
+    </div>{{end}}
+    {{else}}<p class="fine">No custom fields for {{.Plural}} yet.</p>{{end}}
+  </section>{{end}}
+
+  {{if .CanEdit}}<section id="new" aria-labelledby="h-new">
+    <h2 id="h-new">Add a field</h2>
+    <form class="form" method="post" action="/ui/compendiums/{{.Compendium.ID}}/fields/set">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <div class="field"><label for="nf-kind">For</label><select id="nf-kind" name="kind">{{range .Groups}}<option value="{{.Kind}}"{{if eq .Kind (index $.Data.Values "kind")}} selected{{end}}>{{.Plural}}</option>{{end}}</select></div>
+      <div class="field"><label for="nf-label">Name on the sheet</label><input id="nf-label" type="text" name="label" value="{{index .Values "label"}}" maxlength="60" autocomplete="off" placeholder="Age"></div>
+      <div class="field"><label for="nf-key">Key</label><input id="nf-key" type="text" name="key" value="{{index .Values "key"}}" maxlength="32" autocomplete="off" aria-describedby="nf-key-h" placeholder="age"><span class="hint" id="nf-key-h">Lower-case letters, digits and underscores, starting with a letter. Exports and the API use it.</span></div>
+      <div class="field"><label for="nf-type">Type</label><select id="nf-type" name="type" aria-describedby="nf-type-h">{{range .Types}}<option value="{{.}}"{{if eq . (index $.Data.Values "type")}} selected{{end}}>{{.}}</option>{{end}}</select><span class="hint" id="nf-type-h">Fixed once entities hold values. A date is a year, a month or a day.</span></div>
+      <div class="field"><label for="nf-choices">Choices <span class="optional">for a choice field</span></label><textarea id="nf-choices" name="choices" rows="3">{{index .Values "choices"}}</textarea><span class="hint">One on each line.</span></div>
+      <div class="form-actions"><button class="btn solid" type="submit">Add the field</button></div>
+    </form>
+  </section>{{end}}
+</div>
+{{end}}
+{{end}}

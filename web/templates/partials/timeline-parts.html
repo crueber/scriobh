@@ -1,0 +1,93 @@
+{{define "tl-check"}}<div class="tl-checkbody">
+  {{if .Hidden}}<p class="tl-note">Some Compendiums this book draws on are not open to you, so their events are left out of this check.</p>{{end}}
+  {{if .Indexing}}<p class="tl-note" role="status">The index of who appears in which scene is still catching up with recent edits, so findings about a person's scenes may be a little behind. Check again in a moment.</p>{{end}}
+  <p class="fine tl-read">{{.Headline}}{{if .Findings}} It found {{.Errors}} {{plural .Errors "error" "errors"}} and {{.Warnings}} {{plural .Warnings "warning" "warnings"}}.{{end}}</p>
+  {{if .Findings}}
+  {{if .Errs}}<h3 class="tl-sevh">Errors</h3>
+  <ol class="tl-findings" aria-label="Errors">{{range .Errs}}{{template "tl-find" .}}{{end}}</ol>{{end}}
+  {{if .Warns}}<h3 class="tl-sevh">Warnings</h3>
+  <ol class="tl-findings" aria-label="Warnings">{{range .Warns}}{{template "tl-find" .}}{{end}}</ol>{{end}}
+  {{else}}<p class="tl-empty">{{.Empty}}</p>{{end}}
+</div>{{end}}
+
+{{define "tl-find"}}<li class="tl-find" data-sev="{{.Severity}}" data-kind="{{.Kind}}">
+  <p class="tl-find-h"><span class="tl-sev">{{.SevText}}</span> <strong>{{.Label}}</strong></p>
+  <p class="tl-msg">{{.Message}}</p>
+  {{if .Explain}}<p class="fine">{{.Explain}}</p>{{end}}
+  {{if .Links}}<ul class="tl-links" aria-label="What this is about">{{range .Links}}<li data-k="{{.Kind}}">{{if .Href}}<a href="{{.Href}}"><span class="tl-k">{{.Kind}}</span> {{.Text}}</a>{{else}}<span><span class="tl-k">{{.Kind}}</span> {{.Text}}</span>{{end}}</li>{{end}}</ul>{{end}}
+</li>{{end}}
+
+{{define "tl-strip"}}{{if .Buckets}}
+<ol class="tl-strip" aria-label="Story time in blocks">
+  {{range .Buckets}}<li class="tl-blk">{{if .Href}}<a class="tl-bar" href="{{.Href}}">{{else}}<span class="tl-bar is-empty">{{end}}
+    <span class="sr-only">{{.Text}}{{if .Href}} List them.{{end}}</span>
+    <span class="tl-fills" aria-hidden="true"><span class="tl-fill e{{.LevE}}"></span>{{if .Scenes}}<span class="tl-fill s e{{.LevS}}"></span>{{end}}</span>
+    <span class="tl-n" aria-hidden="true">{{.Events}}{{if .Scenes}} + {{.Scenes}}{{end}}</span>
+    <span class="tl-l" aria-hidden="true">{{.Label}}</span>
+  {{if .Href}}</a>{{else}}</span>{{end}}</li>
+  {{end}}
+  {{if .Undated}}<li class="tl-blk tl-undated"><span class="tl-bar is-empty"><span class="sr-only">{{.Undated}} with no date, not on the line.</span>
+    <span class="tl-fills" aria-hidden="true"><span class="tl-fill e0"></span></span><span class="tl-n" aria-hidden="true">{{.Undated}}</span><span class="tl-l" aria-hidden="true">No date</span></span></li>{{end}}
+</ol>
+<details class="tl-alt" open>
+  <summary>The same, as a table</summary>
+  <table class="tl-tbl tl-blocks">
+    <caption>{{.Summary}}</caption>
+    <thead><tr><th scope="col">Stretch of story time</th><th scope="col">Events that start in it</th>{{if .HasScenes}}<th scope="col">Scenes that start in it</th>{{end}}<th scope="col">List them</th></tr></thead>
+    <tbody>
+      {{$sc := .HasScenes}}{{range .Buckets}}<tr><th scope="row">{{.Name}}</th><td data-l="Events">{{.Events}}</td>{{if $sc}}<td data-l="Scenes">{{.Scenes}}</td>{{end}}<td data-l="List">{{if .Href}}<a href="{{.Href}}">List {{.Name}}</a>{{else}}<span class="fine">Nothing starts here</span>{{end}}</td></tr>
+      {{end}}
+      {{if .Undated}}<tr><th scope="row">No date</th><td data-l="Events">{{.Undated}}</td>{{if $sc}}<td data-l="Scenes">{{.UndatedScenes}}</td>{{end}}<td data-l="List"><span class="fine">Not on the line</span></td></tr>{{end}}
+    </tbody>
+  </table>
+</details>
+{{else}}<p class="tl-empty">{{.Summary}}</p>{{end}}{{end}}
+
+{{define "tl-pager"}}{{if or .Prev .Next}}<nav class="tl-pager" aria-label="Pages of the table">
+  {{if .Prev}}<a class="btn small" href="{{.Prev}}" rel="prev">Earlier rows</a>{{end}}
+  <span class="fine">Showing {{.First}} to {{.Last}} of {{num .Total}}</span>
+  {{if .Next}}<a class="btn small" href="{{.Next}}" rel="next">Later rows</a>{{end}}
+</nav>{{end}}{{end}}
+
+{{define "tl-rows"}}{{if .Rows}}
+<table class="tl-tbl tl-events">
+  <caption class="sr-only">{{if .Filter.Trash}}Events in the trash{{else}}Events in story order{{end}}, {{.First}} to {{.Last}} of {{num .Total}}</caption>
+  <thead><tr><th scope="col">When</th><th scope="col">Event</th><th scope="col">Where</th><th scope="col">Who</th><th scope="col">Told in</th></tr></thead>
+  <tbody>
+    {{range .Rows}}<tr id="e-{{.ID}}">
+      <td data-l="When">{{if .Dated}}<span class="tl-date">{{.When}}</span>{{else}}<span class="tl-date is-none">Undated</span>{{end}}{{if .StoryLabel}}<span class="tl-lab">{{.StoryLabel}}</span>{{end}}</td>
+      <td data-l="Event"><a class="tl-title" href="{{.EventHref}}">{{.Title}}</a>{{if .Snippet}}<span class="tl-snip">{{.Snippet}}</span>{{end}}</td>
+      <td data-l="Where">{{with .Location}}{{.Name}}{{else}}<span class="fine">No place</span>{{end}}</td>
+      <td data-l="Who">{{if .Participants}}<ul class="tl-inl">{{range .Participants}}<li>{{.Entity.Name}}{{if .Role}} <span class="fine">({{.Role}})</span>{{end}}</li>{{end}}{{if .PeopleMore}}<li class="fine">and {{.PeopleMore}} more</li>{{end}}</ul>{{else}}<span class="fine">No one</span>{{end}}</td>
+      <td data-l="Told in">{{if .SceneRows}}<ul class="tl-inl">{{range .SceneRows}}<li>{{if .Href}}<a href="{{.Href}}">{{.Title}}</a>{{else}}{{.Title}}{{end}} <span class="fine">{{.Project}}</span></li>{{end}}</ul>{{else}}<span class="fine">No scene yet</span>{{end}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{template "tl-pager" .}}
+{{end}}{{end}}
+
+{{define "tl-ptable"}}<div id="tl-ptable" class="tl-ptable" data-order="{{.Order}}" data-movable="{{.Movable}}">
+{{if .Rows}}
+<table class="tl-tbl tl-pt">
+  <caption class="sr-only">{{if eq .Order "narrative"}}In the order this book tells it{{else}}In the order things happen{{end}}, {{.First}} to {{.Last}} of {{num .Total}}</caption>
+  <thead><tr><th scope="col">No.</th><th scope="col">When</th><th scope="col">Event or scene</th><th scope="col">Where and who</th><th scope="col">Told in</th>{{if .Movable}}<th scope="col">Move</th>{{end}}</tr></thead>
+  <tbody id="tl-body" data-start="{{.First}}">
+    {{range .Rows}}<tr id="tl-row-{{.ID}}" data-kind="{{.Kind}}"{{if .IsEvent}} data-event="{{.ID}}" data-title="{{.Title}}"{{end}}>
+      <td class="tl-pos" data-l="No.">{{.Pos}}</td>
+      <td data-l="When">{{if .Dated}}<span class="tl-date">{{.When}}</span>{{else}}<span class="tl-date is-none">Undated</span>{{end}}{{if .Label}}<span class="tl-lab">{{.Label}}</span>{{end}}</td>
+      <td data-l="Title"><span class="tl-kind">{{if .IsEvent}}Event{{else}}Scene{{end}}</span> <a class="tl-title" href="{{.Href}}">{{.Title}}</a></td>
+      <td data-l="Where and who">{{with .Place}}<span>{{.Name}}</span>{{end}}{{if .People}}<ul class="tl-inl">{{range .People}}<li>{{.Entity.Name}}{{if .Role}} <span class="fine">({{.Role}})</span>{{end}}</li>{{end}}{{if .PeopleMore}}<li class="fine">and {{.PeopleMore}} more</li>{{end}}</ul>{{end}}{{with .Pov}}<span class="fine">Told from {{.Name}}</span>{{end}}{{if and (not .Place) (not .People) (not .Pov)}}<span class="fine">Nothing recorded</span>{{end}}</td>
+      <td data-l="Told in">{{if .Told}}<ul class="tl-inl">{{range .Told}}<li><a href="{{.Href}}">{{.Title}}</a>{{if .Where}} <span class="fine">in {{.Where}}</span>{{end}}</li>{{end}}</ul>{{else if .IsEvent}}<span class="fine">No scene in this book</span>{{else}}<span class="fine">This scene</span>{{end}}</td>
+      {{if $.Movable}}<td class="tl-mv" data-l="Move">{{if .IsEvent}}<form class="tl-mf" method="post" action="/ui/projects/{{$.ID}}/timeline/order">
+        <input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="event" value="{{.ID}}"><input type="hidden" name="offset" value="{{$.Offset}}">
+        <button class="btn small" type="submit" name="dir" value="earlier" aria-label="Move {{.Title}} earlier"{{if not .CanUp}} disabled{{end}}>{{template "icon" "arrow-up"}}<span>Earlier</span></button>
+        <button class="btn small" type="submit" name="dir" value="later" aria-label="Move {{.Title}} later"{{if not .CanDown}} disabled{{end}}>{{template "icon" "arrow-down"}}<span>Later</span></button>
+      </form>{{else}}<span class="fine">Stays put</span>{{end}}</td>{{end}}
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{template "tl-pager" .}}
+{{end}}
+</div>{{end}}
