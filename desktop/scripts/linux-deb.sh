@@ -16,11 +16,19 @@
 #   cli        the pinned Tauri command line (npm ci in desktop/)
 #   compile    build the app without packaging
 #   package    build the .deb (signed update artefacts only when a key and a release configuration exist)
+#   name       with VERSION a release tag: name the .deb and the AppImage for the tag (see below); package and appimage do
+#              it for their own file, so this step is for a .deb made some other way (the GitHub release's Linux leg)
 #   appimage   build the AppImage and open it (UNVERIFIED: never run on the runner); its packaging tools come from the
 #              pinned, hash-checked downloads below, put where the Tauri bundler looks first; a result that does not
 #              unpack, or lacks the app and its server, is deleted and fails the step
 #   install    apt-get install the .deb and check what it put on disk (desktop/scripts/deb-install.sh)
 #   launch     run the installed app headless under xvfb and a session bus and quit it (launch-check.sh)
+#
+# FILE NAMES. The Tauri bundler names its files for the app's own version (Scriobh_2.2.0_amd64.deb, from
+# desktop/src-tauri/tauri.conf.json). With VERSION a release tag (v followed by a digit) the published files are named
+# for the tag without its v (Scriobh_2.2.1_amd64.deb), as build-windows-cross.sh and build-macos.sh name theirs, and
+# a WARNING says so when the tag is not the app's version; what is inside the package (the .deb's control file) stays
+# the app's. Without VERSION, or with something that is not a tag, the bundler's names are left alone.
 #
 # SRC_DIR is the tree to build (default: the tree this script is in). release.yml builds a tag's tree with the
 # script of the commit it runs on, so the tag need not contain this script; the tree's own sidecar.sh,
@@ -68,7 +76,43 @@ step_package() {
     echo "no updater key or no release configuration; building without update artefacts"
   fi
   tauri build --bundles deb ${extra[@]+"${extra[@]}"}
+  release_name desktop/src-tauri/target/release/bundle/deb deb
   ls -l desktop/src-tauri/target/release/bundle/deb/
+}
+
+# release_name DIR EXT: with VERSION a release tag, rename the bundler's Scriobh_<app version>_amd64.EXT in DIR (and
+# its updater signature, .EXT.sig, when there is one) to Scriobh_<tag without v>_amd64.EXT. A name that is already the
+# tag's is left alone, so the step can run twice. A file in DIR named otherwise is a bundler change this script has
+# not been taught, and fails the step instead of publishing under a name nobody chose.
+release_name() {
+  local dir="$1" ext="$2" version product name_version want f base new
+  case "${VERSION:-}" in v[0-9]*) ;; *) return 0 ;; esac
+  case "$VERSION" in *[!A-Za-z0-9._+-]*) echo "linux-deb: VERSION may hold only letters, digits and . _ + -: $VERSION" >&2; exit 1 ;; esac
+  version="$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' desktop/src-tauri/tauri.conf.json | head -1)"
+  product="$(sed -n 's/^ *"productName": *"\([^"]*\)".*/\1/p' desktop/src-tauri/tauri.conf.json | head -1)"
+  [ -n "$version" ] && [ -n "$product" ] || { echo "linux-deb: could not read the version and productName from desktop/src-tauri/tauri.conf.json" >&2; exit 1; }
+  name_version="${VERSION#v}"
+  if [ "$name_version" != "$version" ]; then
+    echo "linux-deb: WARNING: the release is $VERSION but the app inside says $version (desktop/src-tauri/tauri.conf.json, Cargo.toml and package.json). The files are named for the release; the version inside the package is $version."
+  fi
+  shopt -s nullglob
+  for f in "$dir"/*."$ext"; do
+    base="$(basename "$f")"
+    want="${product}_${name_version}_amd64.$ext"
+    [ "$base" != "$want" ] || continue
+    [ "$base" = "${product}_${version}_amd64.$ext" ] || { echo "linux-deb: $f is not named ${product}_${version}_amd64.$ext, so it is not renamed for the release; the bundler's naming has changed" >&2; exit 1; }
+    new="$dir/$want"
+    mv -- "$f" "$new"
+    [ ! -f "$f.sig" ] || mv -- "$f.sig" "$new.sig"
+    echo "linux-deb: $base is published as $want"
+  done
+  shopt -u nullglob
+}
+
+# For a .deb that something else built (release.yml on GitHub runs the Tauri command line itself): the same names.
+step_name() {
+  release_name desktop/src-tauri/target/release/bundle/deb deb
+  release_name desktop/src-tauri/target/release/bundle/appimage AppImage
 }
 
 # THE APPIMAGE. `tauri build --bundles appimage` downloads, at build time, into ~/.cache/tauri (tauri-bundler 2.10.5,
@@ -106,6 +150,7 @@ step_appimage() {
   NO_STRIP=true tauri build --bundles appimage
   ls -l "$dir"
   appimage_examine "$dir"
+  release_name "$dir" AppImage
 }
 
 # An AppImage is opened before it is published, not only built: `--appimage-extract` unpacks it without FUSE, and
@@ -152,7 +197,7 @@ step_launch() {
 [ $# -gt 0 ] || { sed -n '2,/^set -euo/p' "${BASH_SOURCE[0]}" | sed '$d' | sed 's/^# \{0,1\}//' >&2; exit 2; }
 for s in "$@"; do
   case "$s" in
-    deps|toolchain|versions|sidecar|fmt|lint|test|cli|compile|package|appimage|install|launch)
+    deps|toolchain|versions|sidecar|fmt|lint|test|cli|compile|package|name|appimage|install|launch)
       echo "linux-deb: $s"
       "step_$s" ;;
     *) echo "linux-deb: unknown step: $s" >&2; exit 2 ;;

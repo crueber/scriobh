@@ -746,6 +746,7 @@ var lazyJS = map[string]int{
 	"js/lab.js":            8192,      // the Lab tab: the local checks (no AI needed), marks in the text, accept and dismiss, accept all after a preview
 	"js/sprint.js":         2944,      // the writing view, only while a sprint runs or when one is started from the status bar: the sprint line (one text, rewritten when the minute changes), the end's notice (of the sprint that ended, by its id and state) and the focus put back in the text (2,560 until the Phase 7.5 fix round, 2,816 after its first pass)
 	"js/studio.js":         1280,      // the dashboard only: the calendar opens at its newest week, and a day's figure is read by tap, click or the arrow keys
+	"js/cover.js":          5 * 1024,  // the cover page only: a picture chosen or dropped is sent at once, the position grid answers the up and down keys, and a page-mode front is redrawn as the controls change (an SVG placed by the server's own arithmetic)
 	"js/card.js":           1536,      // the progress card page only: the link shown once with this server's address, copy, and the PNG drawn from the card's SVG on a canvas
 }
 

@@ -91,18 +91,32 @@ func (w *epubWriter) imageSrc(key string) (string, bool) {
 	return "../" + href, true
 }
 
+// hasCover says whether the book has a cover page and a cover-image item: the option is on and there is a cover to put in.
+func (w *epubWriter) hasCover() bool {
+	return On(w.o.Cover) && (len(w.b.CoverImage) > 0 || len(w.b.CoverSVG) > 0)
+}
+
 func (w *epubWriter) build() ([]byte, error) {
 	b, o := w.b, w.o
 	title := CleanLine(b.Title)
 	if title == "" {
 		title = "Untitled"
 	}
-	hasCover := On(o.Cover) && len(b.CoverSVG) > 0
-	if hasCover {
+	if w.hasCover() {
+		// The project's own cover picture (a JPEG made for screens) when it has one, else the generated SVG. The cover
+		// page is one image with its alt text and no background colour; the picture is also the cover-image item the
+		// shops and readers use, and the EPUB 2 cover meta points at it.
+		href, mt, data, alt := "images/cover.svg", "image/svg+xml", b.CoverSVG, "Cover: "+title
+		if len(b.CoverImage) > 0 {
+			href, mt, data = "images/cover.jpg", "image/jpeg", b.CoverImage
+			if a := CleanLine(b.CoverAlt); a != "" {
+				alt = a
+			}
+		}
 		w.items = append(w.items,
 			epubItem{id: "cover", href: "text/cover.xhtml", mediaType: "application/xhtml+xml", inSpine: true, linear: true,
-				data: w.xhtml(title, ` epub:type="cover"`, `<section class="cover" epub:type="cover"><img src="../images/cover.svg" alt="`+xmlEscape("Cover: "+title)+`"/></section>`+"\n")})
-		w.media = append(w.media, epubItem{id: "cover-image", href: "images/cover.svg", mediaType: "image/svg+xml", props: "cover-image", data: b.CoverSVG})
+				data: w.xhtml(title, ` epub:type="cover"`, `<section class="cover" epub:type="cover"><img src="../`+href+`" alt="`+xmlEscape(alt)+`"/></section>`+"\n")})
+		w.media = append(w.media, epubItem{id: "cover-image", href: href, mediaType: mt, props: "cover-image", data: data})
 	}
 	if On(o.TitlePage) {
 		var t strings.Builder
@@ -246,7 +260,7 @@ func (w *epubWriter) navXHTML(title string) []byte {
 	s.WriteString("</nav>\n")
 	if len(w.nav) > 0 {
 		s.WriteString(`<nav epub:type="landmarks" id="landmarks" hidden="hidden">` + "\n<h2>Guide</h2>\n<ol>\n")
-		if On(w.o.Cover) && len(w.b.CoverSVG) > 0 {
+		if w.hasCover() {
 			s.WriteString(`<li><a epub:type="cover" href="text/cover.xhtml">Cover</a></li>` + "\n")
 		}
 		s.WriteString(`<li><a epub:type="bodymatter" href="` + w.nav[0].href + `">Start of the text</a></li>` + "\n</ol>\n</nav>\n")
@@ -354,7 +368,7 @@ func (w *epubWriter) opf(title string, manifest []epubItem) string {
 	s.WriteString("<dc:language>" + xmlEscape(w.lang) + "</dc:language>\n")
 	s.WriteString(`<meta name="generator" content="Scriobh EPUB 1"/>` + "\n")
 	s.WriteString(`<meta property="dcterms:modified">` + w.b.Modified.UTC().Format("2006-01-02T15:04:05Z") + "</meta>\n")
-	if On(w.o.Cover) && len(w.b.CoverSVG) > 0 {
+	if w.hasCover() {
 		s.WriteString(`<meta name="cover" content="cover-image"/>` + "\n")
 	}
 	s.WriteString("</metadata>\n<manifest>\n")

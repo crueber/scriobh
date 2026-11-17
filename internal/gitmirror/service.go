@@ -172,6 +172,7 @@ type job struct {
 	url, branch, name   string   // the remote as it was when the push was queued
 	audience            string   // and what it was allowed to carry
 	onlyDone            bool
+	includeCover        bool
 
 	// Guarded by Service.mu.
 	again     bool // an automatic trigger arrived while it ran: push again afterwards
@@ -518,7 +519,7 @@ func (s *Service) enqueue(ctx context.Context, r *remoteRow, trigger, by string,
 		}
 		return nil, false, err
 	}
-	j := &job{remoteID: r.ID, projectID: r.ProjectID, trigger: trigger, by: by, force: force, push: p, snap: *p, url: r.URL, branch: r.Branch, name: r.Name, audience: r.Audience, onlyDone: r.OnlyDone}
+	j := &job{remoteID: r.ID, projectID: r.ProjectID, trigger: trigger, by: by, force: force, push: p, snap: *p, url: r.URL, branch: r.Branch, name: r.Name, audience: r.Audience, onlyDone: r.OnlyDone, includeCover: r.IncludeCover}
 	s.mu.Lock()
 	s.active[r.ID] = j
 	s.queue = append(s.queue, j)

@@ -39,7 +39,7 @@ var ToolingEnv = map[string]bool{
 	// A development build only (internal/server/dev_trust.go): trust a code host's self-signed certificate in the browser tests.
 	"SCRIOBH_DEV_TRUST_PEM": true,
 	// Tests, benchmarks and scripts.
-	"SCRIOBH_KEEP": true, "SCRIOBH_TIMING": true, "SCRIOBH_MEASURE_PANDOC": true, "SCRIOBH_PANDOC_HELPER_TOKEN": true, "SCRIOBH_GOLDEN": true, "SCRIOBH_UPDATE_GOLDEN": true, "SCRIOBH_LIBREOFFICE": true, "SCRIOBH_PDFTOOLS": true,
+	"SCRIOBH_KEEP": true, "SCRIOBH_TIMING": true, "SCRIOBH_MEASURE_PANDOC": true, "SCRIOBH_MEASURE_COVER_BODY": true, "SCRIOBH_COVER_RSS": true, "SCRIOBH_COVER_PART": true, "SCRIOBH_PANDOC_HELPER_TOKEN": true, "SCRIOBH_GOLDEN": true, "SCRIOBH_UPDATE_GOLDEN": true, "SCRIOBH_LIBREOFFICE": true, "SCRIOBH_PDFTOOLS": true,
 	"SCRIOBH_SEED_DIR": true, "SCRIOBH_SEED_USER": true, "SCRIOBH_SEED_PROJECT": true, "SCRIOBH_SEED_DOC": true, "SCRIOBH_SEED_ROWS": true,
 	"SCRIOBH_SITE_SAMPLE_DIR": true, "SCRIOBH_SITE_SAMPLE_LANG": true, "SCRIOBH_REHEARSAL_BIN": true,
 	"SCRIOBH_UPGRADE_FIXTURE": true, "SCRIOBH_UPGRADE_OLD_BIN": true, "SCRIOBH_UPGRADE_TAG": true, "SCRIOBH_CHROMIUM": true,

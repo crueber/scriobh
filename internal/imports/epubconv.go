@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/crueber/scriobh/internal/domain/coverlayout"
 	"path"
 	"regexp"
 	"sort"
@@ -357,6 +358,11 @@ func epubConvert(data []byte, name string, o convOpts, eo epubOpts) (res *cresul
 				p.always = true
 				ed.coverN = p.n
 				cover.Kept, cover.Width, cover.Height = true, p.pic.Width, p.pic.Height
+				if err := coverlayout.CheckPicture(p.pic.Data); err != nil {
+					cover.UseReason = err.Error()
+				} else {
+					cover.CanUse = true
+				}
 			} else {
 				cover.Reason = why
 			}

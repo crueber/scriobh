@@ -141,6 +141,7 @@ type ApplyIn struct {
 	Edits         []Edit    `json:"edits,omitempty" desc:"Renames, kind changes, skips, merges, moves and per-file splits, by node key."`
 	Reorder       []Reorder `json:"reorder,omitempty" desc:"New order for one parent's children."`
 	EditionLabel  string    `json:"edition_label,omitempty" desc:"With epub: what the edition is called (default: the preview's epub.label, the title and year)."`
+	UseCover      bool      `json:"use_cover,omitempty" desc:"With epub: make the book's cover picture the new project's own cover (a layout of one front image, with the book's title as its description). The preview's epub.cover.can_use_as_cover says whether it may be one; a picture that may not is left as an attachment and the result says so."`
 }
 
 // Validate checks the options.
@@ -299,6 +300,7 @@ type ApplyOut struct {
 	Suggestions     int      `json:"suggestions,omitempty" desc:"Pending suggestions written from a Word file's tracked changes."`
 	Comments        int      `json:"comments,omitempty" desc:"Comments written from a Word file's comments."`
 	CompendiumID    string   `json:"compendium_id,omitempty" desc:"The primary Compendium made for the new project to hold those entities."`
+	CoverUsed       bool     `json:"cover_used,omitempty" desc:"With use_cover: the book's cover picture is now the project's own cover (project.cover_layout.get)."`
 	Warnings        []string `json:"warnings"`
 }
 
@@ -674,6 +676,11 @@ func applyNewWith(c *ops.Ctx, in ApplyIn, prov *Provenance) (ApplyOut, error) {
 		}
 		c.Emit(ops.Event{Type: "project.created", ProjectID: pid, Payload: map[string]any{"kind": ci.Kind}})
 		c.Audit(ops.AuditEntry{Action: "project.create", TargetType: "project", TargetID: pid})
+		if in.UseCover {
+			if err := useBookCover(c, tx, intk, pics, pid, ci.Title, &out); err != nil {
+				return err
+			}
+		}
 		if err := insertAll(c, tx, pid, "", 0, s, pl, intk, nodes, rs, body, now, &out, &lw); err != nil {
 			return err
 		}

@@ -229,7 +229,7 @@ type DeleteOut struct {
 
 // Ref is one place an attachment is used.
 type Ref struct {
-	Kind    string `json:"kind" enum:"doc,research,entity"`
+	Kind    string `json:"kind" enum:"doc,research,entity,cover"`
 	ID      string `json:"id"`
 	Title   string `json:"title"`
 	Trashed bool   `json:"trashed"`
@@ -287,6 +287,7 @@ func Register(r *ops.Registry, l Limits) {
 	}
 	if env := r.Env(); env != nil {
 		env.SetService(ServiceLimits, l)
+		hooksOf(env) // the hooks that were added before this ran are kept
 		env.AddPurgeHook(purgeOwner(env.DataDir, OwnerProject))
 		env.AddCompendiumPurgeHook(purgeOwner(env.DataDir, OwnerCompendium))
 	}
@@ -706,7 +707,9 @@ func update(c *ops.Ctx, kind string, in UpdateIn) (Item, error) {
 func remove(c *ops.Ctx, kind string, in DeleteIn) (DeleteOut, error) {
 	var out DeleteOut
 	var gone row
+	var afters []func()
 	err := c.DB().WithTx(c, func(tx *sql.Tx) error {
+		afters = nil // a retried transaction starts again
 		r, err := load(c, tx, kind, in.ID, in.AttID)
 		if err != nil {
 			return err
@@ -717,7 +720,14 @@ func remove(c *ops.Ctx, kind string, in DeleteIn) (DeleteOut, error) {
 		}
 		r.a.Refs = len(used)
 		if r.a.Refs > 0 && !in.Force {
-			return ops.ConflictWith("Documents, notes or entries still link to this attachment. Remove the links first, or delete it anyway with force.", map[string]any{"refs": r.a.Refs})
+			return ops.ConflictWith("Documents, notes, entries or the cover still use this attachment. Remove the links first, or delete it anyway with force.", map[string]any{"refs": r.a.Refs})
+		}
+		if kind == OwnerProject && r.a.Refs > 0 {
+			// A forced delete of a cover picture returns that side of the cover to the generated one, in this transaction.
+			var err error
+			if afters, err = runDeleteHooks(c, tx, in.ID, r.a.ID); err != nil {
+				return err
+			}
 		}
 		if _, err := tx.Exec(`DELETE FROM attachments WHERE id = ?`, r.a.ID); err != nil {
 			return err
@@ -736,6 +746,9 @@ func remove(c *ops.Ctx, kind string, in DeleteIn) (DeleteOut, error) {
 	// of the same bytes has made them live again. Never in a preview.
 	if !c.DryRun() {
 		removeBlob(c, c.Env, kind, in.ID, gone.a.SHA256, gone.ext)
+		for _, f := range afters {
+			f()
+		}
 	}
 	return out, nil
 }
@@ -767,7 +780,7 @@ func allRefs(ctx context.Context, q queryer, kind, owner, id string) ([]Ref, err
 		}
 	}
 	rows, err := q.QueryContext(ctx, `SELECT r.ref_kind, r.ref_id,
-		COALESCE(d.title, n.title, ''), COALESCE(d.deleted_at IS NOT NULL, n.deleted_at IS NOT NULL, 0)
+		COALESCE(d.title, n.title, CASE WHEN r.ref_kind = 'cover' THEN 'Cover' ELSE '' END), COALESCE(d.deleted_at IS NOT NULL, n.deleted_at IS NOT NULL, 0)
 		FROM attachment_refs r
 		LEFT JOIN documents d ON r.ref_kind = 'doc' AND d.id = r.ref_id
 		LEFT JOIN research_notes n ON r.ref_kind = 'research' AND n.id = r.ref_id

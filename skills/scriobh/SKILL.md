@@ -3465,7 +3465,8 @@ scriobh-cli git remote create "The Salt Road" --name "The Salt Road" --url text
 - `--author-email TEXT`
 - `--author-name TEXT  Commit author name; with author_email. Default: Scríobh <noreply@scriobh>.`
 - `--branch TEXT  Default main.`
-- `--confirm-name TEXT  Needed only for a private remote at an address that was ever public: the new remote's name, typed exactly. Refused with 409 confirmation_required (data.git_code) without it.`
+- `--confirm-name TEXT  Needed for a private remote at an address that was ever public, and for a public remote with include_cover on: the new remote's name, typed exactly. Refused with 409 confirmation_required (data.git_code) without it.`
+- `--include-cover  Push the project's own cover too (the cover layout and its pictures). Default true for a private remote, false for a public one: carrying it to a public remote lets more reach a repository people can read, so it needs a person at a browser and confirm_name.`
 - `--include-notes  Push the project's notes too. Default true for a private remote; a public remote never carries notes.`
 - `--interval-minutes N  For push_mode interval: 5 to 10080, default 60.`
 - `--name TEXT  (required)  What the remote is for, like Backup. Also the deploy key's name.`
@@ -3602,8 +3603,9 @@ scriobh-cli git remote update "The Salt Road"
 - `--author-email TEXT`
 - `--author-name TEXT`
 - `--branch TEXT`
-- `--confirm-name TEXT  Needed when the change lets more reach a repository that is, or may be, public: a public remote made private (the whole copy), only_done taken off, notes switched on, or the address changed on such a remote or to an address that was ever public. The remote's name, typed exactly. Refused with 409 confirmation_required (data.git_code, data.confirm_field) without it or with another name; a change that only narrows what is sent needs none.`
+- `--confirm-name TEXT  Needed when the change lets more reach a repository that is, or may be, public: a public remote made private (the whole copy), only_done taken off, notes or the cover switched on, or the address changed on such a remote or to an address that was ever public. The remote's name, typed exactly. Refused with 409 confirmation_required (data.git_code, data.confirm_field) without it or with another name; a change that only narrows what is sent needs none.`
 - `--enabled  Switch pushing off or on without losing the setup.`
+- `--include-cover  Push the project's own cover (the layout and its pictures). Turning it on for a repository that is, or may be, public needs a person at a browser and confirm_name; turning it off is always allowed, and starts a public remote's local history over as only_done does (the earlier commits hold the cover).`
 - `--include-notes`
 - `--interval-minutes N`
 - `--name TEXT`
@@ -3852,6 +3854,7 @@ scriobh-cli import apply --token TOKEN
 - `--split-scenes none|h2  As in the preview.`
 - `--title TEXT  Project title; default the preview's.`
 - `--token TEXT  (required)  The token import.preview returned for these same files.`
+- `--use-cover  With epub: make the book's cover picture the new project's own cover (a layout of one front image, with the book's title as its description). The preview's epub.cover.can_use_as_cover says whether it may be one; a picture that may not is left as an attachment and the result says so.`
 - `--wp-status published|all  With a WordPress export: published (default) imports published posts and pages only; all adds drafts, pending, scheduled and private ones, which are marked do not compile.`
 - `--wp-types posts|pages|both  With a WordPress export: posts (default), pages, or both (pages go in a part called Pages after the posts).`
 - `--zip @FILE  The same zip that was previewed, base64.`
@@ -4664,7 +4667,7 @@ scriobh-cli project compendium set "The Salt Road" --compendium-id "The Salt Roa
 
 #### `project cover`
 
-The project's cover as an SVG: a flat colour with the title, subtitle, author and kind, drawn from the project's own fields. Deterministic, cached by content hash, safe to use as an image.
+The project's cover as an image. With a cover layout of its own (project.cover_layout.get) it is the front as a JPEG, at most 2560 px on the long side (size thumb: 480 px wide; part back: the back, when it has one), cached by the layout's hash. Without one, or with format svg, it is an SVG: a flat colour with the title, subtitle, author and kind, drawn from the project's own fields. Deterministic, cached by content hash, safe to use as an image.
 
 `GET /api/v1/projects/{id}/cover`, key scope `read`, needs project reader role.
 
@@ -4673,6 +4676,87 @@ scriobh-cli project cover "The Salt Road" --output result.out
 ```
 
 - `<project>, --id, --project  (required, name or id)  Project id.`
+- `--format svg  (query)  svg: the generated typographic cover (SVG), even when the project has a cover layout of its own.`
+- `--part front|back  (query)  back: the back cover, when the layout gives it a picture (404 otherwise). Default front.`
+- `--size full|thumb  (query)  thumb: the front 480 px wide, for a list. Default full. A project with no cover layout has only the generated SVG.`
+- `--v TEXT  (query)  A cache-busting value (the layout's key); ignored.`
+
+#### `project cover-layout check`
+
+Check the layout against a print trim and a printer's profile (kdp, ingram or generic): each picture's resolution, a wrap's measured spine against the spine the page count and the paper give, and the profile's figures. Writes nothing.
+
+`POST /api/v1/projects/{id}/cover-layout/check`, key scope `read`, needs project reader role. Can be previewed with `--dry-run`.
+
+```sh
+scriobh-cli project cover-layout check "The Salt Road"
+```
+
+- `<project>, --id, --project  (required, name or id)  Project id.`
+- `--bleed-in N  The print cover's bleed, 0 to 0.5 inches. Default 0.125 (a wrap's own bleed when it has one).`
+- `--page-count N  With page_thickness_in, the spine to compare a wrap's measured spine with (pages times thickness).`
+- `--page-thickness-in N  The paper's thickness per page in inches, from the printer's guide.`
+- `--preset TEXT  A print preset (print-6x9, print-5.5x8.5, print-5x8, print-a5) or a trim name; default the layout's trim.`
+- `--profile kdp|ingram|generic  The printer's profile. Default generic.`
+
+#### `project cover-layout clear`
+
+Go back to the generated cover. The pictures stay as attachments until you delete them.
+
+`DELETE /api/v1/projects/{id}/cover-layout`, key scope `write`, needs project editor role. Can be previewed with `--dry-run`. Needs `--yes`.
+
+```sh
+scriobh-cli project cover-layout clear "The Salt Road" --yes
+```
+
+- `<project>, --id, --project  (required, name or id)  Project id.`
+
+#### `project cover-layout get`
+
+The project's own cover layout: its shape (sides or wrap), trim, front and back, alt text, revision, each picture's resolution at the trim, the measured spine of a wrap and the panels cut from it, the warnings and the addresses of the front, back and thumbnail. layout is null when the project uses the generated cover.
+
+`GET /api/v1/projects/{id}/cover-layout`, key scope `read`, needs project reader role.
+
+```sh
+scriobh-cli project cover-layout get "The Salt Road"
+```
+
+- `<project>, --id, --project  (required, name or id)  Project id.`
+
+#### `project cover-layout set`
+
+Set the project's cover layout: the whole layout at once, with the revision you read (0 when there is none yet; a stale revision is a conflict). shape sides takes a front (generated, image or page) and an optional back; shape wrap takes one wrap picture and its bleed. Only pictures this project's cover upload made may be named. alt is required when a picture is used. A preview (--dry-run) returns the warnings and writes nothing.
+
+`PUT /api/v1/projects/{id}/cover-layout`, key scope `write`, needs project editor role. Can be previewed with `--dry-run`.
+
+```sh
+scriobh-cli project cover-layout set "The Salt Road" --revision 1 --shape sides
+```
+
+- `<project>, --id, --project  (required, name or id)  Project id.`
+- `--alt TEXT  The cover described in a sentence for screen readers. Required when a picture is used.`
+- `--back JSON  Sides only. Default none.`
+- `--front JSON  Sides only. Default generated.`
+- `--revision N  (required)  The revision you read: 0 when the project has no layout yet. A different one is a conflict.`
+- `--shape sides|wrap  (required)`
+- `--trim TEXT  6x9 (default), 5.5x8.5, 5.25x8, 5x8, a5, letter or a4.`
+- `--wrap JSON  Wrap only.`
+
+#### `project cover-layout upload`
+
+Upload a cover picture. The request body is the picture itself (the CLI: --file @path); part says which part of the cover it is for: front, back or wrap. A PNG or a JPEG is accepted and cleaned (no EXIF, no GPS, no thumbnail) into a project attachment that a layout may then name; the answer is its id, size, resolution at the trim and any warnings. A wrap is measured at once (the resolution from its height, the spine from its width) and refused when it is not a wrap for the trim: under 150 dpi, or a spine under zero or over 2.5 in. CMYK JPEGs, SVG, GIF, WebP, a picture over 24 megapixels, a progressive JPEG too large to decode within the server's memory budget (save a baseline JPEG) and a PNG over 16 megapixels (send a JPEG) are refused with a sentence that says why. It cannot be previewed with --dry-run: it writes a file.
+
+`POST /api/v1/projects/{id}/cover-layout/images`, key scope `write`, needs project editor role. Cannot be previewed with `--dry-run`.
+
+```sh
+scriobh-cli project cover-layout upload "The Salt Road" --file @./figure.png
+```
+
+- `<project>, --id, --project  (required, name or id)  Project id.`
+- `--bleed-in TEXT  (query)  A wrap's bleed in inches (0 to 0.5), for measuring it. Default 0.125, or the layout's.`
+- `--filename TEXT  (query)  A name for the picture, for display.`
+- `--part front|back|wrap  (query)  Which part of the cover the picture is for. A wrap is measured at once.`
+- `--trim TEXT  (query)  The trim the cover is made for, to give the resolution and measure a wrap against: 6x9 (default, or the layout's), 5.5x8.5, 5.25x8, 5x8, a5, letter or a4.`
+- `--file TEXT  (required)  The file to upload: a path (or @path), or - for standard input.`
 
 #### `project create`
 
@@ -5366,6 +5450,7 @@ scriobh-cli repo plan "The Salt Road" --account-id text --name "The Salt Road"
 - `--audience public|private  public (the default, the strictest): only what a reader of the book sees. private: the full mirror; refused for a public repository.`
 - `--branch TEXT  Default main.`
 - `--description TEXT  For a new repository, up to 350 characters.`
+- `--include-cover  Public audience: push the project's own cover (the layout and its pictures) too; the plan lists its files. A private audience always carries it.`
 - `--include-notes  Private audience only: push the project's notes too.`
 - `--mode create|existing  create (the default) makes a new repository and refuses a name that exists; existing takes a repository that is empty.`
 - `--name TEXT  (required)  The repository's name.`
@@ -5390,8 +5475,9 @@ scriobh-cli repo publish "The Salt Road" --account-id text --name "The Salt Road
 - `--account-id, --account account name or id  (required, name or id)`
 - `--audience public|private`
 - `--branch TEXT`
-- `--confirm TEXT  For a public repository: its name, typed exactly.`
+- `--confirm TEXT  For a public repository, or a public audience with include_cover: the repository's name, typed exactly.`
 - `--description TEXT`
+- `--include-cover`
 - `--include-notes`
 - `--mode create|existing`
 - `--name TEXT  (required)`
@@ -6928,4 +7014,4 @@ scriobh-cli webhook update "The Salt Road" text
 - `--url TEXT  A new address, replacing the whole of the old one (the old path and query are never shown, so they cannot be edited). The failure count starts again.`
 
 
-Schema hash: `sha256:52d1c8ce20d2395c142cb59feb7e8067d3396685ae6636c09900ad427c989593`. `scriobh-cli skill check` compares an installed copy, and this CLI, with the server.
+Schema hash: `sha256:e7191bde55bb012977b830e8b371252da2e3eb15f8985376cd6e2869be243bb3`. `scriobh-cli skill check` compares an installed copy, and this CLI, with the server.

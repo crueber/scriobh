@@ -80,7 +80,8 @@ type CreateIn struct {
 	Audience        string `json:"audience,omitempty" enum:"public,private" desc:"public (the default, the strictest): only what a reader of the book sees: no notes, no do-not-compile documents, no ghosted text, no alternatives, no private notes, no outline details. private: the full mirror, for a backup in a repository only you can read."`
 	OnlyDone        *bool  `json:"only_done,omitempty" desc:"Public remote: carry only documents whose status is done."`
 	SignCommits     *bool  `json:"sign_commits,omitempty" desc:"Sign this remote's commits with the project's signing key (git.signing.generate makes it)."`
-	ConfirmName     string `json:"confirm_name,omitempty" desc:"Needed only for a private remote at an address that was ever public: the new remote's name, typed exactly. Refused with 409 confirmation_required (data.git_code) without it."`
+	IncludeCover    *bool  `json:"include_cover,omitempty" desc:"Push the project's own cover too (the cover layout and its pictures). Default true for a private remote, false for a public one: carrying it to a public remote lets more reach a repository people can read, so it needs a person at a browser and confirm_name."`
+	ConfirmName     string `json:"confirm_name,omitempty" desc:"Needed for a private remote at an address that was ever public, and for a public remote with include_cover on: the new remote's name, typed exactly. Refused with 409 confirmation_required (data.git_code) without it."`
 }
 
 func (in CreateIn) ProjectRef() string { return in.ProjectID }
@@ -104,7 +105,8 @@ type UpdateIn struct {
 	Audience        *string `json:"audience,omitempty" enum:"public,private" desc:"What the remote may carry. Changing it, or only_done, starts the remote's local history over: the earlier commits may hold more than the new setting allows, so the next push is refused as 'the remote has commits this project did not make' until you force-push (typed confirmation, a bundle of the remote's branch first) or point the remote at a new repository."`
 	OnlyDone        *bool   `json:"only_done,omitempty" desc:"Public remote: only documents whose status is done. Changing it starts the local history over, as audience does."`
 	SignCommits     *bool   `json:"sign_commits,omitempty" desc:"Sign this remote's commits with the project's signing key."`
-	ConfirmName     string  `json:"confirm_name,omitempty" desc:"Needed when the change lets more reach a repository that is, or may be, public: a public remote made private (the whole copy), only_done taken off, notes switched on, or the address changed on such a remote or to an address that was ever public. The remote's name, typed exactly. Refused with 409 confirmation_required (data.git_code, data.confirm_field) without it or with another name; a change that only narrows what is sent needs none."`
+	IncludeCover    *bool   `json:"include_cover,omitempty" desc:"Push the project's own cover (the layout and its pictures). Turning it on for a repository that is, or may be, public needs a person at a browser and confirm_name; turning it off is always allowed, and starts a public remote's local history over as only_done does (the earlier commits hold the cover)."`
+	ConfirmName     string  `json:"confirm_name,omitempty" desc:"Needed when the change lets more reach a repository that is, or may be, public: a public remote made private (the whole copy), only_done taken off, notes or the cover switched on, or the address changed on such a remote or to an address that was ever public. The remote's name, typed exactly. Refused with 409 confirmation_required (data.git_code, data.confirm_field) without it or with another name; a change that only narrows what is sent needs none."`
 }
 
 func (in UpdateIn) ProjectRef() string { return in.ProjectID }
@@ -458,6 +460,19 @@ func createRemote(c *ops.Ctx, in CreateIn) (RemoteItem, error) {
 	if in.OnlyDone != nil && *in.OnlyDone && audience != AudiencePublic {
 		return RemoteItem{}, ops.Invalid("only_done", "only_done is for a public remote: a private remote carries the whole copy, drafts included.")
 	}
+	includeCover := audience == AudiencePrivate
+	if in.IncludeCover != nil {
+		includeCover = *in.IncludeCover
+	}
+	if audience == AudiencePublic && includeCover {
+		// the cover is what a reader of the book sees first, but a public remote carries it only when a person says so
+		if err := needsPerson(c); err != nil {
+			return RemoteItem{}, err
+		}
+		if strings.TrimSpace(in.ConfirmName) != name {
+			return RemoteItem{}, confirmationRequired("This remote would carry the project's cover to a public repository. Type the remote's name exactly to confirm: "+name, name)
+		}
+	}
 	if audience == AudiencePrivate && s.everPublic(c, in.ProjectID, ep) {
 		if err := needsPerson(c); err != nil {
 			return RemoteItem{}, err
@@ -471,7 +486,7 @@ func createRemote(c *ops.Ctx, in CreateIn) (RemoteItem, error) {
 	r := &remoteRow{ID: db.NewID("grm"), ProjectID: in.ProjectID, Name: name, Preset: preset, URL: strings.TrimSpace(in.URL), Branch: branch, PathPrefix: prefix,
 		AuthKind: kind, Username: user, PushMode: mode, IntervalMinutes: interval, IncludeNotes: audience == AudiencePrivate && (in.IncludeNotes == nil || *in.IncludeNotes),
 		AuthorName: an, AuthorEmail: ae, Enabled: true, State: StateNew, CreatedAt: stamp(s.o.Clock.Now()),
-		Audience: audience, OnlyDone: in.OnlyDone != nil && *in.OnlyDone}
+		Audience: audience, OnlyDone: in.OnlyDone != nil && *in.OnlyDone, IncludeCover: includeCover}
 	if in.SignCommits != nil && *in.SignCommits {
 		if _, ok := s.signingKey(c, in.ProjectID); !ok {
 			return RemoteItem{}, ops.Conflict("Generate the project's signing key first (git.signing.generate).")
@@ -517,7 +532,7 @@ func createRemote(c *ops.Ctx, in CreateIn) (RemoteItem, error) {
 	}
 	s.recordPublic(c, r)
 	c.Audit(ops.AuditEntry{Action: "git.remote.create", TargetType: "project", TargetID: in.ProjectID,
-		Detail: map[string]any{"remote_id": r.ID, "name": r.Name, "host": ep.Host, "auth_kind": kind, "push_mode": mode, "audience": audience}})
+		Detail: map[string]any{"remote_id": r.ID, "name": r.Name, "host": ep.Host, "auth_kind": kind, "push_mode": mode, "audience": audience, "include_cover": includeCover}})
 	rr, err := s.loadRemote(c, in.ProjectID, r.ID)
 	if err != nil {
 		return RemoteItem{}, ops.Internal(err)
@@ -592,7 +607,8 @@ func updateRemote(c *ops.Ctx, in UpdateIn) (RemoteItem, error) {
 	orig := *r
 	oldEp, _ := parseURL(r.URL, true)
 	resetSync, resetTree, unblocked := false, false, false
-	touchesExposure := in.Audience != nil || in.IncludeNotes != nil || in.OnlyDone != nil || in.URL != nil
+	touchesExposure := in.Audience != nil || in.IncludeNotes != nil || in.OnlyDone != nil || in.URL != nil ||
+		(in.IncludeCover != nil && *in.IncludeCover && !orig.IncludeCover) // turning the cover off narrows: anyone who may edit the remote may do it
 	// A change that lets more reach a repository that is, or may be, public needs a person at a browser (needsPerson) and the
 	// remote's name typed (confirm_name). It is decided here, from the row as it is now, before anything is written: a screen
 	// that asks and an API call that does not get the same answer.
@@ -601,6 +617,9 @@ func updateRemote(c *ops.Ctx, in UpdateIn) (RemoteItem, error) {
 		if ep, ok := s.addrOf(strings.TrimSpace(*in.URL)); ok && strings.TrimSpace(*in.URL) != orig.URL && s.everPublic(c, orig.ProjectID, ep) {
 			reachesPublic = true // a private remote pointed at an address that was ever public
 		}
+	}
+	if in.IncludeCover != nil && *in.IncludeCover && in.Audience != nil && *in.Audience == AudiencePublic && !(orig.Audience == AudiencePublic && orig.IncludeCover) {
+		touchesExposure, reachesPublic = true, true // a remote becoming public with the cover on carries it to a public place
 	}
 	if touchesExposure && reachesPublic {
 		if err := needsPerson(c); err != nil {
@@ -666,6 +685,12 @@ func updateRemote(c *ops.Ctx, in UpdateIn) (RemoteItem, error) {
 		} else if in.OnlyDone == nil {
 			r.OnlyDone = false // only_done is for the public audience: it goes with it
 		}
+		// The cover's setting takes the new audience's default only when the audience really changes: the page's audience
+		// form sends the audience it is showing, and a remote that is private with the cover off (or public with it on,
+		// confirmed) stays as it was.
+		if a != orig.Audience && in.IncludeCover == nil {
+			r.IncludeCover = a == AudiencePrivate // public: off until a person turns it on; private: the whole copy
+		}
 	}
 	if in.OnlyDone != nil {
 		r.OnlyDone = *in.OnlyDone
@@ -675,6 +700,15 @@ func updateRemote(c *ops.Ctx, in UpdateIn) (RemoteItem, error) {
 	}
 	if r.Audience != orig.Audience || r.OnlyDone != orig.OnlyDone {
 		resetSync = true // what the remote may carry changed: its history starts over (see the audience rules)
+	}
+	if in.IncludeCover != nil {
+		r.IncludeCover = *in.IncludeCover
+	}
+	if orig.IncludeCover && !r.IncludeCover && r.Audience == AudiencePublic {
+		resetSync = true // the earlier commits of a public remote hold the cover: its history starts over, as for only_done
+	}
+	if r.IncludeCover != orig.IncludeCover {
+		resetTree = true // what the push holds changed: the remote is behind until it is pushed, as for the notes and the folder
 	}
 	if in.IncludeNotes != nil && *in.IncludeNotes != r.IncludeNotes {
 		if *in.IncludeNotes && r.Audience != AudiencePrivate {
@@ -793,8 +827,15 @@ func updateRemote(c *ops.Ctx, in UpdateIn) (RemoteItem, error) {
 		_ = s.setStatus(c, r.ID, clearAll)
 	}
 	s.recordPublic(c, r)
+	if resetTree && !resetSync && r.Enabled && r.PushMode == ModeOnSave && !c.DryRun() {
+		s.Notify(r.ProjectID) // what the push holds changed: an on-save remote pushes it as it would after a save, not at the next edit
+	}
 	fields := changedFields(in)
-	c.Audit(ops.AuditEntry{Action: "git.remote.update", TargetType: "project", TargetID: in.ProjectID, Detail: map[string]any{"remote_id": r.ID, "fields": fields}})
+	detail := map[string]any{"remote_id": r.ID, "fields": fields}
+	if r.IncludeCover != orig.IncludeCover {
+		detail["include_cover"] = r.IncludeCover // what reaches the repository changed: the audit entry says which way
+	}
+	c.Audit(ops.AuditEntry{Action: "git.remote.update", TargetType: "project", TargetID: in.ProjectID, Detail: detail})
 	rr, err := s.loadRemote(c, in.ProjectID, r.ID)
 	if err != nil {
 		return RemoteItem{}, ops.Internal(err)
@@ -824,6 +865,7 @@ func changedFields(in UpdateIn) []string {
 	add(in.Audience != nil, "audience")
 	add(in.OnlyDone != nil, "only_done")
 	add(in.SignCommits != nil, "sign_commits")
+	add(in.IncludeCover != nil, "include_cover")
 	return f
 }
 
@@ -1239,6 +1281,10 @@ func widens(orig remoteRow, in UpdateIn) bool {
 	case in.OnlyDone != nil && !*in.OnlyDone && orig.OnlyDone:
 		return true
 	case in.IncludeNotes != nil && *in.IncludeNotes && !orig.IncludeNotes:
+		return true
+	case in.IncludeCover != nil && *in.IncludeCover && !orig.IncludeCover:
+		return true
+	case in.IncludeCover != nil && *in.IncludeCover && in.Audience != nil && *in.Audience == AudiencePublic && !(orig.Audience == AudiencePublic && orig.IncludeCover):
 		return true
 	case in.URL != nil && strings.TrimSpace(*in.URL) != orig.URL:
 		return true

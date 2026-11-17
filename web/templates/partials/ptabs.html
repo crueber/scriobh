@@ -20,6 +20,7 @@
   <li><a class="menu-item" href="/p/{{.Slug}}/timeline"{{if eq .Active "timeline"}} aria-current="page"{{end}}>{{template "icon" "history"}}<span>Timeline</span></a></li>
   <li><a class="menu-item" href="/p/{{.Slug}}/goals"{{if eq .Active "goals"}} aria-current="page"{{end}}>{{template "icon" "goals"}}<span>Goals</span></a></li>
   <li><a class="menu-item" href="/p/{{.Slug}}/search"{{if eq .Active "search"}} aria-current="page"{{end}}>{{template "icon" "search"}}<span>Search</span></a></li>
+  <li><a class="menu-item" href="/p/{{.Slug}}/cover"{{if eq .Active "cover"}} aria-current="page"{{end}}>{{template "icon" "image"}}<span>Cover</span></a></li>
   <li><a class="menu-item" href="/p/{{.Slug}}/files"{{if eq .Active "files"}} aria-current="page"{{end}}>{{template "icon" "attach"}}<span>Attachments</span></a></li>
   <li><a class="menu-item" href="/p/{{.Slug}}/scratch"{{if eq .Active "scratch"}} aria-current="page"{{end}}>{{template "icon" "scratch"}}<span>Scratchpad</span></a></li>
   {{if or (not .Role) (eq .Role "owner") (eq .Role "editor") (eq .Role "reviewer")}}<li><a class="menu-item" href="/p/{{.Slug}}/review"{{if eq .Active "review"}} aria-current="page"{{end}}>{{template "icon" "check"}}<span>Review</span></a></li>{{end}}

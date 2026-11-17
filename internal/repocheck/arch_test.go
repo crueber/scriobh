@@ -82,11 +82,25 @@ func sha(s string) string {
 
 func TestArchRecipesTrackTheAppVersion(t *testing.T) {
 	ver := tauriVersion(t)
+	// pkgver may not hold a hyphen, so a prerelease 2.3.0-rc.1 is the pkgver 2.3.0_rc.1; the .deb's file name keeps it.
+	wantPkgver := strings.ReplaceAll(ver, "-", "_")
 	for _, rel := range []string{"desktop/arch/PKGBUILD", "desktop/arch/aur/PKGBUILD"} {
 		text := archFile(t, rel)
-		if got := pkgVar(t, text, "pkgver"); got != ver {
-			t.Errorf("%s: pkgver is %q, but desktop/src-tauri/tauri.conf.json says %q (the version is in four places that must agree)", rel, got, ver)
+		if got := pkgVar(t, text, "pkgver"); got != wantPkgver {
+			t.Errorf("%s: pkgver is %q, but desktop/src-tauri/tauri.conf.json says %q (pkgver %q; the version is in four places that must agree)", rel, got, ver, wantPkgver)
 		}
+	}
+	// The AUR recipe builds the .deb's file name from _debver, the original, never from pkgver: for a prerelease the two
+	// differ (2.3.0-rc.1 and 2.3.0_rc.1) and the file is Scriobh_2.3.0-rc.1_amd64.deb.
+	aur := archFile(t, "desktop/arch/aur/PKGBUILD")
+	if got := pkgVar(t, aur, "_debver"); got != ver {
+		t.Errorf("desktop/arch/aur/PKGBUILD: _debver is %q, want %q (the version as the .deb's name has it)", got, ver)
+	}
+	if got, want := pkgVar(t, aur, "_deb"), "Scriobh_${_debver}_amd64.deb"; got != want {
+		t.Errorf("desktop/arch/aur/PKGBUILD: _deb is %q, want %q (not built from pkgver, which maps - to _)", got, want)
+	}
+	if got, want := pkgVar(t, aur, "_tag"), "v"+ver; got != want {
+		t.Errorf("desktop/arch/aur/PKGBUILD: _tag is %q, want %q", got, want)
 	}
 	// The name the Tauri bundler gives the .deb: <product name>_<version>_<arch>.deb.
 	if got, want := pkgVar(t, archFile(t, "desktop/arch/PKGBUILD"), "_deb"), "Scriobh_"+ver+"_amd64.deb"; got != want {
@@ -161,7 +175,7 @@ func TestArchSrcinfoSaysWhatThePKGBUILDSays(t *testing.T) {
 	if got := field("pkgname"); len(got) != 1 || got[0] != pkgVar(t, pk, "pkgname") {
 		t.Errorf(".SRCINFO pkgname %v, PKGBUILD %q", got, pkgVar(t, pk, "pkgname"))
 	}
-	ver, tag := pkgVar(t, pk, "pkgver"), pkgVar(t, pk, "_tag")
+	ver, tag := pkgVar(t, pk, "_debver"), pkgVar(t, pk, "_tag") // the file name's version, not pkgver
 	src := field("source")
 	wantSrc := "Scriobh_" + ver + "_amd64.deb::" + pkgVar(t, pk, "url") + "/releases/download/" + tag + "/Scriobh_" + ver + "_amd64.deb"
 	if len(src) != 3 || src[0] != wantSrc || src[1] != "LICENSE" || src[2] != "NOTICE" {

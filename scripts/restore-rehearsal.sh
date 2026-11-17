@@ -5,7 +5,9 @@
 # through TestRestoreRehearsal (cmd/scriobh/restore_rehearsal_test.go):
 #
 #   1. start it on 127.0.0.1:0 and fill an instance through the API: two
-#      projects, documents, revisions and a snapshot, an image, an alternative,
+#      projects, documents, revisions and a snapshot, an image, the book's own
+#      cover (a layout of sides with a front and a back picture, whose derived
+#      pictures the archive leaves out), an alternative,
 #      comments, share links and API keys (one of each revoked), a revoked
 #      session, a Git remote with a token, an AI provider with a key, a webhook
 #      with a sealed address, site options and a goal;
@@ -13,7 +15,10 @@
 #      with it stopped;
 #   3. `scriobh restore` into a directory that does not exist yet, with the same
 #      SCRIOBH_SECRET_KEY; compare every table row for row, the stored files,
-#      44 API answers and the attachment's bytes; remove mirror/ and let the
+#      46 API answers (the cover layout's among them) and the attachment's bytes;
+#      the cover's derived pictures are not in the archive and absent from the
+#      restored directory, and the restored server makes them again with the
+#      same bytes; remove mirror/ and let the
 #      server write it again, byte for byte; use each credential for real
 #      against loopback stand-ins (no outside address is contacted). A
 #      restore pauses every webhook and parks the feeder (so a restored copy

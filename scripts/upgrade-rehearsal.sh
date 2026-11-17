@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Upgrade rehearsal (docs/OPERATIONS.md, "Upgrades").
 #
-#   scripts/upgrade-rehearsal.sh               from v0.1, v0.5, v1.0, v1.1 and v1.2
+#   scripts/upgrade-rehearsal.sh               from v0.1, v0.5, v1.0, v1.1, v1.2 and v2.0
 #   scripts/upgrade-rehearsal.sh v0.3 v0.5     from each tag named
-#   scripts/upgrade-rehearsal.sh --all         from every release tag (v1.2 included)
+#   scripts/upgrade-rehearsal.sh --all         from every release tag (v2.0 included)
 #
 # For each tag: `git archive` the tag into a temporary directory (nothing in
 # this tree is touched), build its development server the way its Makefile's
@@ -13,11 +13,12 @@
 # its development issuer, and then a rich dataset (cmd/scriobh/upgrade_rich_test.go):
 # three people with the three roles, a book with parts, chapters, scenes, notes,
 # revisions and snapshots, comments and suggestions, share links, API keys, a
-# webhook, a static-site configuration, a Compendium with entities, relationships
+# webhook, a static-site configuration, a picture named in a chapter and in a
+# research note, a Compendium with entities, relationships
 # and mentions, goals, an import, a compile and an export, an AI provider with a
 # sealed key, an idempotency key and a Git remote pushed to a development Git
-# server (every operation the old release lacks is skipped, so the same code
-# runs for every tag); the answers are recorded. Then the current build
+# server and, from v1.1, a second remote with audience private (every operation
+# the old release lacks is skipped, so the same code runs for every tag); the answers are recorded. Then the current build
 # starts on the same data directory and must take the pre-migration copy, apply
 # every migration, end with a fresh install's schema (columns, foreign keys,
 # unique constraints, indexes, triggers), pass integrity and foreign-key checks,
@@ -25,7 +26,10 @@
 # unchanged. It then uses what the old release made: the API keys, the share
 # links, the webhook (signed with its original secret, to its sealed address), the
 # sealed provider key, an idempotent replay, the site; checks that the old Git
-# remote reads as private and pushes exactly the files it pushed; that mail, the
+# remote reads as private and pushes exactly the files it pushed; that the cover
+# migrations kept every attachment and attachment_refs row, left no attachment
+# cover-clean and no project a layout, and gave a private remote include_cover 1
+# and a public one 0; that mail, the
 # semantic index, Pandoc, presence, passphrases and typography are all off; and
 # that a second start applies nothing and takes no second copy. Last, it rolls back the way OPERATIONS.md says (the pre-migration
 # copy over scriobh.db) and the old release must start and answer as before.
@@ -48,7 +52,7 @@ export GOPROXY=off GOFLAGS=-mod=mod
 
 tags=("$@")
 if [ "${#tags[@]}" -eq 0 ]; then
-  tags=(v0.1 v0.5 v1.0 v1.1 v1.2)
+  tags=(v0.1 v0.5 v1.0 v1.1 v1.2 v2.0)
 elif [ "${tags[0]}" = "--all" ]; then
   tags=()
   while IFS= read -r t; do tags+=("$t"); done < <(git tag --list 'v[0-9]*' --sort=version:refname)

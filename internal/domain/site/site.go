@@ -24,6 +24,7 @@ import (
 	"github.com/crueber/scriobh/internal/cover"
 	"github.com/crueber/scriobh/internal/db"
 	"github.com/crueber/scriobh/internal/domain/compile"
+	"github.com/crueber/scriobh/internal/domain/coverlayout"
 	"github.com/crueber/scriobh/internal/domain/export"
 	"github.com/crueber/scriobh/internal/domain/projects"
 	"github.com/crueber/scriobh/internal/ops"
@@ -460,6 +461,17 @@ func resolve(c *ops.Ctx, projectID string) (*resolved, error) {
 	sort.Strings(in.Reserved)
 	if opts.ShowCover {
 		_, in.CoverSVG = cover.Cached(cover.Spec{Title: p.Title, Subtitle: p.Subtitle, Author: p.Author, Kind: p.Kind, Color: p.CoverColor})
+		// The project's own cover takes its place when it has one. This runs inside the compile gate (the site ops are
+		// heavy), whose slot is held.
+		d, lay, err := coverlayout.Make(c, c.Env, projectID, coverlayout.NameFront, true)
+		switch {
+		case errors.Is(err, coverlayout.ErrNoPicture):
+			// the layout names a picture that is gone: the generated cover stands in
+		case err != nil:
+			return nil, err
+		case d != nil:
+			in.CoverImage, in.CoverImageW, in.CoverImageH, in.CoverAlt = d.Data, d.Width, d.Height, lay.Alt
+		}
 	}
 	res, err := sitegen.Build(in)
 	switch {

@@ -1,7 +1,7 @@
 {
   "name": "scriobh-desktop-build",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.2.0",
   "description": "Build-time tooling for the Scríobh desktop shell. Nothing here ships in the app or the server.",
   "scripts": {
     "tauri": "tauri"

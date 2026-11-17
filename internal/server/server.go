@@ -28,6 +28,7 @@ import (
 	"github.com/crueber/scriobh/internal/domain/altstore"
 	"github.com/crueber/scriobh/internal/domain/attachments"
 	"github.com/crueber/scriobh/internal/domain/compile"
+	"github.com/crueber/scriobh/internal/domain/coverlayout"
 	"github.com/crueber/scriobh/internal/domain/editions"
 	"github.com/crueber/scriobh/internal/domain/keys"
 	"github.com/crueber/scriobh/internal/domain/review"
@@ -93,20 +94,38 @@ type Server struct {
 	sse     *sseState
 	sseTick func(d time.Duration) (<-chan time.Time, func()) // the heartbeat clock; nil means real time
 	// presTick is the clock of a stream's presence checks (presence.go); nil means real time.
-	presTick func(d time.Duration) (<-chan time.Time, func())
-	assets   *assets
-	pwa      *pwaState
-	tmpl     map[string]*template.Template
-	limiter  *limiter
-	mcp      *mcpState     // the MCP endpoint (mcp.go); nil when it is off
-	shr      shareState    // the public share routes (share.go)
-	cards    *studio.Cards // the private progress cards' public side (card.go)
-	ring     *logRing      // the warnings and errors kept for the diagnostics (adminsvc.go)
-	bigBody  []*ops.Entry  // ops with their own request body limit (Op.MaxBody)
-	schema   ops.Schema    // the op schema, built once after the ops are bound
-	mux      *http.ServeMux
-	handler  http.Handler
-	desk     *desktopRT // desktop mode (desktop.go); nil when SCRIOBH_DESKTOP is unset
+	presTick              func(d time.Duration) (<-chan time.Time, func())
+	assets                *assets
+	pwa                   *pwaState
+	tmpl                  map[string]*template.Template
+	limiter               *limiter
+	mcp                   *mcpState     // the MCP endpoint (mcp.go); nil when it is off
+	shr                   shareState    // the public share routes (share.go)
+	cards                 *studio.Cards // the private progress cards' public side (card.go)
+	ring                  *logRing      // the warnings and errors kept for the diagnostics (adminsvc.go)
+	bigBody               []*ops.Entry  // ops with their own request body limit (Op.MaxBody)
+	bodySlots             chan struct{} // the pictures' bodies read at once (uiRouteStream)
+	bodyUsers             bodyOwner     // and who has one being read: one each
+	bodyIdle, bodyCeiling time.Duration // the pace a picture's body must keep (pacedBody)
+	bodyGrace             time.Duration // ... waiting before the floor applies
+	bodyFloor             int64         // ... bytes a second, once it does
+	schema                ops.Schema    // the op schema, built once after the ops are bound
+	mux                   *http.ServeMux
+	handler               http.Handler
+	desk                  *desktopRT // desktop mode (desktop.go); nil when SCRIOBH_DESKTOP is unset
+}
+
+// httpServer is the http.Server the process runs, with its timeouts. The cover form's route moves its own read deadline
+// with the bytes it gets (uiRouteStream), in place of ReadTimeout.
+func (s *Server) httpServer() *http.Server {
+	return &http.Server{
+		Handler:           s.handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       60 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		ErrorLog:          slog.NewLogLogger(s.Log.Handler(), slog.LevelWarn),
+	}
 }
 
 // New builds a Server. It does not listen.
@@ -149,6 +168,7 @@ func New(d Deps) (*Server, error) {
 	ring := &logRing{dir: d.Cfg.DataDir}
 	d.Log = slog.New(ringHandler{inner: d.Log.Handler(), ring: ring})
 	s := &Server{
+		bodySlots: make(chan struct{}, bodySlotCount), bodyIdle: bodyIdle, bodyCeiling: bodyCeiling, bodyGrace: bodyGrace, bodyFloor: bodyFloor,
 		Cfg: d.Cfg, DB: d.DB, Log: d.Log, Events: d.Events,
 		Sess:    &auth.Sessions{DB: d.DB, Cfg: d.Cfg, Key: key},
 		Keys:    &auth.Keys{DB: d.DB},
@@ -191,6 +211,7 @@ func New(d Deps) (*Server, error) {
 	env.SetService(compile.LimitsService, cgate)
 	env.SetService(mirror.ServiceName, s.Mirror)
 	env.SetService(sitedomain.LimitsService, sitedomain.NewGateOn(cgate.Slots()))
+	env.SetService(coverlayout.GateService, coverlayout.NewGateOn(cgate.Slots())) // a cover's pictures are made inside the same limit
 	env.SetService(sitedomain.ServiceName, sitedomain.NewService(sitedomain.Config{Enabled: !d.Cfg.SiteDisabled, Root: d.Cfg.SiteRoot()}))
 	env.SetService(backup.ServiceName, s.Backups)
 	env.AddPurgeHook(s.Mirror.ProjectPurged)
@@ -280,6 +301,7 @@ func (s *Server) routes() {
 	s.registerAIUI(m)
 	s.registerCompendiums(m)
 	s.registerAttachments(m)
+	s.registerCoverUI(m)
 	s.registerTimeline(m)
 	s.registerImportRepo(m)
 	s.registerBoards(m)
@@ -383,14 +405,7 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 			return fmt.Errorf("port file: %w", err)
 		}
 	}
-	srv := &http.Server{
-		Handler:           s.handler,
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       60 * time.Second,
-		WriteTimeout:      60 * time.Second,
-		IdleTimeout:       120 * time.Second,
-		ErrorLog:          slog.NewLogLogger(s.Log.Handler(), slog.LevelWarn),
-	}
+	srv := s.httpServer()
 	go s.sweepLoop(ctx)
 	defer s.observeOutbound()()
 	attachments.SweepTemp(s.Cfg.DataDir) // uploads that were in flight when the last process stopped

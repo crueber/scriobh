@@ -425,7 +425,7 @@ How to read it. **Request** is the method and path. **Access** is who may call t
 
 <!-- BEGIN GENERATED: op table (make skill) -->
 
-448 operations, schema `sha256:52d1c8ce20d2`. Generated from the op registry by `make skill`; do not edit between the markers.
+453 operations, schema `sha256:e7191bde55bb`. Generated from the op registry by `make skill`; do not edit between the markers.
 
 #### `account` (3)
 
@@ -848,7 +848,7 @@ How to read it. **Request** is the method and path. **Access** is who may call t
 | `profile.get` | `GET /api/v1/me` | any signed-in caller | read |  | Get the caller's profile: name, email, instance role, time zone, locale, avatar colour and initials. |
 | `profile.update` | `PATCH /api/v1/me` | any signed-in caller | write |  | Change the caller's display name, time zone or locale. Send only the fields to change. |
 
-#### `project` (59)
+#### `project` (64)
 
 | Op | Request | Access | Scope | Notes | What it does |
 | --- | --- | --- | --- | --- | --- |
@@ -866,7 +866,12 @@ How to read it. **Request** is the method and path. **Access** is who may call t
 | `project.compendium.ref.add` | `POST /api/v1/projects/{id}/compendium/refs` | project owner | write |  | Reference a whole Compendium from a project, read-only: its entities appear in the project's resolved entities and in the mirror's compendium/… |
 | `project.compendium.ref.remove` | `DELETE /api/v1/projects/{id}/compendium/refs` | project owner | write |  | Stop referencing a Compendium from a project. Project owner. |
 | `project.compendium.set` | `PUT /api/v1/projects/{id}/compendium` | project owner | write |  | Set or clear a project's primary Compendium (compendium_id empty clears it). |
-| `project.cover` | `GET /api/v1/projects/{id}/cover` | project reader | read |  | The project's cover as an SVG: a flat colour with the title, subtitle, author and kind, drawn from the project's own fields. |
+| `project.cover` | `GET /api/v1/projects/{id}/cover` | project reader | read |  | The project's cover as an image. With a cover layout of its own (project.cover_layout.get) it is the front as a JPEG, at most 2560 px on the long… |
+| `project.cover_layout.check` | `POST /api/v1/projects/{id}/cover-layout/check` | project reader | read |  | Check the layout against a print trim and a printer's profile (kdp, ingram or generic): each picture's resolution, a wrap's measured spine against… |
+| `project.cover_layout.clear` | `DELETE /api/v1/projects/{id}/cover-layout` | project editor | write |  | Go back to the generated cover. The pictures stay as attachments until you delete them. |
+| `project.cover_layout.get` | `GET /api/v1/projects/{id}/cover-layout` | project reader | read |  | The project's own cover layout: its shape (sides or wrap), trim, front and back, alt text, revision, each picture's resolution at the trim, the… |
+| `project.cover_layout.set` | `PUT /api/v1/projects/{id}/cover-layout` | project editor | write |  | Set the project's cover layout: the whole layout at once, with the revision you read (0 when there is none yet; a stale revision is a conflict). |
+| `project.cover_layout.upload` | `POST /api/v1/projects/{id}/cover-layout/images` | project editor | write | no dry run, body is the file, 201 on success | Upload a cover picture. The request body is the picture itself (the CLI: --file @path); part says which part of the cover it is for: front, back or… |
 | `project.create` | `POST /api/v1/projects` | instance writer | write | 201 on success | Create a project. The caller becomes its owner. |
 | `project.entity.get` | `GET /api/v1/projects/{id}/entity` | project reader | read |  | One entity as the project sees it: the effective name, summary and fields, the Compendium's body, the override (with the Compendium's own values in… |
 | `project.entity.link.add` | `POST /api/v1/projects/{id}/entity-links` | project editor | write |  | Link one entity from a Compendium into this project, read-only (a cameo): it appears among the project's entities and in the mirror's compendium/… |

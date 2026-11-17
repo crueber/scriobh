@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"log/slog"
+	"mime"
 	"net/http"
 	"runtime/debug"
 	"strings"
@@ -167,6 +168,11 @@ func (s *Server) securityHeaders(next http.Handler) http.Handler {
 func (s *Server) bodyLimit(r *http.Request) int64 {
 	if isSharePath(r.URL.Path) {
 		return 32 << 10 // a guest writes a comment, not a manuscript
+	}
+	if r.Method == http.MethodPost && isCoverForm(r.URL.Path) && isMultipart(r) {
+		// the cover page's one form carries up to three pictures (front, back, wrap), each up to the upload limit; the
+		// body is read a part at a time after the caller is authorized (uiRouteStream), never held whole
+		return 3*int64(s.Cfg.UploadMaxMB)<<20 + 1<<20
 	}
 	for _, e := range s.bigBody {
 		if e.Op.Method == r.Method && pathMatches(e.Op.Path, r.URL.Path) {
@@ -365,4 +371,10 @@ func logPath(r *http.Request) string {
 		return "/s/..."
 	}
 	return r.URL.Path
+}
+
+// isMultipart says whether a request's body is multipart/form-data.
+func isMultipart(r *http.Request) bool {
+	mt, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	return err == nil && mt == "multipart/form-data"
 }

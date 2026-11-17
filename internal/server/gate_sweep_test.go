@@ -219,7 +219,7 @@ func scanRoutes(t *testing.T) routeScan {
 				return true
 			}
 			sel, ok := ce.Fun.(*ast.SelectorExpr)
-			if !ok || (sel.Sel.Name != "HandleFunc" && sel.Sel.Name != "Handle" && sel.Sel.Name != "uiRoute") {
+			if !ok || (sel.Sel.Name != "HandleFunc" && sel.Sel.Name != "Handle" && sel.Sel.Name != "uiRoute" && sel.Sel.Name != "uiRouteStream") {
 				return true
 			}
 			// Every call of these names is a registration, whatever the receiver is called, except the two Handle methods

@@ -19,6 +19,7 @@ import (
 	"github.com/crueber/scriobh/internal/db"
 	"github.com/crueber/scriobh/internal/domain/attachments"
 	"github.com/crueber/scriobh/internal/domain/compendiums"
+	"github.com/crueber/scriobh/internal/domain/coverlayout"
 	"github.com/crueber/scriobh/internal/domain/docs"
 	"github.com/crueber/scriobh/internal/domain/entities"
 	"github.com/crueber/scriobh/internal/domain/projects"
@@ -1063,6 +1064,13 @@ func TestEveryMutatingOpReachesTheMirror(t *testing.T) {
 	tag2 := e.call(e.owner, "project.tag.create", research.TagCreateIn{ID: pid, Name: "beta"}).(research.TagItem).Item
 	att := e.upload(pid, "cover.png", 3)
 	ch = e.setContent(ch, "![x]("+att.URL+")\n")
+	// A picture made by the cover upload, for the layout ops; the layout is what wakes the mirror, so the picture
+	// is stored and flushed first.
+	coverCtx := ops.WithRawBody(e.ctx, ops.RawBody{R: bytes.NewReader(pngFile(9)), Length: -1})
+	coverPic, cerr := e.reg.Call(coverCtx, e.owner, "project.cover_layout.upload", coverlayout.UploadIn{ID: pid, Part: "front"})
+	if cerr != nil {
+		t.Fatal(cerr)
+	}
 	e.settle(pid)
 	title := "Coverage 2"
 	text := "changed\n"
@@ -1166,6 +1174,14 @@ func TestEveryMutatingOpReachesTheMirror(t *testing.T) {
 		"project.attachment.delete": func() {
 			e.call(e.owner, "project.attachment.delete", attachments.DeleteIn{ID: pid, AttID: att.ID, Force: true})
 		},
+		// The cover layout is projected as cover/ and the cover object of project.json.
+		"project.cover_layout.set": func() {
+			front := coverlayout.Side{Mode: "image", Attachment: coverPic.(coverlayout.UploadOut).AttachmentID}
+			e.call(e.owner, "project.cover_layout.set", coverlayout.SetIn{ID: pid, Shape: "sides", Front: &front, Alt: "A cover"})
+		},
+		"project.cover_layout.clear": func() {
+			e.call(e.owner, "project.cover_layout.clear", coverlayout.ProjectIn{ID: pid})
+		},
 		// Alternatives, ghosts and the stash change the stored text or the stash
 		// folder: each wakes the mirror and leaves it in step.
 		"alternative.create": func() {
@@ -1262,9 +1278,11 @@ func TestEveryMutatingOpReachesTheMirror(t *testing.T) {
 		"project.passphrase.set": "access, not content: the lock is not in the projection", "project.passphrase.clear": "access, not content",
 		"project.unlock": "a session's state, not content", "project.lock": "a session's state, not content",
 		"project.typography.set": "how the pages are drawn on screen (F-085), kept in its own table; not content and not in the projection", "project.typography.reset": "how the pages are drawn on screen, not content",
-		"project.tag.create":        "a tag no note carries is not in a file; carrying one is project.research.update",
-		"project.scratch.set":       "a private scratchpad is never mirrored (TestScratchpadIsNotMirrored)",
-		"project.attachment.upload": "an attachment nothing links to is not mirrored; the document that links it is (doc.update)",
+		"project.tag.create":          "a tag no note carries is not in a file; carrying one is project.research.update",
+		"project.scratch.set":         "a private scratchpad is never mirrored (TestScratchpadIsNotMirrored)",
+		"project.attachment.upload":   "an attachment nothing links to is not mirrored; the document that links it is (doc.update)",
+		"project.cover_layout.upload": "a cover picture no layout names is not mirrored; the layout that names it is (project.cover_layout.set)",
+		"project.cover_layout.check":  "reads",
 	}
 	// The AI ops write providers, policies, budgets, never-send flags and the run
 	// log: nothing the projection shows, and nothing in the manuscript (a run
@@ -1307,6 +1325,7 @@ func TestEveryMutatingOpReachesTheMirror(t *testing.T) {
 	}
 	order := []string{"project.update", "project.research.create", "project.research.update", "project.research.move", "project.research.trash", "project.research.restore",
 		"project.tag.update", "project.tag.merge", "project.tag.delete", "project.attachment.update", "project.attachment.delete",
+		"project.cover_layout.set", "project.cover_layout.clear",
 		"project.compendium.set", "project.compendium.ref.add", "project.entity.override.set", "project.entity.override.clear",
 		"project.entity.link.add", "project.entity.link.remove", "project.compendium.ref.remove", "project.compendium.create", "doc.create", "doc.resolve_link", "doc.update", "doc.split", "doc.move", "doc.trash", "doc.restore",
 		"alternative.create", "alternative.add_variant", "alternative.edit_variant", "alternative.remove_variant", "alternative.reorder_variant",

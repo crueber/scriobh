@@ -13,6 +13,7 @@ import (
 
 	"github.com/crueber/scriobh/internal/domain/attachments"
 	"github.com/crueber/scriobh/internal/domain/compendiums"
+	"github.com/crueber/scriobh/internal/domain/coverlayout"
 	"github.com/crueber/scriobh/internal/domain/research"
 	"github.com/crueber/scriobh/internal/mirror"
 	"github.com/crueber/scriobh/internal/ops"
@@ -281,4 +282,76 @@ func TestScratchpadIsNotMirrored(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = context.Background
+}
+
+// The project's own cover is projected as cover/ and the cover object of project.json, without ids; a project that
+// uses the generated cover has neither, and a restart with nothing changed writes nothing.
+func TestCoverLayoutIsMirroredWithoutIds(t *testing.T) {
+	fs := &countFS{}
+	e := newEnv(t, func(o *mirror.Options) { o.FS = fs })
+	e.start()
+	pid := e.project("Mirrored cover")
+	e.doc(pid, "Chapter", "chapter", "text\n")
+	e.settle(pid)
+	root := e.root(pid)
+	if _, ok := files(t, root)["project.json"]; !ok || strings.Contains(files(t, root)["project.json"], `"cover"`) {
+		t.Fatal("a project with the generated cover has a cover object in its manifest")
+	}
+	up := func(part string, seed int) coverlayout.UploadOut {
+		ctx := ops.WithRawBody(e.ctx, ops.RawBody{R: bytes.NewReader(pngFile(seed)), Length: -1})
+		out, err := e.reg.Call(ctx, e.owner, "project.cover_layout.upload", coverlayout.UploadIn{ID: pid, Part: part})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return out.(coverlayout.UploadOut)
+	}
+	front, back := up("front", 5), up("back", 6)
+	e.settle(pid)
+	for k := range files(t, root) {
+		if strings.HasPrefix(k, "cover/") || strings.HasPrefix(k, "attachments/") {
+			t.Errorf("a picture no layout names is mirrored: %s", k)
+		}
+	}
+	fs1 := coverlayout.Side{Mode: "image", Attachment: front.AttachmentID}
+	bs := coverlayout.Side{Mode: "page", Attachment: back.AttachmentID, Fit: "contain", Position: "top", Scale: 80, MarginIn: 0.25, Background: "#3B5B7A"}
+	e.call(e.owner, "project.cover_layout.set", coverlayout.SetIn{ID: pid, Shape: "sides", Front: &fs1, Back: &bs, Alt: "A harbour at dusk"})
+	e.settle(pid)
+	got := files(t, root)
+	fn, fb := find(got, "cover/front-", ".png")
+	bn, bb := find(got, "cover/back-", ".png")
+	if fn == "" || bn == "" || fb == "" || bb == "" {
+		t.Fatalf("the pictures are not in cover/: %v", keys(got))
+	}
+	if n, _ := find(got, "attachments/", ""); n != "" {
+		t.Errorf("a cover picture is also copied to attachments/: %s", n)
+	}
+	m := got["project.json"]
+	for _, want := range []string{`"cover": {`, `"shape": "sides"`, `"trim": "6x9"`, `"alt": "A harbour at dusk"`, `"mode": "image"`, `"file": "` + fn + `"`,
+		`"mode": "page"`, `"fit": "contain"`, `"position": "top"`, `"scale": 80`, `"background": "#3B5B7A"`, `"margin_in": 0.25`} {
+		if !strings.Contains(m, want) {
+			t.Errorf("project.json has no %s:\n%s", want, m)
+		}
+	}
+	if strings.Contains(m, front.AttachmentID) || strings.Contains(m, back.AttachmentID) {
+		t.Errorf("the layout in project.json carries an attachment id:\n%s", m)
+	}
+	// Quiet: a rebuild of an unchanged mirror writes nothing, and neither does a restart.
+	before := len(fs.renames)
+	e.call(e.owner, "mirror.rebuild", mirror.StatusIn{ProjectID: pid})
+	e.settle(pid)
+	if after := len(fs.renames); after != before {
+		t.Errorf("a rebuild wrote %d files: %v", after-before, fs.renames[before:])
+	}
+	_, stop := e.bootMirror(fs)
+	stop()
+	if after := len(fs.renames); after != before {
+		t.Errorf("a restart rewrote %v", fs.renames[before:])
+	}
+	// Clearing the layout removes the folder and the object.
+	e.call(e.owner, "project.cover_layout.clear", coverlayout.ProjectIn{ID: pid})
+	e.settle(pid)
+	got = files(t, root)
+	if n, _ := find(got, "cover/", ""); n != "" || strings.Contains(got["project.json"], `"cover"`) {
+		t.Errorf("a cleared layout stays in the mirror: %s", n)
+	}
 }

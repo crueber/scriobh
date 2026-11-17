@@ -149,3 +149,13 @@ func purgeOwner(dataDir, ownerKind string) func(ctx context.Context, id string) 
 		_ = os.RemoveAll(d)
 	}
 }
+
+// CoversDir is the folder of a project's derived cover pictures (files/projects/<id>/covers). What is in it is made
+// from the layout and the attachments, never the source of truth, and is not in a backup.
+func CoversDir(dataDir, projectID string) (string, error) {
+	d, err := ownerDir(dataDir, OwnerProject, projectID)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(d, "covers"), nil
+}

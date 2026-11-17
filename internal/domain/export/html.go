@@ -24,6 +24,7 @@ package export
 import (
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"html"
 	"path"
@@ -31,6 +32,7 @@ import (
 	"strings"
 
 	"github.com/crueber/scriobh/internal/cover"
+	"github.com/crueber/scriobh/internal/domain/coverlayout"
 	"github.com/crueber/scriobh/internal/domain/projects"
 	"github.com/crueber/scriobh/internal/ops"
 	"github.com/crueber/scriobh/internal/text"
@@ -69,7 +71,7 @@ h1,h2,h3,h4,h5,h6{line-height:1.25;font-weight:600;margin:2.2em 0 .6em;overflow-
 h1{font-size:2.2rem;margin-top:0}h2{font-size:1.6rem}h3{font-size:1.3rem}h4{font-size:1.15rem}h5,h6{font-size:1rem}
 p{margin:0 0 1em;overflow-wrap:break-word}
 .titlepage{text-align:center;padding:2rem 0 3rem;border-bottom:1px solid var(--line);margin-bottom:2rem}
-.cover{margin:0 auto 2rem;width:min(100%,17rem)}.cover svg{display:block;width:100%;height:auto}
+.cover{margin:0 auto 2rem;width:min(100%,17rem)}.cover svg,.cover img{display:block;width:100%;height:auto}
 .title{margin:0;font-size:2.6rem}.subtitle{margin:.4rem 0 0;font-style:italic;color:var(--muted)}.author{margin:1.2rem 0 0;letter-spacing:.08em;text-transform:uppercase;font-size:.95rem}
 .toc{margin:0 0 3rem}.toc h2{font-size:1rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:0}
 .toc ol{list-style:none;margin:0;padding:0 0 0 1.1rem}.toc>ol{padding-left:0}.toc li{margin:.2rem 0}.toc a{text-decoration:none}.toc a:hover{text-decoration:underline}
@@ -120,12 +122,30 @@ func page(p projectRow, title, bodyHTML string) string {
 	return b.String()
 }
 
+// htmlCover is the project's own cover for the title page: the front as a JPEG, its alt text and size, and the hash of
+// what the front is made of. The page holds it as a data URI, so every page keeps the one policy (img-src data: only); a
+// bundle also holds the picture as a file, images/cover.jpg, for whoever wants it.
+type htmlCover struct {
+	data []byte
+	alt  string
+	w, h int
+	hash string
+}
+
+// bundleCoverPath is where a bundle keeps the cover picture.
+const bundleCoverPath = "images/cover.jpg"
+
 // titlePage is the project's cover, title, subtitle and author.
 func titlePage(p projectRow) string {
 	var b strings.Builder
 	b.WriteString("<header class=\"titlepage\">\n")
-	_, svg := cover.Cached(cover.Spec{Title: p.Title, Subtitle: p.Subtitle, Author: p.Author, Kind: p.Kind, Color: p.CoverColor})
-	b.WriteString("<figure class=\"cover\">" + strings.TrimSpace(string(svg)) + "</figure>\n")
+	if p.cover != nil {
+		src := "data:image/jpeg;base64," + base64.StdEncoding.EncodeToString(p.cover.data)
+		fmt.Fprintf(&b, "<figure class=\"cover\"><img src=\"%s\" alt=\"%s\" width=\"%d\" height=\"%d\"></figure>\n", esc(src), esc(p.cover.alt), p.cover.w, p.cover.h)
+	} else {
+		_, svg := cover.Cached(cover.Spec{Title: p.Title, Subtitle: p.Subtitle, Author: p.Author, Kind: p.Kind, Color: p.CoverColor})
+		b.WriteString("<figure class=\"cover\">" + strings.TrimSpace(string(svg)) + "</figure>\n")
+	}
 	b.WriteString("<h1 class=\"title\">" + esc(strings.Join(strings.Fields(p.Title), " ")) + "</h1>\n")
 	if s := strings.Join(strings.Fields(p.Subtitle), " "); s != "" {
 		b.WriteString("<p class=\"subtitle\">" + esc(s) + "</p>\n")
@@ -290,6 +310,18 @@ func exportHTML(c *ops.Ctx, in HTMLIn) (File, error) {
 	if err != nil {
 		return File{}, err
 	}
+	// The project's own cover takes the place of the generated one on the title page; its layout's hash is recorded
+	// with the export, so a changed cover is a changed export.
+	d, lay, err := coverlayout.Make(c, c.Env, in.ProjectID, coverlayout.NameFront, false)
+	switch {
+	case errors.Is(err, coverlayout.ErrNoPicture):
+		// the layout names a picture that is gone: the generated cover stands in
+	case err != nil:
+		return File{}, err
+	case d != nil:
+		fh, _, _ := coverlayout.FrontHashOf(c, c.DB().Read(), in.ProjectID, "")
+		p.cover = &htmlCover{data: d.Data, alt: lay.Alt, w: d.Width, h: d.Height, hash: fh}
+	}
 	all, skipped := dropNotCompiled(all, in.IncludeExcluded)
 	applyGhosts(all, in.Ghosts, "", true)
 	manuscript, notes := tree(all)
@@ -319,8 +351,11 @@ func exportHTML(c *ops.Ctx, in HTMLIn) (File, error) {
 	}
 	file := newFile(name, contentType, body, len(included))
 	file.Skipped = len(skipped)
-	if err := record(c, in.ProjectID, mode, "html", file, included,
-		withSkipped(map[string]any{"includes_notes": in.Notes, "private_notes": in.PrivateNotes, "ghosts": ghostMode(in.Ghosts)}, skipped, true),
+	manifest := withSkipped(map[string]any{"includes_notes": in.Notes, "private_notes": in.PrivateNotes, "ghosts": ghostMode(in.Ghosts)}, skipped, true)
+	if p.cover != nil {
+		manifest["cover_layout"] = p.cover.hash
+	}
+	if err := record(c, in.ProjectID, mode, "html", file, included, manifest,
 		withSkipped(map[string]any{"notes": in.Notes, "private_notes": in.PrivateNotes, "ghosts": ghostMode(in.Ghosts)}, skipped, false)); err != nil {
 		return File{}, err
 	}
@@ -422,7 +457,11 @@ func bundleHTML(p projectRow, manuscript, notes []*doc, entries []entry, in HTML
 	idx.WriteString(titlePage(p))
 	idx.WriteString(toc(items, func(it item) string { return pathOf[byID[it.d.ID]] }))
 	index := entry{path: "index.html", data: []byte(page(p, home, idx.String()))}
-	return bundle("scriobh-html-bundle", p, in.Notes, out, nil, nil, index)
+	extra := []entry{index}
+	if p.cover != nil {
+		extra = append(extra, entry{path: bundleCoverPath, data: p.cover.data})
+	}
+	return bundle("scriobh-html-bundle", p, in.Notes, out, nil, nil, extra...)
 }
 
 // labelOf is what a pager link says for a document.

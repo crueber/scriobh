@@ -38,7 +38,7 @@ type Options struct {
 	Nav           []NavLink `json:"nav" desc:"Up to 8 fixed links to addresses outside the site."`
 	Accent        string    `json:"accent" enum:"moss,slate,sepia,meadow,contrast" desc:"The link colour. Each is checked for readable contrast in the light and dark theme."`
 	ImageMaxWidth int       `json:"image_max_width" desc:"The widest an image is shown, in pixels (200 to 2400); smaller screens always shrink it."`
-	ShowCover     bool      `json:"show_cover" desc:"Show the project's generated cover on the front page."`
+	ShowCover     bool      `json:"show_cover" desc:"Show the project's cover on the front page: its own cover when it has one (project.cover_layout.get), else the generated one."`
 	NoIndex       bool      `json:"noindex" desc:"Ask search engines to stay away (a staging site): robots.txt disallows everything and every page says noindex."`
 }
 

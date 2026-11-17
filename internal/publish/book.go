@@ -105,8 +105,12 @@ type Book struct {
 	InputHash string
 	// CoverSVG is the generated cover, for an EPUB.
 	CoverSVG []byte
-	Sections []Section
-	Images   map[string]Image
+	// CoverImage is the project's own cover, a JPEG made for screens, for an EPUB. It takes the place of CoverSVG when
+	// there is one; CoverAlt is its description for screen readers.
+	CoverImage []byte
+	CoverAlt   string
+	Sections   []Section
+	Images     map[string]Image
 	// Warnings collects what a writer had to leave out (an image it could not
 	// size, a table nested too deep); the compile pipeline reports them.
 	Warnings []string

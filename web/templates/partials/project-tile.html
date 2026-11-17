@@ -1,11 +1,11 @@
 {{define "project-tile"}}{{$p := .P}}
 <li class="tile{{if $p.Pinned}} is-pinned{{end}}">
   {{if $p.Trashed}}<div class="tile-link tile-static">{{else}}<a class="tile-link" href="/p/{{$p.Slug}}{{if and (eq .State "active") $p.LastDocumentID}}/d/{{$p.LastDocumentID}}{{end}}">{{end}}
-    <span class="cover {{coverClass $p.CoverColor}}" aria-hidden="true">
+    {{if and $p.CoverLayout (not $p.Locked)}}<span class="cover cover-image {{coverClass $p.CoverColor}}"><img src="{{$p.CoverThumb}}" alt="{{$p.CoverAlt}}" loading="lazy" decoding="async"></span>{{else}}<span class="cover {{coverClass $p.CoverColor}}" aria-hidden="true">
       <span class="cover-title">{{$p.Title}}</span>
       <span class="cover-rule"></span>
       <span class="cover-kind">{{template "kind-label" $p.Kind}}</span>
-    </span>
+    </span>{{end}}
     <span class="tile-title">{{$p.Title}}</span>
     <span class="tile-meta">{{if $p.Locked}}<span class="tile-lock">{{template "icon" "lock"}}<span>{{.Lock}}</span></span>{{else}}{{if $p.AuthorName}}<span>{{$p.AuthorName}}</span>{{end}}<span>{{template "kind-label" $p.Kind}}</span><span class="status">{{$p.Status}}</span>{{end}}</span>
   {{if $p.Trashed}}</div>{{else}}</a>{{end}}

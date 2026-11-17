@@ -113,7 +113,7 @@ func publishLinkValues(r *http.Request) map[string]string {
 // publishFormValues keeps what a person typed so the page comes back as it was. The token is never among them.
 func publishFormValues(r *http.Request) map[string]string {
 	v := map[string]string{}
-	for _, k := range strings.Fields("account_id mode owner name description visibility branch path_prefix audience only_done include_notes sign_commits push_mode q provider host label") {
+	for _, k := range strings.Fields("account_id mode owner name description visibility branch path_prefix audience only_done include_notes include_cover sign_commits push_mode q provider host label") {
 		if x := r.PostFormValue(k); x != "" {
 			v[k] = x
 		}
@@ -124,7 +124,7 @@ func publishFormValues(r *http.Request) map[string]string {
 func publishValuesOf(in gitmirror.RepoPlanIn) map[string]string {
 	v := map[string]string{"account_id": in.AccountID, "mode": in.Mode, "owner": in.Owner, "name": in.Name, "description": in.Description, "visibility": in.Visibility,
 		"branch": in.Branch, "path_prefix": in.PathPrefix, "audience": in.Audience, "push_mode": in.PushMode}
-	for k, on := range map[string]bool{"only_done": in.OnlyDone, "include_notes": in.IncludeNotes, "sign_commits": in.SignCommits} {
+	for k, on := range map[string]bool{"only_done": in.OnlyDone, "include_notes": in.IncludeNotes, "include_cover": in.IncludeCover, "sign_commits": in.SignCommits} {
 		if on {
 			v[k] = "1"
 		}
@@ -330,7 +330,7 @@ func (s *Server) publishInput(r *http.Request, proj projects.Project, T tfn) (gi
 	in := gitmirror.RepoPlanIn{ProjectID: proj.ID, AccountID: r.PostFormValue("account_id"), Mode: r.PostFormValue("mode"), Owner: strings.TrimSpace(r.PostFormValue("owner")),
 		Name: strings.TrimSpace(r.PostFormValue("name")), Description: strings.TrimSpace(r.PostFormValue("description")), Visibility: r.PostFormValue("visibility"),
 		Branch: strings.TrimSpace(r.PostFormValue("branch")), PathPrefix: strings.TrimSpace(r.PostFormValue("path_prefix")), Audience: r.PostFormValue("audience"),
-		OnlyDone: formBool(r, "only_done"), IncludeNotes: formBool(r, "include_notes"), SignCommits: formBool(r, "sign_commits"), PushMode: r.PostFormValue("push_mode")}
+		OnlyDone: formBool(r, "only_done"), IncludeNotes: formBool(r, "include_notes"), IncludeCover: formBool(r, "include_cover"), SignCommits: formBool(r, "sign_commits"), PushMode: r.PostFormValue("push_mode")}
 	if in.Audience != "public" && in.Audience != "private" {
 		return in, ops.Invalid("audience", T("git.err.audience_required"))
 	}
@@ -464,7 +464,7 @@ func (s *Server) uiPublish(w http.ResponseWriter, r *http.Request) {
 func publishFrom(in gitmirror.RepoPlanIn, token, confirm string) gitmirror.RepoPublishIn {
 	return gitmirror.RepoPublishIn{ProjectID: in.ProjectID, AccountID: in.AccountID, Mode: in.Mode, Owner: in.Owner, Name: in.Name, Description: in.Description,
 		Visibility: in.Visibility, Branch: in.Branch, PathPrefix: in.PathPrefix, Audience: in.Audience, OnlyDone: in.OnlyDone, IncludeNotes: in.IncludeNotes,
-		SignCommits: in.SignCommits, PushMode: in.PushMode, PlanToken: token, Confirm: confirm}
+		IncludeCover: in.IncludeCover, SignCommits: in.SignCommits, PushMode: in.PushMode, PlanToken: token, Confirm: confirm}
 }
 
 func (s *Server) publishFillPlan(d *publishData, plan gitmirror.RepoPlan) {

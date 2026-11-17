@@ -18,6 +18,8 @@ import (
 const (
 	RefDoc      = "doc"
 	RefResearch = "research"
+	// RefCover is a cover layout's use of a picture; its ref_id is the project's id (internal/domain/coverlayout).
+	RefCover = "cover"
 )
 
 // Owner kinds.

@@ -120,7 +120,9 @@ func (b *builder) layout(p pg) []byte {
 		fmt.Fprintf(&s, "<p class=\"tagline\" dir=\"auto\">%s</p>\n", esc(b.o.Tagline))
 	}
 	fmt.Fprintf(&s, "<nav class=\"main\" aria-label=\"Main\">\n%s\n</nav>\n</header>\n<main id=\"main\">\n", b.navigation(p.href, p.current))
-	if p.cover && b.o.ShowCover && len(b.in.CoverSVG) > 0 {
+	if p.cover && b.o.ShowCover && len(b.in.CoverImage) > 0 {
+		fmt.Fprintf(&s, "<img class=\"cover\" src=\"%s\" alt=\"%s\" width=\"%d\" height=\"%d\"/>\n", esc(p.href("assets/cover.jpg")), esc(b.in.CoverAlt), b.in.CoverImageW, b.in.CoverImageH)
+	} else if p.cover && b.o.ShowCover && len(b.in.CoverSVG) > 0 {
 		fmt.Fprintf(&s, "<img class=\"cover\" src=\"%s\" alt=\"\" width=\"600\" height=\"800\"/>\n", esc(p.href("assets/cover.svg")))
 	}
 	s.WriteString(p.main)

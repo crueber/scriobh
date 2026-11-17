@@ -47,6 +47,13 @@ body.write .rail { flex-direction: column; overflow: hidden; padding: 14px 8px 0
 .tree-foot-label { letter-spacing: .08em; text-transform: uppercase; font-weight: 500; }
 .tree-foot-count { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
+.tree-cover { display: flex; align-items: center; gap: var(--s-2); flex: none; height: var(--tree-row-h); margin-bottom: 2px; padding: 0 var(--s-2) 0 var(--s-1); border-radius: var(--r-1); font-size: var(--text-sm); line-height: var(--lh-sm); color: var(--fg); text-decoration: none; }
+.tree-cover:hover { background: var(--line-2); text-decoration: none; }
+.tree-cover:focus-visible { outline-offset: -2px; }
+.tree-thumb { position: relative; flex: none; display: block; width: 16px; height: 22px; margin-left: 5px; overflow: hidden; border-radius: 1px; background: var(--cover); }
+.tree-thumb img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.tree-thumb-rule { position: absolute; left: 3px; top: 7px; width: 9px; height: 1px; background: var(--cover-fg); opacity: .6; }
+.tree-cover-state { margin-left: auto; font-size: var(--text-xs); color: var(--muted); }
 .tree-row { position: relative; display: flex; align-items: center; height: var(--tree-row-h); padding: 0 var(--s-2) 0 var(--s-1); border-radius: var(--r-1); font-size: var(--text-sm); line-height: var(--lh-sm); color: var(--fg); cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: pan-y; }
 .tree-row:hover { background: var(--line-2); }
 .tree-row.is-current { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
@@ -214,7 +221,7 @@ li[data-current] .j-title { font-weight: 600; }
   .rail-close { display: inline-grid; }
   .rail-filter { display: block; padding: 0 var(--s-2) var(--s-2); }
   .rail-filter input { width: 100%; min-height: var(--target); padding: 0 var(--s-3); border: 1px solid var(--field-line); border-radius: var(--r-1); background: var(--surface); color: var(--fg); }
-  .tree-row { height: var(--target); }
+  .tree-row, .tree-cover { height: var(--target); }
   .tree-more { display: grid; position: static; flex: none; width: var(--target); height: var(--target); margin-right: -6px; background: transparent !important; }
   .tree-count, .tree-row:hover .tree-count, .tree-row:focus .tree-count, .tree-row:focus-within .tree-count { margin-right: 0; visibility: visible; }
   .guide { width: 16px; }

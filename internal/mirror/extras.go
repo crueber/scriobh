@@ -220,7 +220,7 @@ func (m *Mirror) loadAttachments(ctx context.Context, kind, id string) (map[stri
 		col = "compendium_id"
 	}
 	rows, err := m.o.DB.Read().QueryContext(ctx, `SELECT a.id, a.sha256, a.bytes, a.mime, a.ext, a.filename, a.alt FROM attachments a
-		WHERE a.`+col+` = ? AND EXISTS (SELECT 1 FROM attachment_refs r WHERE r.attachment_id = a.id) ORDER BY a.id`, id)
+		WHERE a.`+col+` = ? AND EXISTS (SELECT 1 FROM attachment_refs r WHERE r.attachment_id = a.id AND r.ref_kind <> 'cover') ORDER BY a.id`, id)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -254,7 +254,7 @@ func (m *Mirror) loadAttachments(ctx context.Context, kind, id string) (map[stri
 // extras gathers everything beyond the manuscript and the entity files for one
 // project or standalone Compendium: rendered files to merge in, files to copy,
 // and the attachment list for the manifest.
-func (m *Mirror) extras(ctx context.Context, id string) (files map[string][]byte, ext map[string]extFile, metas []attachMeta, err error) {
+func (m *Mirror) extras(ctx context.Context, id string) (files map[string][]byte, ext map[string]extFile, metas []attachMeta, cov *manifestCover, err error) {
 	files = map[string][]byte{}
 	kind, col := attachments.OwnerProject, "project_id"
 	if isCompendiumID(id) {
@@ -262,7 +262,7 @@ func (m *Mirror) extras(ctx context.Context, id string) (files map[string][]byte
 	}
 	notes, err := loadResearch(ctx, m.o.DB.Read(), col, id)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	for p, b := range layoutResearch(notes, researchDir+"/") {
 		files[p] = b
@@ -270,19 +270,19 @@ func (m *Mirror) extras(ctx context.Context, id string) (files map[string][]byte
 	if kind == attachments.OwnerProject {
 		items, err := loadStash(ctx, m.o.DB.Read(), id)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 		for p, b := range layoutStash(items) {
 			files[p] = b
 		}
 		scope, err := scopeCompendiums(ctx, m.o.DB.Read(), id)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 		for cid, dir := range scope {
 			cn, err := loadResearch(ctx, m.o.DB.Read(), "compendium_id", cid)
 			if err != nil {
-				return nil, nil, nil, err
+				return nil, nil, nil, nil, err
 			}
 			for p, b := range layoutResearch(cn, projectResearch+dir+"/") {
 				files[p] = b
@@ -290,7 +290,20 @@ func (m *Mirror) extras(ctx context.Context, id string) (files map[string][]byte
 		}
 	}
 	ext, metas, err = m.loadAttachments(ctx, kind, id)
-	return files, ext, metas, err
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	if kind == attachments.OwnerProject {
+		cext, c, err := m.loadCover(ctx, id)
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
+		for p, f := range cext {
+			ext[p] = f
+		}
+		cov = c
+	}
+	return files, ext, metas, cov, nil
 }
 
 // extrasFingerprints summarises, from metadata only, what research and
@@ -396,7 +409,7 @@ func extrasFingerprints(ctx context.Context, q Querier, only string) (map[string
 		awhere = ` AND (a.project_id = ?1 OR a.compendium_id = ?1)`
 	}
 	arows, err := q.QueryContext(ctx, `SELECT COALESCE(a.project_id, a.compendium_id), a.id, a.sha256, a.filename, a.alt FROM attachments a
-		WHERE EXISTS (SELECT 1 FROM attachment_refs r WHERE r.attachment_id = a.id)`+awhere+` ORDER BY 1, a.id`, args...)
+		WHERE EXISTS (SELECT 1 FROM attachment_refs r WHERE r.attachment_id = a.id AND r.ref_kind <> 'cover')`+awhere+` ORDER BY 1, a.id`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -409,6 +422,27 @@ func extrasFingerprints(ctx context.Context, q Querier, only string) (map[string
 		add(owner, fmt.Sprintf("a\x00%q\x00%q\x00%q\x00%q", id, sha, name, alt))
 	}
 	if err := arows.Close(); err != nil {
+		return nil, err
+	}
+	// A project's own cover: the layout's hash stands for the layout and for the pictures it names.
+	cwhere := ""
+	var cargs []any
+	if only != "" {
+		cwhere, cargs = ` AND project_id = ?`, []any{only}
+	}
+	crows, err := q.QueryContext(ctx, `SELECT project_id, hash FROM cover_layouts WHERE hash <> ''`+cwhere+` ORDER BY project_id`, cargs...)
+	if err != nil {
+		return nil, err
+	}
+	for crows.Next() {
+		var pid, h string
+		if err := crows.Scan(&pid, &h); err != nil {
+			crows.Close()
+			return nil, err
+		}
+		add(pid, "cover\x00"+h)
+	}
+	if err := crows.Close(); err != nil {
 		return nil, err
 	}
 	out := make(map[string]string, len(hs))

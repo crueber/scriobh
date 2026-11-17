@@ -33,6 +33,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/color"
 	"image/jpeg"
 )
 
@@ -63,10 +64,25 @@ var (
 )
 
 // Clean cleans data, a picture of type ext (png, jpg, gif or webp).
-func Clean(ext string, data []byte) ([]byte, Info, error) {
+func Clean(ext string, data []byte) ([]byte, Info, error) { return CleanBounded(ext, data, 0) }
+
+// CleanBounded is Clean for a caller that has a memory budget for the one case that decodes: a JPEG that says it is
+// rotated is decoded, turned and written again, which takes DecodeBytes of the picture and four bytes a pixel more for the
+// turned copy. A rotated picture that would take more than maxRotateBytes is refused (ErrTooLarge); 0 means the pixel limit
+// of MaxRotatePixels alone.
+func CleanBounded(ext string, data []byte, maxRotateBytes int64) ([]byte, Info, error) {
+	return CleanGuarded(ext, data, maxRotateBytes, nil)
+}
+
+// Guard is asked, before a JPEG is decoded to be turned, for the memory that will take (the bytes it estimates); it returns
+// what to call when the decode is over, or an error that stops the clean (and is returned as it is).
+type Guard func(bytes int64) (release func(), err error)
+
+// CleanGuarded is CleanBounded for a caller that shares its memory between jobs: guard holds the decode's share.
+func CleanGuarded(ext string, data []byte, maxRotateBytes int64, guard Guard) ([]byte, Info, error) {
 	switch ext {
 	case "jpg", "jpeg":
-		return cleanJPEG(data)
+		return cleanJPEG(data, maxRotateBytes, guard)
 	case "png":
 		return cleanPNG(data)
 	case "gif":
@@ -89,7 +105,7 @@ func pixelsOK(w, h int) error {
 
 // ---- JPEG -------------------------------------------------------------------------------
 
-func cleanJPEG(d []byte) ([]byte, Info, error) {
+func cleanJPEG(d []byte, maxRotateBytes int64, guard Guard) ([]byte, Info, error) {
 	if len(d) < 4 || d[0] != 0xFF || d[1] != 0xD8 {
 		return nil, Info{}, ErrDamaged
 	}
@@ -116,7 +132,7 @@ func cleanJPEG(d []byte) ([]byte, Info, error) {
 				return nil, Info{}, ErrDamaged
 			}
 			out = append(out, 0xFF, 0xD9)
-			return finishJPEG(out, info)
+			return finishJPEG(out, info, maxRotateBytes, guard)
 		case m == 0x01 || (m >= 0xD0 && m <= 0xD7):
 			out = append(out, 0xFF, m)
 			continue
@@ -193,12 +209,31 @@ func cleanJPEG(d []byte) ([]byte, Info, error) {
 	return nil, Info{}, ErrDamaged // no end of image
 }
 
-func finishJPEG(out []byte, info Info) ([]byte, Info, error) {
+func finishJPEG(out []byte, info Info, maxRotateBytes int64, guard Guard) ([]byte, Info, error) {
 	if info.Orientation < 2 || info.Orientation > 8 {
 		return out, info, nil
 	}
+	if maxRotateBytes > 0 {
+		if est, ok := DecodeBytes(out); !ok || est+4*int64(info.Width)*int64(info.Height) > maxRotateBytes {
+			return nil, Info{}, fmt.Errorf("%w to turn upright (it says it is rotated)", ErrTooLarge)
+		}
+	}
 	if int64(info.Width)*int64(info.Height) > MaxRotatePixels {
 		return nil, Info{}, fmt.Errorf("%w to turn upright (it says it is rotated)", ErrTooLarge)
+	}
+	if guard != nil {
+		est, _ := DecodeBytes(out)
+		release, err := guard(est + 4*int64(info.Width)*int64(info.Height))
+		if err != nil {
+			return nil, Info{}, err
+		}
+		defer release()
+	}
+	// jpeg.Encode writes none: an RGB profile goes across the turn, or the colours change with it. The turned picture is
+	// always three-component, so a profile for another colour space (Gray, CMYK) is dropped, not attached to RGB samples.
+	icc := JPEGProfile(out)
+	if !rgbProfile(icc) {
+		icc = nil
 	}
 	img, err := jpeg.Decode(bytes.NewReader(out))
 	if err != nil {
@@ -210,7 +245,7 @@ func finishJPEG(out []byte, info Info) ([]byte, Info, error) {
 		return nil, Info{}, err
 	}
 	b := rot.Bounds()
-	return buf.Bytes(), Info{Width: b.Dx(), Height: b.Dy(), Orientation: info.Orientation, Rotated: true}, nil
+	return WithJPEGProfile(buf.Bytes(), icc), Info{Width: b.Dx(), Height: b.Dy(), Orientation: info.Orientation, Rotated: true}, nil
 }
 
 // exifOrientation reads the orientation (1 to 8) from an APP1 payload, or 0.
@@ -263,6 +298,7 @@ func orient(img image.Image, o int) *image.RGBA {
 		dw, dh = h, w
 	}
 	dst := image.NewRGBA(image.Rect(0, 0, dw, dh))
+	ycc, _ := img.(*image.YCbCr) // a JPEG's own form: read it without a colour value (and its allocation) for each pixel
 	for y := 0; y < dh; y++ {
 		for x := 0; x < dw; x++ {
 			var sx, sy int
@@ -281,6 +317,14 @@ func orient(img image.Image, o int) *image.RGBA {
 				sx, sy = w-1-y, h-1-x
 			default: // 8
 				sx, sy = w-1-y, x
+			}
+			if ycc != nil {
+				px, py := b.Min.X+sx, b.Min.Y+sy
+				yi, ci := ycc.YOffset(px, py), ycc.COffset(px, py)
+				r, g, bl := color.YCbCrToRGB(ycc.Y[yi], ycc.Cb[ci], ycc.Cr[ci])
+				i := dst.PixOffset(x, y)
+				dst.Pix[i], dst.Pix[i+1], dst.Pix[i+2], dst.Pix[i+3] = r, g, bl, 255
+				continue
 			}
 			dst.Set(x, y, img.At(b.Min.X+sx, b.Min.Y+sy))
 		}

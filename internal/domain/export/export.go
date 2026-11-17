@@ -100,6 +100,8 @@ type projectRow struct {
 	Trashed, Archived   bool
 	// CoverColor is read for the HTML export's title page.
 	CoverColor string
+	// cover is the project's own cover picture for the HTML export's title page (nil: the generated cover).
+	cover *htmlCover
 	// Editions are the books the project was imported from, as metadata: for the manifests of the bundle and of
 	// the mirror. The source file itself is never part of either.
 	Editions []EditionMeta

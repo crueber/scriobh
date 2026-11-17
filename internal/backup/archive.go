@@ -42,6 +42,14 @@ const (
 // in a zip is refused on restore.
 var roots = []string{"files", "mirror", "conflicts"}
 
+// isDerivedCovers says rel (a folder under files/) is a project's folder of derived cover pictures,
+// projects/<id>/covers. The layout is in the database and its pictures are attachments, which are archived; what is
+// made from them is rebuilt the first time it is asked for (docs/COVERS.md).
+func isDerivedCovers(rel string) bool {
+	parts := strings.Split(filepath.ToSlash(rel), "/")
+	return len(parts) == 3 && parts[0] == "projects" && parts[2] == "covers"
+}
+
 // Entry is one file in the archive.
 type Entry struct {
 	Path   string `json:"path"`
@@ -183,6 +191,9 @@ func Create(ctx context.Context, dbPath, dataDir string, o Options) (*Result, er
 			if d.IsDir() {
 				if r == "mirror" && (rel == ".tmp" || rel == ".state") {
 					return filepath.SkipDir
+				}
+				if r == "files" && isDerivedCovers(rel) {
+					return filepath.SkipDir // made from the layout and the attachments, on demand: never the source of truth
 				}
 				return nil
 			}

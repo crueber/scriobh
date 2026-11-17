@@ -116,6 +116,21 @@ func (h *hookSink) verified(i int, secret string) error {
 	return nil
 }
 
+// coverPNG is a picture of w by h pixels for a cover; seed changes the pattern, so two covers are different bytes.
+func coverPNG(t *testing.T, w, h, seed int) []byte {
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	for x := 0; x < w; x++ {
+		for y := 0; y < h; y++ {
+			img.Set(x, y, color.RGBA{uint8(x*seed/2 + 20), uint8(y/3 + 40*seed), uint8(90 + 50*seed), 255})
+		}
+	}
+	var b bytes.Buffer
+	if err := png.Encode(&b, img); err != nil {
+		t.Fatal(err)
+	}
+	return b.Bytes()
+}
+
 func pngBytes(t *testing.T) []byte {
 	img := image.NewRGBA(image.Rect(0, 0, 12, 8))
 	for x := 0; x < 12; x++ {
@@ -230,6 +245,7 @@ func capture(t *testing.T, a *apiClient, projects []string, query string) snapsh
 		put(pid+" comment.list", a.get("/api/v1/projects/"+pid+"/comments"))
 		put(pid+" share.list", stripVolatile(a.get("/api/v1/projects/"+pid+"/shares")))
 		put(pid+" attachment.list", a.get("/api/v1/projects/"+pid+"/attachments"))
+		put(pid+" cover_layout.get", a.get("/api/v1/projects/"+pid+"/cover-layout"))
 		put(pid+" search", a.get("/api/v1/projects/"+pid+"/search?q="+query))
 		put(pid+" site.options", a.get("/api/v1/projects/"+pid+"/site/options"))
 		put(pid+" goal.list", stripVolatile(a.get("/api/v1/projects/"+pid+"/goals")))
@@ -337,6 +353,29 @@ func TestRestoreRehearsal(t *testing.T) {
 	var att idOut
 	json.Unmarshal(b, &att)
 	r1 = update(ch1, r1, "The quiet harbour at dusk.\n\n![A map](/files/"+att.Item.ID+")\n\nNóra counted the boats: *seven*, then eight, then nine.  \n\nThe tide turned.\n")
+
+	// The book's own cover (docs/COVERS.md): a front picture and a back picture, cleaned by the cover upload and
+	// named in a layout of sides; the front and the thumbnail are made when the layout is saved. The pictures are
+	// attachments and travel in the backup, the layout is a row; what was made from them (files/projects/<id>/covers)
+	// is not archived and must be made again on the restored server.
+	var coverFront, coverBack struct {
+		AttachmentID string `json:"attachment_id"`
+	}
+	a.call("POST", "/api/v1/projects/"+p1+"/cover-layout/images?part=front&filename=front.png", coverPNG(t, 400, 600, 1), &coverFront, 201)
+	a.call("POST", "/api/v1/projects/"+p1+"/cover-layout/images?part=back&filename=back.png", coverPNG(t, 400, 600, 2), &coverBack, 201)
+	a.call("PUT", "/api/v1/projects/"+p1+"/cover-layout", map[string]any{"revision": 0, "shape": "sides", "trim": "6x9",
+		"front": map[string]any{"mode": "image", "attachment": coverFront.AttachmentID},
+		"back":  map[string]any{"mode": "image", "attachment": coverBack.AttachmentID},
+		"alt":   "A lantern on a quay at dusk"}, nil, 200)
+	coverURLs := []string{"/api/v1/projects/" + p1 + "/cover", "/api/v1/projects/" + p1 + "/cover?size=thumb", "/api/v1/projects/" + p1 + "/cover?part=back"}
+	coverBefore := map[string]string{}
+	for _, u := range coverURLs {
+		code, b := a.do("GET", u, nil, "")
+		if code != 200 || len(b) < 100 || b[0] != 0xFF || b[1] != 0xD8 {
+			t.Fatalf("the cover before the backup, %s: %d, %d bytes (want a JPEG)", u, code, len(b))
+		}
+		coverBefore[u] = sha(b)
+	}
 
 	// An alternative and a comment.
 	a.call("POST", "/api/v1/docs/"+ch2+"/alternatives", map[string]any{"base_revision": r2, "scope": "word", "quote": "gorse", "variants": []string{"heather"}}, nil, 201)
@@ -495,6 +534,23 @@ func TestRestoreRehearsal(t *testing.T) {
 
 	srcDB := dbState(t, filepath.Join(data1, "scriobh.db"))
 	srcFiles := treeHashes(t, filepath.Join(data1, "files"), ".tmp")
+	// What was made from the cover's pictures is not in the archive (internal/backup leaves files/projects/<id>/covers
+	// out), so it is not compared with the restored files; it must be there to leave out, and it is made again below.
+	srcCovers := 0
+	for name := range srcFiles {
+		if strings.Contains(name, "/covers/") {
+			delete(srcFiles, name)
+			srcCovers++
+		}
+	}
+	if srcCovers < 3 {
+		t.Fatalf("the source holds %d derived cover pictures, want the front, the thumbnail and the back", srcCovers)
+	}
+	for _, name := range []string{"cover_layouts", "attachments", "attachment_refs"} {
+		if srcDB[name].Rows == 0 {
+			t.Fatalf("the source has no rows in %s: the cover was not written", name)
+		}
+	}
 	srcMirror := treeHashes(t, filepath.Join(data1, "mirror"), ".state", ".tmp")
 	if len(srcFiles) == 0 || len(srcMirror) == 0 {
 		t.Fatalf("nothing to compare: %d files, %d mirror files", len(srcFiles), len(srcMirror))
@@ -573,7 +629,13 @@ func TestRestoreRehearsal(t *testing.T) {
 			t.Errorf("table %s exists only after the restore", name)
 		}
 	}
-	if d := diffMaps(srcFiles, treeHashes(t, filepath.Join(data2, "files"), ".tmp")); len(d) > 0 {
+	gotFiles := treeHashes(t, filepath.Join(data2, "files"), ".tmp")
+	for name := range gotFiles {
+		if strings.Contains(name, "/covers/") {
+			t.Errorf("the restored directory holds a derived cover picture the archive should not have carried: %s", name)
+		}
+	}
+	if d := diffMaps(srcFiles, gotFiles); len(d) > 0 {
 		t.Errorf("stored files differ after restore: %v", d)
 	}
 	if d, err := db.Open(filepath.Join(data2, "scriobh.db")); err != nil {
@@ -685,6 +747,33 @@ func TestRestoreRehearsal(t *testing.T) {
 		t.Errorf("search after restore: %d hits, degraded %v", len(hits.Items), hits.Degraded)
 	}
 	report(t, "search: %q finds %d documents from the FTS index (not degraded)", "harbour", len(hits.Items))
+
+	// The cover: the layout (compared above with the rest of the answers) and its pictures came back, and what is
+	// shown of it is made again, the same bytes as before the backup.
+	for _, u := range coverURLs {
+		code, b := a2.do("GET", u, nil, "")
+		if code != 200 || len(b) < 100 || b[0] != 0xFF || b[1] != 0xD8 {
+			t.Errorf("the cover after the restore, %s: %d, %d bytes (want a JPEG)", u, code, len(b))
+		} else if sha(b) != coverBefore[u] {
+			t.Errorf("the cover after the restore, %s: sha %.12s, before the backup %.12s", u, sha(b), coverBefore[u])
+		}
+	}
+	remade := 0
+	for name := range treeHashes(t, filepath.Join(data2, "files"), ".tmp") {
+		if strings.Contains(name, "/covers/") {
+			remade++
+		}
+	}
+	if remade < 3 {
+		t.Errorf("after the restore the covers folder holds %d derived pictures; the server should have made the front, the thumbnail and the back again", remade)
+	}
+	for _, id := range []string{coverFront.AttachmentID, coverBack.AttachmentID} {
+		code, b := a2.do("GET", "/api/v1/projects/"+p1+"/attachments/"+id+"/download", nil, "")
+		if code != 200 || len(b) == 0 {
+			t.Errorf("a cover picture after the restore: %d, %d bytes", code, len(b))
+		}
+	}
+	report(t, "cover: the layout (sides, front and back pictures, alt text, hash) restored identically; its %d derived pictures were left out of the archive and made again on the restored server with the same bytes", remade)
 
 	// Attachments: the bytes served are the bytes uploaded.
 	code, b = a2.do("GET", "/api/v1/projects/"+p1+"/attachments/"+att.Item.ID+"/download", nil, "")

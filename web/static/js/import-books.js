@@ -7,10 +7,10 @@
   "use strict";
   var doc = document, I = window.scriobhImport, fmt = doc.getElementById("imp-fmt"), mbox = doc.getElementById("imp-msg");
   if (!I || !fmt || !mbox) return;
-  var M = {}, BOOK = 32 * 1024 * 1024, layout = "", label = null, notesOpen = false;
+  var M = {}, BOOK = 32 * 1024 * 1024, layout = "", label = null, notesOpen = false, usable = false, usecover = null, into = ((doc.getElementById("import") || {}).dataset || {}).into;
   try { M = JSON.parse(mbox.getAttribute("data-msg")) || {}; } catch (e) { M = {}; }
   var all = function (s) { return Array.prototype.slice.call(doc.querySelectorAll(s)); };
-  function T(k, d, v) { var s = M[k] || d; if (v) for (var n in v) s = s.split("{" + n + "}").join(v[n]); return s; }
+  function T(k, d, v) { var s = M[k] || d || ""; if (v) for (var n in v) s = s.split("{" + n + "}").join(v[n]); return s; }
   function h(tag, attrs, kids) {
     var e = doc.createElement(tag);
     for (var k in attrs || {}) { var v = attrs[k]; if (v === false || v == null) continue; if (k === "text") e.textContent = v; else e.setAttribute(k, v === true ? "" : v); }
@@ -54,7 +54,7 @@
   H.level = function (n) { return T("level", "level {n}", { n: n }); };
   H.body = function (b) { if (b.docx) b.docx_changes = radio("imp-dc") || "suggest"; };
   // A name a person types holds no direction override or control character; the text they see is the text sent.
-  H.apply = function (b) { var v = label && label.value.replace(/[\u0000-\u001f\u007f-\u009f\u200e\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g, " ").replace(/\s+/g, " ").trim(); if (v) b.edition_label = v; };
+  H.apply = function (b) { if (usable && usecover && usecover.checked) b.use_cover = true; var v = label && label.value.replace(/[\u0000-\u001f\u007f-\u009f\u200e\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g, " ").replace(/\s+/g, " ").trim(); if (v) b.edition_label = v; };
   H.error = function (e) {
     var s = I.src(), k = s && s.kind;
     if (e.status === 413 && k) return T("too_big", "That file is larger than 32 MiB, which is the most that can be sent or kept.");
@@ -77,7 +77,7 @@
     if (p.layout === "epub" && p.epub) kids = epub(p, ui.bk);
     else if (p.layout === "pdf") kids = pdf(p);
     else if (p.layout === "docx") kids = word(p);
-    if (p.layout === "epub" || p.layout === "pdf" || p.layout === "docx" || p.layout === "pandoc") mapnote = [h("h3", { text: T("map_h", "Chapters") }), h("p", { class: "fine", text: T("map_help", "This is how the book becomes parts, chapters and front and back matter. Open Edit on a line to rename it, change what it is, nest it under a part or a chapter, join it to another, or leave it out. Move up and Move down put it in order. Nothing is created until you press the button at the end.") })];
+    if (p.layout === "epub" || p.layout === "pdf" || p.layout === "docx" || p.layout === "pandoc") mapnote = [h("h3", { text: T("map_h", "Chapters") }), h("p", { class: "fine", text: T("map_help") })];
     if ((p.layout === "pdf" || p.layout === "docx") && ui.notes.children.length > 1) { // the server's own sentences, kept but folded: the panel above says the same in short
       var d = h("details", { class: "imp-files", open: notesOpen }, [h("summary", { text: T("notes_h", "Everything the importer noted ({n})", { n: ui.notes.children.length }) })].concat(Array.prototype.slice.call(ui.notes.children)));
       d.addEventListener("toggle", function () { notesOpen = d.open; });
@@ -96,9 +96,14 @@
     var cut = { toc: T("cut_toc", "By the book's table of contents{from}", { from: contents ? " (" + contents + ")" : "" }), files: T("cut_files", "One chapter for each file of the book"), headings: T("cut_headings", "At each chapter heading") }[e.strategy] || e.strategy;
     out.push(h("p", { class: "imp-line", text: T("cut_used", "How it was cut: {cut}.", { cut: (radio("imp-es") === "auto" ? T("cut_auto", "chosen for you, ") : "") + cut.charAt(0).toLowerCase() + cut.slice(1) }) }));
     out.push(h("p", { class: "imp-line", text: !c || !c.kept && !c.reason && !c.path ? T("cover_none", "This book has no cover picture.") : c.kept ? T("cover_kept", "The cover picture is kept as an attachment of the project.") : T("cover_not", "The cover picture was not kept: {reason}", { reason: c.reason }) }));
+    usable = !into && !!(c && c.can_use_as_cover);
+    if (usable) {
+      if (!bk.use) { usecover = h("input", { id: "imp-usecover", type: "checkbox", "aria-describedby": "imp-usecover-h" }); bk.use = h("div", { class: "field" }, [h("label", { class: "check", for: "imp-usecover" }, [usecover, h("span", { text: T("use_cover", "Use this picture as the project's cover") })]), h("span", { class: "hint", id: "imp-usecover-h", text: T("use_cover_h") })]); }
+      out.push(bk.use);
+    } else if (c && c.kept && c.use_reason) out.push(h("p", { class: "imp-line", text: T("use_not", "This picture cannot be the project's cover: {reason}", { reason: c.use_reason }) }));
     if (!bk.label) {
       bk.label = h("input", { id: "imp-label", type: "text", maxlength: "200", "aria-describedby": "imp-label-h" });
-      bk.field = h("div", { class: "field" }, [h("label", { for: "imp-label", text: T("label", "Name of this edition") }), bk.label, h("span", { class: "hint", id: "imp-label-h", text: T("label_hint", "The title and the year unless you say otherwise. The original file is kept on this server, as it was received, under this name, and you can download it from Editions. It is not in the Markdown copy, it is never pushed to Git, and it is shared with no one.") })]);
+      bk.field = h("div", { class: "field" }, [h("label", { for: "imp-label", text: T("label", "Name of this edition") }), bk.label, h("span", { class: "hint", id: "imp-label-h", text: T("label_hint") })]);
       bk.label.value = e.label || "";
       label = bk.label;
     }
@@ -158,9 +163,9 @@
     var d = ((p.report || {}).docx || {}), t = d.tracked || {}, mode = d.changes_mode || "suggest";
     if (!t.revisions && !t.comments_read && !p.suggestions && !p.comments) return [];
     var out = [h("h3", { text: T("tr_h", "Tracked changes and comments") })];
-    var say = { suggest: T("tr_suggest", "The chapters hold the original text, as its author left it. Each change a reviewer made waits as a suggestion, which you accept or reject in Review under the reviewer's Word name. Accepting them all gives the reviewers' text."), accept: T("tr_accept", "The chapters hold the final text, with every change accepted. No suggestions are written."), reject: T("tr_reject", "The chapters hold the original text, with every change rejected. No suggestions are written.") }[mode];
+    var say = { suggest: T("tr_suggest"), accept: T("tr_accept", "The chapters hold the final text, with every change accepted. No suggestions are written."), reject: T("tr_reject", "The chapters hold the original text, with every change rejected. No suggestions are written.") }[mode];
     out.push(h("p", { class: "imp-line", text: say }));
-    if (mode === "suggest") out.push(h("p", { class: "imp-line", text: T("tr_rule", "Where two reviewers changed the same sentence, the later change is already in the text and is not a suggestion. A whole paragraph a reviewer deleted is gone from the text, and a whole paragraph one inserted is in it.") }));
+    if (mode === "suggest") out.push(h("p", { class: "imp-line", text: T("tr_rule") }));
     var items = [];
     if (mode === "suggest") items.push(T("tr_count", "Suggestions to be written: {n}.", { n: num(p.suggestions || 0) }));
     items.push(T("tr_comments", "Word comments to be written as comments: {n}.", { n: num(p.comments || 0) }));
@@ -220,7 +225,7 @@
     var span = h("span", { class: "imp-to" }, [sel,
       h("button", { class: "btn small", type: "button", "data-act": mode, "data-key": k, text: mode === "parent" ? T("nest_go", "Move here") : T("join_go", "Join") }),
       h("button", { class: "btn small quiet", type: "button", "data-bk": "cancel", "data-key": k, text: T("cancel", "Cancel") }),
-      mode === "merge" ? h("span", { class: "imp-warn", text: T("join_note", "Its text is added to the end of the one you choose, and this one is removed. Footnotes are renumbered so none collide. You can undo this under Left out of the import.") }) : null]);
+      mode === "merge" ? h("span", { class: "imp-warn", text: T("join_note") }) : null]);
     span.opener = btn;
     row.appendChild(span);
     span.addEventListener("keydown", function (e) { if (e.key === "Escape") { e.stopPropagation(); span.remove(); btn.focus(); } });

@@ -19,6 +19,7 @@ import (
 	"github.com/crueber/scriobh/internal/domain/compaccess"
 	"github.com/crueber/scriobh/internal/domain/compendiums"
 	"github.com/crueber/scriobh/internal/domain/compile"
+	"github.com/crueber/scriobh/internal/domain/coverlayout"
 	"github.com/crueber/scriobh/internal/domain/desktop"
 	"github.com/crueber/scriobh/internal/domain/docs"
 	"github.com/crueber/scriobh/internal/domain/editiondiff"
@@ -136,6 +137,7 @@ func BuildWith(d *db.DB, sink ops.Sink, dataDir string, o Options) *ops.Registry
 	goals.Register(r)
 	studio.Register(r) // Phase 7.5: the writing studio
 	attachments.Register(r, o.Attachments)
+	coverlayout.Register(r, o.Attachments) // after attachments: its delete hook attaches to theirs
 	research.Register(r)
 	stash.Register(r)
 	keys.Register(r)

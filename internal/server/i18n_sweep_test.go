@@ -34,7 +34,8 @@ var sweepAllowed = map[string]bool{}
 func init() {
 	for _, w := range strings.Fields("shared book chapter one two plot notes owner editor reviewer reader stranger admin ada wren rory another sam " +
 		"utc jan feb mar apr may jun jul aug sep oct nov dec " +
-		"arm darwin git imports jobs pushes runs bytes untitled") {
+		"arm darwin git imports jobs pushes runs bytes untitled " +
+		"jpg") { // jpg: the extension of a file a person chose
 		sweepAllowed[w] = true
 	}
 	// The platform the diagnostics page names (darwin and arm on a laptop, linux and amd on a CI runner): the words

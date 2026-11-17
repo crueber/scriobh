@@ -181,7 +181,11 @@ func Build(in Input) (*Result, error) {
 	if err := b.put("assets/site.css", css); err != nil {
 		return nil, err
 	}
-	if o.ShowCover && len(in.CoverSVG) > 0 {
+	if o.ShowCover && len(in.CoverImage) > 0 {
+		if err := b.put("assets/cover.jpg", in.CoverImage); err != nil {
+			return nil, err
+		}
+	} else if o.ShowCover && len(in.CoverSVG) > 0 {
 		if err := b.put("assets/cover.svg", in.CoverSVG); err != nil {
 			return nil, err
 		}
@@ -503,7 +507,9 @@ func (b *builder) inputHash() (string, []DocHash) {
 		sum := sha256.Sum256(im.Data)
 		fmt.Fprintf(h, "image\x00%s\x00%x\x00%s\x00%d\x00%d\n", k, sum, im.Ext, im.Width, im.Height)
 	}
-	if b.o.ShowCover {
+	if b.o.ShowCover && len(b.in.CoverImage) > 0 {
+		fmt.Fprintf(h, "cover-image\x00%x\x00%d\x00%d\x00%s\n", sha256.Sum256(b.in.CoverImage), b.in.CoverImageW, b.in.CoverImageH, b.in.CoverAlt)
+	} else if b.o.ShowCover {
 		fmt.Fprintf(h, "cover\x00%x\n", sha256.Sum256(b.in.CoverSVG))
 	}
 	return hex.EncodeToString(h.Sum(nil)), docs

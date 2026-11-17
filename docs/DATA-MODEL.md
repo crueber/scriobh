@@ -29,7 +29,7 @@ Never edit an applied migration. Add the next number in the owning range.
 | `0500` | entities, aliases, relations, merge redirects (`0500_entities`); the mention index and its state (`0520_mentions`); the timeline (`0530_timeline`) |
 | `0600` | AI: providers and prices (`0600_ai_providers`), per-project policy and the never-send flags (`0610_ai_policy`), runs, usage and budgets (`0620_ai_runs`) |
 | `0700` | goals, sessions, daily stats |
-| `0800` | files, attachments, covers, quotas |
+| `0800` | files, attachments, covers, quotas (`0800_files`); cover layouts (`0810_cover_layouts`, which also rebuilds `attachment_refs` for the `cover` kind and adds `attachments.cover_clean`) |
 | `0900` | FTS tables and triggers (`0900_search` for documents, `0910_entity_search` for entities) |
 | `1000` | events, audit log |
 | `1100` | admin settings, exports (`1110`), compile presets and the contact block (`1120`), static site options, per-document settings and state (`1140`), pinned addresses (`1141`), diagnostics |
@@ -106,7 +106,7 @@ A retried write with the same key returns the stored response instead of applyin
 | `word_goal` | INT | 0 = none |
 | `deadline` | TEXT | date, optional |
 | `cover_color` | TEXT | `#rrggbb` |
-| `cover_path` | TEXT | unused: no code reads or writes it; the writer's own cover is a cover layout (`cover_layouts`, planned migration `0810`, see [COVERS.md](COVERS.md)) |
+| `cover_path` | TEXT | unused: no code reads or writes it; the writer's own cover is a cover layout (`cover_layouts`, migration `0810`, see [COVERS.md](COVERS.md)) |
 | `settings_json` | TEXT | numbering, typography, AI policy, export defaults |
 | `view_passphrase_hash` | TEXT | optional application-level gate (Phase 7); not encryption |
 | `created_at`, `updated_at`, `deleted_at`, `trashed_at` | TEXT | |
@@ -431,7 +431,11 @@ An index on `daily_stats(user_id, project_id, day, words_added, words_net, activ
 
 (`0800_files`.) `id` (`att_…`), exactly one of `project_id` and `compendium_id`, `sha256`, `bytes`, `mime` and `ext` (detected from the bytes), `kind` (`image`, `pdf`, `text`), `filename` (a display name, never a path), `alt`, `width`, `height`, `created_by`, timestamps. Unique `(owner, sha256)`: deduplicated per owner. There is no `path` column: the file is `files/projects/<id>/attachments/<sha256>.<ext>` (or `files/compendiums/<id>/…`), rebuilt from the row.
 
-`attachment_refs(attachment_id, ref_kind, ref_id)`: where a `![](/files/att_…)` link was found when a document (`doc`) or a research note (`research`) was saved; only an attachment of the same owner counts. `file_usage(scope, bytes, files)`: counters for `instance`, `user:<id>` and `owner:<id>`, kept by triggers on `attachments` so a cascading purge is counted; the upload checks them in its own transaction. A delete removes the blob after the row is gone and committed, unless the row is referenced (then it is refused unless forced).
+`attachment_refs(attachment_id, ref_kind, ref_id)`: where a `![](/files/att_…)` link was found when a document (`doc`) or a research note (`research`) was saved, or where a cover layout uses the picture (`cover`, whose `ref_id` is the project's id; `0810` rebuilt the table for the longer CHECK list); only an attachment of the same owner counts. `attachments.cover_clean` (`0810`, 0 or 1) is 1 for a picture the cover upload made, whose bytes `imagesafe` cleaned: the only kind a cover layout may name. `file_usage(scope, bytes, files)`: counters for `instance`, `user:<id>` and `owner:<id>`, kept by triggers on `attachments` so a cascading purge is counted; the upload checks them in its own transaction. A delete removes the blob after the row is gone and committed, unless the row is referenced (then it is refused unless forced).
+
+### `cover_layouts`
+
+(`0810_cover_layouts`; design in [COVERS.md](COVERS.md).) One row per project at most, deleted with the project: `project_id` (the primary key), `shape` (`sides` or `wrap`), `trim` (the page size the cover is made for: `6x9` by default, `5.5x8.5`, `5.25x8`, `5x8`, `a5`, `letter`, `a4`; it fixes the proportions of every side), `front_json` and `back_json` (a side: `{"mode":"generated"}`, `{"mode":"image","attachment":"att_…"}` or a page side with `fit`, `scale`, `position`, `background` and `margin_in`; the back may be `{"mode":"none"}`; `sides` only), `wrap_json` (`{"attachment":"att_…","bleed_in":0.125}`; `wrap` only; the spine is never stored, it is measured from the picture), `alt` (the cover described for screen readers; required when a picture is used), `revision` (the concurrency token: `project.cover_layout.set` takes the revision it read, 0 for none), `hash` (the sha256 of the layout with each picture named by its own hash, the version of the rules; part of the EPUB's, the HTML export's and the site's input hashes and of every derivative's cache key), `created_by`, timestamps. The pictures are ordinary attachments with `cover_clean = 1` and a `cover` reference each; the derived pictures under `files/projects/<id>/covers/` are rebuilt on demand and are not in a backup. A cleared layout leaves its row as a tombstone (an empty `hash`) so `revision` keeps counting upward and never returns to a value a reader may hold; every reader of the table skips a row with no hash. Events: `cover_layout.updated` and `cover_layout.cleared` (payload: the revision and the shape).
 
 ### `webhooks`, `webhook_deliveries`, `webhook_state`
 
@@ -522,6 +526,8 @@ The account of the local profile is an ordinary `users` row with `oidc_issuer = 
 Unique `(project_id, name)`. One in-flight push per remote enforced by a partial unique index on `git_pushes(remote_id) WHERE status='running'`.
 
 Phase 7 (migration `1830`) adds four columns, none with a CHECK (the code validates them): `audience` (`private`: the full mirror; `public`: only what a reader of the book sees, see OPERATIONS "What a remote may carry"; rows that existed before the migration read as `private`, a remote made now is `public` unless its owner says otherwise, and an unknown value is read as `public`), `only_done` (a public remote carries only documents whose status is done), `sign_commits` (commits are signed with the project's signing key) and `created_via` (`publish` for a remote `repo.publish` made). Migration `1835` adds `restore_paused` (a restore set it; only the owner switching the remote on clears it). A project may have up to five remotes (`maxRemotesPerProject`); each has its own local repository, branch, folder, audience, state, last result and backoff.
+
+Migration `1837` adds `include_cover` (0 or 1, default 0): the push carries the project's own cover (`cover/` and the manifest's `cover` object). A private remote has it on (the migration sets it for every remote then private, and a new private remote has it on), a public one has it off, including every public remote that existed before. Turning it on for a public remote is a change that lets more reach a public repository (F-861): a person at a browser and the remote's name typed, and an audit entry; turning it off is always allowed.
 
 ### `git_public_addresses`
 

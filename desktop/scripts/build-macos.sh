@@ -9,12 +9,12 @@
 #   desktop/scripts/build-macos.sh universal    # one app with both (also: universal-apple-darwin)
 #   desktop/scripts/build-macos.sh all          # arm64, then x86_64 (two separate packages)
 #
-# Output, for version 2.0.0 (the version is read from desktop/src-tauri/tauri.conf.json):
-#   dist/Scriobh_2.0.0_aarch64.dmg   dist/Scriobh_2.0.0_x86_64.dmg   dist/Scriobh_2.0.0_universal.dmg
-# With VERSION set to a release tag (v2.0.1) the files are named for it instead (Scriobh_2.0.1_aarch64.dmg), and a
+# Output, for version 2.2.0 (the version is read from desktop/src-tauri/tauri.conf.json):
+#   dist/Scriobh_2.2.0_aarch64.dmg   dist/Scriobh_2.2.0_x86_64.dmg   dist/Scriobh_2.2.0_universal.dmg
+# With VERSION set to a release tag (v2.2.1) the files are named for it instead (Scriobh_2.2.1_aarch64.dmg), and a
 # WARNING says so when the tag is not the app's version.
 # and, only when update artefacts are being made (an updater key and tauri.release.conf.json are present),
-# dist/Scriobh_2.0.0_<arch>.app.tar.gz and its .sig.
+# dist/Scriobh_2.2.0_<arch>.app.tar.gz and its .sig.
 #
 # What it does: makes sure the Rust target is installed (user-level, `rustup target add`), installs the pinned
 # Tauri command line with npm ci, builds the production server for the target (desktop/scripts/sidecar.sh;
@@ -75,8 +75,8 @@ main_bin="$(sed -n 's/^ *"mainBinaryName": *"\([^"]*\)".*/\1/p' "$desktop/src-ta
 sidecar_name="scriobh-desktop-server"
 
 # The version in the file names: the release (VERSION, a tag as written, without its leading v) when one is given, else
-# the app's own version. A tag that is not the app's version (v2.0.1 on a tree whose tauri.conf.json says 2.0.0) must
-# not publish Scriobh_2.0.0_*.dmg under it, so the name follows the tag and this says so, as build-windows-cross.sh does.
+# the app's own version. A tag that is not the app's version (v2.2.1 on a tree whose tauri.conf.json says 2.2.0) must
+# not publish Scriobh_2.2.0_*.dmg under it, so the name follows the tag and this says so, as build-windows-cross.sh does.
 # What is inside the app (the bundle's version, which the checks below compare with tauri.conf.json) stays the app's.
 name_version="$version"
 if [ -n "${VERSION:-}" ]; then

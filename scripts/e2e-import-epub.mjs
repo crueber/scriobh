@@ -294,6 +294,25 @@ await kit.test("append: a book is added to a project that exists, as new chapter
   await pg.waitForURL(/\/editions$/);
 });
 
+await kit.test("the cover: offered as the new project's cover, unchecked, and used when checked", async () => {
+  await preview();
+  const box = pg.locator("#imp-usecover");
+  await box.waitFor();
+  eq(await box.isChecked(), false, "the box starts unchecked");
+  ok(/Use this picture as the project's cover/.test(await pg.locator("label[for=imp-usecover]").innerText()), "its words");
+  eq(await box.getAttribute("aria-describedby"), "imp-usecover-h", "its hint is attached");
+  await pg.locator("#imp-t").fill("The Marsh Almanac, with its cover");
+  await box.check();
+  await pg.locator("[data-go]").click();
+  await waitFor(async () => /Imported \d+ documents/.test(await pg.locator("#imp-h").innerText()), "the result");
+  const made = (await projects()).find((p) => p.title === "The Marsh Almanac, with its cover");
+  ok(made, "the project was not made");
+  const lay = (await api(main, "GET", `/api/v1/projects/${made.id}/cover-layout`)).json.layout;
+  ok(lay && lay.shape === "sides" && lay.front.mode === "image" && lay.alt.startsWith("Cover of "), "the book's cover is the project's: " + JSON.stringify(lay));
+  const plain = (await projects()).find((p) => p.title === "The Marsh Almanac");
+  eq((await api(main, "GET", `/api/v1/projects/${plain.id}/cover-layout`)).json.layout, null, "the first import, made without the box, has none");
+});
+
 await kit.test("390 px: the chooser, the preview and the mapping fit, with touch targets of 44 px", async () => {
   const ctx = await kit.newContext({ viewport: { width: 390, height: 800 }, hasTouch: true, isMobile: true });
   await ctx.addCookies(await main.cookies());
@@ -308,7 +327,7 @@ await kit.test("390 px: the chooser, the preview and the mapping fit, with touch
   await p.locator('#imp-result summary[aria-label="Edit The Road"]').click();
   const m = await p.evaluate(() => {
     const small = [];
-    for (const e of document.querySelectorAll("#imp-result .imp-edit-body button, #imp-result .imp-edit-body select, #imp-result .imp-edit-body input[type=text], #imp-result .imp-edit > summary, .imp-book input, .imp-files summary")) {
+    for (const e of document.querySelectorAll("#imp-result .imp-edit-body button, #imp-result .imp-edit-body select, #imp-result .imp-edit-body input[type=text], #imp-result .imp-edit > summary, .imp-book input:not([type=checkbox]), .imp-book label.check, .imp-files summary")) {
       const r = e.getBoundingClientRect();
       if (r.width && (r.height < 43.5 || r.width < 43.5)) small.push(`${(e.getAttribute("aria-label") || e.textContent || e.id).slice(0, 30)} ${Math.round(r.width)}x${Math.round(r.height)}`);
     }

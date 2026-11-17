@@ -51,6 +51,9 @@ type Picture struct {
 	// pixels were turned to match it before the EXIF was dropped.
 	Orientation int
 	Rotated     bool
+	// CoverClean marks the stored attachment as one the cover upload made: its bytes are what imagesafe.Clean
+	// produced, so a cover layout may name it (internal/domain/coverlayout).
+	CoverClean bool
 }
 
 // SniffPicture says which picture type the bytes are, by their structure: png,
@@ -73,6 +76,20 @@ func SniffPicture(b []byte) string {
 // PreparePicture checks and cleans a picture from an import. The error says,
 // in a few words, why it is not kept.
 func PreparePicture(name string, data []byte, maxBytes int64) (Picture, error) {
+	return PreparePictureBounded(name, data, maxBytes, 0)
+}
+
+// PreparePictureBounded is PreparePicture for a caller with a memory budget: a JPEG that says it is rotated is turned
+// upright by decoding it, and one that would take more than maxRotateBytes to do so (imagesafe.DecodeBytes and the turned
+// copy) is refused as "too many pixels". 0 means no budget beyond imagesafe's own pixel limit.
+func PreparePictureBounded(name string, data []byte, maxBytes, maxRotateBytes int64) (Picture, error) {
+	return PreparePictureGuarded(name, data, maxBytes, maxRotateBytes, nil)
+}
+
+// PreparePictureGuarded is PreparePictureBounded for a caller that shares its memory: guard is asked for the memory the
+// turning of a rotated JPEG will take, before it decodes, and an *ops.Error it returns (the server is busy) comes back as
+// it is.
+func PreparePictureGuarded(name string, data []byte, maxBytes, maxRotateBytes int64, guard imagesafe.Guard) (Picture, error) {
 	if len(data) == 0 {
 		return Picture{}, errors.New("empty")
 	}
@@ -83,8 +100,12 @@ func PreparePicture(name string, data []byte, maxBytes int64) (Picture, error) {
 	if ext == "" {
 		return Picture{}, errors.New("not a PNG, JPEG, GIF or WebP picture")
 	}
-	clean, info, err := imagesafe.Clean(ext, data)
+	clean, info, err := imagesafe.CleanGuarded(ext, data, maxRotateBytes, guard)
 	if err != nil {
+		var oe *ops.Error
+		if errors.As(err, &oe) {
+			return Picture{}, err
+		}
 		if errors.Is(err, imagesafe.ErrTooLarge) {
 			return Picture{}, errors.New("too many pixels")
 		}
@@ -260,6 +281,12 @@ func (im *Import) Commit(c *ops.Ctx, tx *sql.Tx, l Limits) error {
 			if n == 0 {
 				return ops.Conflict("A picture in this project changed while it was being imported. Try again.")
 			}
+			if it.pic.CoverClean {
+				// The same bytes are already stored: bytes equal to the cleaned picture are clean, whoever uploaded them.
+				if _, err := tx.Exec(`UPDATE attachments SET cover_clean = 1, width = ?, height = ? WHERE id = ?`, it.pic.Width, it.pic.Height, it.id); err != nil {
+					return err
+				}
+			}
 			continue
 		}
 		add += int64(len(it.pic.Data))
@@ -285,9 +312,9 @@ func (im *Import) Commit(c *ops.Ctx, tx *sql.Tx, l Limits) error {
 				im.placed = append(im.placed, it.final)
 			}
 		}
-		if _, err := tx.Exec(`INSERT INTO attachments(id, project_id, compendium_id, sha256, bytes, mime, ext, kind, filename, alt, width, height, created_by, created_at, updated_at)
-			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-			it.id, im.owner, nil, it.pic.SHA256, len(it.pic.Data), it.pic.Mime, it.pic.Ext, "image", it.pic.Name, "", it.pic.Width, it.pic.Height, nullIfEmpty(c.P.UserID), now, now); err != nil {
+		if _, err := tx.Exec(`INSERT INTO attachments(id, project_id, compendium_id, sha256, bytes, mime, ext, kind, filename, alt, width, height, created_by, created_at, updated_at, cover_clean)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			it.id, im.owner, nil, it.pic.SHA256, len(it.pic.Data), it.pic.Mime, it.pic.Ext, "image", it.pic.Name, "", it.pic.Width, it.pic.Height, nullIfEmpty(c.P.UserID), now, now, it.pic.CoverClean); err != nil {
 			if db.IsUniqueViolation(err) {
 				return ops.Conflict("A picture in this project changed while it was being imported. Try again.")
 			}

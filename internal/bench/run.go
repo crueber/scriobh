@@ -147,6 +147,8 @@ var budgets = map[string]budget{
 	"backup.create":       {30_000, "backup < 30 s"},
 	"db.size":             {1 << 30, "database < 1 GB"},
 	"import.epub":         {60_000, "import a 300-page EPUB with pictures < 60 s"},
+	// The front of a 6x9 wrap at 300 dpi (3825 by 2775 px), made from nothing kept (internal/bench/cover.go).
+	"cover.derive": {1500, "make the front of a 300-dpi 6x9 wrap < 1.5 s"},
 }
 
 // ---- the run ---------------------------------------------------------------------
@@ -710,6 +712,10 @@ func (e *env) measure() ([]Metric, error) {
 	}
 	// Likewise the dashboard's fixture (36,520 daily rows and as many sessions).
 	if err := e.measureStudio(n, repeatable); err != nil {
+		return nil, err
+	}
+	// A project of its own (a 10-megapixel picture): after the size, which it would add to.
+	if err := e.measureCover(n, repeatable); err != nil {
 		return nil, err
 	}
 	return out, nil

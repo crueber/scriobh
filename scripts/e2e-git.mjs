@@ -335,7 +335,9 @@ await kit.test("while a push runs the page asks every few seconds, redraws in pl
   await waitFor(async () => calls >= 3, "three asks while the push runs", 12000);
   await waitFor(async () => (await headline()) !== "Pushing to 127.0.0.1 now.", "the redraw to show the end", 8000).catch(async (e) => { throw new Error(e.message + `; calls ${calls}; headline ${await headline()}; staged ${running.slice(0, 300).replace(/\s+/g, " ")}`); });
   ok(/pushed|Up to date/i.test(await headline()), "the banner is the finished one: " + (await headline()));
-  const said = await pg.locator("#git-announce").innerText();
+  // The page clears the live region when the banner is redrawn and writes the sentence 30 ms later (so the same sentence is
+  // announced again), so the region is empty for 30 ms after the redraw this step has just seen: wait for the sentence.
+  const said = await waitFor(async () => { const t = (await pg.locator("#git-announce").innerText()).trim(); return /Up to date|Pushed/i.test(t) && t; }, "the live region to carry the finished banner", 3000).catch(async () => (await pg.locator("#git-announce").innerText()).trim());
   ok(/Up to date|Pushed/i.test(said), "the change is announced in the live region: " + said);
   const before = calls;
   await sleep(4500);

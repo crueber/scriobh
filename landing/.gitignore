@@ -1,0 +1,4 @@
+# the demo video is copied in from docs/media by scripts/landing-media.sh (locally) and by the pages workflow (at deploy);
+# it is not stored twice
+media/demo.mp4
+media/demo.webm

@@ -193,7 +193,7 @@ func TestRealMirrorWithACompendiumPushesNoBibleFiles(t *testing.T) {
 	call(owner, "scene.set_pov", scenes.SetIn{ID: ch, Entity: zed})
 	wctx, wcancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer wcancel()
-	waitMirrorCurrent(t, srv.Mirror, pid)
+	waitMirrorCurrent(t, srv.Mirror, d, pid)
 	// The mirror really has the projection. It is written a moment after the project's own files, so it is waited
 	// for (WaitIdle only says the mirror has nothing it knows of to do).
 	found := false

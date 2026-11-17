@@ -14,6 +14,7 @@ import (
 
 	"github.com/crueber/scriobh/internal/cover"
 	"github.com/crueber/scriobh/internal/db"
+	"github.com/crueber/scriobh/internal/domain/coverlayout"
 	"github.com/crueber/scriobh/internal/domain/export"
 	"github.com/crueber/scriobh/internal/domain/projects"
 	"github.com/crueber/scriobh/internal/ops"
@@ -536,6 +537,32 @@ func resolve(c *ops.Ctx, projectID, presetID string, over publish.Options, readI
 		b.warn("image_skipped", fmt.Sprintf("%d image(s) are not read in a dry run and are left out of this file.", len(b.book.Images)), "", "")
 	}
 	hash := inputHash(preset.ID, opts, src, co.contact(), b)
+	// The project's own cover (a layout) is part of the input hash of an export that shows it, so a changed cover is a
+	// changed export, and of no other: a manuscript, a Markdown file or a PDF is the same file whatever the cover is. The
+	// EPUB with its cover on shows the front, so what the front is made of (not the back) goes in; the hash is known
+	// without reading a picture, so a preview and the export agree. The picture is read only when the bytes are wanted. A
+	// project with no layout has the hash it had.
+	if opts.Format == "epub" && publish.On(opts.Cover) && publish.On(opts.OwnCover) {
+		fh, lay, err := coverlayout.FrontHashOf(c, c.DB().Read(), projectID, opts.Language) // a language option may turn a wrap round
+		if err != nil {
+			return nil, err
+		}
+		if fh != "" {
+			sum := sha256.Sum256([]byte(hash + "\x00cover\x00" + fh))
+			hash = hex.EncodeToString(sum[:])
+		}
+		if fh != "" && readImages && !c.DryRun() {
+			d, _, err := coverlayout.MakeFor(c, c.Env, projectID, coverlayout.NameFront, true, opts.Language) // inside the compile gate: its slot is held
+			switch {
+			case errors.Is(err, coverlayout.ErrNoPicture):
+				// the layout names a picture that is gone: the generated cover stands in
+			case err != nil:
+				return nil, err
+			case d != nil:
+				b.book.CoverImage, b.book.CoverAlt = d.Data, lay.Alt
+			}
+		}
+	}
 	var bridge *pandoc.Service
 	if pandoc.ValidExport(opts.Format) {
 		// Pandoc's output is the same only for the same Pandoc: the version is part of what the hash stands for.

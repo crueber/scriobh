@@ -112,7 +112,7 @@ type RepoList struct {
 type repoInput struct {
 	ProjectID, AccountID, Mode, Owner, Name, Description, Visibility string
 	Branch, PathPrefix, Audience, PushMode                           string
-	OnlyDone, SignCommits, IncludeNotes                              bool
+	OnlyDone, SignCommits, IncludeNotes, IncludeCover                bool
 }
 
 // RepoPlanIn asks what publishing would do.
@@ -129,6 +129,7 @@ type RepoPlanIn struct {
 	Audience     string `json:"audience,omitempty" enum:"public,private" desc:"public (the default, the strictest): only what a reader of the book sees. private: the full mirror; refused for a public repository."`
 	OnlyDone     bool   `json:"only_done,omitempty" desc:"Public audience: only documents whose status is done."`
 	IncludeNotes bool   `json:"include_notes,omitempty" desc:"Private audience only: push the project's notes too."`
+	IncludeCover bool   `json:"include_cover,omitempty" desc:"Public audience: push the project's own cover (the layout and its pictures) too; the plan lists its files. A private audience always carries it."`
 	SignCommits  bool   `json:"sign_commits,omitempty" desc:"Sign the commits with the project's signing key."`
 	PushMode     string `json:"push_mode,omitempty" enum:"manual,on_save,interval" desc:"How the remote pushes after the first push. Default manual."`
 }
@@ -138,7 +139,7 @@ func (in RepoPlanIn) ProjectRef() string { return in.ProjectID }
 func (in RepoPlanIn) input() repoInput {
 	return repoInput{ProjectID: in.ProjectID, AccountID: in.AccountID, Mode: in.Mode, Owner: in.Owner, Name: in.Name, Description: in.Description,
 		Visibility: in.Visibility, Branch: in.Branch, PathPrefix: in.PathPrefix, Audience: in.Audience, PushMode: in.PushMode,
-		OnlyDone: in.OnlyDone, SignCommits: in.SignCommits, IncludeNotes: in.IncludeNotes}
+		OnlyDone: in.OnlyDone, SignCommits: in.SignCommits, IncludeNotes: in.IncludeNotes, IncludeCover: in.IncludeCover}
 }
 
 // RepoPublishIn publishes. It carries the plan's fields, the plan's token and the confirmation.
@@ -155,10 +156,11 @@ type RepoPublishIn struct {
 	Audience     string `json:"audience,omitempty" enum:"public,private"`
 	OnlyDone     bool   `json:"only_done,omitempty"`
 	IncludeNotes bool   `json:"include_notes,omitempty"`
+	IncludeCover bool   `json:"include_cover,omitempty"`
 	SignCommits  bool   `json:"sign_commits,omitempty"`
 	PushMode     string `json:"push_mode,omitempty" enum:"manual,on_save,interval"`
 	PlanToken    string `json:"plan_token" desc:"The token repo.plan returned for exactly these fields. The call refuses (409 plan_changed) when anything the plan covered is different now: the settings, the files that would be pushed, what is withheld."`
-	Confirm      string `json:"confirm,omitempty" desc:"For a public repository: its name, typed exactly."`
+	Confirm      string `json:"confirm,omitempty" desc:"For a public repository, or a public audience with include_cover: the repository's name, typed exactly."`
 }
 
 func (in RepoPublishIn) ProjectRef() string { return in.ProjectID }
@@ -166,7 +168,7 @@ func (in RepoPublishIn) ProjectRef() string { return in.ProjectID }
 func (in RepoPublishIn) input() repoInput {
 	return RepoPlanIn{ProjectID: in.ProjectID, AccountID: in.AccountID, Mode: in.Mode, Owner: in.Owner, Name: in.Name, Description: in.Description,
 		Visibility: in.Visibility, Branch: in.Branch, PathPrefix: in.PathPrefix, Audience: in.Audience, OnlyDone: in.OnlyDone,
-		IncludeNotes: in.IncludeNotes, SignCommits: in.SignCommits, PushMode: in.PushMode}.input()
+		IncludeNotes: in.IncludeNotes, IncludeCover: in.IncludeCover, SignCommits: in.SignCommits, PushMode: in.PushMode}.input()
 }
 
 // Blocker is something that stops a publish.
@@ -193,6 +195,7 @@ type RepoPlan struct {
 	Audience     string              `json:"audience" enum:"public,private"`
 	OnlyDone     bool                `json:"only_done"`
 	IncludeNotes bool                `json:"include_notes"`
+	IncludeCover bool                `json:"include_cover" desc:"The first push carries the project's own cover."`
 	SignCommits  bool                `json:"sign_commits"`
 	PushMode     string              `json:"push_mode"`
 	RemoteName   string              `json:"remote_name" desc:"The name the remote will have in the project."`
@@ -204,7 +207,7 @@ type RepoPlan struct {
 	Withheld     []Withheld          `json:"withheld" desc:"Documents a public remote does not carry, and why."`
 	Findings     []SecretFindingView `json:"findings" desc:"Anything that looks like a secret in what would be pushed; each is a blocker."`
 	Blockers     []Blocker           `json:"blockers"`
-	NeedsConfirm bool                `json:"needs_confirm" desc:"The repository is public: repo.publish needs confirm, the name typed exactly."`
+	NeedsConfirm bool                `json:"needs_confirm" desc:"The repository is public, or a public audience carries the cover: repo.publish needs confirm, the name typed exactly."`
 	ConfirmWith  string              `json:"confirm_with,omitempty"`
 	PlanToken    string              `json:"plan_token" desc:"Give it to repo.publish with the same fields."`
 }
@@ -527,6 +530,9 @@ func (s *Service) buildPlan(ctx context.Context, userID string, in repoInput) (*
 	if push != ModeManual && push != ModeOnSave && push != ModeInterval {
 		return nil, ops.Invalid("push_mode", "push_mode is manual, on_save or interval.")
 	}
+	if audience == AudiencePrivate {
+		in.IncludeCover = true // the whole copy, cover included
+	}
 	in.Branch, in.PathPrefix, in.Audience, in.PushMode = branch, prefix, audience, push
 	p.in, p.desc = in, desc
 
@@ -543,6 +549,7 @@ func (s *Service) buildPlan(ctx context.Context, userID string, in repoInput) (*
 	pl := &p.plan
 	pl.Account = s.accountView(a)
 	pl.Branch, pl.PathPrefix, pl.Audience, pl.OnlyDone, pl.IncludeNotes, pl.SignCommits, pl.PushMode = branch, prefix, audience, in.OnlyDone, in.IncludeNotes, in.SignCommits, push
+	pl.IncludeCover = in.IncludeCover
 	pl.Files, pl.Withheld, pl.Findings, pl.Blockers, pl.Requests = []PlanFile{}, []Withheld{}, []SecretFindingView{}, []Blocker{}, []string{}
 	block := func(code, msg string) { pl.Blockers = append(pl.Blockers, Blocker{Code: code, Message: msg}) }
 	pl.Repository = RepoRef{Provider: t.kind, Host: t.host, Owner: owner, Name: in.Name, FullName: owner + "/" + in.Name, Visibility: in.Visibility,
@@ -598,7 +605,9 @@ func (s *Service) buildPlan(ctx context.Context, userID string, in repoInput) (*
 	if audience == AudiencePrivate && in.OnlyDone {
 		block("public_full_mirror", "only_done is for the public audience.")
 	}
-	pl.NeedsConfirm = pl.Repository.Visibility == "public"
+	// The repository's name typed: for a public repository, and for a public audience that carries the cover, which lets more
+	// reach a repository people can read (F-861), whatever the repository's visibility is now.
+	pl.NeedsConfirm = pl.Repository.Visibility == "public" || (audience == AudiencePublic && in.IncludeCover)
 	if pl.NeedsConfirm {
 		pl.ConfirmWith = in.Name
 	}
@@ -617,7 +626,7 @@ func (s *Service) buildPlan(ctx context.Context, userID string, in repoInput) (*
 	if sr := p.sameRem; sr != nil {
 		// A remote already at this address is reused, but only if it carries what this plan says it carries: a
 		// private remote on a repository that is about to be public would push the full mirror there.
-		if sr.Audience != audience || sr.OnlyDone != in.OnlyDone || sr.Branch != branch || sr.PathPrefix != prefix || sr.IncludeNotes != (audience == AudiencePrivate && in.IncludeNotes) {
+		if sr.Audience != audience || sr.OnlyDone != in.OnlyDone || sr.Branch != branch || sr.PathPrefix != prefix || sr.IncludeNotes != (audience == AudiencePrivate && in.IncludeNotes) || sr.IncludeCover != in.IncludeCover {
 			block("remote_differs", "The project already has a remote at this address (\""+sr.Name+"\") with other settings than this plan: what it carries, its branch or its folder. Change that remote's settings, or remove it, then plan again.")
 		}
 	}
@@ -639,7 +648,7 @@ func (s *Service) buildPlan(ctx context.Context, userID string, in repoInput) (*
 			block("no_signing_key", "Generate the project's signing key first (git.signing.generate), or switch signing off.")
 		}
 	}
-	rr := &remoteRow{ProjectID: in.ProjectID, Audience: audience, OnlyDone: in.OnlyDone, PathPrefix: prefix, IncludeNotes: audience == AudiencePrivate && in.IncludeNotes}
+	rr := &remoteRow{ProjectID: in.ProjectID, Audience: audience, OnlyDone: in.OnlyDone, PathPrefix: prefix, IncludeNotes: audience == AudiencePrivate && in.IncludeNotes, IncludeCover: in.IncludeCover}
 	sn, withheld, se := s.snapshotFor(ctx, rr)
 	if se != nil {
 		block("mirror_not_ready", se.Message)
@@ -691,6 +700,7 @@ func planToken(p *planned) string {
 	pl := &p.plan
 	fmt.Fprintf(h, "v1\x00%s\x00%s\x00%s\x00%s\x00%s\x00%s\x00%v\x00%v\x00%s\x00%s\x00%s\x00%v\x00%v\x00%v\x00%v\x00%s\n", p.target.kind, p.target.host, pl.Repository.FullName, p.in.Mode, pl.Repository.Visibility, pl.Branch,
 		pl.OnlyDone, pl.IncludeNotes, pl.PathPrefix, pl.Audience, pl.PushMode, pl.SignCommits, pl.Exists, pl.Empty, pl.Registered, p.account.ID)
+	fmt.Fprintf(h, "cover %v\n", pl.IncludeCover)
 	var paths []string
 	for _, f := range pl.Files {
 		paths = append(paths, f.Path)
@@ -806,7 +816,11 @@ func publishRepo(c *ops.Ctx, in RepoPublishIn) (RepoPublishOut, error) {
 		return RepoPublishOut{}, failure("", gerr(CodePlanChanged, "Something the plan covered is different now (the settings, the files that would be pushed, what is withheld, or the repository at the host). Run the plan again and review it."))
 	}
 	if pl.NeedsConfirm && in.Confirm != pl.ConfirmWith {
-		return RepoPublishOut{}, ops.Invalid("confirm", "This repository is public: anyone can read what is pushed. Type its name exactly to confirm: "+pl.ConfirmWith)
+		msg := "This repository is public: anyone can read what is pushed. Type its name exactly to confirm: " + pl.ConfirmWith
+		if pl.Repository.Visibility != "public" {
+			msg = "This sends the book's cover to a remote that is meant to be read by anyone. Type the repository's name exactly to confirm: " + pl.ConfirmWith
+		}
+		return RepoPublishOut{}, ops.Invalid("confirm", msg)
 	}
 	owner := pl.Repository.Owner
 	created := false
@@ -878,7 +892,7 @@ func (s *Service) registerPublished(c *ops.Ctx, p *planned) (*remoteRow, error) 
 	}
 	r := &remoteRow{ID: db.NewID("grm"), ProjectID: p.in.ProjectID, Name: pl.RemoteName, Preset: p.target.kind, URL: pl.Repository.URL, Branch: pl.Branch, PathPrefix: pl.PathPrefix,
 		AuthKind: AuthHTTPS, Username: p.account.Login, PushMode: pl.PushMode, IntervalMinutes: defaultInterval, IncludeNotes: pl.Audience == AudiencePrivate && pl.IncludeNotes,
-		Enabled: true, State: StateNew, CreatedAt: stamp(s.o.Clock.Now()), Audience: pl.Audience, OnlyDone: pl.OnlyDone, SignCommits: pl.SignCommits, CreatedVia: "publish"}
+		Enabled: true, State: StateNew, CreatedAt: stamp(s.o.Clock.Now()), Audience: pl.Audience, OnlyDone: pl.OnlyDone, SignCommits: pl.SignCommits, CreatedVia: "publish", IncludeCover: pl.IncludeCover}
 	var err error
 	if r.SecretCipher, err = s.o.Box.Seal([]byte(p.token), sealContext(r.ID, ep)); err != nil {
 		return nil, ops.Internal(err)
@@ -893,6 +907,6 @@ func (s *Service) registerPublished(c *ops.Ctx, p *planned) (*remoteRow, error) 
 		return nil, ops.Internal(err)
 	}
 	c.Audit(ops.AuditEntry{Action: "git.remote.create", TargetType: "project", TargetID: p.in.ProjectID,
-		Detail: map[string]any{"remote_id": r.ID, "name": r.Name, "host": ep.Host, "auth_kind": AuthHTTPS, "push_mode": r.PushMode, "audience": r.Audience, "via": "publish"}})
+		Detail: map[string]any{"remote_id": r.ID, "name": r.Name, "host": ep.Host, "auth_kind": AuthHTTPS, "push_mode": r.PushMode, "audience": r.Audience, "include_cover": r.IncludeCover, "via": "publish"}})
 	return s.loadRemote(c, p.in.ProjectID, r.ID)
 }

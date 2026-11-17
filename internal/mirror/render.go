@@ -107,6 +107,9 @@ type manifest struct {
 	// its file. Absent when there are none, so a project without any is the same
 	// bytes as before attachments existed.
 	Attachments []attachMeta `json:"attachments,omitempty"`
+	// Cover is the project's own cover layout (docs/COVERS.md), without ids; its pictures are in cover/. Absent when the
+	// project uses the generated cover, so it is the same bytes as before covers existed.
+	Cover *manifestCover `json:"cover,omitempty"`
 	// Editions are the books the project was imported from, as metadata (the file, its hash and size, the
 	// label and date). The source file itself is never copied into the mirror, so never into a Git push.
 	// Absent when there are none, so a project that was never imported from a book is the same bytes as before.
@@ -115,10 +118,10 @@ type manifest struct {
 
 // render turns a snapshot into the files of one project directory, keyed by
 // slash-separated path relative to it.
-func render(s *export.Snapshot) (map[string][]byte, error) { return renderWith(s, nil) }
+func render(s *export.Snapshot) (map[string][]byte, error) { return renderWith(s, nil, nil) }
 
 // renderWith is render with the project's attachments listed in the manifest.
-func renderWith(s *export.Snapshot, att []attachMeta) (map[string][]byte, error) {
+func renderWith(s *export.Snapshot, att []attachMeta, cov *manifestCover) (map[string][]byte, error) {
 	files := make(map[string][]byte, len(s.Files)+2)
 	m := manifest{
 		SchemaVersion: SchemaVersion,
@@ -129,6 +132,7 @@ func renderWith(s *export.Snapshot, att []attachMeta) (map[string][]byte, error)
 		IncludesNotes: includeNotes,
 		Documents:     make([]manifestDoc, 0, len(s.Files)),
 		Attachments:   att,
+		Cover:         cov,
 		Editions:      s.Editions,
 	}
 	switch {

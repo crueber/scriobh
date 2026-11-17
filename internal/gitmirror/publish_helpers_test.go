@@ -39,7 +39,7 @@ func (h *harness) plan(in gitmirror.RepoPlanIn) gitmirror.RepoPlan {
 
 func publishFrom(in gitmirror.RepoPlanIn, token, confirm string) gitmirror.RepoPublishIn {
 	return gitmirror.RepoPublishIn{ProjectID: in.ProjectID, AccountID: in.AccountID, Mode: in.Mode, Owner: in.Owner, Name: in.Name, Description: in.Description,
-		Visibility: in.Visibility, Branch: in.Branch, PathPrefix: in.PathPrefix, Audience: in.Audience, OnlyDone: in.OnlyDone, IncludeNotes: in.IncludeNotes,
+		Visibility: in.Visibility, Branch: in.Branch, PathPrefix: in.PathPrefix, Audience: in.Audience, OnlyDone: in.OnlyDone, IncludeNotes: in.IncludeNotes, IncludeCover: in.IncludeCover,
 		SignCommits: in.SignCommits, PushMode: in.PushMode, PlanToken: token, Confirm: confirm}
 }
 

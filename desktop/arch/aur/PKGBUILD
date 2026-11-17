@@ -12,7 +12,9 @@
 # TO PUBLISH (owner, on Arch, after the GitHub release of the tag exists; docs/DESKTOP.md, "Arch Linux and Omarchy"):
 #   1. cp this folder's PKGBUILD and .SRCINFO, and the repository's LICENSE and NOTICE, into a clone of
 #      ssh://aur@aur.archlinux.org/scriobh-desktop-bin.git
-#   2. set pkgver (the .deb's version) and _tag (the release's tag) below; pkgrel=1 for a new version
+#   2. set _debver (the release's version: the tag without its v, which names the .deb: Scriobh_<_debver>_amd64.deb),
+#      pkgver (the same, but pkgver may not hold a hyphen, so a prerelease 2.3.0-rc.1 is written 2.3.0_rc.1; for a
+#      release it is the same text) and _tag (the release's tag, vX.Y.Z) below; pkgrel=1 for a new version
 #   3. updpkgsums            fills all three sha256sums (it downloads the .deb)
 #   4. makepkg --printsrcinfo > .SRCINFO
 #   5. namcap PKGBUILD && makepkg -f && namcap *.pkg.tar.zst, in a clean chroot if you have one
@@ -22,9 +24,10 @@
 #
 # depends, and why they are what they are: see desktop/arch/PKGBUILD.
 pkgname=scriobh-desktop-bin
-pkgver=2.0.0
+pkgver=2.2.0
+_debver=2.2.0   # the release's version as the .deb's file name has it (hyphens kept); pkgver is this with - as _
 pkgrel=1
-_tag=v2.0
+_tag=v2.2.0
 pkgdesc='Scriobh, a private place to write long things: the desktop app (prebuilt)'
 arch=('x86_64')
 url='https://github.com/crueber/scriobh'
@@ -34,7 +37,7 @@ optdepends=('gnome-keyring: keeps the key that protects saved AI and Git credent
 provides=("scriobh-desktop=$pkgver")
 conflicts=('scriobh-desktop')
 options=('!strip' '!debug')
-_deb="Scriobh_${pkgver}_amd64.deb"
+_deb="Scriobh_${_debver}_amd64.deb"
 source=("$_deb::$url/releases/download/$_tag/$_deb" 'LICENSE' 'NOTICE')
 noextract=("$_deb")
 sha256sums=('REPLACE_WITH_SHA256_OF_THE_DEB' '0f757729e389ffded5d96b06f0531856f19067b57aa5d7c8d33be95d3fd48901' 'e70eabe0fd012dbc2064ae85b27b3f9e6a1ab22526a6b45766a7c7a42c11f168')

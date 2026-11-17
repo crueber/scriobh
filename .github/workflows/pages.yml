@@ -1,0 +1,82 @@
+# Deploys the landing page, the files under landing/, to GitHub Pages at https://crueber.github.io/scriobh/.
+#
+#   push to main that changes landing/      builds and deploys the page
+#   Actions -> pages -> Run workflow        deploys what main holds now
+#
+# The page is plain HTML and CSS with no build step, so the "build" job only copies the demo video in from docs/media and
+# uploads the folder as the Pages artifact (nothing is generated, bundled or minified, and nothing is fetched). The page makes no request to any other site,
+# and the Content-Security-Policy in each page says so; scripts/publish-check.sh does not run the page, it only checks
+# that this workflow and the folder are published.
+#
+# ONE-TIME SETUP, by the repository's owner, because a workflow cannot do it with its own token: Pages must be set to
+# deploy from GitHub Actions (Settings, Pages, Build and deployment, Source: GitHub Actions), or with the CLI:
+#
+#   gh api -X POST repos/crueber/scriobh/pages -f build_type=workflow
+#   (if the site already exists:  gh api -X PUT repos/crueber/scriobh/pages -f build_type=workflow)
+#
+# Until that is done, the first run fails in the configure-pages step with "Get Pages site failed"; re-run it after.
+#
+# Written with the development repository's other templates and NOT run on GitHub when it was made; checked only with
+# actionlint and a YAML parser. The three Pages actions are pinned to a combination that works together: the
+# upload-pages-artifact v3 artifact is the one deploy-pages v4 reads. A new major of either needs the other checked.
+name: pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "landing/**"
+      - "docs/media/demo.*"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time; a newer push waits for the running one instead of cancelling it half way.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # configure-pages reads the Pages site through the API, which the workflow's contents-only token cannot; a job's own
+    # permissions replace the workflow's, so contents is repeated. (The official starter workflows grant pages: write
+    # to the whole workflow.)
+    permissions:
+      contents: read
+      pages: write
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      # The demo video lives once, in docs/media (the README plays it from there); Pages serves only what is uploaded, so
+      # it is copied next to the page's pictures here, at deploy time. landing/.gitignore keeps a local copy out of git.
+      - name: Add the demo video to the page
+        run: |
+          set -eu
+          for v in demo.mp4 demo.webm; do
+            test -s "docs/media/$v"
+            cp "docs/media/$v" "landing/media/$v"
+          done
+
+      - uses: actions/configure-pages@v5.0.0
+
+      - uses: actions/upload-pages-artifact@v3.0.1
+        with:
+          path: landing
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4.0.5

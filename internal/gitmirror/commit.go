@@ -67,6 +67,104 @@ type manifestFile struct {
 	// and pushed under attachments/. One too large to push is left out of the
 	// list the repository gets, so the list never names a file that is not there.
 	Attachments []json.RawMessage `json:"attachments,omitempty"`
+	// Cover is the project's own cover layout, without ids, and its pictures are under cover/. Pushed as it is, with its
+	// pictures, to a remote whose include_cover is on (the snapshot of any other leaves it out; a public one carries it
+	// through the allow-list of coverMeta); dropped, with its pictures, when one of them cannot be pushed.
+	Cover json.RawMessage `json:"cover,omitempty"`
+}
+
+// coverMeta is the part of the cover layout a push carries to a public remote: how each side is placed and which
+// file holds its picture. The alt text is not in it, as an attachment's is not in a public manifest.
+type coverMeta struct {
+	Shape string     `json:"shape"`
+	Trim  string     `json:"trim"`
+	Front *coverSide `json:"front,omitempty"`
+	Back  *coverSide `json:"back,omitempty"`
+	Wrap  *coverWrap `json:"wrap,omitempty"`
+}
+
+type coverSide struct {
+	Mode       string  `json:"mode"`
+	File       string  `json:"file,omitempty"`
+	Fit        string  `json:"fit,omitempty"`
+	Scale      int     `json:"scale,omitempty"`
+	Position   string  `json:"position,omitempty"`
+	Background string  `json:"background,omitempty"`
+	MarginIn   float64 `json:"margin_in,omitempty"`
+}
+
+type coverWrap struct {
+	File    string  `json:"file"`
+	BleedIn float64 `json:"bleed_in"`
+}
+
+// files lists the pictures the layout names, once each.
+func (c *coverMeta) files() []string {
+	var out []string
+	add := func(f string) {
+		for _, x := range out {
+			if x == f {
+				return
+			}
+		}
+		if f != "" {
+			out = append(out, f)
+		}
+	}
+	if c.Front != nil {
+		add(c.Front.File)
+	}
+	if c.Back != nil {
+		add(c.Back.File)
+	}
+	if c.Wrap != nil {
+		add(c.Wrap.File)
+	}
+	return out
+}
+
+var coverName = regexp.MustCompile(`^cover/(front|back|wrap)-([0-9a-f]{12})\.(png|jpg|webp)$`)
+
+// readCover reads the pictures of a cover layout from the held mirror into the snapshot, each checked against the
+// hash in its name. It returns false, and adds nothing, when the layout cannot be pushed whole: a picture missing,
+// damaged, over the file size limit, or a name that is not one the mirror makes.
+func readCover(dir, prefix string, raw json.RawMessage, sn *snapshot, total *int64) (*coverMeta, bool) {
+	if len(raw) == 0 {
+		return nil, true
+	}
+	var c coverMeta
+	if err := json.Unmarshal(raw, &c); err != nil {
+		return nil, false
+	}
+	got := map[string][]byte{}
+	for _, f := range c.files() {
+		m := coverName.FindStringSubmatch(f)
+		if m == nil {
+			return nil, false
+		}
+		full := filepath.Join(dir, filepath.FromSlash(f))
+		fi, err := os.Lstat(full)
+		if err != nil || !fi.Mode().IsRegular() || fi.Size() > maxFileBytes {
+			return nil, false
+		}
+		b, err := os.ReadFile(full)
+		if err != nil {
+			return nil, false
+		}
+		if sum := sha256.Sum256(b); hex.EncodeToString(sum[:])[:12] != m[2] {
+			return nil, false
+		}
+		got[f] = b
+	}
+	for f, b := range got {
+		*total += int64(len(b))
+		sn.files[join(prefix, f)] = b
+		if sn.binary == nil {
+			sn.binary = map[string]bool{}
+		}
+		sn.binary[join(prefix, f)] = true
+	}
+	return &c, true
 }
 
 // manifestAttachment is the part of an attachment's entry the push checks.
@@ -140,7 +238,7 @@ func pushable(p string) bool {
 // readSnapshot reads the mirror under Hold, so every file belongs to one state
 // of the project, and releases it before returning: no network call is ever
 // made while the mirror is held.
-func (s *Service) readSnapshot(projectID string, includeNotes bool, prefix string) (*snapshot, *Error) {
+func (s *Service) readSnapshot(projectID string, includeNotes, includeCover bool, prefix string) (*snapshot, *Error) {
 	if s.o.Source == nil {
 		return nil, gerr(CodeMirrorOff, "The Markdown mirror is not running on this server, and the push is built from it.")
 	}
@@ -249,8 +347,23 @@ func (s *Service) readSnapshot(projectID string, includeNotes bool, prefix strin
 		}
 		keptAtt = append(keptAtt, ra)
 	}
+	coverDropped := false
+	switch {
+	case !includeCover:
+		// This remote does not carry the project's cover (a public remote until a person says so): neither the
+		// pictures nor the layout leave the mirror.
+		coverDropped, mf.Cover = len(mf.Cover) > 0, nil
+	default:
+		if _, ok := readCover(dir, prefix, mf.Cover, sn, &total); !ok {
+			mf.Cover = nil // a layout that names a picture that is not pushed is not pushed
+			sn.skipped++
+		}
+	}
+	if total > maxTotalBytes {
+		return nil, gerr(CodeTooLarge, "The manuscript and its attachments are larger than %d MB; they are too large to push.", maxTotalBytes>>20)
+	}
 	out := raw
-	if !includeNotes || sn.skipped > 0 {
+	if !includeNotes || sn.skipped > 0 || coverDropped {
 		mf.Attachments = keptAtt
 		if !includeNotes {
 			mf.IncludesNotes = false

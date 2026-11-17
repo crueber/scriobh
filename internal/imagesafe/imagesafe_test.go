@@ -3,6 +3,7 @@ package imagesafe
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"hash/crc32"
 	"image"
 	"image/color"
@@ -333,5 +334,153 @@ func TestSVGAndUnknownTypesAreRefused(t *testing.T) {
 		if _, _, err := Clean(ext, []byte("<svg/>")); err == nil {
 			t.Errorf("%q accepted", ext)
 		}
+	}
+}
+
+// A caller with a memory budget may refuse a rotated photo that would take more to turn than it has: DecodeBytes is what
+// decoding takes (a progressive JPEG keeps four bytes a sample more), and the turned copy is four bytes a pixel.
+func TestARotatedPhotoIsRefusedOverTheCallersMemoryBudget(t *testing.T) {
+	src := encodeJPEG(t, blocks(64, 32))
+	est, ok := DecodeBytes(src)
+	if !ok || est < 64*32 || est > 64*32*4 { // a baseline JPEG: planes only, a byte or three a pixel
+		t.Fatalf("DecodeBytes of a baseline 64x32 JPEG = %d %v", est, ok)
+	}
+	rotated := withSegments(t, src, seg(0xE1, exif(6, "")))
+	if _, info, err := CleanBounded("jpg", rotated, est+4*64*32+1); err != nil || !info.Rotated {
+		t.Errorf("a photo within the budget: %+v %v", info, err)
+	}
+	if _, _, err := CleanBounded("jpg", rotated, est+4*64*32-1); !errors.Is(err, ErrTooLarge) {
+		t.Errorf("a photo over the budget by a byte: %v", err)
+	}
+	// an upright photo decodes nothing, so no budget applies
+	if _, info, err := CleanBounded("jpg", withSegments(t, src, seg(0xE1, exif(1, ""))), 1); err != nil || info.Rotated {
+		t.Errorf("an upright photo under a tiny budget: %+v %v", info, err)
+	}
+}
+
+func TestDecodeBytesReadsTheFrameHeader(t *testing.T) {
+	frame := func(marker byte, w, h int, hv ...byte) []byte {
+		sof := []byte{8, byte(h >> 8), byte(h), byte(w >> 8), byte(w), byte(len(hv))}
+		for i, x := range hv {
+			sof = append(sof, byte(i+1), x, 0)
+		}
+		out := []byte{0xFF, 0xD8, 0xFF, marker, byte((len(sof) + 2) >> 8), byte(len(sof) + 2)}
+		return append(out, sof...)
+	}
+	for _, c := range []struct {
+		name string
+		jpg  []byte
+		want int64
+	}{
+		{"baseline 4:4:4", frame(0xC0, 1000, 1000, 0x11, 0x11, 0x11), 3_000_000},
+		{"baseline 4:2:0", frame(0xC0, 1000, 1000, 0x22, 0x11, 0x11), 1_500_000},
+		{"progressive 4:4:4: coefficients too", frame(0xC2, 1000, 1000, 0x11, 0x11, 0x11), 15_000_000},
+		{"progressive 4:2:0", frame(0xC2, 1000, 1000, 0x22, 0x11, 0x11), 7_500_000},
+		{"grey", frame(0xC0, 1000, 1000, 0x11), 1_000_000},
+	} {
+		if got, ok := DecodeBytes(c.jpg); !ok || got != c.want {
+			t.Errorf("%s: %d %v, want %d", c.name, got, ok, c.want)
+		}
+	}
+	if _, ok := DecodeBytes([]byte("not a jpeg")); ok {
+		t.Error("something that is not a JPEG has a size")
+	}
+}
+
+// The turn re-encodes the picture and jpeg.Encode writes no profile: it goes across, or a rotated phone photo in Display P3
+// loses its colours' meaning.
+func TestTheColourProfileGoesAcrossTheTurn(t *testing.T) {
+	prof := append(make([]byte, 128), []byte("Display P3 profile")...)
+	copy(prof[16:], "RGB ")
+	copy(prof[36:], "acsp")
+	icc := append([]byte("ICC_PROFILE\x00\x01\x01"), prof...)
+	src := withSegments(t, encodeJPEG(t, blocks(64, 32)), seg(0xE2, icc), seg(0xE1, exif(6, "")))
+	out, info, err := Clean("jpg", src)
+	if err != nil || !info.Rotated {
+		t.Fatalf("%+v %v", info, err)
+	}
+	if got := JPEGProfile(out); !bytes.Equal(got, prof) {
+		t.Errorf("the turned picture's profile: %d bytes, want the %d it had", len(got), len(prof))
+	}
+	if _, err := jpeg.Decode(bytes.NewReader(out)); err != nil {
+		t.Errorf("the turned picture does not decode: %v", err)
+	}
+	// and an upright one keeps it too, byte for byte
+	up, _, err := Clean("jpg", withSegments(t, encodeJPEG(t, blocks(64, 32)), seg(0xE2, icc)))
+	if err != nil || !bytes.Equal(JPEGProfile(up), prof) {
+		t.Errorf("an upright picture lost its profile: %v", err)
+	}
+}
+
+// The turn writes three-component samples, so a profile for another colour space must not be attached to them: a rotated
+// Gray (or CMYK-profiled) JPEG loses its profile, and only a well-formed RGB profile under the cap goes across.
+func TestOnlyAnRGBProfileGoesAcrossTheTurn(t *testing.T) {
+	profile := func(space string, size int) []byte {
+		p := make([]byte, size)
+		copy(p[16:], space)
+		copy(p[36:], "acsp")
+		return p
+	}
+	gray := image.NewGray(image.Rect(0, 0, 64, 32))
+	for i := range gray.Pix {
+		gray.Pix[i] = uint8(i)
+	}
+	for _, c := range []struct {
+		name string
+		src  image.Image
+		prof []byte
+		keep bool
+	}{
+		{"gray profile, gray picture", gray, profile("GRAY", 400), false},
+		{"cmyk profile", blocks(64, 32), profile("CMYK", 400), false},
+		{"rgb profile, gray picture", gray, profile("RGB ", 400), true},
+		{"rgb profile", blocks(64, 32), profile("RGB ", 400), true},
+		{"rgb profile over the cap", blocks(64, 32), profile("RGB ", maxRotatedProfile+1), false},
+		{"no acsp signature", blocks(64, 32), append(profile("RGB ", 400)[:36], make([]byte, 100)...), false},
+		{"shorter than a header", blocks(64, 32), profile("RGB ", 100), false},
+	} {
+		icc := append([]byte("ICC_PROFILE\x00\x01\x01"), c.prof...)
+		if len(c.prof) > 60000 { // one piece holds 65 KB: split a long profile as the writers do
+			icc = nil
+		}
+		var src []byte
+		if icc != nil {
+			src = withSegments(t, encodeJPEG(t, c.src), seg(0xE2, icc), seg(0xE1, exif(6, "")))
+		} else {
+			src = WithJPEGProfile(withSegments(t, encodeJPEG(t, c.src), seg(0xE1, exif(6, ""))), c.prof)
+		}
+		out, info, err := Clean("jpg", src)
+		if err != nil || !info.Rotated {
+			t.Fatalf("%s: %+v %v", c.name, info, err)
+		}
+		got := JPEGProfile(out)
+		if c.keep != bytes.Equal(got, c.prof) || (!c.keep && got != nil) {
+			t.Errorf("%s: a rotated picture's profile is %d bytes, kept=%v wanted", c.name, len(got), c.keep)
+		}
+		if _, err := jpeg.Decode(bytes.NewReader(out)); err != nil {
+			t.Errorf("%s: the turned picture does not decode: %v", c.name, err)
+		}
+	}
+}
+
+// A guard that refuses stops the clean with its own error, and is told what the decode will take.
+func TestAGuardIsAskedBeforeARotatedPhotoIsDecoded(t *testing.T) {
+	src := withSegments(t, encodeJPEG(t, blocks(64, 32)), seg(0xE1, exif(6, "")))
+	var asked int64
+	released := false
+	if _, _, err := CleanGuarded("jpg", src, 0, func(n int64) (func(), error) { asked = n; return func() { released = true }, nil }); err != nil {
+		t.Fatal(err)
+	}
+	if asked < 64*32*4 || !released {
+		t.Errorf("asked for %d, released %v", asked, released)
+	}
+	busy := errors.New("busy")
+	if _, _, err := CleanGuarded("jpg", src, 0, func(int64) (func(), error) { return nil, busy }); !errors.Is(err, busy) {
+		t.Errorf("a refusing guard: %v", err)
+	}
+	// an upright photo decodes nothing: the guard is not asked
+	called := false
+	if _, _, err := CleanGuarded("jpg", withSegments(t, encodeJPEG(t, blocks(64, 32)), seg(0xE1, exif(1, ""))), 0, func(int64) (func(), error) { called = true; return func() {}, nil }); err != nil || called {
+		t.Errorf("upright: %v called=%v", err, called)
 	}
 }

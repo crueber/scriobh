@@ -78,6 +78,8 @@ type Remote struct {
 	Audience        string     `json:"audience" enum:"public,private" desc:"public: only what a reader of the book sees. private: the full mirror."`
 	OnlyDone        bool       `json:"only_done" desc:"A public remote carries only documents whose status is done."`
 	SignCommits     bool       `json:"sign_commits" desc:"Commits of this remote are signed with the project's signing key."`
+	Exposed         bool       `json:"exposed" desc:"The remote is public, was made by the publish flow, or sits at an address that was ever public: a change that lets more reach it needs a person at a browser and its name typed."`
+	IncludeCover    bool       `json:"include_cover" desc:"The push carries the project's own cover (the layout and its pictures). On for a private remote; off for a public one until a person turns it on."`
 	CreatedVia      string     `json:"created_via,omitempty" desc:"publish: made by repo.publish."`
 	RestorePaused   bool       `json:"restore_paused" desc:"A restore paused this remote. Only the owner switching it on lifts that: no check, test or restart does."`
 	Setup           []string   `json:"setup" desc:"What is still needed before anything can be pushed: deploy_key, host_key, token. Empty when ready."`
@@ -94,7 +96,7 @@ func (s *Service) view(ctx context.Context, r *remoteRow) Remote {
 		AuthKind: r.AuthKind, Username: r.Username, HasSecret: r.SecretCipher != "", PublicKey: r.PublicKey, PushMode: r.PushMode,
 		IntervalMinutes: r.IntervalMinutes, IncludeNotes: r.IncludeNotes, AuthorName: r.AuthorName, AuthorEmail: r.AuthorEmail,
 		Enabled: r.Enabled, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt, Setup: setupMissing(r),
-		Audience: r.Audience, OnlyDone: r.OnlyDone, SignCommits: r.SignCommits, CreatedVia: r.CreatedVia, RestorePaused: r.RestorePaused}
+		Audience: r.Audience, OnlyDone: r.OnlyDone, SignCommits: r.SignCommits, CreatedVia: r.CreatedVia, RestorePaused: r.RestorePaused, IncludeCover: r.IncludeCover, Exposed: s.exposed(ctx, r)}
 	if v.Setup == nil {
 		v.Setup = []string{}
 	}

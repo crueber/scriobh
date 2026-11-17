@@ -49,7 +49,7 @@ var optionLayout = []struct{ group, keys string }{
 	{"output", "format crop_marks"},
 	{"page", "page_size font font_size line_spacing justify hyphenate indent_inches space_after_pt"},
 	{"margins", "margin_inches margin_top margin_bottom margin_inside margin_outside gutter_inches"},
-	{"title", "title_page title_layout byline contact word_count cover language"},
+	{"title", "title_page title_layout byline contact word_count cover own_cover language"},
 	{"front", "copyright_page imprint toc"},
 	{"header", "header header_title header_upper running_heads page_numbers"},
 	{"chapters", "chapter_heading chapter_label chapter_start chapter_drop chapter_ornament drop_cap part_pages the_end"},
@@ -72,7 +72,7 @@ var optionOff = map[string]bool{"hyphenate": true}
 
 // optionOn are the switches the writers read with publish.On: unset is on. A Word preset leaves the print switches
 // unset, so when its kind of file is changed to a PDF the form must show them on, as the file will have them.
-var optionOn = map[string]bool{"front_matter": true, "back_matter": true, "title_page": true, "part_pages": true, "cover": true, "contact": true, "running_heads": true, "toc": true, "copyright_page": true}
+var optionOn = map[string]bool{"front_matter": true, "back_matter": true, "title_page": true, "part_pages": true, "cover": true, "own_cover": true, "contact": true, "running_heads": true, "toc": true, "copyright_page": true}
 
 // compileOptionDescs reads the options out of compile.preview's input schema.
 func (s *Server) compileOptionDescs() []optionDesc {

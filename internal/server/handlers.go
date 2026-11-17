@@ -2,9 +2,14 @@ package server
 
 import (
 	"errors"
+	"io"
+	"mime"
+	"mime/multipart"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/crueber/scriobh/internal/auth"
 	"github.com/crueber/scriobh/internal/domain/projects"
@@ -275,5 +280,188 @@ func (s *Server) uiRoute(pattern string, h http.HandlerFunc) {
 			return
 		}
 		h(w, r)
+	})
+}
+
+// bodySlotCount is how many pictures' bodies the server reads at once through uiRouteStream. A body is read a part at a
+// time and one picture is held while it is checked, so two at once is at most two pictures and their cleaning.
+const bodySlotCount = 2
+
+// The pace a cover body must keep: no more than bodyIdle spent waiting for a byte (a connection that sends nothing for
+// that long is dropped, however much time the absolute limits would leave), no more than bodyCeiling in all, and, once
+// bodyGrace of waiting has gone by, an average of at least bodyFloor bytes for each second spent waiting. The ceiling lets
+// a writer on a slow uplink send a 25 MB picture for as long as bytes keep coming; the floor is what stops a sender who
+// dribbles a byte every few seconds, never idle for long enough to be dropped, from holding a place until the ceiling.
+// writeGrace is what the reply may take after the last allowed moment.
+//
+// The floor is 32 KiB/s: a picture of the default largest size (25 MiB) at that rate takes 13.3 minutes, inside the
+// ceiling, so a real slow uplink that can finish a largest picture at all is never below it; a slower one could not
+// finish it inside 15 minutes anyway (25 MiB in 15 minutes is 28.4 KiB/s). It is measured over the time spent waiting
+// inside Read, never over the time the server spends working between reads.
+const (
+	bodyIdle    = 15 * time.Second
+	bodyCeiling = 15 * time.Minute
+	bodyGrace   = 30 * time.Second
+	bodyFloor   = 32 << 10 // bytes a second
+	writeGrace  = time.Minute
+)
+
+// errTooSlow ends a body that outlived its ceiling or kept below the floor.
+var errTooSlow = errors.New("the upload took longer than the server allows")
+
+// pacedBody is a request body whose read deadline follows its progress: http.Server's ReadTimeout is an absolute limit
+// for the whole request, which a slow uplink would run into and a trickling sender would hold a slot until, so for this
+// route each Read is given bodyIdle to be answered (up to a ceiling), and a sender who stays below a floor is dropped.
+// The deadline is set when a Read starts, not when bytes last arrived, so the limits measure the time spent waiting for the
+// sender and not the time the server spends on what it has already read.
+type pacedBody struct {
+	io.ReadCloser
+	rc            *http.ResponseController
+	start         time.Time
+	idle, ceiling time.Duration
+	grace         time.Duration // waiting before the floor applies
+	floor         int64         // bytes a second, over the time spent waiting
+	waited        time.Duration // spent inside Read so far
+	got           int64
+	done          bool
+}
+
+// arm sets the write deadline once (the reply, however long the body took).
+func (b *pacedBody) arm() {
+	_ = b.rc.SetWriteDeadline(b.start.Add(b.ceiling + writeGrace))
+}
+
+func (b *pacedBody) Read(p []byte) (int, error) {
+	if b.done {
+		return b.ReadCloser.Read(p)
+	}
+	now := time.Now()
+	if now.Sub(b.start) > b.ceiling {
+		return 0, errTooSlow
+	}
+	dl := now.Add(b.idle)
+	if end := b.start.Add(b.ceiling); dl.After(end) {
+		dl = end
+	}
+	_ = b.rc.SetReadDeadline(dl)
+	n, err := b.ReadCloser.Read(p)
+	b.waited += time.Since(now)
+	b.got += int64(n)
+	switch {
+	case err == io.EOF:
+		// the body is whole: no read deadline may cancel the request while it is being worked on
+		b.done = true
+		_ = b.rc.SetReadDeadline(time.Time{})
+	case err == nil && b.floor > 0 && b.waited > b.grace && float64(b.got) < float64(b.floor)*b.waited.Seconds():
+		return 0, errTooSlow
+	}
+	return n, err
+}
+
+// bodyOwner holds the users who have a cover body being read, one each.
+type bodyOwner struct {
+	mu sync.Mutex
+	in map[string]bool
+}
+
+func (o *bodyOwner) take(user string) bool {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	if o.in[user] {
+		return false
+	}
+	if o.in == nil {
+		o.in = map[string]bool{}
+	}
+	o.in[user] = true
+	return true
+}
+
+func (o *bodyOwner) release(user string) {
+	o.mu.Lock()
+	delete(o.in, user)
+	o.mu.Unlock()
+}
+
+// uiRouteStream registers a UI route whose form carries pictures (the cover page). It does what uiRoute does in another
+// order, so that nothing of a large body costs anything for someone who may not send it:
+//
+//  1. the session;
+//  2. authorize, the route's own check of the project and the caller's role, which reads no body (it answers the
+//     request itself when it refuses, and may hand back the request with what it learned in its context);
+//  3. the CSRF token, when it is in the X-CSRF-Token header (a wrong one is refused here);
+//  4. a place: one body at a time for each user, and at most bodySlotCount at once in all, so that one person cannot hold
+//     every place; when there is none, busy answers (429) in the page's own words;
+//  5. the body's pace (pacedBody): a read deadline that moves with the bytes, in place of the absolute ReadTimeout;
+//  6. the CSRF token when it is the form's first field, which must be _csrf (a small field, read with a limit);
+//  7. only then the body: h reads it a part at a time from the multipart reader (nil for a form that is not multipart,
+//     whose fields are already in r.PostForm). Nothing of a multipart body is parsed whole, and no part goes to a file.
+//
+// A route that does not carry pictures uses uiRoute.
+func (s *Server) uiRouteStream(pattern string, authorize func(http.ResponseWriter, *http.Request) (*http.Request, bool),
+	busy func(w http.ResponseWriter, r *http.Request, own bool), h func(http.ResponseWriter, *http.Request, *multipart.Reader)) {
+	s.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
+		if !s.principal(r).Authenticated() {
+			s.fail(w, r, ops.Unauthenticated())
+			return
+		}
+		r, ok := authorize(w, r)
+		if !ok {
+			return
+		}
+		expired := ops.Forbidden("This form expired. Reload the page and try again.")
+		a := authFrom(r.Context())
+		tok := r.Header.Get("X-CSRF-Token")
+		if tok != "" && !(a.SessionID != "" && s.Sess.CheckCSRF(a.SessionID, tok)) {
+			s.fail(w, r, expired)
+			return
+		}
+		user := s.principal(r).UserID
+		if !s.bodyUsers.take(user) {
+			busy(w, r, true)
+			return
+		}
+		defer s.bodyUsers.release(user)
+		select {
+		case s.bodySlots <- struct{}{}:
+			defer func() { <-s.bodySlots }()
+		default:
+			busy(w, r, false)
+			return
+		}
+		pb := &pacedBody{ReadCloser: r.Body, rc: http.NewResponseController(w), start: time.Now(),
+			idle: s.bodyIdle, ceiling: s.bodyCeiling, grace: s.bodyGrace, floor: s.bodyFloor}
+		pb.arm()
+		r.Body = pb
+		if mt, _, err := mime.ParseMediaType(r.Header.Get("Content-Type")); err != nil || mt != "multipart/form-data" {
+			if err := r.ParseForm(); err != nil {
+				s.fail(w, r, ops.Invalid("", "The form could not be read."))
+				return
+			}
+			if !s.checkCSRF(r) {
+				s.fail(w, r, expired)
+				return
+			}
+			h(w, r, nil)
+			return
+		}
+		mr, err := r.MultipartReader()
+		if err != nil {
+			s.fail(w, r, ops.Invalid("", "The form could not be read."))
+			return
+		}
+		if tok == "" {
+			part, err := mr.NextPart()
+			if err != nil || part.FormName() != "_csrf" || part.FileName() != "" {
+				s.fail(w, r, expired)
+				return
+			}
+			b, _ := io.ReadAll(io.LimitReader(part, 256))
+			if !(a.SessionID != "" && s.Sess.CheckCSRF(a.SessionID, string(b))) {
+				s.fail(w, r, expired)
+				return
+			}
+		}
+		h(w, r, mr)
 	})
 }

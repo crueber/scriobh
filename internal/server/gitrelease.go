@@ -19,7 +19,7 @@ func (s *Server) gitCompiler() gitmirror.Compiler {
 		if req.Format == "md_bundle" {
 			return nil, errors.New("the Markdown bundle is built by the Git service from the reader's view, not by an export")
 		}
-		out, err := s.Reg.Call(ctx, p, "export.compile", compile.CompileIn{ProjectID: req.ProjectID, Preset: req.Preset, Options: publish.Options{Notes: "none", Ghosts: "omit"}})
+		out, err := s.Reg.Call(ctx, p, "export.compile", compile.CompileIn{ProjectID: req.ProjectID, Preset: req.Preset, Options: publish.Options{Notes: "none", Ghosts: "omit", OwnCover: &req.IncludeCover}})
 		if err != nil {
 			return nil, err
 		}

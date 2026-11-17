@@ -390,7 +390,8 @@
   });
   slot.addEventListener("click", function (e) {
     if (dragged) { dragged = false; e.preventDefault(); return; }
-    var r = e.target.closest(".tree-row");
+    var cv = e.target.closest(".tree-cover"), r = e.target.closest(".tree-row");
+    if (cv && !(e.metaKey || e.ctrlKey || e.shiftKey || e.button)) { e.preventDefault(); W.go(cv.getAttribute("href")); return; } // the fixed Cover row: leave only when the text is saved
     if (!r) return;
     if (e.target.closest(".tree-more")) { e.preventDefault(); openMenu(r); return; }
     if (e.target.closest(".twist")) { toggle(r, r.getAttribute("aria-expanded") === "false"); return; }

@@ -726,11 +726,11 @@ func (m *Mirror) flush(ctx context.Context, id string, force bool) (changed bool
 		}
 		return false, err
 	}
-	exFiles, ext, metas, err := m.extras(ctx, id)
+	exFiles, ext, metas, cov, err := m.extras(ctx, id)
 	if err != nil {
 		return false, err
 	}
-	files, err := renderWith(snap, metas)
+	files, err := renderWith(snap, metas, cov)
 	if err != nil {
 		return false, err
 	}
@@ -965,9 +965,9 @@ func staleRoots(id string, carry bool) []string {
 		return []string{"entities", researchDir, attachmentsDir}
 	}
 	if carry {
-		return []string{"manuscript", "notes", researchDir, stashDir, attachmentsDir, strings.TrimSuffix(projectResearch, "/")}
+		return []string{"manuscript", "notes", researchDir, stashDir, attachmentsDir, coverDir, strings.TrimSuffix(projectResearch, "/")}
 	}
-	return []string{"manuscript", "notes", researchDir, stashDir, attachmentsDir, "compendium"}
+	return []string{"manuscript", "notes", researchDir, stashDir, attachmentsDir, coverDir, "compendium"}
 }
 
 // pruneEmpty removes dir and its parents up to base while they are empty.

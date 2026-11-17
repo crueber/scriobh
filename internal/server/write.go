@@ -42,6 +42,22 @@ type treeView struct {
 	CanEdit                    bool
 	CSRF                       string
 	Lang                       string // the language of the row's words (English when empty)
+	Cover                      treeCover
+}
+
+// treeCover is the fixed Cover row above the first document: the project's own cover as a thumbnail, or its colour.
+type treeCover struct {
+	Class string // the cover colour's class
+	Thumb string // the thumbnail's address, empty for the generated cover
+}
+
+// T is a message in the language of the row's words, for the fixed Cover row.
+func (v treeView) T(key string, args ...any) string {
+	lang := v.Lang
+	if lang == "" {
+		lang = "en"
+	}
+	return stT{lang}.T(key, args...)
 }
 
 // TargetText says a document's word target for a screen reader; the row shows it as "/2,000" after the count.
@@ -166,7 +182,7 @@ func buildTree(items []docs.Meta, order []string, p projects.Project, current st
 			a = parentOf(byID[a])
 		}
 	}
-	tv := treeView{ProjectID: p.ID, Slug: p.Slug, CurrentID: current, Total: project, CanEdit: canEdit, CSRF: csrf}
+	tv := treeView{ProjectID: p.ID, Slug: p.Slug, CurrentID: current, Total: project, CanEdit: canEdit, CSRF: csrf, Cover: treeCover{Class: coverClass(p.CoverColor), Thumb: p.CoverThumb}}
 	pos, num := map[string]int{}, chapterCounter{}
 	for _, id := range order {
 		m, ok := byID[id]

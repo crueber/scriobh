@@ -94,6 +94,11 @@ type Input struct {
 	Resolve func(dests []string) map[string]Image
 	// CoverSVG is the generated cover, used when Options.ShowCover is on.
 	CoverSVG []byte
+	// CoverImage is the project's own cover, a JPEG of CoverImageW by CoverImageH pixels with CoverAlt as its
+	// description, used instead of CoverSVG when Options.ShowCover is on and there is one.
+	CoverImage               []byte
+	CoverImageW, CoverImageH int
+	CoverAlt                 string
 	// Reserved are addresses pinned to documents that are not in this build (a
 	// post that went back to draft): no new document takes one, so the address
 	// is there when the document returns.

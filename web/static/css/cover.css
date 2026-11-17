@@ -1,0 +1,139 @@
+/* The cover page: the choices beside a preview of the front. Flat fills, hairline rules, the theme's tokens, logical
+   properties. Which controls show follows the choice made (:has on the checked radio): a browser without :has drops the
+   rule and shows every control, which still works. At 390 px the preview comes first, above the choices. */
+.cv { max-inline-size: 76rem; }
+.cv-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-5); }
+.cv-preview { order: -1; }
+@media (min-width: 1000px) {
+  .cv-grid { grid-template-columns: minmax(0, 40rem) minmax(0, 24rem); align-items: start; justify-content: space-between; }
+  .cv-preview { order: 0; position: sticky; inset-block-start: var(--s-4); }
+}
+.cv h2 { font: 400 var(--text-lg)/var(--lh-lg) var(--font-prose); margin: 0 0 var(--s-2); }
+.cv h3 { font: 600 var(--text-base)/var(--lh-base) var(--font-ui); margin: var(--s-4) 0 var(--s-2); }
+.cv .settings section, .cv section { margin-block-start: var(--s-5); }
+
+.cv-error { margin: var(--s-3) 0; padding: var(--s-2) var(--s-3); border-inline-start: 3px solid var(--danger); background: var(--surface-2); color: var(--fg); }
+.cv-error p { margin: 0 0 var(--s-1); }
+.cv-error p:last-child { margin: 0; }
+.cv-note { margin: var(--s-3) 0; padding: var(--s-2) var(--s-3); border-inline-start: 3px solid var(--accent); background: var(--surface-2); }
+.cv-warnings { margin: var(--s-3) 0; padding: var(--s-2) var(--s-3); border: 0; border-inline-start: 3px solid var(--warn); background: var(--surface-2); font-size: var(--text-sm); }
+.cv-warnings h2 { font: 600 var(--text-sm)/var(--lh-sm) var(--font-ui); margin: 0 0 var(--s-1); }
+.cv-warnings ul { margin: 0; padding: 0; list-style: none; }
+.cv-warnings li + li { margin-block-start: var(--s-1); }
+.cv .cv-error:focus { outline-offset: 2px; }
+
+.cv-form { display: flex; flex-direction: column; gap: var(--s-4); margin-block-start: var(--s-3); }
+.cv fieldset { min-inline-size: 0; margin: 0; padding: var(--s-3); border: 1px solid var(--line); border-radius: var(--r-1); }
+.cv legend { padding: 0 var(--s-1); font: 600 var(--text-sm)/var(--lh-sm) var(--font-ui); color: var(--fg-2); }
+.cv fieldset.cv-bare { padding: 0; border: 0; }
+.cv .cv-bare legend { padding: 0; font-weight: 500; }
+.cv-shape { display: flex; flex-direction: column; gap: var(--s-1); }
+.cv-choice { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: var(--s-2); min-block-size: var(--target); padding: var(--s-2); border: 1px solid transparent; border-radius: var(--r-1); cursor: pointer; }
+.cv-choice:hover { background: var(--surface-2); }
+.cv-choice:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.cv-choice input { margin: 3px 0 0; }
+.cv-choice strong { display: block; font-weight: 600; }
+.cv-choice .fine { display: block; }
+.cv-modes, .cv-fits { display: flex; flex-wrap: wrap; gap: var(--s-1); margin-block-end: var(--s-1); }
+.cv-mode { display: inline-flex; align-items: center; gap: var(--s-1); min-block-size: var(--target); padding: 0 var(--s-3) 0 var(--s-2); border: 1px solid var(--field-line); border-radius: var(--r-1); cursor: pointer; }
+.cv-mode:hover { background: var(--surface-2); }
+.cv-mode:has(input:checked) { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); font-weight: 600; }
+.cv-mode:has(input:focus-visible), .cv-choice:has(input:focus-visible), .cv-cell:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cv-mode input, .cv-choice input { accent-color: var(--accent); }
+.cv-modes[aria-invalid="true"] { outline: 1px solid var(--danger); outline-offset: 3px; }
+
+.cv-side { display: flex; flex-direction: column; gap: var(--s-2); }
+.cv-side + .cv-side { margin-block-start: var(--s-3); }
+.cv-drop { padding: var(--s-3); border: 1px dashed var(--field-line); border-radius: var(--r-1); }
+.cv-drop.is-over { border-style: solid; border-color: var(--accent); background: var(--accent-soft); }
+.cv-drop .field { margin: 0; }
+.cv-bleedrow { margin-block: var(--s-3); }
+.cv-versions { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: var(--s-3); margin: var(--s-3) 0; }
+.cv-versions section { padding: var(--s-2) var(--s-3); border: 1px solid var(--line-2); border-radius: var(--r-1); }
+.cv-versions h2 { font: 600 var(--text-sm)/var(--lh-sm) var(--font-ui); margin: 0; }
+.cv-versions .fine { margin: 0 0 var(--s-2); }
+.cv-versions .cv-facts { margin: 0; }
+.cv-ver-img { display: block; width: 4rem; height: auto; margin: 0 0 var(--s-2); }
+.cv-have { margin: var(--s-1) 0 0; font-size: var(--text-sm); color: var(--fg-2); }
+.cv-page { display: flex; flex-direction: column; gap: var(--s-3); padding-block-start: var(--s-2); border-block-start: 1px solid var(--line-2); }
+.cv-nums { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.cv textarea { inline-size: 100%; min-block-size: 4.5rem; padding: var(--s-2) var(--s-3); border: 1px solid var(--field-line); border-radius: var(--r-1); background: var(--surface); color: var(--fg); font: inherit; resize: vertical; }
+.cv input[type="number"] { inline-size: 100%; padding: 0 var(--s-3); border: 1px solid var(--field-line); border-radius: var(--r-1); background: var(--surface); color: var(--fg); }
+.cv .field:has(select)::after { content: none; }
+.cv-selbox { position: relative; }
+.cv-selbox::after { content: ""; position: absolute; inset-inline-end: 14px; inset-block-start: calc(50% - 5px); inline-size: 6px; block-size: 6px; border-inline-end: 1.5px solid var(--muted); border-block-end: 1.5px solid var(--muted); transform: rotate(45deg); pointer-events: none; }
+.cv input[type="file"]::file-selector-button { min-block-size: var(--target); margin-inline-end: var(--s-3); padding: 0 var(--s-3); border: 1px solid var(--field-line); border-radius: var(--r-1); background: var(--surface); color: var(--fg); font: 500 var(--text-sm)/1 var(--font-ui); cursor: pointer; }
+.cv input[type="file"]::file-selector-button:hover { background: var(--surface-2); }
+.cv input[type="file"] { max-inline-size: 100%; min-block-size: var(--target); padding-block: 6px; font: inherit; color: var(--fg-2); }
+.cv [aria-invalid="true"] { border-color: var(--danger); }
+
+.cv-cells { display: grid; grid-template-columns: repeat(3, var(--target)); gap: 4px; inline-size: max-content; margin-block-start: var(--s-1); }
+.cv-cell { position: relative; display: grid; place-items: center; inline-size: var(--target); block-size: var(--target); border: 1px solid var(--field-line); border-radius: var(--r-1); background: var(--surface); cursor: pointer; }
+.cv-cell:hover { background: var(--surface-2); }
+.cv-cell input { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.cv-dot { inline-size: 10px; block-size: 10px; border: 1.5px solid var(--muted); border-radius: 50%; }
+.cv-cell:has(input:checked) { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.cv-cell input:checked ~ .cv-dot { inline-size: 14px; block-size: 14px; border-color: var(--accent); background: var(--accent); }
+.cv .swatch input:checked + .chip { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--fg); }
+
+/* what is shown follows what is chosen */
+.cv-form:has(#cv-shape-generated:checked) :is(.cv-trimrow, .cv-sides, .cv-wrap, .cv-altrow) { display: none; }
+.cv-form:has(#cv-shape-sides:checked) .cv-wrap { display: none; }
+.cv-form:has(#cv-shape-wrap:checked) .cv-sides { display: none; }
+.cv-side:not(:has(.cv-m-image:checked, .cv-m-page:checked)) :is(.cv-pick, .cv-have) { display: none; }
+.cv-side:not(:has(.cv-m-page:checked)) .cv-page { display: none; }
+
+.cv-actions { justify-content: flex-start; }
+.cv-clear { padding-block-start: var(--s-4); border-block-start: 1px solid var(--line); }
+.cv-facts { margin: 0 0 var(--s-3); display: grid; gap: var(--s-1); font-size: var(--text-sm); }
+.cv-facts div { display: grid; grid-template-columns: 10rem minmax(0, 1fr); gap: var(--s-2); }
+.cv-facts dt { color: var(--muted); }
+.cv-facts dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .cv-facts div { grid-template-columns: 1fr; } .cv-nums { grid-template-columns: 1fr; } }
+
+/* the preview: the front at the library's size and at a page's size */
+.cv-preview h2 { margin-block-start: 0; }
+.cv-pv-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--s-4); }
+.cv-preview figure { margin: 0; }
+.cv-preview figcaption { margin-block-start: var(--s-1); font-size: var(--text-xs); line-height: var(--lh-xs); color: var(--muted); }
+.cv-pv-tile { inline-size: 9rem; }
+.cv-pv-tile .cover { inline-size: 100%; }
+.cv-pv-page { inline-size: min(100%, 17rem); flex: 1 1 12rem; }
+.cv-pv-back { inline-size: 9rem; }
+.cv-frame { position: relative; inline-size: 100%; aspect-ratio: 2 / 3; overflow: hidden; background: var(--surface-2); border: 1px solid var(--line); border-radius: 2px; }
+.cv-frame[data-trim="5.5x8.5"] { aspect-ratio: 5.5 / 8.5; }
+.cv-frame[data-trim="5.25x8"] { aspect-ratio: 5.25 / 8; }
+.cv-frame[data-trim="5x8"] { aspect-ratio: 5 / 8; }
+.cv-frame[data-trim="a5"] { aspect-ratio: 148 / 210; }
+.cv-frame[data-trim="letter"] { aspect-ratio: 8.5 / 11; }
+.cv-frame[data-trim="a4"] { aspect-ratio: 210 / 297; }
+.cv-frame img, .cv-frame .cv-svg { display: block; inline-size: 100%; block-size: 100%; object-fit: contain; }
+.cv-frame .cv-generated { inline-size: 100%; block-size: 100%; aspect-ratio: auto; border-radius: 0; }
+.cv-frame .cv-generated[hidden] { display: none; }
+.cv-bg { fill: var(--cover); }
+
+/* the wrap and its cut lines: two strokes, a paper-coloured one under an ink-coloured one, so the line shows on any picture */
+.cv-art { margin: var(--s-3) 0 0; }
+.cv-wrapsvg { display: block; inline-size: 100%; block-size: auto; border: 1px solid var(--line); background: var(--surface-2); }
+.cv-halo, .cv-line { fill: none; vector-effect: non-scaling-stroke; }
+.cv-halo * , .cv-line * { fill: none; vector-effect: non-scaling-stroke; }
+.cv-halo * { stroke: var(--surface); stroke-width: 5px; }
+.cv-line * { stroke: var(--fg); stroke-width: 2px; }
+.cv-halo .cv-g-fold, .cv-line .cv-g-fold { stroke-dasharray: 10 6; }
+.cv-halo .cv-g-margin, .cv-line .cv-g-margin { stroke-dasharray: 2 5; }
+.cv-lbl { fill: var(--fg); stroke: var(--surface); stroke-width: .16em; paint-order: stroke; font-family: var(--font-ui); font-weight: 600; }
+.cv-key { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-4); margin: var(--s-2) 0 var(--s-1); padding: 0; list-style: none; font-size: var(--text-sm); color: var(--fg-2); }
+.cv-key li { display: flex; align-items: center; gap: var(--s-2); }
+.cv-sw { display: inline-block; inline-size: 28px; block-size: 0; border-block-start: 2px solid var(--fg); }
+.cv-sw-fold { border-block-start-style: dashed; }
+.cv-sw-margin { border-block-start-style: dotted; }
+@media (forced-colors: active) { .cv-halo * { stroke: Canvas; } .cv-line *, .cv-lbl { stroke: CanvasText; } .cv-lbl { fill: CanvasText; stroke: Canvas; } .cv-mode:has(input:checked), .cv-cell:has(input:checked), .cv-choice:has(input:checked) { outline: 2px solid Highlight; } }
+
+/* at phone width the preview stays above the choices but small, in one row, so the controls are not pushed off the screen */
+@media (max-width: 600px) {
+  .cv-pv-row { flex-wrap: nowrap; gap: var(--s-2); }
+  .cv-pv-tile, .cv-pv-back { flex: 1 1 0; inline-size: auto; min-inline-size: 0; }
+  .cv-pv-page { flex: 1.6 1 0; inline-size: auto; min-inline-size: 0; }
+  .cv-preview figcaption { font-size: 11px; line-height: 14px; }
+}

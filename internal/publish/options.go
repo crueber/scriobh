@@ -58,7 +58,8 @@ type Options struct {
 	WordCount    string   `json:"word_count,omitempty" enum:"about,label,none" desc:"The title page's word count: 'about 80,000 words', 'Word count: 80,000' or none."`
 	Justify      *bool    `json:"justify,omitempty" desc:"Justify the body text (a book; never a manuscript)."`
 	Language     string   `json:"language,omitempty" desc:"Overrides the project's language tag (BCP 47), up to 16 characters."`
-	Cover        *bool    `json:"cover,omitempty" desc:"EPUB: include the generated cover (default true)."`
+	OwnCover     *bool    `json:"own_cover,omitempty" desc:"EPUB: use the project's own cover (project.cover_layout.get) when it has one. Default true; false puts the generated cover in its place. A release for a public Git remote follows that remote's include_cover."`
+	Cover        *bool    `json:"cover,omitempty" desc:"EPUB: put the cover first: a cover page and the cover image the shops and readers use. It is the project's own cover when it has one (project.cover_layout.get), else the generated cover. Default true. KDP takes the cover as a separate upload and asks for no cover page in the file, so turn this off for a file bound for KDP."`
 	Contact      *bool    `json:"contact,omitempty" desc:"DOCX manuscript title page: show your contact block (default true). false leaves the block off the page and leaves the word count top right."`
 	Clear        []string `json:"clear,omitempty" desc:"Options to reset to empty when this is laid over a preset: byline, header_title, ornament, language, chapter_label, imprint. An empty string in a field means 'not set', so this is how to clear one."`
 
@@ -139,7 +140,7 @@ func Merge(base, over Options) Options {
 	}
 	out := base
 	// copy the base's pointers so the result shares nothing with it
-	for _, d := range []**bool{&out.FrontMatter, &out.BackMatter, &out.TitlePage, &out.PartPages, &out.TheEnd, &out.SceneTitles, &out.LinkURLs, &out.Justify, &out.Cover, &out.HeaderUpper, &out.Contact, &out.RunningHeads, &out.DropCap, &out.ChapterOrnament, &out.TOC, &out.Hyphenate, &out.CropMarks, &out.CopyrightPage} {
+	for _, d := range []**bool{&out.FrontMatter, &out.BackMatter, &out.TitlePage, &out.PartPages, &out.TheEnd, &out.SceneTitles, &out.LinkURLs, &out.Justify, &out.Cover, &out.OwnCover, &out.HeaderUpper, &out.Contact, &out.RunningHeads, &out.DropCap, &out.ChapterOrnament, &out.TOC, &out.Hyphenate, &out.CropMarks, &out.CopyrightPage} {
 		if *d != nil {
 			x := **d
 			*d = &x
@@ -184,6 +185,7 @@ func Merge(base, over Options) Options {
 	b(&out.HeaderUpper, over.HeaderUpper)
 	s(&out.Language, over.Language)
 	b(&out.Cover, over.Cover)
+	b(&out.OwnCover, over.OwnCover)
 	b(&out.Contact, over.Contact)
 	p(&out.MarginTop, over.MarginTop)
 	p(&out.MarginBottom, over.MarginBottom)

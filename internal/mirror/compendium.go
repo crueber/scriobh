@@ -95,7 +95,7 @@ func (m *Mirror) flushCompendium(ctx context.Context, p *project, id string, st 
 		return ch, true, err
 	}
 	files := set.MirrorFiles()
-	exFiles, ext, _, err := m.extras(ctx, id)
+	exFiles, ext, _, _, err := m.extras(ctx, id)
 	if err != nil {
 		return false, false, err
 	}

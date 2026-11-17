@@ -1,6 +1,6 @@
 [package]
 name = "scriobh-desktop"
-version = "2.0.0"
+version = "2.2.0"
 description = "The desktop shell for Scríobh: a window around the unchanged server binary"
 edition = "2021"
 rust-version = "1.85"

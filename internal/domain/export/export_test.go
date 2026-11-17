@@ -31,6 +31,7 @@ import (
 
 type fx struct {
 	t        *testing.T
+	dir      string
 	d        *db.DB
 	reg      *ops.Registry
 	ctx      context.Context
@@ -43,7 +44,8 @@ type fx struct {
 func newFx(t *testing.T, title string) *fx {
 	t.Helper()
 	d := testutil.DB(t)
-	f := &fx{t: t, d: d, ctx: context.Background(), reg: registry.Build(d, events.NewStore(d, nil), t.TempDir())}
+	dir := t.TempDir()
+	f := &fx{t: t, dir: dir, d: d, ctx: context.Background(), reg: registry.Build(d, events.NewStore(d, nil), dir)}
 	f.owner = ops.Principal{UserID: testutil.User(t, d, "writer", "o@t.local"), Role: ops.RoleWriter}
 	f.reader = ops.Principal{UserID: testutil.User(t, d, "reader", "r@t.local"), Role: ops.RoleReader}
 	f.outsider = ops.Principal{UserID: testutil.User(t, d, "writer", "x@t.local"), Role: ops.RoleWriter}

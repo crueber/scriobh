@@ -20,7 +20,8 @@
 # (`make release-dist VERSION=v1.2.3`), so what is published can be checked against a local build.
 #
 # THE DESKTOP LEGS, and what each one does on GitHub's own runners:
-#   linux-x86_64     the Linux .deb through `tauri build`, and an AppImage that may fail
+#   linux-x86_64     the Linux .deb through `tauri build`, and an AppImage that may fail; both are named for the tag
+#                    (Scriobh_<version>_amd64.deb, linux-deb.sh `name` and `appimage`), as the other platforms' are
 #   macos-*          desktop/scripts/build-macos.sh, the script the development forge's macOS job runs too: server, Tauri
 #                    command line, build, ad-hoc signature, checks, and a .dmg named Scriobh_<version>_<aarch64|x86_64>.dmg
 #   windows-x86_64   a NATIVE `tauri build --bundles nsis` on windows-latest (the forge cross-compiles with
@@ -229,6 +230,15 @@ jobs:
           VERSION: ${{ needs.plan.outputs.version }}
         run: bash ../tools/desktop/scripts/linux-deb.sh appimage
 
+      # The Tauri bundler names the .deb for the app's own version (Scriobh_2.2.0_amd64.deb). The release names it for
+      # the tag, as the macOS and Windows files are (linux-deb.sh name; a WARNING when the tag is not the app's
+      # version). The AppImage step above has done the same for the AppImage, if it built.
+      - name: Name the Linux packages for the release
+        if: runner.os == 'Linux'
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: bash ../tools/desktop/scripts/linux-deb.sh name
+
       # upload-artifact roots an artifact at the common parent of everything it uploads, so packages uploaded from
       # their bundle folders would arrive in the release job nested (deb/x.deb, dmg/y.dmg) and `merge-multiple`
       # would keep that nesting. They are copied flat into out/ and that is what is uploaded.
@@ -308,7 +318,7 @@ jobs:
 
           - `scriobh-@TAG@-<os>-<arch>.tar.gz` (`.zip` on Windows): the production server `scriobh` and the agent CLI `scriobh-cli`, with LICENSE, NOTICE and README.md. Linux on amd64, arm64, arm (ARMv7), 386, riscv64 and ppc64le, macOS on Intel and Apple silicon, Windows on amd64, arm64 and 386, FreeBSD on amd64 and arm64, OpenBSD on amd64 and NetBSD on amd64. Only the macOS one for Apple silicon has been run; the rest are cross-compiled. Static programs (no CGO); the server is the `prod` build, which has no development sign-in.
           - `SHA256SUMS.txt`: the SHA-256 of every archive above. Check with `sha256sum -c SHA256SUMS.txt` (`shasum -a 256 -c` on macOS).
-          - The desktop app, for the platforms whose build succeeded, with `SHA256SUMS-desktop.txt`. Read docs/DESKTOP.md before relying on it. Linux: the `.deb` (and an AppImage when that build worked). Windows: `scriobh-desktop-@TAG@-windows-amd64-setup.exe`, an installer for 64-bit Windows 10 and 11, built on a Windows runner. macOS: `Scriobh_<version>_aarch64.dmg` (Apple silicon) and `Scriobh_<version>_x86_64.dmg` (Intel), where `<version>` is this release's tag without its `v`.
+          - The desktop app, for the platforms whose build succeeded, with `SHA256SUMS-desktop.txt`. Read docs/DESKTOP.md before relying on it. Linux: `Scriobh_<version>_amd64.deb` (and `Scriobh_<version>_amd64.AppImage` when that build worked), where `<version>` is this release's tag without its `v`. Windows: `scriobh-desktop-@TAG@-windows-amd64-setup.exe`, an installer for 64-bit Windows 10 and 11, built on a Windows runner. macOS: `Scriobh_<version>_aarch64.dmg` (Apple silicon) and `Scriobh_<version>_x86_64.dmg` (Intel), where `<version>` is this release's tag without its `v`.
           - The container image, built by the image workflow from the same tag push, so check the repository's Packages before relying on it: `ghcr.io/crueber/scriobh:@TAG@`.
 
           **Nothing is signed.** There are no signatures, no notarisation and no signing certificate: the checksum lists come from the same place as the files, so they detect a damaged download and prove nothing about who made it. Check the checksum first. macOS and Windows will warn:
@@ -332,6 +342,22 @@ jobs:
             cat err.txt >&2; exit 1
           fi
           gh release upload "$TAG" dist/* --clobber
+          # A re-run of a tag first published under the old Linux names (the app's own version) would leave two .deb
+          # files: when this run has a Linux package, delete the Release's Linux assets that it is not uploading (the
+          # forge's --prune 'Scriobh_*_amd64.*'). A run whose Linux leg failed has none and prunes nothing, so an older
+          # good package is kept.
+          if compgen -G 'desktop/Scriobh_*_amd64.deb' >/dev/null; then
+            gh release view "$TAG" --json assets --jq '.assets[].name' >assets.txt
+            while IFS= read -r name; do
+              case "$name" in
+                Scriobh_*_amd64.*)
+                  if [ ! -e "desktop/$name" ]; then
+                    echo "removing the stale Linux asset $name (this run is not uploading it)"
+                    gh release delete-asset "$TAG" "$name" --yes
+                  fi ;;
+              esac
+            done <assets.txt
+          fi
           files=(desktop/*)
           if [ ${#files[@]} -gt 0 ]; then gh release upload "$TAG" "${files[@]}" --clobber; fi
 

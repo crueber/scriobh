@@ -58,6 +58,8 @@ var roleExceptions = map[string]string{
 	"search.semantic.rebuild": "owner", "search.semantic.purge": "owner",
 	// per-person state that every member may keep, and their own private scratchpad
 	"project.open": "reader", "project.pin": "reader", "project.scratch.set": "reader",
+	// a POST that only reads (it takes a body, a print trim and a profile): the layout it measures is the reader's to see (project.cover_layout.get)
+	"project.cover_layout.check": "reader",
 	// review: reviewers write comments and suggestions and read all of them; deciding is the editor's
 	"comment.create": "reviewer", "comment.delete": "reviewer", "comment.get": "reviewer", "comment.list": "reviewer", "comment.people": "reviewer",
 	"comment.reanchor": "reviewer", "comment.reopen": "reviewer", "comment.resolve": "reviewer", "comment.update": "reviewer",
@@ -100,7 +102,7 @@ func TestEveryProjectOpNeedsTheRoleThePolicySays(t *testing.T) {
 		}
 		n, role := e.Op.Name, e.Op.Auth.Role
 		write := e.Op.Method != http.MethodGet && e.Op.Method != http.MethodHead
-		if role == ops.ProjectReader && write && n != "project.open" && n != "project.pin" && n != "project.scratch.set" && n != "project.unlock" && n != "project.lock" && n != "presence.beat" && n != "presence.leave" {
+		if role == ops.ProjectReader && write && n != "project.open" && n != "project.pin" && n != "project.scratch.set" && n != "project.unlock" && n != "project.lock" && n != "presence.beat" && n != "presence.leave" && n != "project.cover_layout.check" {
 			t.Errorf("%s: a reader can write", n)
 		}
 		if role == ops.ProjectReviewer && !(strings.HasPrefix(n, "comment.") || strings.HasPrefix(n, "suggestion.")) {

@@ -689,7 +689,7 @@ func sortStrings(a []string) {
 
 // gitSavedKeys are the notes shown after a change, as git.saved.<key>.
 var gitSavedKeys = strings.Fields("created settings address enabled disabled keygen hostkey pushed cancelled force acked unacked token deleted " +
-	"audience signing sign_on sign_off trigger trigger_rotated trigger_on trigger_off trigger_deleted")
+	"audience cover signing sign_on sign_off trigger trigger_rotated trigger_on trigger_off trigger_deleted")
 
 func gitSavedText(T tfn, k string) string {
 	for _, x := range gitSavedKeys {
@@ -702,7 +702,7 @@ func gitSavedText(T tfn, k string) string {
 
 var gitOwnerOnly = map[string]bool{"create": true, "settings": true, "address": true, "enable": true, "disable": true, "keygen": true,
 	"hostkey-accept": true, "force": true, "secret-ack": true, "secret-unack": true, "delete": true,
-	"audience": true, "signing-generate": true, "signing-remote": true, "trigger-set": true, "trigger-rotate": true, "trigger-switch": true,
+	"audience": true, "cover": true, "signing-generate": true, "signing-remote": true, "trigger-set": true, "trigger-rotate": true, "trigger-switch": true,
 	"trigger-test": true, "trigger-delete": true}
 
 func formBool(r *http.Request, k string) bool {
@@ -781,7 +781,7 @@ func atoi(s string) int { n, _ := strconv.Atoi(strings.TrimSpace(s)); return n }
 // private (the whole copy), or the done-only filter taken off. For a remote that is public, or was made by the publish
 // flow, that is the change that can put words in a public place, so the page asks for the remote's name first.
 func gitWidens(rem gitmirror.Remote, audience string, onlyDone, notes bool) bool {
-	exposed := rem.Audience == "public" || rem.CreatedVia == "publish"
+	exposed := rem.Exposed || rem.Audience == "public" || rem.CreatedVia == "publish"
 	if !exposed {
 		return false
 	}
@@ -844,6 +844,9 @@ func (s *Server) uiGit(w http.ResponseWriter, r *http.Request) {
 		} else {
 			od := formBool(r, "only_done")
 			in.OnlyDone = &od
+			// a public remote carries the cover only when the person ticks it (and types the name: the op asks)
+			cv := formBool(r, "include_cover")
+			in.IncludeCover = &cv
 		}
 		sc := formBool(r, "sign_commits")
 		in.SignCommits = &sc
@@ -909,6 +912,27 @@ func (s *Server) uiGit(w http.ResponseWriter, r *http.Request) {
 		}
 		if _, err = s.Reg.Call(ctx, p, "git.remote.update", in); err == nil {
 			s.gitRedirect(w, r, proj, "audience", "carries")
+			return
+		}
+	case "cover":
+		var out any
+		if out, err = s.Reg.Call(ctx, p, "git.remote.get", gitmirror.RemoteQuery{ProjectID: proj.ID, RemoteID: rid}); err != nil {
+			break
+		}
+		rem := out.(gitmirror.RemoteItem).Item
+		on := formBool(r, "include_cover")
+		if on == rem.IncludeCover {
+			err = ops.Invalid("include_cover", T("git.err.cover_same"))
+			break
+		}
+		// turning it on for a remote that is, or may be, public lets more reach it: the page asks for the name first
+		// (the op asks too, and refuses an API key)
+		if on && (rem.Exposed || rem.Audience == "public" || rem.CreatedVia == "publish") && strings.TrimSpace(r.PostFormValue("confirm")) != rem.Name {
+			err = ops.Invalid("confirm_cover", T("git.err.widen_confirm", "name", rem.Name))
+			break
+		}
+		if _, err = s.Reg.Call(ctx, p, "git.remote.update", gitmirror.UpdateIn{ProjectID: proj.ID, RemoteID: rid, IncludeCover: &on, ConfirmName: strings.TrimSpace(r.PostFormValue("confirm"))}); err == nil {
+			s.gitRedirect(w, r, proj, "cover", "carries")
 			return
 		}
 	case "address":

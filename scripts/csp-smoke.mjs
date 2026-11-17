@@ -28,6 +28,7 @@ import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline";
+import { flatPng } from "./covers-pictures.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, "..");
@@ -626,6 +627,34 @@ async function main() {
       for (const f of await scanDOM(page)) problem(`live DOM has ${f}`);
       for (const v of await page.evaluate(() => window.__cspViolations ?? [])) problem(`securitypolicyviolation: ${v}`);
     }
+  }
+
+  // 5h2. The cover page: empty, a picture chosen (the form answers with the draft and its SVG preview), page mode's live
+  // preview, saved, the saved page, the tree's Cover row on the writing view and the library's tile with the picture.
+  if (m) {
+    await visit(page, origin, `/p/${m[1]}/cover`, 200, "cover page: empty");
+    begin("cover page: choose a picture, change the page mode, save", "none");
+    const png = flatPng(300, 450, () => [200, 120, 60]); // a picture the page can place: a one-pixel one is under a pixel at 60 percent, which the preview and Save refuse
+    await page.locator("#cv-shape-sides").check();
+    await page.locator("#cv-front-mode input[value=image]").check();
+    const nav = page.waitForNavigation();
+    await page.locator("#cv-front-file").setInputFiles({ name: "smoke.png", mimeType: "image/png", buffer: png });
+    await nav;
+    if (!(await page.locator("#cv-pv-page .cv-svg image").count())) problem("the draft is not drawn on its page");
+    await page.locator("#cv-front-mode input[value=page]").check();
+    await page.locator("#cv-front-scale").fill("60");
+    if (!(await page.locator("#cv-pv-page .cv-svg clipPath").count())) problem("the live preview did not draw the page");
+    for (const f of await scanDOM(page)) problem(`live DOM has ${f}`);
+    for (const v of await page.evaluate(() => window.__cspViolations ?? [])) problem(`securitypolicyviolation: ${v}`);
+    await page.locator("#cv-alt").fill("A flat brown picture");
+    const nav2 = page.waitForNavigation();
+    await page.getByRole("button", { name: "Save the cover" }).click();
+    await nav2;
+    await visit(page, origin, `/p/${m[1]}/cover`, 200, "cover page: saved");
+    await visit(page, origin, `/p/${m[1]}`, 200, "writing view with the tree's Cover row");
+    if (!(await page.locator("#tree-cover img").count())) problem("the tree's Cover row has no thumbnail");
+    await visit(page, origin, `/`, 200, "library with a cover picture");
+    if (!(await page.locator(".tile .cover-image img").count())) problem("the library tile has no picture");
   }
 
   // 5i. The timeline pages: a Compendium with two events, its page, the event form, the check in place, a book's two orders.

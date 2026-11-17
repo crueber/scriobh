@@ -29,22 +29,22 @@ func parseStamp(s string) time.Time {
 const remoteCols = `id, project_id, name, preset, url, branch, path_prefix, auth_kind, username, secret_cipher, public_key, known_hosts,
 	push_mode, interval_minutes, include_notes, author_name, author_email, enabled, state,
 	COALESCE(last_push_at,''), COALESCE(last_attempt_at,''), COALESCE(next_attempt_at,''), last_commit_sha, local_sha, remote_sha, mirror_hash,
-	last_error, last_error_code, fail_count, created_at, updated_at, audience, only_done, sign_commits, created_via, restore_paused`
+	last_error, last_error_code, fail_count, created_at, updated_at, audience, only_done, sign_commits, created_via, restore_paused, include_cover`
 
 type scanner interface{ Scan(dest ...any) error }
 
 func scanRemote(sc scanner) (*remoteRow, error) {
 	var r remoteRow
-	var notes, enabled, onlyDone, sign, paused int
+	var notes, enabled, onlyDone, sign, paused, cover int
 	err := sc.Scan(&r.ID, &r.ProjectID, &r.Name, &r.Preset, &r.URL, &r.Branch, &r.PathPrefix, &r.AuthKind, &r.Username, &r.SecretCipher, &r.PublicKey, &r.KnownHosts,
 		&r.PushMode, &r.IntervalMinutes, &notes, &r.AuthorName, &r.AuthorEmail, &enabled, &r.State,
 		&r.LastPushAt, &r.LastAttemptAt, &r.NextAttemptAt, &r.LastCommitSHA, &r.LocalSHA, &r.RemoteSHA, &r.MirrorHash,
-		&r.LastError, &r.LastErrorCode, &r.FailCount, &r.CreatedAt, &r.UpdatedAt, &r.Audience, &onlyDone, &sign, &r.CreatedVia, &paused)
+		&r.LastError, &r.LastErrorCode, &r.FailCount, &r.CreatedAt, &r.UpdatedAt, &r.Audience, &onlyDone, &sign, &r.CreatedVia, &paused, &cover)
 	if err != nil {
 		return nil, err
 	}
 	r.IncludeNotes, r.Enabled = notes != 0, enabled != 0
-	r.OnlyDone, r.SignCommits, r.RestorePaused = onlyDone != 0, sign != 0, paused != 0
+	r.OnlyDone, r.SignCommits, r.RestorePaused, r.IncludeCover = onlyDone != 0, sign != 0, paused != 0, cover != 0
 	if r.Audience != AudiencePrivate {
 		r.Audience = AudiencePublic // anything unknown is read as the strictest
 	}
@@ -125,11 +125,11 @@ func (s *Service) insertRemote(ctx context.Context, r *remoteRow, createdBy stri
 		}
 		_, err := tx.ExecContext(ctx, `INSERT INTO git_remotes(id, project_id, name, preset, url, branch, path_prefix, auth_kind, username, secret_cipher, public_key, known_hosts,
 			push_mode, interval_minutes, include_notes, author_name, author_email, enabled, state, created_by, created_at, updated_at,
-			audience, only_done, sign_commits, created_via)
-			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			audience, only_done, sign_commits, created_via, include_cover)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 			r.ID, r.ProjectID, r.Name, r.Preset, r.URL, r.Branch, r.PathPrefix, r.AuthKind, r.Username, r.SecretCipher, r.PublicKey, r.KnownHosts,
 			r.PushMode, r.IntervalMinutes, b2i(r.IncludeNotes), r.AuthorName, r.AuthorEmail, b2i(r.Enabled), StateNew, nullIfEmpty(createdBy), r.CreatedAt, r.CreatedAt,
-			r.Audience, b2i(r.OnlyDone), b2i(r.SignCommits), r.CreatedVia)
+			r.Audience, b2i(r.OnlyDone), b2i(r.SignCommits), r.CreatedVia, b2i(r.IncludeCover))
 		return err
 	})
 }
@@ -194,6 +194,7 @@ func (s *Service) saveConfig(ctx context.Context, before, after *remoteRow, stat
 	num("enabled", b2i(before.Enabled), b2i(after.Enabled))
 	str("audience", before.Audience, after.Audience)
 	num("only_done", b2i(before.OnlyDone), b2i(after.OnlyDone))
+	num("include_cover", b2i(before.IncludeCover), b2i(after.IncludeCover))
 	num("sign_commits", b2i(before.SignCommits), b2i(after.SignCommits))
 	num("restore_paused", b2i(before.RestorePaused), b2i(after.RestorePaused))
 	if status {

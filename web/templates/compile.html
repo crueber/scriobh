@@ -49,6 +49,12 @@
       <dl class="cmp-facts" id="cmp-mfacts"></dl>
     </section>
 
+    <section class="cmp-coverpage" id="cmp-coverpage" aria-labelledby="cmp-cp-h">
+      <h2 id="cmp-cp-h">{{$.T "cover.cmp_h"}}</h2>
+      <p class="fine">{{if .Project.CoverLayout}}{{$.T "cover.cmp_state_own"}}{{else}}{{$.T "cover.cmp_state_generated"}}{{end}} {{$.T "cover.cmp_note"}}</p>
+      <p><a class="btn" href="/p/{{.Slug}}/cover">{{$.T "cover.cmp_link"}}</a></p>
+    </section>
+
     <section class="cmp-cover" id="cmp-cover" aria-labelledby="cmp-cv-h" hidden>
       <h2 id="cmp-cv-h">{{$.T "cmp.cover"}}</h2>
       <p class="fine">{{$.T "cmp.cover_note"}}</p>

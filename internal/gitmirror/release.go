@@ -58,6 +58,8 @@ type EditionRequest struct {
 	ProjectID string
 	Format    string // epub, docx, pdf, md or md_bundle
 	Preset    string // a built-in preset id (compile formats only)
+	// IncludeCover is the release's remote's include_cover: an EPUB uses the project's own cover only when it is on.
+	IncludeCover bool
 }
 
 // Compiler builds an edition as the principal. The server supplies one that calls export.compile and
@@ -357,9 +359,9 @@ func (s *Service) runRelease(p ops.Principal, row *releaseRow, r *remoteRow, t p
 	var ed *Edition
 	var err error
 	if row.Format == "md_bundle" {
-		ed, err = s.markdownBundle(ctx, r.ProjectID)
+		ed, err = s.markdownBundle(ctx, r.ProjectID, r.IncludeCover)
 	} else {
-		ed, err = s.o.Compile(ctx, p, EditionRequest{ProjectID: r.ProjectID, Format: row.Format, Preset: row.Preset})
+		ed, err = s.o.Compile(ctx, p, EditionRequest{ProjectID: r.ProjectID, Format: row.Format, Preset: row.Preset, IncludeCover: r.IncludeCover})
 	}
 	if err != nil {
 		if ctx.Err() != nil {
@@ -514,8 +516,8 @@ func listReleases(c *ops.Ctx, in ReleaseListIn) (ReleaseList, error) {
 // reader sees them, the manifest from an allow-list, the pictures they link to), built by the same code, so it
 // has the same guarantees. It is not export.markdown's bundle, which keeps private notes and alternatives byte
 // for byte so that it can be imported again. The zip is deterministic: entries sorted, stored, a fixed time.
-func (s *Service) markdownBundle(ctx context.Context, projectID string) (*Edition, error) {
-	sn, _, e := s.snapshotFor(ctx, &remoteRow{ProjectID: projectID, Audience: AudiencePublic})
+func (s *Service) markdownBundle(ctx context.Context, projectID string, includeCover bool) (*Edition, error) {
+	sn, _, e := s.snapshotFor(ctx, &remoteRow{ProjectID: projectID, Audience: AudiencePublic, IncludeCover: includeCover})
 	if e != nil {
 		return nil, e
 	}

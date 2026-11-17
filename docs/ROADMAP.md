@@ -231,7 +231,7 @@ Phase 8  v2.0 Desktop       Tauri shell, embedded OIDC (built, unsigned; the upd
 
 **Exit criteria:** a non-technical user installs a `.dmg`, `.msi`, or AppImage on a clean machine, creates a local profile without a server or a password, writes and exports offline, and updates in place; the browser deployment passes its full test suite unchanged; the wrapper introduces no second authentication path and no privileged filesystem access from the web layer. Linux and macOS ship first; Windows is required before v2.0 is called done.
 
-## Phase 9 — "Covers" (planned; its release number is chosen when it is tagged)
+## Phase 9 — v2.2.0 "Covers" (C1 built and released; C2, print, not built)
 
 **Goal:** the writer's own cover, front and back or one wrap, wherever a cover appears. Design: [COVERS.md](COVERS.md).
 

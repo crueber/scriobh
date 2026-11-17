@@ -8,16 +8,48 @@ No account on someone else's server. No telemetry. No editor that phones home mi
 
 [Install](#install) · [Releases](https://github.com/crueber/scriobh/releases) · [Configuration](#configuration) · [Desktop app](#the-desktop-app) · [How it works](#how-it-works) · [Docs](#documentation) · [Status](#status-and-what-is-not-verified)
 
-<table>
-  <tr>
-    <td><a href="docs/screens/phase-1/library-desktop-light.png"><img src="docs/screens/phase-1/library-desktop-light.png" alt="The library: a shelf of typographic covers, one per project, with a card to continue where you left off (light theme)"></a></td>
-    <td><a href="docs/screens/phase-3.5/alts-cycler-desktop-dark.png"><img src="docs/screens/phase-3.5/alts-cycler-desktop-dark.png" alt="The writing view with the manuscript tree and the toolbar; a word with three alternatives is being cycled in place (dark theme)"></a></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>The library, light theme</sub></td>
-    <td align="center"><sub>Writing, with alternatives cycled in place, dark theme</sub></td>
-  </tr>
-</table>
+<p align="center">
+  <a href="docs/media/demo.webm"><img src="docs/media/demo.webp" alt="Scríobh demo (46 seconds): the library, opening a project, typing in the writing view, cycling an alternative wording in place, the outline, the Writing Studio, then compiling an EPUB" width="860"></a><br>
+  <a href="docs/media/demo.webm"><b>&#9654; Watch the 46-second demo</b></a> &middot; the library, writing, alternatives, outline, studio and an EPUB compile, with captions, no sound (<a href="docs/media/demo.mp4">MP4</a>)
+</p>
+
+<p align="center">
+  <a href="docs/media/library-light.png"><img src="docs/media/library-light.png" alt="The library: a shelf of typographic covers, one per project, with a card to continue where you left off (light theme)" width="49%"></a>
+  <a href="docs/media/write-dark.png"><img src="docs/media/write-dark.png" alt="The writing view: the manuscript tree beside a calm page, with word counts against each chapter's target (dark theme)" width="49%"></a>
+</p>
+
+<p align="center">
+  <a href="docs/media/alternatives-light.png"><img src="docs/media/alternatives-light.png" alt="A word with three wordings being cycled in place; the text always holds the chosen one (light theme)" width="49%"></a>
+  <a href="docs/media/outline-dark.png"><img src="docs/media/outline-dark.png" alt="The outline: a synopsis, a status and a word target for every part and chapter (dark theme)" width="49%"></a>
+</p>
+
+<p align="center">
+  <a href="docs/media/studio-light.png"><img src="docs/media/studio-light.png" alt="The Writing Studio: words by period, a habit streak and a calendar of writing days; words you add count, cuts never do (light theme)" width="49%"></a>
+  <a href="docs/media/compile-dark.png"><img src="docs/media/compile-dark.png" alt="The Compile page with the EPUB 3 preset and a preview of the title page (dark theme)" width="49%"></a>
+</p>
+
+<details>
+<summary>More screenshots</summary>
+
+<p align="center">
+  <a href="docs/media/review-light.png"><img src="docs/media/review-light.png" alt="The reading view with a comment anchored to a phrase and the margin beside it (light theme)" width="49%"></a>
+  <a href="docs/media/compendium-dark.png"><img src="docs/media/compendium-dark.png" alt="The Compendium: the characters, places and things of a book, each an entity (dark theme)" width="49%"></a>
+  <a href="docs/media/library-dark.png"><img src="docs/media/library-dark.png" alt="The library in the dark theme" width="49%"></a>
+  <a href="docs/media/write-light.png"><img src="docs/media/write-light.png" alt="The writing view in the light theme" width="49%"></a>
+  <a href="docs/media/outline-light.png"><img src="docs/media/outline-light.png" alt="The outline in the light theme" width="49%"></a>
+  <a href="docs/media/studio-dark.png"><img src="docs/media/studio-dark.png" alt="The Writing Studio in the dark theme" width="49%"></a>
+  <a href="docs/media/compile-light.png"><img src="docs/media/compile-light.png" alt="The Compile page in the light theme" width="49%"></a>
+  <a href="docs/media/review-dark.png"><img src="docs/media/review-dark.png" alt="The reading view in the dark theme" width="49%"></a>
+</p>
+
+<p align="center">
+  <a href="docs/media/phone-write-light.png"><img src="docs/media/phone-write-light.png" alt="The writing view at phone width, with the bottom tab bar (light theme)" width="24%"></a>
+  <a href="docs/media/phone-write-dark.png"><img src="docs/media/phone-write-dark.png" alt="The writing view at phone width (dark theme)" width="24%"></a>
+</p>
+
+</details>
+
+<p align="center"><sub>The book in these pictures, its author and its people are invented. The screenshots and the video are made by <code>scripts/readme-media.mjs</code>; see <a href="docs/media/README.md">docs/media</a>.</sub></p>
 
 ## Why Scríobh
 
@@ -230,7 +262,7 @@ The CLI addresses things by name, prints JSON, supports `--dry-run` to show what
 
 ## Status and what is not verified
 
-Releases are tagged `v0.1` through `v2.0` (v1.0 "Publish", v1.1 "Second Wave", v1.2 "Writing Studio", v2.0 "Desktop"). In v2.0 the desktop app exists and runs unsigned on one Mac; the tag records what was built, not a claim that the roadmap's v2.0 exit criteria are met. The plan in `docs/` is still the contract.
+Releases are tagged `v0.1` through `v2.2.0` (v1.0 "Publish", v1.1 "Second Wave", v1.2 "Writing Studio", v2.0 "Desktop", v2.2.0 "Covers"). In v2.0 the desktop app exists and runs unsigned on one Mac; the tag records what was built, not a claim that the roadmap's v2.0 exit criteria are met. v2.2.0 adds the writer's own cover on screens and in ebooks; the paperback cover PDF still uses the generated cover (the print part is not built). The plan in `docs/` is still the contract.
 
 **Not built:** a signed, notarised or released desktop app, anything for Windows that has been run, a native open dialog, and moving an existing key file into the keychain. The v2.0 exit criteria (a non-technical person installs a signed `.dmg`, `.msi` or AppImage on a clean machine and updates in place; Windows) are **not met**.
 

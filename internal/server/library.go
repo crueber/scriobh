@@ -60,6 +60,11 @@ func (s *Server) libraryData(r *http.Request, state, q string) (libraryData, err
 	}
 	d := libraryData{Projects: addressedProjects(out.(projects.ListOut).Items), State: state, Q: q, CSRF: authFrom(r.Context()).CSRF,
 		IsWriter: p.Role == ops.RoleAdmin || p.Role == ops.RoleWriter}
+	for i := range d.Projects {
+		if d.Projects[i].CoverAlt != "" { // the picture is the cover: the sentence says so, first, where a link starts with it
+			d.Projects[i].CoverAlt = s.tr(r, "cover.tile_alt", "alt", d.Projects[i].CoverAlt)
+		}
+	}
 	for _, pr := range d.Projects {
 		if pr.Locked {
 			d.Lock, d.Unlock = s.tr(r, "project.gate.tile"), s.tr(r, "project.gate.unlock")

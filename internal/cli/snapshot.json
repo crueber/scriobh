@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "hash": "sha256:52d1c8ce20d2395c142cb59feb7e8067d3396685ae6636c09900ad427c989593",
+  "hash": "sha256:e7191bde55bb012977b830e8b371252da2e3eb15f8985376cd6e2869be243bb3",
   "ops": [
     {
       "name": "account.typography.get",
@@ -15821,7 +15821,8 @@
                   "enum": [
                     "doc",
                     "research",
-                    "entity"
+                    "entity",
+                    "cover"
                   ],
                   "type": "string"
                 },
@@ -23972,7 +23973,7 @@
                 "type": "boolean"
               },
               "cover": {
-                "description": "EPUB: include the generated cover (default true).",
+                "description": "EPUB: put the cover first: a cover page and the cover image the shops and readers use. It is the project's own cover when it has one (project.cover_layout.get), else the generated cover. Default true. KDP takes the cover as a separate upload and asks for no cover page in the file, so turn this off for a file bound for KDP.",
                 "type": "boolean"
               },
               "crop_marks": {
@@ -24118,6 +24119,10 @@
               "ornament": {
                 "description": "The text of an ornament scene break, up to 8 characters (default a centred asterism-like line of three dots).",
                 "type": "string"
+              },
+              "own_cover": {
+                "description": "EPUB: use the project's own cover (project.cover_layout.get) when it has one. Default true; false puts the generated cover in its place. A release for a public Git remote follows that remote's include_cover.",
+                "type": "boolean"
               },
               "page_numbers": {
                 "description": "Where page numbers go when the header is none or for a book: in the header, a centred footer, or nowhere.",
@@ -24430,7 +24435,7 @@
                 "type": "boolean"
               },
               "cover": {
-                "description": "EPUB: include the generated cover (default true).",
+                "description": "EPUB: put the cover first: a cover page and the cover image the shops and readers use. It is the project's own cover when it has one (project.cover_layout.get), else the generated cover. Default true. KDP takes the cover as a separate upload and asks for no cover page in the file, so turn this off for a file bound for KDP.",
                 "type": "boolean"
               },
               "crop_marks": {
@@ -24576,6 +24581,10 @@
               "ornament": {
                 "description": "The text of an ornament scene break, up to 8 characters (default a centred asterism-like line of three dots).",
                 "type": "string"
+              },
+              "own_cover": {
+                "description": "EPUB: use the project's own cover (project.cover_layout.get) when it has one. Default true; false puts the generated cover in its place. A release for a public Git remote follows that remote's include_cover.",
+                "type": "boolean"
               },
               "page_numbers": {
                 "description": "Where page numbers go when the header is none or for a book: in the header, a centred footer, or nowhere.",
@@ -24757,7 +24766,7 @@
                     "type": "boolean"
                   },
                   "cover": {
-                    "description": "EPUB: include the generated cover (default true).",
+                    "description": "EPUB: put the cover first: a cover page and the cover image the shops and readers use. It is the project's own cover when it has one (project.cover_layout.get), else the generated cover. Default true. KDP takes the cover as a separate upload and asks for no cover page in the file, so turn this off for a file bound for KDP.",
                     "type": "boolean"
                   },
                   "crop_marks": {
@@ -24903,6 +24912,10 @@
                   "ornament": {
                     "description": "The text of an ornament scene break, up to 8 characters (default a centred asterism-like line of three dots).",
                     "type": "string"
+                  },
+                  "own_cover": {
+                    "description": "EPUB: use the project's own cover (project.cover_layout.get) when it has one. Default true; false puts the generated cover in its place. A release for a public Git remote follows that remote's include_cover.",
+                    "type": "boolean"
                   },
                   "page_numbers": {
                     "description": "Where page numbers go when the header is none or for a book: in the header, a centred footer, or nowhere.",
@@ -25166,7 +25179,7 @@
                       "type": "boolean"
                     },
                     "cover": {
-                      "description": "EPUB: include the generated cover (default true).",
+                      "description": "EPUB: put the cover first: a cover page and the cover image the shops and readers use. It is the project's own cover when it has one (project.cover_layout.get), else the generated cover. Default true. KDP takes the cover as a separate upload and asks for no cover page in the file, so turn this off for a file bound for KDP.",
                       "type": "boolean"
                     },
                     "crop_marks": {
@@ -25312,6 +25325,10 @@
                     "ornament": {
                       "description": "The text of an ornament scene break, up to 8 characters (default a centred asterism-like line of three dots).",
                       "type": "string"
+                    },
+                    "own_cover": {
+                      "description": "EPUB: use the project's own cover (project.cover_layout.get) when it has one. Default true; false puts the generated cover in its place. A release for a public Git remote follows that remote's include_cover.",
+                      "type": "boolean"
                     },
                     "page_numbers": {
                       "description": "Where page numbers go when the header is none or for a book: in the header, a centred footer, or nowhere.",
@@ -25493,7 +25510,7 @@
                 "type": "boolean"
               },
               "cover": {
-                "description": "EPUB: include the generated cover (default true).",
+                "description": "EPUB: put the cover first: a cover page and the cover image the shops and readers use. It is the project's own cover when it has one (project.cover_layout.get), else the generated cover. Default true. KDP takes the cover as a separate upload and asks for no cover page in the file, so turn this off for a file bound for KDP.",
                 "type": "boolean"
               },
               "crop_marks": {
@@ -25639,6 +25656,10 @@
               "ornament": {
                 "description": "The text of an ornament scene break, up to 8 characters (default a centred asterism-like line of three dots).",
                 "type": "string"
+              },
+              "own_cover": {
+                "description": "EPUB: use the project's own cover (project.cover_layout.get) when it has one. Default true; false puts the generated cover in its place. A release for a public Git remote follows that remote's include_cover.",
+                "type": "boolean"
               },
               "page_numbers": {
                 "description": "Where page numbers go when the header is none or for a book: in the header, a centred footer, or nowhere.",
@@ -25825,7 +25846,7 @@
                     "type": "boolean"
                   },
                   "cover": {
-                    "description": "EPUB: include the generated cover (default true).",
+                    "description": "EPUB: put the cover first: a cover page and the cover image the shops and readers use. It is the project's own cover when it has one (project.cover_layout.get), else the generated cover. Default true. KDP takes the cover as a separate upload and asks for no cover page in the file, so turn this off for a file bound for KDP.",
                     "type": "boolean"
                   },
                   "crop_marks": {
@@ -25971,6 +25992,10 @@
                   "ornament": {
                     "description": "The text of an ornament scene break, up to 8 characters (default a centred asterism-like line of three dots).",
                     "type": "string"
+                  },
+                  "own_cover": {
+                    "description": "EPUB: use the project's own cover (project.cover_layout.get) when it has one. Default true; false puts the generated cover in its place. A release for a public Git remote follows that remote's include_cover.",
+                    "type": "boolean"
                   },
                   "page_numbers": {
                     "description": "Where page numbers go when the header is none or for a book: in the header, a centred footer, or nowhere.",
@@ -26147,7 +26172,7 @@
                 "type": "boolean"
               },
               "cover": {
-                "description": "EPUB: include the generated cover (default true).",
+                "description": "EPUB: put the cover first: a cover page and the cover image the shops and readers use. It is the project's own cover when it has one (project.cover_layout.get), else the generated cover. Default true. KDP takes the cover as a separate upload and asks for no cover page in the file, so turn this off for a file bound for KDP.",
                 "type": "boolean"
               },
               "crop_marks": {
@@ -26293,6 +26318,10 @@
               "ornament": {
                 "description": "The text of an ornament scene break, up to 8 characters (default a centred asterism-like line of three dots).",
                 "type": "string"
+              },
+              "own_cover": {
+                "description": "EPUB: use the project's own cover (project.cover_layout.get) when it has one. Default true; false puts the generated cover in its place. A release for a public Git remote follows that remote's include_cover.",
+                "type": "boolean"
               },
               "page_numbers": {
                 "description": "Where page numbers go when the header is none or for a book: in the header, a centred footer, or nowhere.",
@@ -26521,7 +26550,7 @@
                 "type": "boolean"
               },
               "cover": {
-                "description": "EPUB: include the generated cover (default true).",
+                "description": "EPUB: put the cover first: a cover page and the cover image the shops and readers use. It is the project's own cover when it has one (project.cover_layout.get), else the generated cover. Default true. KDP takes the cover as a separate upload and asks for no cover page in the file, so turn this off for a file bound for KDP.",
                 "type": "boolean"
               },
               "crop_marks": {
@@ -26667,6 +26696,10 @@
               "ornament": {
                 "description": "The text of an ornament scene break, up to 8 characters (default a centred asterism-like line of three dots).",
                 "type": "string"
+              },
+              "own_cover": {
+                "description": "EPUB: use the project's own cover (project.cover_layout.get) when it has one. Default true; false puts the generated cover in its place. A release for a public Git remote follows that remote's include_cover.",
+                "type": "boolean"
               },
               "page_numbers": {
                 "description": "Where page numbers go when the header is none or for a book: in the header, a centred footer, or nowhere.",
@@ -35455,7 +35488,7 @@
                 "type": "boolean"
               },
               "cover": {
-                "description": "EPUB: include the generated cover (default true).",
+                "description": "EPUB: put the cover first: a cover page and the cover image the shops and readers use. It is the project's own cover when it has one (project.cover_layout.get), else the generated cover. Default true. KDP takes the cover as a separate upload and asks for no cover page in the file, so turn this off for a file bound for KDP.",
                 "type": "boolean"
               },
               "crop_marks": {
@@ -35601,6 +35634,10 @@
               "ornament": {
                 "description": "The text of an ornament scene break, up to 8 characters (default a centred asterism-like line of three dots).",
                 "type": "string"
+              },
+              "own_cover": {
+                "description": "EPUB: use the project's own cover (project.cover_layout.get) when it has one. Default true; false puts the generated cover in its place. A release for a public Git remote follows that remote's include_cover.",
+                "type": "boolean"
               },
               "page_numbers": {
                 "description": "Where page numbers go when the header is none or for a book: in the header, a centred footer, or nowhere.",
@@ -35879,7 +35916,7 @@
                 "type": "boolean"
               },
               "cover": {
-                "description": "EPUB: include the generated cover (default true).",
+                "description": "EPUB: put the cover first: a cover page and the cover image the shops and readers use. It is the project's own cover when it has one (project.cover_layout.get), else the generated cover. Default true. KDP takes the cover as a separate upload and asks for no cover page in the file, so turn this off for a file bound for KDP.",
                 "type": "boolean"
               },
               "crop_marks": {
@@ -36025,6 +36062,10 @@
               "ornament": {
                 "description": "The text of an ornament scene break, up to 8 characters (default a centred asterism-like line of three dots).",
                 "type": "string"
+              },
+              "own_cover": {
+                "description": "EPUB: use the project's own cover (project.cover_layout.get) when it has one. Default true; false puts the generated cover in its place. A release for a public Git remote follows that remote's include_cover.",
+                "type": "boolean"
               },
               "page_numbers": {
                 "description": "Where page numbers go when the header is none or for a book: in the header, a centred footer, or nowhere.",
@@ -36498,7 +36539,7 @@
                 "type": "boolean"
               },
               "cover": {
-                "description": "EPUB: include the generated cover (default true).",
+                "description": "EPUB: put the cover first: a cover page and the cover image the shops and readers use. It is the project's own cover when it has one (project.cover_layout.get), else the generated cover. Default true. KDP takes the cover as a separate upload and asks for no cover page in the file, so turn this off for a file bound for KDP.",
                 "type": "boolean"
               },
               "crop_marks": {
@@ -36644,6 +36685,10 @@
               "ornament": {
                 "description": "The text of an ornament scene break, up to 8 characters (default a centred asterism-like line of three dots).",
                 "type": "string"
+              },
+              "own_cover": {
+                "description": "EPUB: use the project's own cover (project.cover_layout.get) when it has one. Default true; false puts the generated cover in its place. A release for a public Git remote follows that remote's include_cover.",
+                "type": "boolean"
               },
               "page_numbers": {
                 "description": "Where page numbers go when the header is none or for a book: in the header, a centred footer, or nowhere.",
@@ -38185,13 +38230,17 @@
             "type": "string"
           },
           "confirm_name": {
-            "description": "Needed only for a private remote at an address that was ever public: the new remote's name, typed exactly. Refused with 409 confirmation_required (data.git_code) without it.",
+            "description": "Needed for a private remote at an address that was ever public, and for a public remote with include_cover on: the new remote's name, typed exactly. Refused with 409 confirmation_required (data.git_code) without it.",
             "type": "string"
           },
           "id": {
             "description": "Project id.",
             "in": "path",
             "type": "string"
+          },
+          "include_cover": {
+            "description": "Push the project's own cover too (the cover layout and its pictures). Default true for a private remote, false for a public one: carrying it to a public remote lets more reach a repository people can read, so it needs a person at a browser and confirm_name.",
+            "type": "boolean"
           },
           "include_notes": {
             "description": "Push the project's notes too. Default true for a private remote; a public remote never carries notes.",
@@ -38325,6 +38374,10 @@
               "enabled": {
                 "type": "boolean"
               },
+              "exposed": {
+                "description": "The remote is public, was made by the publish flow, or sits at an address that was ever public: a change that lets more reach it needs a person at a browser and its name typed.",
+                "type": "boolean"
+              },
               "has_secret": {
                 "description": "A deploy key or token is stored. It is never returned.",
                 "type": "boolean"
@@ -38352,6 +38405,10 @@
               },
               "id": {
                 "type": "string"
+              },
+              "include_cover": {
+                "description": "The push carries the project's own cover (the layout and its pictures). On for a private remote; off for a public one until a person turns it on.",
+                "type": "boolean"
               },
               "include_notes": {
                 "type": "boolean"
@@ -38642,6 +38699,8 @@
               "audience",
               "only_done",
               "sign_commits",
+              "exposed",
+              "include_cover",
               "restore_paused",
               "setup",
               "status",
@@ -38800,6 +38859,10 @@
               "enabled": {
                 "type": "boolean"
               },
+              "exposed": {
+                "description": "The remote is public, was made by the publish flow, or sits at an address that was ever public: a change that lets more reach it needs a person at a browser and its name typed.",
+                "type": "boolean"
+              },
               "has_secret": {
                 "description": "A deploy key or token is stored. It is never returned.",
                 "type": "boolean"
@@ -38827,6 +38890,10 @@
               },
               "id": {
                 "type": "string"
+              },
+              "include_cover": {
+                "description": "The push carries the project's own cover (the layout and its pictures). On for a private remote; off for a public one until a person turns it on.",
+                "type": "boolean"
               },
               "include_notes": {
                 "type": "boolean"
@@ -39117,6 +39184,8 @@
               "audience",
               "only_done",
               "sign_commits",
+              "exposed",
+              "include_cover",
               "restore_paused",
               "setup",
               "status",
@@ -39336,6 +39405,10 @@
               "enabled": {
                 "type": "boolean"
               },
+              "exposed": {
+                "description": "The remote is public, was made by the publish flow, or sits at an address that was ever public: a change that lets more reach it needs a person at a browser and its name typed.",
+                "type": "boolean"
+              },
               "has_secret": {
                 "description": "A deploy key or token is stored. It is never returned.",
                 "type": "boolean"
@@ -39363,6 +39436,10 @@
               },
               "id": {
                 "type": "string"
+              },
+              "include_cover": {
+                "description": "The push carries the project's own cover (the layout and its pictures). On for a private remote; off for a public one until a person turns it on.",
+                "type": "boolean"
               },
               "include_notes": {
                 "type": "boolean"
@@ -39653,6 +39730,8 @@
               "audience",
               "only_done",
               "sign_commits",
+              "exposed",
+              "include_cover",
               "restore_paused",
               "setup",
               "status",
@@ -39775,6 +39854,10 @@
               "enabled": {
                 "type": "boolean"
               },
+              "exposed": {
+                "description": "The remote is public, was made by the publish flow, or sits at an address that was ever public: a change that lets more reach it needs a person at a browser and its name typed.",
+                "type": "boolean"
+              },
               "has_secret": {
                 "description": "A deploy key or token is stored. It is never returned.",
                 "type": "boolean"
@@ -39802,6 +39885,10 @@
               },
               "id": {
                 "type": "string"
+              },
+              "include_cover": {
+                "description": "The push carries the project's own cover (the layout and its pictures). On for a private remote; off for a public one until a person turns it on.",
+                "type": "boolean"
               },
               "include_notes": {
                 "type": "boolean"
@@ -40092,6 +40179,8 @@
               "audience",
               "only_done",
               "sign_commits",
+              "exposed",
+              "include_cover",
               "restore_paused",
               "setup",
               "status",
@@ -40221,6 +40310,10 @@
                 "enabled": {
                   "type": "boolean"
                 },
+                "exposed": {
+                  "description": "The remote is public, was made by the publish flow, or sits at an address that was ever public: a change that lets more reach it needs a person at a browser and its name typed.",
+                  "type": "boolean"
+                },
                 "has_secret": {
                   "description": "A deploy key or token is stored. It is never returned.",
                   "type": "boolean"
@@ -40248,6 +40341,10 @@
                 },
                 "id": {
                   "type": "string"
+                },
+                "include_cover": {
+                  "description": "The push carries the project's own cover (the layout and its pictures). On for a private remote; off for a public one until a person turns it on.",
+                  "type": "boolean"
                 },
                 "include_notes": {
                   "type": "boolean"
@@ -40538,6 +40635,8 @@
                 "audience",
                 "only_done",
                 "sign_commits",
+                "exposed",
+                "include_cover",
                 "restore_paused",
                 "setup",
                 "status",
@@ -40669,6 +40768,10 @@
               "enabled": {
                 "type": "boolean"
               },
+              "exposed": {
+                "description": "The remote is public, was made by the publish flow, or sits at an address that was ever public: a change that lets more reach it needs a person at a browser and its name typed.",
+                "type": "boolean"
+              },
               "has_secret": {
                 "description": "A deploy key or token is stored. It is never returned.",
                 "type": "boolean"
@@ -40696,6 +40799,10 @@
               },
               "id": {
                 "type": "string"
+              },
+              "include_cover": {
+                "description": "The push carries the project's own cover (the layout and its pictures). On for a private remote; off for a public one until a person turns it on.",
+                "type": "boolean"
               },
               "include_notes": {
                 "type": "boolean"
@@ -40986,6 +41093,8 @@
               "audience",
               "only_done",
               "sign_commits",
+              "exposed",
+              "include_cover",
               "restore_paused",
               "setup",
               "status",
@@ -41107,7 +41216,7 @@
             "type": "string"
           },
           "confirm_name": {
-            "description": "Needed when the change lets more reach a repository that is, or may be, public: a public remote made private (the whole copy), only_done taken off, notes switched on, or the address changed on such a remote or to an address that was ever public. The remote's name, typed exactly. Refused with 409 confirmation_required (data.git_code, data.confirm_field) without it or with another name; a change that only narrows what is sent needs none.",
+            "description": "Needed when the change lets more reach a repository that is, or may be, public: a public remote made private (the whole copy), only_done taken off, notes or the cover switched on, or the address changed on such a remote or to an address that was ever public. The remote's name, typed exactly. Refused with 409 confirmation_required (data.git_code, data.confirm_field) without it or with another name; a change that only narrows what is sent needs none.",
             "type": "string"
           },
           "enabled": {
@@ -41118,6 +41227,10 @@
             "description": "Project id.",
             "in": "path",
             "type": "string"
+          },
+          "include_cover": {
+            "description": "Push the project's own cover (the layout and its pictures). Turning it on for a repository that is, or may be, public needs a person at a browser and confirm_name; turning it off is always allowed, and starts a public remote's local history over as only_done does (the earlier commits hold the cover).",
+            "type": "boolean"
           },
           "include_notes": {
             "type": "boolean"
@@ -41238,6 +41351,10 @@
               "enabled": {
                 "type": "boolean"
               },
+              "exposed": {
+                "description": "The remote is public, was made by the publish flow, or sits at an address that was ever public: a change that lets more reach it needs a person at a browser and its name typed.",
+                "type": "boolean"
+              },
               "has_secret": {
                 "description": "A deploy key or token is stored. It is never returned.",
                 "type": "boolean"
@@ -41265,6 +41382,10 @@
               },
               "id": {
                 "type": "string"
+              },
+              "include_cover": {
+                "description": "The push carries the project's own cover (the layout and its pictures). On for a private remote; off for a public one until a person turns it on.",
+                "type": "boolean"
               },
               "include_notes": {
                 "type": "boolean"
@@ -41555,6 +41676,8 @@
               "audience",
               "only_done",
               "sign_commits",
+              "exposed",
+              "include_cover",
               "restore_paused",
               "setup",
               "status",
@@ -42506,6 +42629,10 @@
             "description": "The primary Compendium made for the new project to hold those entities.",
             "type": "string"
           },
+          "cover_used": {
+            "description": "With use_cover: the book's cover picture is now the project's own cover (project.cover_layout.get).",
+            "type": "boolean"
+          },
           "documents": {
             "type": "integer"
           },
@@ -42890,6 +43017,10 @@
               },
               "cover": {
                 "properties": {
+                  "can_use_as_cover": {
+                    "description": "The picture may become the project's own cover: apply with use_cover.",
+                    "type": "boolean"
+                  },
                   "height": {
                     "type": "integer"
                   },
@@ -42904,12 +43035,17 @@
                     "description": "Why it was not kept.",
                     "type": "string"
                   },
+                  "use_reason": {
+                    "description": "Why the picture cannot be the project's own cover.",
+                    "type": "string"
+                  },
                   "width": {
                     "type": "integer"
                   }
                 },
                 "required": [
-                  "kept"
+                  "kept",
+                  "can_use_as_cover"
                 ],
                 "type": "object"
               },
@@ -43589,6 +43725,10 @@
             "description": "The token import.preview returned for these same files.",
             "type": "string"
           },
+          "use_cover": {
+            "description": "With epub: make the book's cover picture the new project's own cover (a layout of one front image, with the book's title as its description). The preview's epub.cover.can_use_as_cover says whether it may be one; a picture that may not is left as an attachment and the result says so.",
+            "type": "boolean"
+          },
           "wp_status": {
             "description": "With a WordPress export: published (default) imports published posts and pages only; all adds drafts, pending, scheduled and private ones, which are marked do not compile.",
             "enum": [
@@ -43626,6 +43766,10 @@
           "compendium_id": {
             "description": "The primary Compendium made for the new project to hold those entities.",
             "type": "string"
+          },
+          "cover_used": {
+            "description": "With use_cover: the book's cover picture is now the project's own cover (project.cover_layout.get).",
+            "type": "boolean"
           },
           "documents": {
             "type": "integer"
@@ -43831,6 +43975,10 @@
           "compendium_id": {
             "description": "The primary Compendium made for the new project to hold those entities.",
             "type": "string"
+          },
+          "cover_used": {
+            "description": "With use_cover: the book's cover picture is now the project's own cover (project.cover_layout.get).",
+            "type": "boolean"
           },
           "documents": {
             "type": "integer"
@@ -44416,6 +44564,10 @@
                   },
                   "cover": {
                     "properties": {
+                      "can_use_as_cover": {
+                        "description": "The picture may become the project's own cover: apply with use_cover.",
+                        "type": "boolean"
+                      },
                       "height": {
                         "type": "integer"
                       },
@@ -44430,12 +44582,17 @@
                         "description": "Why it was not kept.",
                         "type": "string"
                       },
+                      "use_reason": {
+                        "description": "Why the picture cannot be the project's own cover.",
+                        "type": "string"
+                      },
                       "width": {
                         "type": "integer"
                       }
                     },
                     "required": [
-                      "kept"
+                      "kept",
+                      "can_use_as_cover"
                     ],
                     "type": "object"
                   },
@@ -45144,6 +45301,10 @@
               },
               "cover": {
                 "properties": {
+                  "can_use_as_cover": {
+                    "description": "The picture may become the project's own cover: apply with use_cover.",
+                    "type": "boolean"
+                  },
                   "height": {
                     "type": "integer"
                   },
@@ -45158,12 +45319,17 @@
                     "description": "Why it was not kept.",
                     "type": "string"
                   },
+                  "use_reason": {
+                    "description": "Why the picture cannot be the project's own cover.",
+                    "type": "string"
+                  },
                   "width": {
                     "type": "integer"
                   }
                 },
                 "required": [
-                  "kept"
+                  "kept",
+                  "can_use_as_cover"
                 ],
                 "type": "object"
               },
@@ -49476,7 +49642,19 @@
               "author_name": {
                 "type": "string"
               },
+              "cover_alt": {
+                "description": "The project's own cover described for screen readers.",
+                "type": "string"
+              },
               "cover_color": {
+                "type": "string"
+              },
+              "cover_layout": {
+                "description": "True when the project has its own cover, a picture for the front (project.cover_layout.get); false means the generated cover.",
+                "type": "boolean"
+              },
+              "cover_thumb": {
+                "description": "The address of the project's own cover, 480 px wide, for a list. Empty when the cover is the generated one.",
                 "type": "string"
               },
               "created_at": {
@@ -49579,6 +49757,7 @@
               "pinned",
               "last_opened_at",
               "last_document_id",
+              "cover_layout",
               "created_at",
               "updated_at"
             ],
@@ -49996,7 +50175,8 @@
                   "enum": [
                     "doc",
                     "research",
-                    "entity"
+                    "entity",
+                    "cover"
                   ],
                   "type": "string"
                 },
@@ -50808,7 +50988,7 @@
       "name": "project.cover",
       "method": "GET",
       "path": "/api/v1/projects/{id}/cover",
-      "desc": "The project's cover as an SVG: a flat colour with the title, subtitle, author and kind, drawn from the project's own fields. Deterministic, cached by content hash, safe to use as an image.",
+      "desc": "The project's cover as an image. With a cover layout of its own (project.cover_layout.get) it is the front as a JPEG, at most 2560 px on the long side (size thumb: 480 px wide; part back: the back, when it has one), cached by the layout's hash. Without one, or with format svg, it is an SVG: a flat colour with the title, subtitle, author and kind, drawn from the project's own fields. Deterministic, cached by content hash, safe to use as an image.",
       "auth": {
         "kind": "project",
         "role": "reader"
@@ -50817,9 +50997,40 @@
       "status": 200,
       "input": {
         "properties": {
+          "format": {
+            "description": "svg: the generated typographic cover (SVG), even when the project has a cover layout of its own.",
+            "enum": [
+              "svg"
+            ],
+            "in": "query",
+            "type": "string"
+          },
           "id": {
             "description": "Project id.",
             "in": "path",
+            "type": "string"
+          },
+          "part": {
+            "description": "back: the back cover, when the layout gives it a picture (404 otherwise). Default front.",
+            "enum": [
+              "front",
+              "back"
+            ],
+            "in": "query",
+            "type": "string"
+          },
+          "size": {
+            "description": "thumb: the front 480 px wide, for a list. Default full. A project with no cover layout has only the generated SVG.",
+            "enum": [
+              "full",
+              "thumb"
+            ],
+            "in": "query",
+            "type": "string"
+          },
+          "v": {
+            "description": "A cache-busting value (the layout's key); ignored.",
+            "in": "query",
             "type": "string"
           }
         },
@@ -50831,7 +51042,7 @@
       "output": {
         "properties": {
           "body": {
-            "description": "The SVG. The REST route returns it as the response body instead of JSON.",
+            "description": "The image: a JPEG when the project has its own cover layout, else the SVG. The REST route returns it as the response body instead of JSON.",
             "items": {},
             "type": "array"
           },
@@ -50859,6 +51070,1847 @@
           "sha256",
           "etag",
           "body"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "project.cover_layout.check",
+      "method": "POST",
+      "path": "/api/v1/projects/{id}/cover-layout/check",
+      "desc": "Check the layout against a print trim and a printer's profile (kdp, ingram or generic): each picture's resolution, a wrap's measured spine against the spine the page count and the paper give, and the profile's figures. Writes nothing.",
+      "auth": {
+        "kind": "project",
+        "role": "reader"
+      },
+      "scope": "read",
+      "status": 200,
+      "input": {
+        "properties": {
+          "bleed_in": {
+            "description": "The print cover's bleed, 0 to 0.5 inches. Default 0.125 (a wrap's own bleed when it has one).",
+            "type": "number"
+          },
+          "id": {
+            "description": "Project id.",
+            "in": "path",
+            "type": "string"
+          },
+          "page_count": {
+            "description": "With page_thickness_in, the spine to compare a wrap's measured spine with (pages times thickness).",
+            "type": "integer"
+          },
+          "page_thickness_in": {
+            "description": "The paper's thickness per page in inches, from the printer's guide.",
+            "type": "number"
+          },
+          "preset": {
+            "description": "A print preset (print-6x9, print-5.5x8.5, print-5x8, print-a5) or a trim name; default the layout's trim.",
+            "type": "string"
+          },
+          "profile": {
+            "description": "The printer's profile. Default generic.",
+            "enum": [
+              "kdp",
+              "ingram",
+              "generic"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "output": {
+        "properties": {
+          "bleed_in": {
+            "type": "number"
+          },
+          "layout": {
+            "description": "False when the project uses the generated cover: there is nothing to check.",
+            "type": "boolean"
+          },
+          "measured": {
+            "properties": {
+              "back": {
+                "description": "The back cut at the trim, without bleed.",
+                "properties": {
+                  "x0": {
+                    "type": "integer"
+                  },
+                  "x1": {
+                    "type": "integer"
+                  },
+                  "y0": {
+                    "type": "integer"
+                  },
+                  "y1": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "x0",
+                  "y0",
+                  "x1",
+                  "y1"
+                ],
+                "type": "object"
+              },
+              "back_bleed": {
+                "properties": {
+                  "x0": {
+                    "type": "integer"
+                  },
+                  "x1": {
+                    "type": "integer"
+                  },
+                  "y0": {
+                    "type": "integer"
+                  },
+                  "y1": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "x0",
+                  "y0",
+                  "x1",
+                  "y1"
+                ],
+                "type": "object"
+              },
+              "bleed_in": {
+                "type": "number"
+              },
+              "dpi": {
+                "description": "The picture's resolution: its height over the trim height plus two bleeds.",
+                "type": "number"
+              },
+              "front": {
+                "description": "The front cut at the trim, without bleed, in the picture's pixels.",
+                "properties": {
+                  "x0": {
+                    "type": "integer"
+                  },
+                  "x1": {
+                    "type": "integer"
+                  },
+                  "y0": {
+                    "type": "integer"
+                  },
+                  "y1": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "x0",
+                  "y0",
+                  "x1",
+                  "y1"
+                ],
+                "type": "object"
+              },
+              "front_bleed": {
+                "description": "The front with the outer bleed, as a print cover places it.",
+                "properties": {
+                  "x0": {
+                    "type": "integer"
+                  },
+                  "x1": {
+                    "type": "integer"
+                  },
+                  "y0": {
+                    "type": "integer"
+                  },
+                  "y1": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "x0",
+                  "y0",
+                  "x1",
+                  "y1"
+                ],
+                "type": "object"
+              },
+              "front_on": {
+                "description": "Which side the front is on: the right for a book read left to right, the left for right to left.",
+                "enum": [
+                  "left",
+                  "right"
+                ],
+                "type": "string"
+              },
+              "height_in": {
+                "type": "number"
+              },
+              "height_px": {
+                "type": "integer"
+              },
+              "spine": {
+                "properties": {
+                  "x0": {
+                    "type": "integer"
+                  },
+                  "x1": {
+                    "type": "integer"
+                  },
+                  "y0": {
+                    "type": "integer"
+                  },
+                  "y1": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "x0",
+                  "y0",
+                  "x1",
+                  "y1"
+                ],
+                "type": "object"
+              },
+              "spine_in": {
+                "description": "Measured from the picture's width: the width less two trim widths and two bleeds.",
+                "type": "number"
+              },
+              "width_in": {
+                "type": "number"
+              },
+              "width_px": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "width_px",
+              "height_px",
+              "dpi",
+              "width_in",
+              "height_in",
+              "bleed_in",
+              "spine_in",
+              "front_on",
+              "front",
+              "back",
+              "spine",
+              "front_bleed",
+              "back_bleed"
+            ],
+            "type": "object"
+          },
+          "not_checked": {
+            "description": "What the profile asks for that this version does not check yet: the print cover's text margin and barcode box (the print cover phase).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "pictures": {
+            "items": {
+              "properties": {
+                "attachment": {
+                  "type": "string"
+                },
+                "bytes": {
+                  "type": "integer"
+                },
+                "crop": {
+                  "description": "Image side only: the part of the picture that is shown, cut from its centre.",
+                  "properties": {
+                    "x0": {
+                      "type": "integer"
+                    },
+                    "x1": {
+                      "type": "integer"
+                    },
+                    "y0": {
+                      "type": "integer"
+                    },
+                    "y1": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "x0",
+                    "y0",
+                    "x1",
+                    "y1"
+                  ],
+                  "type": "object"
+                },
+                "crop_loss": {
+                  "description": "Image side only: the share of the picture cut away, 0 to 1.",
+                  "type": "number"
+                },
+                "dpi": {
+                  "description": "The picture's resolution at the size it is placed on the trim's page: for a wrap, its measured resolution.",
+                  "type": "number"
+                },
+                "height_px": {
+                  "type": "integer"
+                },
+                "part": {
+                  "enum": [
+                    "front",
+                    "back",
+                    "wrap"
+                  ],
+                  "type": "string"
+                },
+                "width_px": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "part",
+                "attachment",
+                "width_px",
+                "height_px",
+                "bytes",
+                "dpi"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "profile": {
+            "properties": {
+              "barcode_height_in": {
+                "type": "number"
+              },
+              "barcode_width_in": {
+                "type": "number"
+              },
+              "name": {
+                "enum": [
+                  "kdp",
+                  "ingram",
+                  "generic"
+                ],
+                "type": "string"
+              },
+              "spine_text_edge_in": {
+                "description": "Spine text stays this far from the spine's edges.",
+                "type": "number"
+              },
+              "spine_text_from_pages": {
+                "description": "A book of fewer pages has no spine text.",
+                "type": "integer"
+              },
+              "text_margin_in": {
+                "description": "Text and important art stay this far inside the trim.",
+                "type": "number"
+              }
+            },
+            "required": [
+              "name",
+              "text_margin_in",
+              "barcode_width_in",
+              "barcode_height_in",
+              "spine_text_from_pages",
+              "spine_text_edge_in"
+            ],
+            "type": "object"
+          },
+          "spine_computed_in": {
+            "description": "Pages times the paper's thickness, when both were given.",
+            "type": "number"
+          },
+          "trim": {
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "properties": {
+                "code": {
+                  "description": "cover_low_resolution, cover_picture_small, cover_profile_not_srgb, cover_profile_dropped, cover_cropped, cover_wrap_low_resolution, cover_wrap_stale, cover_trim_mismatch.",
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "part": {
+                  "enum": [
+                    "front",
+                    "back",
+                    "wrap"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "layout",
+          "trim",
+          "profile",
+          "bleed_in",
+          "pictures",
+          "warnings",
+          "not_checked"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "project.cover_layout.clear",
+      "method": "DELETE",
+      "path": "/api/v1/projects/{id}/cover-layout",
+      "desc": "Go back to the generated cover. The pictures stay as attachments until you delete them.",
+      "auth": {
+        "kind": "project",
+        "role": "editor"
+      },
+      "scope": "write",
+      "status": 200,
+      "input": {
+        "properties": {
+          "id": {
+            "description": "Project id.",
+            "in": "path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "output": {
+        "properties": {
+          "cleared": {
+            "description": "False when the project already used the generated cover.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cleared"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "project.cover_layout.get",
+      "method": "GET",
+      "path": "/api/v1/projects/{id}/cover-layout",
+      "desc": "The project's own cover layout: its shape (sides or wrap), trim, front and back, alt text, revision, each picture's resolution at the trim, the measured spine of a wrap and the panels cut from it, the warnings and the addresses of the front, back and thumbnail. layout is null when the project uses the generated cover.",
+      "auth": {
+        "kind": "project",
+        "role": "reader"
+      },
+      "scope": "read",
+      "status": 200,
+      "input": {
+        "properties": {
+          "id": {
+            "description": "Project id.",
+            "in": "path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "output": {
+        "properties": {
+          "layout": {
+            "description": "null when the project uses the generated cover.",
+            "properties": {
+              "alt": {
+                "type": "string"
+              },
+              "back": {
+                "properties": {
+                  "attachment": {
+                    "description": "The picture: the id project.cover_layout.upload returned. Image and page only.",
+                    "type": "string"
+                  },
+                  "background": {
+                    "description": "Page only. One of the cover palette's colours (#RRGGBB). Default the project's cover colour.",
+                    "type": "string"
+                  },
+                  "fit": {
+                    "description": "Page only. contain fits the picture inside the margin, cover fills it and crops, actual puts it on the page at 300 dpi. Default contain.",
+                    "enum": [
+                      "contain",
+                      "cover",
+                      "actual"
+                    ],
+                    "type": "string"
+                  },
+                  "margin_in": {
+                    "description": "Page only. The margin around the picture in inches, 0 to 1.5. Default 0.",
+                    "type": "number"
+                  },
+                  "mode": {
+                    "description": "generated: the typographic cover for this side; image: one picture filling the side (fill and crop from the centre); page: a picture placed on a page of the trim; none: no back (the back only).",
+                    "enum": [
+                      "generated",
+                      "image",
+                      "page",
+                      "none"
+                    ],
+                    "type": "string"
+                  },
+                  "position": {
+                    "description": "Page only. Where the picture sits on the page. Default center.",
+                    "enum": [
+                      "top-left",
+                      "top",
+                      "top-right",
+                      "left",
+                      "center",
+                      "right",
+                      "bottom-left",
+                      "bottom",
+                      "bottom-right"
+                    ],
+                    "type": "string"
+                  },
+                  "scale": {
+                    "description": "Page only. 10 to 100 percent of the fit. Default 100.",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "mode"
+                ],
+                "type": "object"
+              },
+              "back_url": {
+                "description": "The back as a JPEG, when the layout gives it a picture.",
+                "type": "string"
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "front": {
+                "properties": {
+                  "attachment": {
+                    "description": "The picture: the id project.cover_layout.upload returned. Image and page only.",
+                    "type": "string"
+                  },
+                  "background": {
+                    "description": "Page only. One of the cover palette's colours (#RRGGBB). Default the project's cover colour.",
+                    "type": "string"
+                  },
+                  "fit": {
+                    "description": "Page only. contain fits the picture inside the margin, cover fills it and crops, actual puts it on the page at 300 dpi. Default contain.",
+                    "enum": [
+                      "contain",
+                      "cover",
+                      "actual"
+                    ],
+                    "type": "string"
+                  },
+                  "margin_in": {
+                    "description": "Page only. The margin around the picture in inches, 0 to 1.5. Default 0.",
+                    "type": "number"
+                  },
+                  "mode": {
+                    "description": "generated: the typographic cover for this side; image: one picture filling the side (fill and crop from the centre); page: a picture placed on a page of the trim; none: no back (the back only).",
+                    "enum": [
+                      "generated",
+                      "image",
+                      "page",
+                      "none"
+                    ],
+                    "type": "string"
+                  },
+                  "position": {
+                    "description": "Page only. Where the picture sits on the page. Default center.",
+                    "enum": [
+                      "top-left",
+                      "top",
+                      "top-right",
+                      "left",
+                      "center",
+                      "right",
+                      "bottom-left",
+                      "bottom",
+                      "bottom-right"
+                    ],
+                    "type": "string"
+                  },
+                  "scale": {
+                    "description": "Page only. 10 to 100 percent of the fit. Default 100.",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "mode"
+                ],
+                "type": "object"
+              },
+              "front_url": {
+                "description": "The front as a JPEG (project.cover). Empty when the front is the generated cover.",
+                "type": "string"
+              },
+              "hash": {
+                "type": "string"
+              },
+              "measured": {
+                "description": "A wrap picture's measured resolution and spine, and the panels cut from it.",
+                "properties": {
+                  "back": {
+                    "description": "The back cut at the trim, without bleed.",
+                    "properties": {
+                      "x0": {
+                        "type": "integer"
+                      },
+                      "x1": {
+                        "type": "integer"
+                      },
+                      "y0": {
+                        "type": "integer"
+                      },
+                      "y1": {
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "x0",
+                      "y0",
+                      "x1",
+                      "y1"
+                    ],
+                    "type": "object"
+                  },
+                  "back_bleed": {
+                    "properties": {
+                      "x0": {
+                        "type": "integer"
+                      },
+                      "x1": {
+                        "type": "integer"
+                      },
+                      "y0": {
+                        "type": "integer"
+                      },
+                      "y1": {
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "x0",
+                      "y0",
+                      "x1",
+                      "y1"
+                    ],
+                    "type": "object"
+                  },
+                  "bleed_in": {
+                    "type": "number"
+                  },
+                  "dpi": {
+                    "description": "The picture's resolution: its height over the trim height plus two bleeds.",
+                    "type": "number"
+                  },
+                  "front": {
+                    "description": "The front cut at the trim, without bleed, in the picture's pixels.",
+                    "properties": {
+                      "x0": {
+                        "type": "integer"
+                      },
+                      "x1": {
+                        "type": "integer"
+                      },
+                      "y0": {
+                        "type": "integer"
+                      },
+                      "y1": {
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "x0",
+                      "y0",
+                      "x1",
+                      "y1"
+                    ],
+                    "type": "object"
+                  },
+                  "front_bleed": {
+                    "description": "The front with the outer bleed, as a print cover places it.",
+                    "properties": {
+                      "x0": {
+                        "type": "integer"
+                      },
+                      "x1": {
+                        "type": "integer"
+                      },
+                      "y0": {
+                        "type": "integer"
+                      },
+                      "y1": {
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "x0",
+                      "y0",
+                      "x1",
+                      "y1"
+                    ],
+                    "type": "object"
+                  },
+                  "front_on": {
+                    "description": "Which side the front is on: the right for a book read left to right, the left for right to left.",
+                    "enum": [
+                      "left",
+                      "right"
+                    ],
+                    "type": "string"
+                  },
+                  "height_in": {
+                    "type": "number"
+                  },
+                  "height_px": {
+                    "type": "integer"
+                  },
+                  "spine": {
+                    "properties": {
+                      "x0": {
+                        "type": "integer"
+                      },
+                      "x1": {
+                        "type": "integer"
+                      },
+                      "y0": {
+                        "type": "integer"
+                      },
+                      "y1": {
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "x0",
+                      "y0",
+                      "x1",
+                      "y1"
+                    ],
+                    "type": "object"
+                  },
+                  "spine_in": {
+                    "description": "Measured from the picture's width: the width less two trim widths and two bleeds.",
+                    "type": "number"
+                  },
+                  "width_in": {
+                    "type": "number"
+                  },
+                  "width_px": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "width_px",
+                  "height_px",
+                  "dpi",
+                  "width_in",
+                  "height_in",
+                  "bleed_in",
+                  "spine_in",
+                  "front_on",
+                  "front",
+                  "back",
+                  "spine",
+                  "front_bleed",
+                  "back_bleed"
+                ],
+                "type": "object"
+              },
+              "pictures": {
+                "description": "Each picture the layout places, with its resolution at the trim and, for an image side, what the crop cuts away.",
+                "items": {
+                  "properties": {
+                    "attachment": {
+                      "type": "string"
+                    },
+                    "bytes": {
+                      "type": "integer"
+                    },
+                    "crop": {
+                      "description": "Image side only: the part of the picture that is shown, cut from its centre.",
+                      "properties": {
+                        "x0": {
+                          "type": "integer"
+                        },
+                        "x1": {
+                          "type": "integer"
+                        },
+                        "y0": {
+                          "type": "integer"
+                        },
+                        "y1": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "x0",
+                        "y0",
+                        "x1",
+                        "y1"
+                      ],
+                      "type": "object"
+                    },
+                    "crop_loss": {
+                      "description": "Image side only: the share of the picture cut away, 0 to 1.",
+                      "type": "number"
+                    },
+                    "dpi": {
+                      "description": "The picture's resolution at the size it is placed on the trim's page: for a wrap, its measured resolution.",
+                      "type": "number"
+                    },
+                    "height_px": {
+                      "type": "integer"
+                    },
+                    "part": {
+                      "enum": [
+                        "front",
+                        "back",
+                        "wrap"
+                      ],
+                      "type": "string"
+                    },
+                    "width_px": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "part",
+                    "attachment",
+                    "width_px",
+                    "height_px",
+                    "bytes",
+                    "dpi"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "revision": {
+                "description": "Send this back with project.cover_layout.set.",
+                "type": "integer"
+              },
+              "shape": {
+                "enum": [
+                  "sides",
+                  "wrap"
+                ],
+                "type": "string"
+              },
+              "thumb_url": {
+                "description": "The front 480 px wide.",
+                "type": "string"
+              },
+              "trim": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              },
+              "warnings": {
+                "items": {
+                  "properties": {
+                    "code": {
+                      "description": "cover_low_resolution, cover_picture_small, cover_profile_not_srgb, cover_profile_dropped, cover_cropped, cover_wrap_low_resolution, cover_wrap_stale, cover_trim_mismatch.",
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "part": {
+                      "enum": [
+                        "front",
+                        "back",
+                        "wrap"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "wrap": {
+                "properties": {
+                  "attachment": {
+                    "description": "The picture: the id project.cover_layout.upload returned.",
+                    "type": "string"
+                  },
+                  "bleed_in": {
+                    "description": "The bleed the picture was made with, on its outer edges, 0 to 0.5 inches. Default 0.125; 0 is a wrap made without bleed.",
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "attachment"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "shape",
+              "trim",
+              "alt",
+              "revision",
+              "hash",
+              "pictures",
+              "warnings",
+              "created_at",
+              "updated_at"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "object"
+      }
+    },
+    {
+      "name": "project.cover_layout.set",
+      "method": "PUT",
+      "path": "/api/v1/projects/{id}/cover-layout",
+      "desc": "Set the project's cover layout: the whole layout at once, with the revision you read (0 when there is none yet; a stale revision is a conflict). shape sides takes a front (generated, image or page) and an optional back; shape wrap takes one wrap picture and its bleed. Only pictures this project's cover upload made may be named. alt is required when a picture is used. A preview (--dry-run) returns the warnings and writes nothing.",
+      "auth": {
+        "kind": "project",
+        "role": "editor"
+      },
+      "scope": "write",
+      "status": 200,
+      "input": {
+        "properties": {
+          "alt": {
+            "description": "The cover described in a sentence for screen readers. Required when a picture is used.",
+            "type": "string"
+          },
+          "back": {
+            "description": "Sides only. Default none.",
+            "properties": {
+              "attachment": {
+                "description": "The picture: the id project.cover_layout.upload returned. Image and page only.",
+                "type": "string"
+              },
+              "background": {
+                "description": "Page only. One of the cover palette's colours (#RRGGBB). Default the project's cover colour.",
+                "type": "string"
+              },
+              "fit": {
+                "description": "Page only. contain fits the picture inside the margin, cover fills it and crops, actual puts it on the page at 300 dpi. Default contain.",
+                "enum": [
+                  "contain",
+                  "cover",
+                  "actual"
+                ],
+                "type": "string"
+              },
+              "margin_in": {
+                "description": "Page only. The margin around the picture in inches, 0 to 1.5. Default 0.",
+                "type": "number"
+              },
+              "mode": {
+                "description": "generated: the typographic cover for this side; image: one picture filling the side (fill and crop from the centre); page: a picture placed on a page of the trim; none: no back (the back only).",
+                "enum": [
+                  "generated",
+                  "image",
+                  "page",
+                  "none"
+                ],
+                "type": "string"
+              },
+              "position": {
+                "description": "Page only. Where the picture sits on the page. Default center.",
+                "enum": [
+                  "top-left",
+                  "top",
+                  "top-right",
+                  "left",
+                  "center",
+                  "right",
+                  "bottom-left",
+                  "bottom",
+                  "bottom-right"
+                ],
+                "type": "string"
+              },
+              "scale": {
+                "description": "Page only. 10 to 100 percent of the fit. Default 100.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "mode"
+            ],
+            "type": "object"
+          },
+          "front": {
+            "description": "Sides only. Default generated.",
+            "properties": {
+              "attachment": {
+                "description": "The picture: the id project.cover_layout.upload returned. Image and page only.",
+                "type": "string"
+              },
+              "background": {
+                "description": "Page only. One of the cover palette's colours (#RRGGBB). Default the project's cover colour.",
+                "type": "string"
+              },
+              "fit": {
+                "description": "Page only. contain fits the picture inside the margin, cover fills it and crops, actual puts it on the page at 300 dpi. Default contain.",
+                "enum": [
+                  "contain",
+                  "cover",
+                  "actual"
+                ],
+                "type": "string"
+              },
+              "margin_in": {
+                "description": "Page only. The margin around the picture in inches, 0 to 1.5. Default 0.",
+                "type": "number"
+              },
+              "mode": {
+                "description": "generated: the typographic cover for this side; image: one picture filling the side (fill and crop from the centre); page: a picture placed on a page of the trim; none: no back (the back only).",
+                "enum": [
+                  "generated",
+                  "image",
+                  "page",
+                  "none"
+                ],
+                "type": "string"
+              },
+              "position": {
+                "description": "Page only. Where the picture sits on the page. Default center.",
+                "enum": [
+                  "top-left",
+                  "top",
+                  "top-right",
+                  "left",
+                  "center",
+                  "right",
+                  "bottom-left",
+                  "bottom",
+                  "bottom-right"
+                ],
+                "type": "string"
+              },
+              "scale": {
+                "description": "Page only. 10 to 100 percent of the fit. Default 100.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "mode"
+            ],
+            "type": "object"
+          },
+          "id": {
+            "description": "Project id.",
+            "in": "path",
+            "type": "string"
+          },
+          "revision": {
+            "description": "The revision you read: 0 when the project has no layout yet. A different one is a conflict.",
+            "type": "integer"
+          },
+          "shape": {
+            "enum": [
+              "sides",
+              "wrap"
+            ],
+            "type": "string"
+          },
+          "trim": {
+            "description": "6x9 (default), 5.5x8.5, 5.25x8, 5x8, a5, letter or a4.",
+            "type": "string"
+          },
+          "wrap": {
+            "description": "Wrap only.",
+            "properties": {
+              "attachment": {
+                "description": "The picture: the id project.cover_layout.upload returned.",
+                "type": "string"
+              },
+              "bleed_in": {
+                "description": "The bleed the picture was made with, on its outer edges, 0 to 0.5 inches. Default 0.125; 0 is a wrap made without bleed.",
+                "type": "number"
+              }
+            },
+            "required": [
+              "attachment"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "shape"
+        ],
+        "type": "object"
+      },
+      "output": {
+        "properties": {
+          "alt": {
+            "type": "string"
+          },
+          "back": {
+            "properties": {
+              "attachment": {
+                "description": "The picture: the id project.cover_layout.upload returned. Image and page only.",
+                "type": "string"
+              },
+              "background": {
+                "description": "Page only. One of the cover palette's colours (#RRGGBB). Default the project's cover colour.",
+                "type": "string"
+              },
+              "fit": {
+                "description": "Page only. contain fits the picture inside the margin, cover fills it and crops, actual puts it on the page at 300 dpi. Default contain.",
+                "enum": [
+                  "contain",
+                  "cover",
+                  "actual"
+                ],
+                "type": "string"
+              },
+              "margin_in": {
+                "description": "Page only. The margin around the picture in inches, 0 to 1.5. Default 0.",
+                "type": "number"
+              },
+              "mode": {
+                "description": "generated: the typographic cover for this side; image: one picture filling the side (fill and crop from the centre); page: a picture placed on a page of the trim; none: no back (the back only).",
+                "enum": [
+                  "generated",
+                  "image",
+                  "page",
+                  "none"
+                ],
+                "type": "string"
+              },
+              "position": {
+                "description": "Page only. Where the picture sits on the page. Default center.",
+                "enum": [
+                  "top-left",
+                  "top",
+                  "top-right",
+                  "left",
+                  "center",
+                  "right",
+                  "bottom-left",
+                  "bottom",
+                  "bottom-right"
+                ],
+                "type": "string"
+              },
+              "scale": {
+                "description": "Page only. 10 to 100 percent of the fit. Default 100.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "mode"
+            ],
+            "type": "object"
+          },
+          "back_url": {
+            "description": "The back as a JPEG, when the layout gives it a picture.",
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "front": {
+            "properties": {
+              "attachment": {
+                "description": "The picture: the id project.cover_layout.upload returned. Image and page only.",
+                "type": "string"
+              },
+              "background": {
+                "description": "Page only. One of the cover palette's colours (#RRGGBB). Default the project's cover colour.",
+                "type": "string"
+              },
+              "fit": {
+                "description": "Page only. contain fits the picture inside the margin, cover fills it and crops, actual puts it on the page at 300 dpi. Default contain.",
+                "enum": [
+                  "contain",
+                  "cover",
+                  "actual"
+                ],
+                "type": "string"
+              },
+              "margin_in": {
+                "description": "Page only. The margin around the picture in inches, 0 to 1.5. Default 0.",
+                "type": "number"
+              },
+              "mode": {
+                "description": "generated: the typographic cover for this side; image: one picture filling the side (fill and crop from the centre); page: a picture placed on a page of the trim; none: no back (the back only).",
+                "enum": [
+                  "generated",
+                  "image",
+                  "page",
+                  "none"
+                ],
+                "type": "string"
+              },
+              "position": {
+                "description": "Page only. Where the picture sits on the page. Default center.",
+                "enum": [
+                  "top-left",
+                  "top",
+                  "top-right",
+                  "left",
+                  "center",
+                  "right",
+                  "bottom-left",
+                  "bottom",
+                  "bottom-right"
+                ],
+                "type": "string"
+              },
+              "scale": {
+                "description": "Page only. 10 to 100 percent of the fit. Default 100.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "mode"
+            ],
+            "type": "object"
+          },
+          "front_url": {
+            "description": "The front as a JPEG (project.cover). Empty when the front is the generated cover.",
+            "type": "string"
+          },
+          "hash": {
+            "type": "string"
+          },
+          "measured": {
+            "description": "A wrap picture's measured resolution and spine, and the panels cut from it.",
+            "properties": {
+              "back": {
+                "description": "The back cut at the trim, without bleed.",
+                "properties": {
+                  "x0": {
+                    "type": "integer"
+                  },
+                  "x1": {
+                    "type": "integer"
+                  },
+                  "y0": {
+                    "type": "integer"
+                  },
+                  "y1": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "x0",
+                  "y0",
+                  "x1",
+                  "y1"
+                ],
+                "type": "object"
+              },
+              "back_bleed": {
+                "properties": {
+                  "x0": {
+                    "type": "integer"
+                  },
+                  "x1": {
+                    "type": "integer"
+                  },
+                  "y0": {
+                    "type": "integer"
+                  },
+                  "y1": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "x0",
+                  "y0",
+                  "x1",
+                  "y1"
+                ],
+                "type": "object"
+              },
+              "bleed_in": {
+                "type": "number"
+              },
+              "dpi": {
+                "description": "The picture's resolution: its height over the trim height plus two bleeds.",
+                "type": "number"
+              },
+              "front": {
+                "description": "The front cut at the trim, without bleed, in the picture's pixels.",
+                "properties": {
+                  "x0": {
+                    "type": "integer"
+                  },
+                  "x1": {
+                    "type": "integer"
+                  },
+                  "y0": {
+                    "type": "integer"
+                  },
+                  "y1": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "x0",
+                  "y0",
+                  "x1",
+                  "y1"
+                ],
+                "type": "object"
+              },
+              "front_bleed": {
+                "description": "The front with the outer bleed, as a print cover places it.",
+                "properties": {
+                  "x0": {
+                    "type": "integer"
+                  },
+                  "x1": {
+                    "type": "integer"
+                  },
+                  "y0": {
+                    "type": "integer"
+                  },
+                  "y1": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "x0",
+                  "y0",
+                  "x1",
+                  "y1"
+                ],
+                "type": "object"
+              },
+              "front_on": {
+                "description": "Which side the front is on: the right for a book read left to right, the left for right to left.",
+                "enum": [
+                  "left",
+                  "right"
+                ],
+                "type": "string"
+              },
+              "height_in": {
+                "type": "number"
+              },
+              "height_px": {
+                "type": "integer"
+              },
+              "spine": {
+                "properties": {
+                  "x0": {
+                    "type": "integer"
+                  },
+                  "x1": {
+                    "type": "integer"
+                  },
+                  "y0": {
+                    "type": "integer"
+                  },
+                  "y1": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "x0",
+                  "y0",
+                  "x1",
+                  "y1"
+                ],
+                "type": "object"
+              },
+              "spine_in": {
+                "description": "Measured from the picture's width: the width less two trim widths and two bleeds.",
+                "type": "number"
+              },
+              "width_in": {
+                "type": "number"
+              },
+              "width_px": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "width_px",
+              "height_px",
+              "dpi",
+              "width_in",
+              "height_in",
+              "bleed_in",
+              "spine_in",
+              "front_on",
+              "front",
+              "back",
+              "spine",
+              "front_bleed",
+              "back_bleed"
+            ],
+            "type": "object"
+          },
+          "pictures": {
+            "description": "Each picture the layout places, with its resolution at the trim and, for an image side, what the crop cuts away.",
+            "items": {
+              "properties": {
+                "attachment": {
+                  "type": "string"
+                },
+                "bytes": {
+                  "type": "integer"
+                },
+                "crop": {
+                  "description": "Image side only: the part of the picture that is shown, cut from its centre.",
+                  "properties": {
+                    "x0": {
+                      "type": "integer"
+                    },
+                    "x1": {
+                      "type": "integer"
+                    },
+                    "y0": {
+                      "type": "integer"
+                    },
+                    "y1": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "x0",
+                    "y0",
+                    "x1",
+                    "y1"
+                  ],
+                  "type": "object"
+                },
+                "crop_loss": {
+                  "description": "Image side only: the share of the picture cut away, 0 to 1.",
+                  "type": "number"
+                },
+                "dpi": {
+                  "description": "The picture's resolution at the size it is placed on the trim's page: for a wrap, its measured resolution.",
+                  "type": "number"
+                },
+                "height_px": {
+                  "type": "integer"
+                },
+                "part": {
+                  "enum": [
+                    "front",
+                    "back",
+                    "wrap"
+                  ],
+                  "type": "string"
+                },
+                "width_px": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "part",
+                "attachment",
+                "width_px",
+                "height_px",
+                "bytes",
+                "dpi"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "revision": {
+            "description": "Send this back with project.cover_layout.set.",
+            "type": "integer"
+          },
+          "shape": {
+            "enum": [
+              "sides",
+              "wrap"
+            ],
+            "type": "string"
+          },
+          "thumb_url": {
+            "description": "The front 480 px wide.",
+            "type": "string"
+          },
+          "trim": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "properties": {
+                "code": {
+                  "description": "cover_low_resolution, cover_picture_small, cover_profile_not_srgb, cover_profile_dropped, cover_cropped, cover_wrap_low_resolution, cover_wrap_stale, cover_trim_mismatch.",
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "part": {
+                  "enum": [
+                    "front",
+                    "back",
+                    "wrap"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "wrap": {
+            "properties": {
+              "attachment": {
+                "description": "The picture: the id project.cover_layout.upload returned.",
+                "type": "string"
+              },
+              "bleed_in": {
+                "description": "The bleed the picture was made with, on its outer edges, 0 to 0.5 inches. Default 0.125; 0 is a wrap made without bleed.",
+                "type": "number"
+              }
+            },
+            "required": [
+              "attachment"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "shape",
+          "trim",
+          "alt",
+          "revision",
+          "hash",
+          "pictures",
+          "warnings",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "project.cover_layout.upload",
+      "method": "POST",
+      "path": "/api/v1/projects/{id}/cover-layout/images",
+      "desc": "Upload a cover picture. The request body is the picture itself (the CLI: --file @path); part says which part of the cover it is for: front, back or wrap. A PNG or a JPEG is accepted and cleaned (no EXIF, no GPS, no thumbnail) into a project attachment that a layout may then name; the answer is its id, size, resolution at the trim and any warnings. A wrap is measured at once (the resolution from its height, the spine from its width) and refused when it is not a wrap for the trim: under 150 dpi, or a spine under zero or over 2.5 in. CMYK JPEGs, SVG, GIF, WebP, a picture over 24 megapixels, a progressive JPEG too large to decode within the server's memory budget (save a baseline JPEG) and a PNG over 16 megapixels (send a JPEG) are refused with a sentence that says why. It cannot be previewed with --dry-run: it writes a file.",
+      "auth": {
+        "kind": "project",
+        "role": "editor"
+      },
+      "scope": "write",
+      "status": 201,
+      "no_dry_run": true,
+      "raw_body": true,
+      "input": {
+        "properties": {
+          "bleed_in": {
+            "description": "A wrap's bleed in inches (0 to 0.5), for measuring it. Default 0.125, or the layout's.",
+            "in": "query",
+            "type": "string"
+          },
+          "filename": {
+            "description": "A name for the picture, for display.",
+            "in": "query",
+            "type": "string"
+          },
+          "id": {
+            "description": "Project id.",
+            "in": "path",
+            "type": "string"
+          },
+          "part": {
+            "description": "Which part of the cover the picture is for. A wrap is measured at once.",
+            "enum": [
+              "front",
+              "back",
+              "wrap"
+            ],
+            "in": "query",
+            "type": "string"
+          },
+          "trim": {
+            "description": "The trim the cover is made for, to give the resolution and measure a wrap against: 6x9 (default, or the layout's), 5.5x8.5, 5.25x8, 5x8, a5, letter or a4.",
+            "in": "query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "output": {
+        "properties": {
+          "attachment_id": {
+            "description": "Name this in a layout's front, back or wrap.",
+            "type": "string"
+          },
+          "bytes": {
+            "description": "The size of the cleaned picture.",
+            "type": "integer"
+          },
+          "dpi": {
+            "description": "At the trim: the picture's height over the trim's height (a wrap's measured resolution, bleed included).",
+            "type": "number"
+          },
+          "duplicate": {
+            "description": "The project already held these cleaned bytes.",
+            "type": "boolean"
+          },
+          "height_px": {
+            "type": "integer"
+          },
+          "measured": {
+            "description": "A wrap only: the measured spine and the panels cut from it.",
+            "properties": {
+              "back": {
+                "description": "The back cut at the trim, without bleed.",
+                "properties": {
+                  "x0": {
+                    "type": "integer"
+                  },
+                  "x1": {
+                    "type": "integer"
+                  },
+                  "y0": {
+                    "type": "integer"
+                  },
+                  "y1": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "x0",
+                  "y0",
+                  "x1",
+                  "y1"
+                ],
+                "type": "object"
+              },
+              "back_bleed": {
+                "properties": {
+                  "x0": {
+                    "type": "integer"
+                  },
+                  "x1": {
+                    "type": "integer"
+                  },
+                  "y0": {
+                    "type": "integer"
+                  },
+                  "y1": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "x0",
+                  "y0",
+                  "x1",
+                  "y1"
+                ],
+                "type": "object"
+              },
+              "bleed_in": {
+                "type": "number"
+              },
+              "dpi": {
+                "description": "The picture's resolution: its height over the trim height plus two bleeds.",
+                "type": "number"
+              },
+              "front": {
+                "description": "The front cut at the trim, without bleed, in the picture's pixels.",
+                "properties": {
+                  "x0": {
+                    "type": "integer"
+                  },
+                  "x1": {
+                    "type": "integer"
+                  },
+                  "y0": {
+                    "type": "integer"
+                  },
+                  "y1": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "x0",
+                  "y0",
+                  "x1",
+                  "y1"
+                ],
+                "type": "object"
+              },
+              "front_bleed": {
+                "description": "The front with the outer bleed, as a print cover places it.",
+                "properties": {
+                  "x0": {
+                    "type": "integer"
+                  },
+                  "x1": {
+                    "type": "integer"
+                  },
+                  "y0": {
+                    "type": "integer"
+                  },
+                  "y1": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "x0",
+                  "y0",
+                  "x1",
+                  "y1"
+                ],
+                "type": "object"
+              },
+              "front_on": {
+                "description": "Which side the front is on: the right for a book read left to right, the left for right to left.",
+                "enum": [
+                  "left",
+                  "right"
+                ],
+                "type": "string"
+              },
+              "height_in": {
+                "type": "number"
+              },
+              "height_px": {
+                "type": "integer"
+              },
+              "spine": {
+                "properties": {
+                  "x0": {
+                    "type": "integer"
+                  },
+                  "x1": {
+                    "type": "integer"
+                  },
+                  "y0": {
+                    "type": "integer"
+                  },
+                  "y1": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "x0",
+                  "y0",
+                  "x1",
+                  "y1"
+                ],
+                "type": "object"
+              },
+              "spine_in": {
+                "description": "Measured from the picture's width: the width less two trim widths and two bleeds.",
+                "type": "number"
+              },
+              "width_in": {
+                "type": "number"
+              },
+              "width_px": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "width_px",
+              "height_px",
+              "dpi",
+              "width_in",
+              "height_in",
+              "bleed_in",
+              "spine_in",
+              "front_on",
+              "front",
+              "back",
+              "spine",
+              "front_bleed",
+              "back_bleed"
+            ],
+            "type": "object"
+          },
+          "mime": {
+            "type": "string"
+          },
+          "part": {
+            "type": "string"
+          },
+          "rotated": {
+            "description": "The picture said it was turned (EXIF orientation) and was turned upright before the EXIF was dropped.",
+            "type": "boolean"
+          },
+          "trim": {
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "properties": {
+                "code": {
+                  "description": "cover_low_resolution, cover_picture_small, cover_profile_not_srgb, cover_profile_dropped, cover_cropped, cover_wrap_low_resolution, cover_wrap_stale, cover_trim_mismatch.",
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "part": {
+                  "enum": [
+                    "front",
+                    "back",
+                    "wrap"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "width_px": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "attachment_id",
+          "part",
+          "mime",
+          "bytes",
+          "width_px",
+          "height_px",
+          "trim",
+          "dpi",
+          "warnings"
         ],
         "type": "object"
       }
@@ -50936,7 +52988,19 @@
               "author_name": {
                 "type": "string"
               },
+              "cover_alt": {
+                "description": "The project's own cover described for screen readers.",
+                "type": "string"
+              },
               "cover_color": {
+                "type": "string"
+              },
+              "cover_layout": {
+                "description": "True when the project has its own cover, a picture for the front (project.cover_layout.get); false means the generated cover.",
+                "type": "boolean"
+              },
+              "cover_thumb": {
+                "description": "The address of the project's own cover, 480 px wide, for a list. Empty when the cover is the generated one.",
                 "type": "string"
               },
               "created_at": {
@@ -51039,6 +53103,7 @@
               "pinned",
               "last_opened_at",
               "last_document_id",
+              "cover_layout",
               "created_at",
               "updated_at"
             ],
@@ -51929,7 +53994,19 @@
               "author_name": {
                 "type": "string"
               },
+              "cover_alt": {
+                "description": "The project's own cover described for screen readers.",
+                "type": "string"
+              },
               "cover_color": {
+                "type": "string"
+              },
+              "cover_layout": {
+                "description": "True when the project has its own cover, a picture for the front (project.cover_layout.get); false means the generated cover.",
+                "type": "boolean"
+              },
+              "cover_thumb": {
+                "description": "The address of the project's own cover, 480 px wide, for a list. Empty when the cover is the generated one.",
                 "type": "string"
               },
               "created_at": {
@@ -52032,6 +54109,7 @@
               "pinned",
               "last_opened_at",
               "last_document_id",
+              "cover_layout",
               "created_at",
               "updated_at"
             ],
@@ -52093,7 +54171,19 @@
                 "author_name": {
                   "type": "string"
                 },
+                "cover_alt": {
+                  "description": "The project's own cover described for screen readers.",
+                  "type": "string"
+                },
                 "cover_color": {
+                  "type": "string"
+                },
+                "cover_layout": {
+                  "description": "True when the project has its own cover, a picture for the front (project.cover_layout.get); false means the generated cover.",
+                  "type": "boolean"
+                },
+                "cover_thumb": {
+                  "description": "The address of the project's own cover, 480 px wide, for a list. Empty when the cover is the generated one.",
                   "type": "string"
                 },
                 "created_at": {
@@ -52196,6 +54286,7 @@
                 "pinned",
                 "last_opened_at",
                 "last_document_id",
+                "cover_layout",
                 "created_at",
                 "updated_at"
               ],
@@ -52645,7 +54736,19 @@
               "author_name": {
                 "type": "string"
               },
+              "cover_alt": {
+                "description": "The project's own cover described for screen readers.",
+                "type": "string"
+              },
               "cover_color": {
+                "type": "string"
+              },
+              "cover_layout": {
+                "description": "True when the project has its own cover, a picture for the front (project.cover_layout.get); false means the generated cover.",
+                "type": "boolean"
+              },
+              "cover_thumb": {
+                "description": "The address of the project's own cover, 480 px wide, for a list. Empty when the cover is the generated one.",
                 "type": "string"
               },
               "created_at": {
@@ -52748,6 +54851,7 @@
               "pinned",
               "last_opened_at",
               "last_document_id",
+              "cover_layout",
               "created_at",
               "updated_at"
             ],
@@ -53089,7 +55193,19 @@
               "author_name": {
                 "type": "string"
               },
+              "cover_alt": {
+                "description": "The project's own cover described for screen readers.",
+                "type": "string"
+              },
               "cover_color": {
+                "type": "string"
+              },
+              "cover_layout": {
+                "description": "True when the project has its own cover, a picture for the front (project.cover_layout.get); false means the generated cover.",
+                "type": "boolean"
+              },
+              "cover_thumb": {
+                "description": "The address of the project's own cover, 480 px wide, for a list. Empty when the cover is the generated one.",
                 "type": "string"
               },
               "created_at": {
@@ -53192,6 +55308,7 @@
               "pinned",
               "last_opened_at",
               "last_document_id",
+              "cover_layout",
               "created_at",
               "updated_at"
             ],
@@ -54554,7 +56671,19 @@
               "author_name": {
                 "type": "string"
               },
+              "cover_alt": {
+                "description": "The project's own cover described for screen readers.",
+                "type": "string"
+              },
               "cover_color": {
+                "type": "string"
+              },
+              "cover_layout": {
+                "description": "True when the project has its own cover, a picture for the front (project.cover_layout.get); false means the generated cover.",
+                "type": "boolean"
+              },
+              "cover_thumb": {
+                "description": "The address of the project's own cover, 480 px wide, for a list. Empty when the cover is the generated one.",
                 "type": "string"
               },
               "created_at": {
@@ -54657,6 +56786,7 @@
               "pinned",
               "last_opened_at",
               "last_document_id",
+              "cover_layout",
               "created_at",
               "updated_at"
             ],
@@ -55202,7 +57332,19 @@
               "author_name": {
                 "type": "string"
               },
+              "cover_alt": {
+                "description": "The project's own cover described for screen readers.",
+                "type": "string"
+              },
               "cover_color": {
+                "type": "string"
+              },
+              "cover_layout": {
+                "description": "True when the project has its own cover, a picture for the front (project.cover_layout.get); false means the generated cover.",
+                "type": "boolean"
+              },
+              "cover_thumb": {
+                "description": "The address of the project's own cover, 480 px wide, for a list. Empty when the cover is the generated one.",
                 "type": "string"
               },
               "created_at": {
@@ -55305,6 +57447,7 @@
               "pinned",
               "last_opened_at",
               "last_document_id",
+              "cover_layout",
               "created_at",
               "updated_at"
             ],
@@ -56181,7 +58324,19 @@
               "author_name": {
                 "type": "string"
               },
+              "cover_alt": {
+                "description": "The project's own cover described for screen readers.",
+                "type": "string"
+              },
               "cover_color": {
+                "type": "string"
+              },
+              "cover_layout": {
+                "description": "True when the project has its own cover, a picture for the front (project.cover_layout.get); false means the generated cover.",
+                "type": "boolean"
+              },
+              "cover_thumb": {
+                "description": "The address of the project's own cover, 480 px wide, for a list. Empty when the cover is the generated one.",
                 "type": "string"
               },
               "created_at": {
@@ -56284,6 +58439,7 @@
               "pinned",
               "last_opened_at",
               "last_document_id",
+              "cover_layout",
               "created_at",
               "updated_at"
             ],
@@ -56443,7 +58599,19 @@
               "author_name": {
                 "type": "string"
               },
+              "cover_alt": {
+                "description": "The project's own cover described for screen readers.",
+                "type": "string"
+              },
               "cover_color": {
+                "type": "string"
+              },
+              "cover_layout": {
+                "description": "True when the project has its own cover, a picture for the front (project.cover_layout.get); false means the generated cover.",
+                "type": "boolean"
+              },
+              "cover_thumb": {
+                "description": "The address of the project's own cover, 480 px wide, for a list. Empty when the cover is the generated one.",
                 "type": "string"
               },
               "created_at": {
@@ -56546,6 +58714,7 @@
               "pinned",
               "last_opened_at",
               "last_document_id",
+              "cover_layout",
               "created_at",
               "updated_at"
             ],
@@ -56914,6 +59083,10 @@
             "in": "path",
             "type": "string"
           },
+          "include_cover": {
+            "description": "Public audience: push the project's own cover (the layout and its pictures) too; the plan lists its files. A private audience always carries it.",
+            "type": "boolean"
+          },
           "include_notes": {
             "description": "Private audience only: push the project's notes too.",
             "type": "boolean"
@@ -57104,11 +59277,15 @@
             },
             "type": "array"
           },
+          "include_cover": {
+            "description": "The first push carries the project's own cover.",
+            "type": "boolean"
+          },
           "include_notes": {
             "type": "boolean"
           },
           "needs_confirm": {
-            "description": "The repository is public: repo.publish needs confirm, the name typed exactly.",
+            "description": "The repository is public, or a public audience carries the cover: repo.publish needs confirm, the name typed exactly.",
             "type": "boolean"
           },
           "only_done": {
@@ -57236,6 +59413,7 @@
           "audience",
           "only_done",
           "include_notes",
+          "include_cover",
           "sign_commits",
           "push_mode",
           "remote_name",
@@ -57282,7 +59460,7 @@
             "type": "string"
           },
           "confirm": {
-            "description": "For a public repository: its name, typed exactly.",
+            "description": "For a public repository, or a public audience with include_cover: the repository's name, typed exactly.",
             "type": "string"
           },
           "description": {
@@ -57292,6 +59470,9 @@
             "description": "Project id.",
             "in": "path",
             "type": "string"
+          },
+          "include_cover": {
+            "type": "boolean"
           },
           "include_notes": {
             "type": "boolean"
@@ -57578,6 +59759,10 @@
               "enabled": {
                 "type": "boolean"
               },
+              "exposed": {
+                "description": "The remote is public, was made by the publish flow, or sits at an address that was ever public: a change that lets more reach it needs a person at a browser and its name typed.",
+                "type": "boolean"
+              },
               "has_secret": {
                 "description": "A deploy key or token is stored. It is never returned.",
                 "type": "boolean"
@@ -57605,6 +59790,10 @@
               },
               "id": {
                 "type": "string"
+              },
+              "include_cover": {
+                "description": "The push carries the project's own cover (the layout and its pictures). On for a private remote; off for a public one until a person turns it on.",
+                "type": "boolean"
               },
               "include_notes": {
                 "type": "boolean"
@@ -57895,6 +60084,8 @@
               "audience",
               "only_done",
               "sign_commits",
+              "exposed",
+              "include_cover",
               "restore_paused",
               "setup",
               "status",
@@ -63940,7 +66131,7 @@
                 "type": "boolean"
               },
               "show_cover": {
-                "description": "Show the project's generated cover on the front page.",
+                "description": "Show the project's cover on the front page: its own cover when it has one (project.cover_layout.get), else the generated one.",
                 "type": "boolean"
               },
               "show_dates": {
@@ -64085,7 +66276,7 @@
                 "type": "boolean"
               },
               "show_cover": {
-                "description": "Show the project's generated cover on the front page.",
+                "description": "Show the project's cover on the front page: its own cover when it has one (project.cover_layout.get), else the generated one.",
                 "type": "boolean"
               },
               "show_dates": {
@@ -64370,7 +66561,7 @@
                 "type": "boolean"
               },
               "show_cover": {
-                "description": "Show the project's generated cover on the front page.",
+                "description": "Show the project's cover on the front page: its own cover when it has one (project.cover_layout.get), else the generated one.",
                 "type": "boolean"
               },
               "show_dates": {
@@ -64515,7 +66706,7 @@
                 "type": "boolean"
               },
               "show_cover": {
-                "description": "Show the project's generated cover on the front page.",
+                "description": "Show the project's cover on the front page: its own cover when it has one (project.cover_layout.get), else the generated one.",
                 "type": "boolean"
               },
               "show_dates": {

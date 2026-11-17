@@ -1,0 +1,214 @@
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/cover.css"}}"><script src="{{asset "js/cover.js"}}" defer></script><script src="{{asset "js/arm.js"}}" defer></script>{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="{{$.T "cover.crumb"}}"><a href="/">{{template "icon" "chevron-left"}}<span>{{$.T "cover.library"}}</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "cover.title"}}</span></nav>
+{{end}}
+{{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "cover" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "cover" .Data.Project.Role}}{{end}}
+{{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "cover" .Data.Project.Role}}{{end}}
+
+{{define "cover-side"}}{{$s := .S}}{{$p := .P}}{{$d := .D}}
+<fieldset class="cv-side" id="cv-{{$s.Part}}" data-part="{{$s.Part}}"{{with $s.Pic}} data-att="{{.ID}}" data-url="{{.URL}}" data-pw="{{.W}}" data-ph="{{.H}}"{{end}}>
+  <legend>{{if eq $s.Part "front"}}{{$p.T "cover.side_front"}}{{else}}{{$p.T "cover.side_back"}}{{end}}</legend>
+  <div class="cv-modes" id="cv-{{$s.Part}}-mode"{{if eq $d.ErrorFor (print "cv-" $s.Part "-mode")}} aria-invalid="true"{{end}}>
+    <label class="cv-mode"><input type="radio" name="{{$s.Part}}_mode" value="generated" class="cv-m-generated"{{if eq $s.Mode "generated"}} checked{{end}}><span>{{$p.T "cover.mode_generated"}}</span></label>
+    <label class="cv-mode"><input type="radio" name="{{$s.Part}}_mode" value="image" class="cv-m-image"{{if eq $s.Mode "image"}} checked{{end}}><span>{{$p.T "cover.mode_image"}}</span></label>
+    <label class="cv-mode"><input type="radio" name="{{$s.Part}}_mode" value="page" class="cv-m-page"{{if eq $s.Mode "page"}} checked{{end}}><span>{{$p.T "cover.mode_page"}}</span></label>
+    {{if eq $s.Part "back"}}<label class="cv-mode"><input type="radio" name="back_mode" value="none" class="cv-m-none"{{if eq $s.Mode "none"}} checked{{end}}><span>{{$p.T "cover.mode_none"}}</span></label>{{end}}
+  </div>
+  <p class="fine">{{if eq $s.Part "front"}}{{$p.T "cover.modes_help_front"}}{{else}}{{$p.T "cover.modes_help_back"}}{{end}}</p>
+
+  <div class="cv-pick">
+    <div class="cv-drop" data-drop>
+      <div class="field">
+        <label for="cv-{{$s.Part}}-file">{{if eq $s.Part "front"}}{{$p.T "cover.pick_front"}}{{else}}{{$p.T "cover.pick_back"}}{{end}}</label>
+        <input id="cv-{{$s.Part}}-file" type="file" name="{{$s.Part}}_file" accept="image/png,image/jpeg" aria-describedby="cv-{{$s.Part}}-file-h"{{if eq $d.ErrorFor (print $s.Part "_file")}} aria-invalid="true"{{end}}>
+        <span class="hint" id="cv-{{$s.Part}}-file-h">{{$p.T "cover.pick_hint" "mb" $d.MaxPicture}} <span class="cv-dropnote" hidden>{{$p.T "cover.drop_hint"}}</span></span>
+      </div>
+    </div>
+    {{with $s.Pic}}<p class="cv-have">{{$p.T "cover.have" "w" (num .W) "h" (num .H)}}{{if .DPI}} {{$p.T "cover.have_dpi" "dpi" (printf "%.0f" .DPI)}}{{end}}</p>{{end}}
+  </div>
+
+  <div class="cv-page">
+    <fieldset class="cv-bare">
+      <legend>{{$p.T "cover.fit"}}</legend>
+      <div class="cv-fits">
+        <label class="cv-mode"><input type="radio" name="{{$s.Part}}_fit" value="contain"{{if eq $s.Fit "contain"}} checked{{end}}><span>{{$p.T "cover.fit_contain"}}</span></label>
+        <label class="cv-mode"><input type="radio" name="{{$s.Part}}_fit" value="cover"{{if eq $s.Fit "cover"}} checked{{end}}><span>{{$p.T "cover.fit_cover"}}</span></label>
+        <label class="cv-mode"><input type="radio" name="{{$s.Part}}_fit" value="actual"{{if eq $s.Fit "actual"}} checked{{end}}><span>{{$p.T "cover.fit_actual"}}</span></label>
+      </div>
+    </fieldset>
+    <div class="field-row cv-nums">
+      <div class="field"><label for="cv-{{$s.Part}}-scale">{{$p.T "cover.scale"}}</label><input id="cv-{{$s.Part}}-scale" type="number" name="{{$s.Part}}_scale" min="10" max="100" step="5" inputmode="numeric" value="{{$s.Scale}}" aria-describedby="cv-{{$s.Part}}-scale-h"><span class="hint" id="cv-{{$s.Part}}-scale-h">{{$p.T "cover.scale_hint"}}</span></div>
+      <div class="field"><label for="cv-{{$s.Part}}-margin">{{$p.T "cover.margin"}}</label><input id="cv-{{$s.Part}}-margin" type="number" name="{{$s.Part}}_margin" min="0" max="1.5" step="0.125" inputmode="decimal" value="{{$s.Margin}}" aria-describedby="cv-{{$s.Part}}-margin-h"><span class="hint" id="cv-{{$s.Part}}-margin-h">{{$p.T "cover.margin_hint"}}</span></div>
+    </div>
+    <fieldset class="cv-bare cv-pos">
+      <legend>{{$p.T "cover.position"}}</legend>
+      <div class="cv-cells">
+        {{range $d.Positions}}<label class="cv-cell"><input type="radio" name="{{$s.Part}}_pos" value="{{.Value}}"{{if eq .Value $s.Pos}} checked{{end}}><span class="cv-dot" aria-hidden="true"></span><span class="sr-only">{{.Label}}</span></label>{{end}}
+      </div>
+    </fieldset>
+    <fieldset class="swatches cv-bare">
+      <legend>{{$p.T "cover.background"}}</legend>
+      <div class="swatch-row">
+        {{range $d.Palette}}<label class="swatch"><input type="radio" name="{{$s.Part}}_bg" value="{{.Hex}}"{{if eq .Hex $s.Bg}} checked{{end}}><span class="chip {{.Class}}"></span><span class="sr-only">{{.Name}}</span></label>{{end}}
+      </div>
+    </fieldset>
+  </div>
+</fieldset>
+{{end}}
+
+{{define "cover-frame"}}{{$d := .D}}{{$p := .P}}
+<div class="cv-frame {{$d.CoverClass}}" data-trim="{{$d.Trim}}">
+  {{if $d.FrontSvg}}{{with $d.FrontSvg}}<svg class="cv-svg {{.Class}}" viewBox="0 0 {{.CW}} {{.CH}}" role="img" aria-label="{{$d.Alt}}"><rect class="cv-bg" width="{{.CW}}" height="{{.CH}}"/>{{if .Page}}<clipPath id="cv-clip"><rect x="{{.BX}}" y="{{.BY}}" width="{{.BW}}" height="{{.BH}}"/></clipPath><image href="{{.Href}}" x="{{.X}}" y="{{.Y}}" width="{{.W}}" height="{{.H}}" preserveAspectRatio="none" clip-path="url(#cv-clip)"/>{{else}}<image href="{{.Href}}" width="{{.CW}}" height="{{.CH}}" preserveAspectRatio="xMidYMid slice"/>{{end}}</svg>{{end}}
+  {{else if and $d.Dirty (eq $d.Shape "wrap") $d.Wrap.Measured}}<svg class="cv-svg" viewBox="{{$d.Wrap.FrontPreview}}" role="img" aria-label="{{$d.Alt}}"><image href="{{$d.Wrap.URL}}" width="{{$d.Wrap.PW}}" height="{{$d.Wrap.PH}}"/></svg>
+  {{else if and $d.Shown (not $d.Dirty)}}<img src="{{$d.FrontURL}}" alt="{{$d.SavedAlt}}" decoding="async">{{end}}
+  <span class="cover cv-generated" aria-hidden="true"{{if $d.PicShown}} hidden{{end}}><span class="cover-title">{{$d.Project.Title}}</span><span class="cover-rule"></span><span class="cover-kind">{{$d.KindLabel}}</span></span>
+</div>
+{{end}}
+
+{{define "cover-guides"}}<g class="{{.Class}}">
+  <rect class="cv-g-cut" x="{{.W.Cut.X}}" y="{{.W.Cut.Y}}" width="{{.W.Cut.W}}" height="{{.W.Cut.H}}"/>
+  <path class="cv-g-fold" d="M{{.W.Fold0}} 0V{{.W.PH}}M{{.W.Fold1}} 0V{{.W.PH}}"/>
+  <rect class="cv-g-margin" x="{{.W.MarginBack.X}}" y="{{.W.MarginBack.Y}}" width="{{.W.MarginBack.W}}" height="{{.W.MarginBack.H}}"/>
+  <rect class="cv-g-margin" x="{{.W.MarginFront.X}}" y="{{.W.MarginFront.Y}}" width="{{.W.MarginFront.W}}" height="{{.W.MarginFront.H}}"/>
+</g>{{end}}
+
+{{define "content"}}
+{{with .Data}}{{$d := .}}
+<div class="settings cv" id="cover" data-project="{{.Project.ID}}" data-msg="{{json ($.Msgs "cover.js.")}}">
+  <h1>{{$.T "cover.title"}}</h1>
+  <p class="sub">{{.Project.Title}}. {{$.T "cover.intro"}}</p>
+  {{if .Flash}}<p class="saved" role="status" id="cv-flash">{{.Flash}}</p>{{end}}
+  {{if .Error}}<div class="cv-error" role="alert" id="cv-msg" tabindex="-1"><p>{{.Error}}</p>{{if .Conflict}}<p><a class="btn small" href="/p/{{.Slug}}/cover">{{$.T "cover.reload"}}</a></p>{{end}}</div>{{end}}
+  {{if and .Conflict .Yours .Saved}}<div class="cv-versions">
+    <section aria-labelledby="cv-ver-yours"><h2 id="cv-ver-yours">{{$.T "cover.ver_yours"}}</h2><p class="fine">{{$.T "cover.ver_yours_h"}}</p>
+      <dl class="cv-facts"><div><dt>{{$.T "cover.shape"}}</dt><dd>{{.Yours.Shape}}</dd></div><div><dt>{{$.T "cover.trim"}}</dt><dd>{{.Yours.Trim}}</dd></div><div><dt>{{$.T "cover.alt"}}</dt><dd>{{if .Yours.Alt}}{{.Yours.Alt}}{{else}}{{$.T "cover.ver_no_alt"}}{{end}}</dd></div></dl></section>
+    <section aria-labelledby="cv-ver-saved"><h2 id="cv-ver-saved">{{$.T "cover.ver_saved"}}</h2><p class="fine">{{$.T "cover.ver_saved_h"}}</p>
+      {{if .Saved.Shown}}<img class="cv-ver-img" src="{{.Saved.Thumb}}" alt="" decoding="async">{{end}}
+      <dl class="cv-facts"><div><dt>{{$.T "cover.shape"}}</dt><dd>{{.Saved.Shape}}</dd></div><div><dt>{{$.T "cover.trim"}}</dt><dd>{{.Saved.Trim}}</dd></div><div><dt>{{$.T "cover.alt"}}</dt><dd>{{if .Saved.Alt}}{{.Saved.Alt}}{{else}}{{$.T "cover.ver_no_alt"}}{{end}}</dd></div></dl></section>
+  </div>{{end}}
+  {{range .Notes}}<p class="cv-note" role="status">{{.Text}}</p>{{end}}
+  <p class="sr-only" id="cv-live" role="status" aria-live="polite"></p>
+  {{if .Warnings}}<section class="cv-warnings" aria-labelledby="cv-warn-h"><h2 id="cv-warn-h">{{$.T "cover.warnings"}}</h2><ul>{{range .Warnings}}<li>{{.Text}}</li>{{end}}</ul></section>{{end}}
+
+  <div class="cv-grid">
+  <div class="cv-main">
+  {{if .CanEdit}}
+  <form class="cv-form" id="cv-form" method="post" action="/ui/projects/{{.Project.ID}}/cover" enctype="multipart/form-data" novalidate>
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <input type="hidden" name="revision" value="{{.Revision}}">
+    <input type="hidden" name="front_att" value="{{.Front.Att}}">
+    <input type="hidden" name="back_att" value="{{.Back.Att}}">
+    <input type="hidden" name="wrap_att" value="{{.Wrap.Att}}">
+
+    <fieldset class="cv-shape" id="cv-shape">
+      <legend>{{$.T "cover.shape"}}</legend>
+      <label class="cv-choice"><input type="radio" name="shape" id="cv-shape-generated" value="generated"{{if eq .Shape "generated"}} checked{{end}}><span><strong>{{$.T "cover.shape_generated"}}</strong><span class="fine">{{$.T "cover.shape_generated_h"}}</span></span></label>
+      <label class="cv-choice"><input type="radio" name="shape" id="cv-shape-sides" value="sides"{{if eq .Shape "sides"}} checked{{end}}><span><strong>{{$.T "cover.shape_sides"}}</strong><span class="fine">{{$.T "cover.shape_sides_h"}}</span></span></label>
+      <label class="cv-choice"><input type="radio" name="shape" id="cv-shape-wrap" value="wrap"{{if eq .Shape "wrap"}} checked{{end}}><span><strong>{{$.T "cover.shape_wrap"}}</strong><span class="fine">{{$.T "cover.shape_wrap_h"}}</span></span></label>
+    </fieldset>
+
+    <div class="field cv-trimrow">
+      <label for="cv-trim">{{$.T "cover.trim"}}</label>
+      <div class="cv-selbox"><select id="cv-trim" name="trim" aria-describedby="cv-trim-h"{{if eq .ErrorFor "cv-trim"}} aria-invalid="true"{{end}}>{{range .Trims}}<option value="{{.Value}}" data-w="{{.W}}" data-h="{{.H}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select></div>
+      <span class="hint" id="cv-trim-h">{{$.T "cover.trim_hint"}}</span>
+    </div>
+
+    <div class="cv-sides">
+      {{template "cover-side" (dict "S" .Front "P" $ "D" $d)}}
+      {{template "cover-side" (dict "S" .Back "P" $ "D" $d)}}
+    </div>
+
+    <section class="cv-wrap" aria-labelledby="cv-wrap-h">
+      <h2 id="cv-wrap-h">{{$.T "cover.wrap_h"}}</h2>
+      <p class="fine">{{$.T "cover.wrap_help"}}</p>
+      <div class="field cv-bleedrow">
+        <label for="cv-bleed">{{$.T "cover.bleed"}}</label>
+        <input id="cv-bleed" type="number" name="bleed" min="0" max="0.5" step="0.0625" inputmode="decimal" value="{{.Bleed}}" aria-describedby="cv-bleed-h"{{if eq .ErrorFor "cv-bleed"}} aria-invalid="true"{{end}}>
+        <span class="hint" id="cv-bleed-h">{{$.T "cover.bleed_hint"}}</span>
+      </div>
+      <div class="cv-drop" data-drop>
+        <div class="field">
+          <label for="cv-wrap-file">{{$.T "cover.pick_wrap"}}</label>
+          <input id="cv-wrap-file" type="file" name="wrap_file" accept="image/png,image/jpeg" aria-describedby="cv-wrap-file-h"{{if eq .ErrorFor "wrap_file"}} aria-invalid="true"{{end}}>
+          <span class="hint" id="cv-wrap-file-h">{{$.T "cover.pick_hint" "mb" .MaxPicture}} <span class="cv-dropnote" hidden>{{$.T "cover.drop_hint"}}</span></span>
+        </div>
+      </div>
+      {{with .Wrap}}{{if .Measured}}
+      <h3 id="cv-measured-h">{{$.T "cover.measured_h"}}</h3>
+      <dl class="cv-facts" aria-labelledby="cv-measured-h">
+        <div><dt>{{$.T "cover.m_dpi"}}</dt><dd>{{$.T "cover.m_dpi_v" "dpi" (printf "%.0f" .DPI) "trim" (iso $d.TrimWord)}}</dd></div>
+        <div><dt>{{$.T "cover.m_spine"}}</dt><dd>{{$.T "cover.m_spine_v" "in" .SpineIn "pages" (num .SpinePages) "paper" $d.Paper}}</dd></div>
+        <div><dt>{{$.T "cover.m_size"}}</dt><dd>{{$.T "cover.m_size_v" "w" .WidthIn "px" (num .PW) "h" (num .PH)}}</dd></div>
+        <div><dt>{{$.T "cover.m_front"}}</dt><dd>{{if eq .FrontOn "right"}}{{$.T "cover.m_front_right"}}{{else}}{{$.T "cover.m_front_left"}}{{end}}</dd></div>
+      </dl>
+      <figure class="cv-art">
+        <svg class="cv-wrapsvg" viewBox="0 0 {{.PW}} {{.PH}}" role="img" aria-labelledby="cv-art-t cv-art-d">
+          <title id="cv-art-t">{{$.T "cover.art_title"}}</title>
+          <desc id="cv-art-d">{{$.T "cover.art_desc"}}</desc>
+          <image href="{{.URL}}" x="0" y="0" width="{{.PW}}" height="{{.PH}}"/>
+          {{template "cover-guides" (dict "W" . "Class" "cv-halo")}}
+          {{template "cover-guides" (dict "W" . "Class" "cv-line")}}
+          {{$w := .}}{{range .Labels}}{{if .Show}}<text class="cv-lbl" x="{{.X}}" y="{{$w.LabelY}}" font-size="{{$w.FS}}" text-anchor="middle">{{if eq .Part "back"}}{{$.T "cover.lbl_back"}}{{else if eq .Part "spine"}}{{$.T "cover.lbl_spine"}}{{else}}{{$.T "cover.lbl_front"}}{{end}}</text>{{end}}{{end}}
+        </svg>
+        <figcaption>
+          <ul class="cv-key" aria-label="{{$.T "cover.art_key"}}">
+            <li><span class="cv-sw cv-sw-cut" aria-hidden="true"></span>{{$.T "cover.key_cut"}}</li>
+            <li><span class="cv-sw cv-sw-fold" aria-hidden="true"></span>{{$.T "cover.key_fold"}}</li>
+            <li><span class="cv-sw cv-sw-margin" aria-hidden="true"></span>{{$.T "cover.key_margin"}}</li>
+          </ul>
+          <p class="fine">{{$.T "cover.art_note"}}</p>
+        </figcaption>
+      </figure>
+      {{end}}{{end}}
+    </section>
+
+    <div class="field cv-altrow">
+      <label for="cv-alt">{{$.T "cover.alt"}}</label>
+      <textarea id="cv-alt" name="alt" rows="2" maxlength="500" aria-describedby="cv-alt-h"{{if eq .ErrorFor "cv-alt"}} aria-invalid="true"{{end}}>{{.Alt}}</textarea>
+      <span class="hint" id="cv-alt-h">{{$.T "cover.alt_hint"}}</span>
+    </div>
+
+    <div class="form-actions cv-actions">
+      <button class="btn solid" type="submit" name="action" value="save">{{$.T "cover.save"}}</button>
+      <button type="submit" name="action" value="upload" id="cv-upload" formnovalidate hidden>{{$.T "cover.upload"}}</button>
+    </div>
+  </form>
+  {{if .Has}}
+  <section class="cv-clear" aria-labelledby="cv-clear-h">
+    <h2 id="cv-clear-h">{{$.T "cover.clear_h"}}</h2>
+    <p class="fine">{{$.T "cover.clear_help"}}</p>
+    <form method="post" action="/ui/projects/{{.Project.ID}}/cover/clear" data-arm="{{$.T "cover.clear_ask"}}" data-arm-ok="{{$.T "cover.clear_ok"}}" data-arm-cancel="{{$.T "cover.cancel"}}">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <button class="btn" type="submit">{{$.T "cover.clear"}}</button>
+    </form>
+  </section>
+  {{end}}
+  {{else}}
+  <dl class="cv-facts">
+    <div><dt>{{$.T "cover.shape"}}</dt><dd>{{if eq .Shape "sides"}}{{$.T "cover.shape_sides"}}{{else if eq .Shape "wrap"}}{{$.T "cover.shape_wrap"}}{{else}}{{$.T "cover.shape_generated"}}{{end}}</dd></div>
+    <div><dt>{{$.T "cover.trim"}}</dt><dd>{{range .Trims}}{{if .Selected}}{{.Label}}{{end}}{{end}}</dd></div>
+    {{if .SavedAlt}}<div><dt>{{$.T "cover.alt"}}</dt><dd>{{.SavedAlt}}</dd></div>{{end}}
+  </dl>
+  <p class="fine">{{$.T "cover.read_only"}}</p>
+  {{end}}
+  </div>
+
+  <aside class="cv-preview" aria-labelledby="cv-pv-h">
+    <h2 id="cv-pv-h">{{$.T "cover.preview"}}</h2>
+    <div class="cv-pv-row">
+      <figure class="cv-pv-tile">
+        <span class="cover {{if .Shown}}cover-image{{end}} {{.CoverClass}}">{{if .Shown}}<img src="{{.ThumbURL}}" alt="" decoding="async">{{else}}<span class="cover-title" aria-hidden="true">{{.Project.Title}}</span><span class="cover-rule" aria-hidden="true"></span><span class="cover-kind" aria-hidden="true">{{.KindLabel}}</span>{{end}}</span>
+        <figcaption>{{$.T "cover.pv_tile"}}</figcaption>
+      </figure>
+      <figure class="cv-pv-page" id="cv-pv-page">
+        {{template "cover-frame" (dict "D" $d "P" $)}}
+        <figcaption id="cv-pv-cap">{{if .Dirty}}{{$.T "cover.pv_draft"}}{{else}}{{$.T "cover.pv_page"}}{{end}}</figcaption>
+      </figure>
+      {{if and .BackURL (not .Dirty)}}<figure class="cv-pv-back"><div class="cv-frame {{.CoverClass}}" data-trim="{{.Trim}}"><img src="{{.BackURL}}" alt="" decoding="async"></div><figcaption>{{$.T "cover.pv_back"}}</figcaption></figure>{{end}}
+    </div>
+  </aside>
+  </div>
+</div>
+{{end}}
+{{end}}

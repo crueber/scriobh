@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/crueber/scriobh/internal/db"
 	"github.com/crueber/scriobh/internal/devgit"
 )
 
@@ -64,6 +65,9 @@ type richFacts struct {
 	GitTree                      map[string]string
 	GitHead                      string
 	SSHUrl                       string
+	AttID, PictureChapter        string // a picture and the chapter that names it
+	ResearchNote                 string // a research note that names it too
+	PrivateRemoteID              string // a second remote, audience private, on the other book
 }
 
 func newRich(t *testing.T, oldBase string, jar func(sub string) *apiClient) *rich {
@@ -200,6 +204,11 @@ func (r *rich) write(oldBase string) {
 	doc(f.P2, "", "note", "Heron count", "Four herons on the reed, one on the wall.\n")
 	doc(f.P2, "", "note", "Weather", "Rain from the west, a lantern wind.\n")
 
+	// ---- a picture, linked from a chapter and from a research note (attachment_refs rows, which migration 0810
+	// rebuilds). It is written before the webhook below exists: the document.updated it makes would otherwise leave a
+	// delivery pending in the old release's answer, and the rehearsal compares that answer after the upgrade ----------
+	r.picture(chapters[1].id, chapters[1].title)
+
 	// ---- comments and suggestions ---------------------------------------------------------------------
 	pid := map[string]string{"id": f.P1}
 	if c1, ok := r.op(r.w, "comment.create", pid, map[string]any{"document_id": chapters[0].id, "quote": "counting the lamps", "occurrence": 0, "body": "Lovely image."}, 201); ok {
@@ -302,7 +311,56 @@ func (r *rich) write(oldBase string) {
 
 	// ---- a Git remote, pushed to a real (development) Git server ---------------------------------------------------
 	r.gitRemote(f.P1)
+	r.privateRemote(f.P2)
 	_ = oldBase
+}
+
+// picture uploads a PNG to the book and names it in a chapter and in a research note, so the old release holds
+// real attachments and real references of both kinds that migration 0810 (which rebuilds attachment_refs) must keep.
+// A release without attachments writes nothing and says so.
+func (r *rich) picture(chapter, title string) {
+	t := r.t
+	up, ok := r.ops["project.attachment.upload"]
+	if !ok {
+		r.skipped = append(r.skipped, "project.attachment.upload")
+		return
+	}
+	code, b := r.w.do(up.Method, strings.ReplaceAll(up.Path, "{id}", r.f.P1)+"?filename=lantern.png&alt=A+lantern", pngBytes(t), "image/png")
+	if code != 201 {
+		t.Fatalf("the old release's picture upload: %d %.300s", code, b)
+	}
+	var att struct {
+		Item struct {
+			ID string `json:"id"`
+		} `json:"item"`
+	}
+	if err := json.Unmarshal(b, &att); err != nil || att.Item.ID == "" {
+		t.Fatalf("the old release's picture upload answered %.300s", b)
+	}
+	r.f.AttID = att.Item.ID
+	r.wrote["project.attachment.upload"]++
+	d, _ := r.op(r.w, "doc.get", map[string]string{"id": chapter}, nil, 200)
+	r.op(r.w, "doc.update", map[string]string{"id": chapter}, map[string]any{"base_revision": num(d, "item", "revision"),
+		"content": str(d, "item", "content") + "\n![A lantern](/files/" + att.Item.ID + ")\n"}, 200)
+	r.f.PictureChapter = title
+	if n, ok := r.op(r.w, "project.research.create", map[string]string{"id": r.f.P1}, map[string]any{"title": "Lantern sketch", "body": "The lantern, drawn: ![A lantern](/files/" + att.Item.ID + ")\n"}, 201); ok {
+		r.f.ResearchNote = str(n, "item", "id")
+	}
+}
+
+// privateRemote adds a second remote, with an audience of private, to the other book, where the old release has an
+// audience at all (the first remote above took the release's default, public from v1.1 on). It is never pushed: the
+// row is what migration 1837 reads (private remotes carry the cover, public ones do not).
+func (r *rich) privateRemote(pid string) {
+	if _, ok := r.ops["git.remote.create"]; !ok || r.git == nil || r.f.RemoteAudience == "" {
+		return
+	}
+	out, _ := r.op(r.w, "git.remote.create", map[string]string{"id": pid}, map[string]any{"name": "Private backup", "url": "ssh://git@" + r.git.SSHAddr() + "/book-private.git",
+		"push_mode": "manual", "auth_kind": "ssh_deploy_key", "audience": "private"}, 201)
+	r.f.PrivateRemoteID = str(out, "item", "id")
+	if got := str(out, "item", "audience"); got != "private" {
+		r.t.Fatalf("the old release made a remote with audience %q, asked for private", got)
+	}
 }
 
 // idem posts a document under the fixed idempotency key and returns the body.
@@ -758,4 +816,157 @@ func (r *rich) reportRemoteAfterRollback(c *apiClient, tag string) {
 	}
 	_ = json.Unmarshal(b, &rem)
 	report(r.t, "%s: after the rollback the old release reads its remote (%d) as state %q, in_sync %v, error %q", tag, code, rem.Item.Status.State, rem.Item.Status.InSync, rem.Item.Status.LastErrorCode)
+}
+
+// coverFacts are the rows migrations 0810 and 1837 touch: every attachment_refs row (0810 rebuilds the table for the
+// new 'cover' kind), the attachments with their cover_clean flag, and every Git remote's audience and include_cover.
+// A column or table the release does not have reads as absent.
+type coverFacts struct {
+	Refs        []string          // "attachment|kind|ref", sorted
+	Attachments []string          // "id|sha256|cover_clean", sorted ("" for cover_clean before 0810)
+	Remotes     map[string]string // remote id -> "audience|include_cover" ("|" parts empty before they exist)
+	Layouts     int               // rows of cover_layouts; -1 when the table does not exist
+}
+
+func readCoverFacts(t *testing.T, path string) coverFacts {
+	t.Helper()
+	d, err := db.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	f := coverFacts{Remotes: map[string]string{}, Layouts: -1}
+	has := func(table, col string) bool {
+		rows, err := d.Read().Query(`SELECT name FROM pragma_table_info('` + table + `')`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var n string
+			rows.Scan(&n)
+			if col == "" || n == col {
+				return true
+			}
+		}
+		return false
+	}
+	collect := func(q string) []string {
+		rows, err := d.Read().Query(q)
+		if err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+		defer rows.Close()
+		var out []string
+		for rows.Next() {
+			var s string
+			rows.Scan(&s)
+			out = append(out, s)
+		}
+		sort.Strings(out)
+		return out
+	}
+	if has("attachment_refs", "") {
+		f.Refs = collect(`SELECT attachment_id || '|' || ref_kind || '|' || ref_id FROM attachment_refs`)
+	}
+	if has("attachments", "") {
+		if has("attachments", "cover_clean") {
+			f.Attachments = collect(`SELECT id || '|' || sha256 || '|' || cover_clean FROM attachments`)
+		} else {
+			f.Attachments = collect(`SELECT id || '|' || sha256 || '|' FROM attachments`)
+		}
+	}
+	if has("git_remotes", "") {
+		aud, cover := "''", "''"
+		if has("git_remotes", "audience") {
+			aud = "audience"
+		}
+		if has("git_remotes", "include_cover") {
+			cover = "include_cover"
+		}
+		for _, r := range collect(`SELECT id || '=' || ` + aud + ` || '|' || ` + cover + ` FROM git_remotes`) {
+			k, v, _ := strings.Cut(r, "=")
+			f.Remotes[k] = v
+		}
+	}
+	if has("cover_layouts", "") {
+		if err := d.Read().QueryRow(`SELECT count(*) FROM cover_layouts`).Scan(&f.Layouts); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return f
+}
+
+// checkCoverTables is what the cover migrations promise, checked on the rich dataset's real rows: every
+// attachment_refs row and every attachment is still there, unchanged, and none is cover-clean (only the cover upload
+// makes one); the rebuilt table still holds the doc and research references the old release wrote; no project has a
+// layout; and each Git remote carries the cover only if it is private (a public remote has include_cover 0).
+func checkCoverTables(t *testing.T, tag string, rr *rich, before, after coverFacts) {
+	t.Helper()
+	if strings.Join(before.Refs, "\n") != strings.Join(after.Refs, "\n") {
+		t.Errorf("attachment_refs changed by the upgrade:\n  before %v\n  after  %v", before.Refs, after.Refs)
+	}
+	if len(before.Attachments) != len(after.Attachments) {
+		t.Errorf("attachments: %d before the upgrade, %d after", len(before.Attachments), len(after.Attachments))
+	}
+	for i, a := range before.Attachments {
+		if i < len(after.Attachments) && !strings.HasPrefix(after.Attachments[i], strings.TrimSuffix(a, "|")+"|") {
+			t.Errorf("attachment %q is now %q", a, after.Attachments[i])
+		}
+	}
+	for _, a := range after.Attachments {
+		if !strings.HasSuffix(a, "|0") {
+			t.Errorf("an attachment from the old release is cover-clean after the upgrade: %s", a)
+		}
+	}
+	if after.Layouts != 0 {
+		t.Errorf("cover_layouts holds %d rows after the upgrade; no project had a cover layout", after.Layouts)
+	}
+	if rr.off {
+		return
+	}
+	wantRefs := 0
+	if rr.f.AttID != "" {
+		for _, kind := range []struct{ kind, id string }{{"doc", rr.f.Docs[rr.f.PictureChapter]}, {"research", rr.f.ResearchNote}} {
+			if kind.id == "" {
+				continue
+			}
+			wantRefs++
+			if !contains(after.Refs, rr.f.AttID+"|"+kind.kind+"|"+kind.id) {
+				t.Errorf("the %s reference to %s from %s is gone after the upgrade: %v", kind.kind, rr.f.AttID, kind.id, after.Refs)
+			}
+		}
+		if wantRefs < 2 {
+			t.Errorf("the rich dataset wrote %d references to its picture, want a doc and a research one", wantRefs)
+		}
+	}
+	nPrivate, nPublic := 0, 0
+	for id, v := range after.Remotes {
+		aud, cover, _ := strings.Cut(v, "|")
+		switch {
+		case aud == "private" && cover == "1":
+			nPrivate++
+		case aud == "public" && cover == "0":
+			nPublic++
+		default:
+			t.Errorf("remote %s after the upgrade: audience %q, include_cover %q (private remotes carry the cover, public ones do not)", id, aud, cover)
+		}
+	}
+	if rr.f.RemoteID != "" && len(after.Remotes) != len(before.Remotes) {
+		t.Errorf("remotes: %d before, %d after", len(before.Remotes), len(after.Remotes))
+	}
+	if rr.f.PrivateRemoteID != "" && (nPrivate == 0 || nPublic == 0) {
+		t.Errorf("the rehearsal wanted one private and one public remote to compare, got %d private and %d public: %v", nPrivate, nPublic, after.Remotes)
+	}
+	report(t, "%s: attachment_refs: %d rows before and after the rebuild, the picture's doc and research references among them, no attachment cover-clean, no layout; Git remotes: %d private (include_cover 1), %d public (include_cover 0)",
+		tag, len(after.Refs), nPrivate, nPublic)
+}
+
+func contains(list []string, s string) bool {
+	for _, x := range list {
+		if x == s {
+			return true
+		}
+	}
+	return false
 }

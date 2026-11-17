@@ -29,6 +29,7 @@
       <div><dt>{{$.T "git.pub.plan_repo"}}</dt><dd class="wrap">{{.Repository.FullName}} <span class="fine">{{.Repository.Host}}</span></dd></div>
       <div><dt>{{$.T "git.publish.visibility"}}</dt><dd><strong>{{if eq .Repository.Visibility "public"}}{{$.T "git.pub.public_anyone"}}{{else}}{{$.T "git.pub.private_only"}}{{end}}</strong></dd></div>
       <div><dt>{{$.T "git.remotes.audience"}}</dt><dd>{{if eq .Audience "public"}}{{$.T "git.audience.public.h"}}{{if .OnlyDone}}, {{$.T "git.remotes.only_done"}}{{end}}{{else}}{{$.T "git.audience.private.h"}}{{end}}</dd></div>
+      <div><dt>{{$.T "git.carries.cover"}}</dt><dd>{{if .IncludeCover}}{{$.T "git.carries.cover_yes"}}{{else}}{{$.T "git.carries.cover_no"}}{{end}}</dd></div>
       <div><dt>{{$.T "git.pub.plan_files_h"}}</dt><dd>{{$.T "git.publish.plan_files" "n" .FileCount "size" $d.Size}}</dd></div>
       <div><dt>{{$.T "git.facts.branch"}}</dt><dd>{{.Branch}}{{if .PathPrefix}}, {{$.T "git.status.folder"}} {{.PathPrefix}}{{end}}</dd></div>
       <div><dt>{{$.T "git.pub.plan_signing"}}</dt><dd>{{if .SignCommits}}{{$.T "git.signing.signs"}}{{else}}{{$.T "git.pub.unsigned"}}{{end}}</dd></div>
@@ -58,7 +59,7 @@
       <input type="hidden" name="account_id" value="{{$d.Account.ID}}"><input type="hidden" name="mode" value="{{$d.Mode}}">
       <input type="hidden" name="owner" value="{{index $d.Values "owner"}}"><input type="hidden" name="name" value="{{index $d.Values "name"}}"><input type="hidden" name="description" value="{{index $d.Values "description"}}">
       <input type="hidden" name="visibility" value="{{if eq (index $d.Values "visibility") "public"}}public{{else}}private{{end}}"><input type="hidden" name="branch" value="{{.Branch}}"><input type="hidden" name="path_prefix" value="{{.PathPrefix}}">
-      <input type="hidden" name="audience" value="{{.Audience}}">{{if .OnlyDone}}<input type="hidden" name="only_done" value="1">{{end}}{{if .IncludeNotes}}<input type="hidden" name="include_notes" value="1">{{end}}{{if .SignCommits}}<input type="hidden" name="sign_commits" value="1">{{end}}
+      <input type="hidden" name="audience" value="{{.Audience}}">{{if .OnlyDone}}<input type="hidden" name="only_done" value="1">{{end}}{{if .IncludeNotes}}<input type="hidden" name="include_notes" value="1">{{end}}{{if and .IncludeCover (eq .Audience "public")}}<input type="hidden" name="include_cover" value="1">{{end}}{{if .SignCommits}}<input type="hidden" name="sign_commits" value="1">{{end}}
       <input type="hidden" name="push_mode" value="{{.PushMode}}">
       {{if .NeedsConfirm}}<div class="field"><label for="pp-confirm">{{$.T "git.publish.confirm_public"}} <strong>{{.ConfirmWith}}</strong></label><input id="pp-confirm" type="text" name="confirm" autocomplete="off" spellcheck="false" data-confirm="{{.ConfirmWith}}" required{{if eq $d.Field "confirm"}} aria-invalid="true" aria-describedby="pub-error"{{end}}></div>{{end}}
       <p class="fine">{{if .WillCreate}}{{$.T "git.pub.go_note_create"}}{{else}}{{$.T "git.pub.go_note_existing"}}{{end}}</p>
@@ -166,7 +167,7 @@
         <span class="hint" id="pf-vis-h">{{$.T "git.pub.visibility_hint"}}</span>
       </fieldset>
       {{else}}<input type="hidden" name="visibility" value="private">{{end}}
-      {{template "git-audience-fields" (dict "D" (dict "Pg" .Pg "Field" .Field) "Cur" (index .Values "audience") "Done" (eq (index .Values "only_done") "1") "Notes" (eq (index .Values "include_notes") "1") "P" "pf")}}
+      {{template "git-audience-fields" (dict "D" (dict "Pg" .Pg "Field" .Field) "Cur" (index .Values "audience") "Done" (eq (index .Values "only_done") "1") "Notes" (eq (index .Values "include_notes") "1") "Cover" (eq (index .Values "include_cover") "1") "P" "pf")}}
       <div class="field-row">
         <div class="field"><label for="pf-branch">{{$.T "git.facts.branch"}}</label><input id="pf-branch" type="text" name="branch" value="{{if index .Values "branch"}}{{index .Values "branch"}}{{else}}main{{end}}" autocomplete="off" spellcheck="false"></div>
         <div class="field"><label for="pf-path">{{$.T "git.form.folder"}}</label><input id="pf-path" type="text" name="path_prefix" value="{{index .Values "path_prefix"}}" placeholder="{{$.T "git.form.optional"}}" autocomplete="off" spellcheck="false"></div>

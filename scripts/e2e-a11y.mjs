@@ -33,6 +33,7 @@ import { desktopEnv, launchToken, rm, startServer, tempDir } from "./harness.mjs
 import { seedDays } from "./seed-studio.mjs";
 import { startFakeHost } from "./fakehost.mjs";
 import { makeBigEpub, makeDocx, makeEpub, writePdf } from "./fixtures/books.mjs";
+import { harbourPng, wrapPng } from "./covers-pictures.mjs";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
@@ -451,6 +452,24 @@ async function seed() {
   const pdon = await api(ada, "PUT", "/api/v1/admin/pandoc", { enabled: true, path: pd.bin });
   if (pdon.status >= 300) hard("seed pandoc: " + pdon.status + " " + JSON.stringify(pdon.json).slice(0, 160));
   S.pandoc = pd.bin;
+  // covers: the book has a page-mode front and an image back (the cover page, the tree row, the library tile); a second book has a wrap
+  {
+    const up = async (pid, part, png, q = "") => {
+      const r = await wren.request.fetch(`${kit.base()}/api/v1/projects/${pid}/cover-layout/images?part=${part}${q}`, { method: "POST", data: png, headers: { "Content-Type": "image/png" } });
+      if (r.status() >= 300) hard(`seed cover picture ${part}: ${r.status()} ${(await r.text()).slice(0, 160)}`);
+      return (await r.json()).attachment_id;
+    };
+    const front = await up(book.id, "front", harbourPng(900, 1350)), back = await up(book.id, "back", harbourPng(900, 1350));
+    const set = await api(wren, "PUT", `/api/v1/projects/${book.id}/cover-layout`, { revision: 0, shape: "sides", trim: "6x9", alt: "A boat at a quay at dusk",
+      front: { mode: "page", attachment: front, fit: "contain", scale: 80, position: "top", background: "#3B5B7A", margin_in: 0.5 }, back: { mode: "image", attachment: back } });
+    if (set.status >= 300) hard("seed cover layout: " + set.status + " " + JSON.stringify(set.json).slice(0, 160));
+    const wb = (await mk("/api/v1/projects", { title: "Wrap Book", kind: "novel" })).item;
+    S.wslug = wb.slug;
+    const w = wrapPng();
+    const wa = await up(wb.id, "wrap", w.buffer, "&trim=6x9&bleed_in=0.125");
+    const ws = await api(wren, "PUT", `/api/v1/projects/${wb.id}/cover-layout`, { revision: 0, shape: "wrap", trim: "6x9", alt: "A wrap in dusk colours", wrap: { attachment: wa, bleed_in: 0.125 } });
+    if (ws.status >= 300) hard("seed wrap layout: " + ws.status + " " + JSON.stringify(ws.json).slice(0, 160));
+  }
   S.share = (await mk(`/api/v1/projects/${book.id}/shares`, { label: "Beta reader Sam", scope: "comment" })).path;
   S.shareLocked = (await mk(`/api/v1/projects/${book.id}/shares`, { label: "Locked", scope: "read", passphrase: "correct horse battery" })).path;
   // the Writing Studio: a few weeks of days (written into the database by a Go helper: no op writes into the past), goals of two
@@ -625,6 +644,31 @@ const P = [
   { id: "studio-card", who: "owner", path: () => "/studio/card" },
   { id: "search", who: "owner", path: () => `/p/${S.slug}/search?q=tide` },
   { id: "files", who: "owner", path: () => `/p/${S.slug}/files` },
+  { id: "cover", who: "owner", path: () => `/p/${S.slug}/cover` },
+  { id: "cover-wrap", who: "owner", path: () => `/p/${S.wslug}/cover`, titleOk: true },
+  { id: "cover-generated", who: "owner", path: () => "/p/harbour-notes/cover", titleOk: true },
+  { id: "cover-reader", who: "reviewer", path: () => `/p/${S.slug}/cover`, titleOk: true },
+  { id: "cover-draft", who: "owner", path: () => "/p/harbour-notes/cover", titleOk: true, pre: async (pg) => {
+    // a picture chosen under "front and back": the page answers with the draft, the picture drawn on its page, the note, the page mode's controls
+    await pg.locator("#cv-shape-sides").check();
+    await pg.locator("#cv-front-mode input[value=page]").check();
+    const nav = pg.waitForNavigation();
+    await pg.locator("#cv-front-file").setInputFiles({ name: "front.png", mimeType: "image/png", buffer: harbourPng(600, 900) });
+    await nav;
+    await pg.waitForSelector(".cv-note");
+  } },
+  { id: "cover-error", who: "owner", path: () => "/p/harbour-notes/cover", titleOk: true, expect: [/status of 422/], pre: async (pg) => {
+    // the same, saved with no description: the refusal in words, the field marked, focus on the sentence
+    await pg.locator("#cv-shape-sides").check();
+    await pg.locator("#cv-front-mode input[value=image]").check();
+    const nav = pg.waitForNavigation();
+    await pg.locator("#cv-front-file").setInputFiles({ name: "front.png", mimeType: "image/png", buffer: harbourPng(600, 900) });
+    await nav;
+    const nav2 = pg.waitForNavigation();
+    await pg.getByRole("button", { name: "Save the cover" }).click();
+    await nav2;
+    await pg.waitForSelector("#cv-msg");
+  } },
   { id: "review", who: "owner", path: () => `/p/${S.slug}/review` },
   { id: "share", who: "owner", path: () => `/p/${S.slug}/share` },
   { id: "compile", who: "owner", path: () => `/p/${S.slug}/compile`, wait: "#cmp-preset option" },

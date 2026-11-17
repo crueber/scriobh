@@ -54,6 +54,10 @@ type Project struct {
 	LastOpenedAt   string `json:"last_opened_at" desc:"When the caller last opened the project; empty when never."`
 	LastDocumentID string `json:"last_document_id" desc:"The live document the caller was last in; empty when none, for Continue where I left off."`
 
+	CoverLayout bool   `json:"cover_layout" desc:"True when the project has its own cover, a picture for the front (project.cover_layout.get); false means the generated cover."`
+	CoverThumb  string `json:"cover_thumb,omitempty" desc:"The address of the project's own cover, 480 px wide, for a list. Empty when the cover is the generated one."`
+	CoverAlt    string `json:"cover_alt,omitempty" desc:"The project's own cover described for screen readers."`
+
 	Protected bool `json:"protected,omitempty" desc:"True when the project has a passphrase (project.passphrase.get has the rest)."`
 	Locked    bool `json:"locked,omitempty" desc:"True when it has a passphrase this session has not unlocked: only the title, the address and the person's own state are given, none of its text, counts or dates."`
 
@@ -267,7 +271,9 @@ const projectCols = `p.id, p.slug, p.title, p.subtitle, p.kind, p.status, p.auth
 	p.archived_at IS NOT NULL, COALESCE(p.archived_at, ''), p.trashed_at IS NOT NULL, COALESCE(p.trashed_at, ''),
 	COALESCE(s.pinned, 0), COALESCE(s.last_opened_at, ''),
 	COALESCE((SELECT d.id FROM documents d WHERE d.id = s.last_document_id AND d.project_id = p.id AND d.deleted_at IS NULL), ''),
-	p.created_at, p.updated_at`
+	p.created_at, p.updated_at,
+	COALESCE((SELECT cl.hash FROM cover_layouts cl WHERE cl.project_id = p.id AND cl.hash <> '' AND (cl.shape = 'wrap' OR json_extract(cl.front_json, '$.mode') IN ('image', 'page'))), ''),
+	COALESCE((SELECT cl.alt FROM cover_layouts cl WHERE cl.project_id = p.id AND cl.hash <> ''), '')`
 
 func projectFrom(scope string) string {
 	return ` FROM projects p
@@ -280,10 +286,16 @@ func projectFrom(scope string) string {
 
 func scan(row interface{ Scan(...any) error }) (Project, error) {
 	var p Project
+	var coverHash, coverAlt string
 	err := row.Scan(&p.ID, &p.Slug, &p.Title, &p.Subtitle, &p.Kind, &p.Status, &p.AuthorName, &p.Genre, &p.Language,
 		&p.Description, &p.WordGoal, &p.Deadline, &p.CoverColor, &p.Role, &p.WordCount, &p.DocumentCount,
 		&p.Archived, &p.ArchivedAt, &p.Trashed, &p.TrashedAt, &p.Pinned, &p.LastOpenedAt, &p.LastDocumentID,
-		&p.CreatedAt, &p.UpdatedAt)
+		&p.CreatedAt, &p.UpdatedAt, &coverHash, &coverAlt)
+	if err == nil && len(coverHash) >= 12 {
+		// The version in the address is for the browser's cache; project.cover revalidates by its own ETag as well.
+		p.CoverLayout, p.CoverAlt = true, coverAlt
+		p.CoverThumb = "/api/v1/projects/" + p.ID + "/cover?size=thumb&v=" + coverHash[:12]
+	}
 	return p, err
 }
 

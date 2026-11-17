@@ -27,7 +27,7 @@
 # whose hook runs by itself when installed) and xdg-utils unlinked, which is right: the app runs xdg-open.
 #
 pkgname=scriobh-desktop
-pkgver=2.0.0
+pkgver=2.2.0
 pkgrel=1
 pkgdesc='Scriobh, a private place to write long things: the desktop app'
 arch=('x86_64')
@@ -36,7 +36,7 @@ license=('MIT')
 depends=('webkit2gtk-4.1' 'gtk3' 'glib2' 'cairo' 'gdk-pixbuf2' 'libsoup3' 'dbus' 'xdg-utils')
 optdepends=('gnome-keyring: keeps the key that protects saved AI and Git credentials in the system keychain (any Secret Service provider does)')
 options=('!strip' '!debug')
-_deb=Scriobh_2.0.0_amd64.deb
+_deb=Scriobh_2.2.0_amd64.deb
 source=("$_deb" 'LICENSE' 'NOTICE')
 noextract=("$_deb")
 sha256sums=('SKIP' 'SKIP' 'SKIP')   # local files; arch-pkg.sh replaces this line with their real sums

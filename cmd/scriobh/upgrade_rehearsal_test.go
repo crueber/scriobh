@@ -166,6 +166,8 @@ func TestUpgradeRehearsal(t *testing.T) {
 		writeFixture(t, path, out)
 	}
 
+	coverBefore := readCoverFacts(t, path) // attachment_refs and the remotes, as the old release left them
+
 	// ---- this build opens it --------------------------------------------------
 	cur := start(t, bin, data, common...)
 	b := withJar(t, cur.base, a.c.Jar) // the session written by the old release still works
@@ -228,6 +230,7 @@ func TestUpgradeRehearsal(t *testing.T) {
 		t.Errorf("schema after the upgrade: %s", d)
 	}
 	dbState(t, path) // integrity_check and foreign_key_check
+	checkCoverTables(t, tag, rr, coverBefore, readCoverFacts(t, path))
 
 	// Nothing lost: every field the old release answered is answered the same.
 	var lost []string

@@ -28,7 +28,11 @@ import (
 //   - the manifest is rebuilt from an allow-list: titles, paths, kinds and word counts of what is pushed. The
 //     mirror's synopses, point of view, location, story dates, targets, entity references (names from the
 //     bible), ids and statuses are not in it;
-//   - an attachment is pushed only when a pushed document links to it.
+//   - an attachment is pushed only when a pushed document links to it;
+//   - the project's own cover (docs/COVERS.md) is pushed only when the remote's include_cover is on, which for a
+//     public remote is a person's decision at a browser, with the remote's name typed (F-861), and off until then:
+//     how each side is placed and the pictures, which the cover upload has cleaned of EXIF and GPS (the cover's alt
+//     text is not in the public manifest, as an attachment's is not).
 //
 // The database is asked as well as the mirror: a document that the database says is out (do not compile, or
 // inside one that is) is out even when the mirror has not caught up with the change yet. A document the
@@ -126,6 +130,7 @@ type publicManifest struct {
 	IncludesNotes bool               `json:"includes_notes"`
 	Documents     []publicDoc        `json:"documents"`
 	Attachments   []publicAttachment `json:"attachments,omitempty"`
+	Cover         *coverMeta         `json:"cover,omitempty"`
 }
 
 // publicAttachment is an attachment's entry from an allow-list: where it is and how to check it. Not the alt text,
@@ -164,6 +169,7 @@ type inManifest struct {
 	State       string            `json:"state"`
 	Documents   []inDoc           `json:"documents"`
 	Attachments []json.RawMessage `json:"attachments"`
+	Cover       json.RawMessage   `json:"cover"`
 }
 
 type inDoc struct {
@@ -286,9 +292,30 @@ func (s *Service) restrict(ctx context.Context, r *remoteRow, sn *snapshot) (*sn
 		atts = append(atts, a)
 	}
 
+	// The cover: the layout and its pictures, as the mirror holds them (the snapshot read them whole or not at all).
+	var cover *coverMeta
+	if len(in.Cover) > 0 {
+		var c coverMeta
+		if json.Unmarshal(in.Cover, &c) == nil {
+			complete := true
+			for _, f := range c.files() {
+				if _, ok := sn.files[join(prefix, f)]; !ok || !coverName.MatchString(f) {
+					complete = false
+				}
+			}
+			if complete {
+				for _, f := range c.files() {
+					files[join(prefix, f)] = sn.files[join(prefix, f)]
+					binary[join(prefix, f)] = true
+				}
+				cover = &c
+			}
+		}
+	}
+
 	m := publicManifest{SchemaVersion: in.SchemaVersion, Format: "scriobh-mirror", State: "active",
 		Project:   publicProject{Title: in.Project.Title, Subtitle: in.Project.Subtitle, Author: in.Project.Author, Kind: in.Project.Kind, Language: in.Project.Language},
-		Documents: kept, Attachments: atts}
+		Documents: kept, Attachments: atts, Cover: cover}
 	if m.Documents == nil {
 		m.Documents = []publicDoc{}
 	}
@@ -332,13 +359,13 @@ func (s *Service) snapshotFor(ctx context.Context, r *remoteRow) (*snapshot, []W
 			return nil, nil, e
 		}
 		// Notes are read so that the plan can say they are withheld; restrict drops them, and nothing of them is pushed.
-		sn, e := s.readSnapshot(r.ProjectID, true, r.PathPrefix)
+		sn, e := s.readSnapshot(r.ProjectID, true, r.IncludeCover, r.PathPrefix)
 		if e != nil {
 			return nil, nil, e
 		}
 		return s.restrict(ctx, r, sn)
 	}
-	sn, e := s.readSnapshot(r.ProjectID, r.IncludeNotes, r.PathPrefix)
+	sn, e := s.readSnapshot(r.ProjectID, r.IncludeNotes, r.IncludeCover, r.PathPrefix)
 	return sn, nil, e
 }
 

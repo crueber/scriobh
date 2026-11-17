@@ -48,6 +48,10 @@ type EpubCover struct {
 	Reason string `json:"reason,omitempty" desc:"Why it was not kept."`
 	Width  int    `json:"width,omitempty"`
 	Height int    `json:"height,omitempty"`
+	// CanUse says the picture may become the project's own cover (apply with use_cover): a PNG or a JPEG within the
+	// cover's limits. UseReason says why it may not.
+	CanUse    bool   `json:"can_use_as_cover" desc:"The picture may become the project's own cover: apply with use_cover."`
+	UseReason string `json:"use_reason,omitempty" desc:"Why the picture cannot be the project's own cover."`
 }
 
 // EpubFile is one file of the book's reading order.

@@ -74,11 +74,18 @@ step_build() {
   command -v makepkg >/dev/null 2>&1 || fail "makepkg is not here: run this in an archlinux:base-devel container"
   [ -f "$src/LICENSE" ] && [ -f "$src/NOTICE" ] || fail "no LICENSE and NOTICE in $src"
   rm -f "$DIST"/scriobh-desktop-*.pkg.tar.zst
-  local work deb_name ctl ver pkgver sum_deb sum_lic sum_not
+  local work deb_name ctl ver name_ver pkgver sum_deb sum_lic sum_not
   work="$(mktemp -d "${TMPDIR:-/tmp}/scriobh-arch.XXXXXX")"
   mkdir -p "$work/build" "$work/out" "$work/ctl"
 
-  # The version is the .deb's own: it is what the Tauri bundler stamped, and the file's name carries it.
+  # Two versions can be in play. The .deb's control file says the app's own (what the Tauri bundler stamped from
+  # tauri.conf.json); the file's name says the release's (release.yml names the published .deb for the tag, as the
+  # Windows and macOS files are: Scriobh_<tag without v>_amd64.deb, see linux-deb.sh). The package is made for the
+  # release, so pkgver is the file name's version (with - as _; the .deb's own name keeps the hyphen, here as _deb, and
+  # the AUR recipe keeps it apart as _debver for its source name); the
+  # control file's is the fallback for a .deb with some other name (a branch build is named by the bundler, and then
+  # the two are the same), and a difference is a warning, not a failure.
+  deb_name="$(basename "$DEB")"
   bsdtar -xf "$DEB" -C "$work/ctl" --include 'control.tar.*'
   bsdtar -xf "$work"/ctl/control.tar.* -C "$work/ctl"
   ctl="$work/ctl/control"
@@ -87,12 +94,17 @@ step_build() {
   ver="$(sed -n 's/^Version: *//p' "$ctl" | head -1 || true)"
   [ -n "$ver" ] || fail "the .deb's control file has no Version"
   [ "$(sed -n 's/^Architecture: *//p' "$ctl" | head -1 || true)" = amd64 ] || fail "the .deb is not for amd64"
+  name_ver=""
+  case "$deb_name" in Scriobh_*_amd64.deb) name_ver="${deb_name#Scriobh_}"; name_ver="${name_ver%_amd64.deb}" ;; esac
+  if [ -n "$name_ver" ] && [ "$name_ver" != "$ver" ]; then
+    say "WARNING: the .deb is named for $name_ver but its control file says $ver (the app inside). The package carries $name_ver, the release's version."
+  fi
   # pkgver may not hold a hyphen (it separates pkgver from pkgrel): 2.1.0-rc.1 becomes 2.1.0_rc.1.
-  pkgver="${ver//-/_}"
-  case "$pkgver" in *[!A-Za-z0-9._+]* | '') fail "the .deb's version '$ver' cannot be a pkgver" ;; esac
-  say "the .deb is $(basename "$DEB"), version $ver (pkgver $pkgver); Depends: $(sed -n 's/^Depends: *//p' "$ctl" | head -1 || true)"
+  pkgver="${name_ver:-$ver}"
+  pkgver="${pkgver//-/_}"
+  case "$pkgver" in *[!A-Za-z0-9._+]* | '') fail "the .deb's version '${name_ver:-$ver}' cannot be a pkgver" ;; esac
+  say "the .deb is $deb_name, version ${name_ver:-$ver} (pkgver $pkgver); Depends: $(sed -n 's/^Depends: *//p' "$ctl" | head -1 || true)"
 
-  deb_name="$(basename "$DEB")"
   cp -- "$DEB" "$work/build/$deb_name"
   cp -- "$src/LICENSE" "$src/NOTICE" "$work/build/"
   sum_deb="$(sha256sum "$work/build/$deb_name" | cut -d' ' -f1)"

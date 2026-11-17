@@ -88,7 +88,7 @@ func (s *Service) execute(ctx, bg context.Context, j *job) {
 		pr.fail(gerr(CodeInternal, "This project is in the trash. Restore it to push."))
 		return
 	}
-	if r.URL != j.url || r.Branch != j.branch || r.Audience != j.audience || r.OnlyDone != j.onlyDone || (j.force && r.Name != j.name) {
+	if r.URL != j.url || r.Branch != j.branch || r.Audience != j.audience || r.OnlyDone != j.onlyDone || r.IncludeCover != j.includeCover || (j.force && r.Name != j.name) {
 		// Someone changed where this goes between the moment it was asked for
 		// (for a force push: the moment the owner typed the confirmation) and now.
 		if pr.auto {

@@ -78,6 +78,9 @@ type remoteRow struct {
 	AuthorName, AuthorEmail                              string
 	Audience, CreatedVia                                 string
 	OnlyDone, SignCommits, RestorePaused                 bool
+	// IncludeCover says the push carries the project's own cover (the layout and its pictures). A private remote has it
+	// on; a public one has it off until a person turns it on.
+	IncludeCover bool
 
 	State                                    string
 	LastPushAt, LastAttemptAt, NextAttemptAt string

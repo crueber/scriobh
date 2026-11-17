@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/crueber/scriobh/internal/db"
 	"github.com/crueber/scriobh/internal/domain/attachments"
 	"github.com/crueber/scriobh/internal/domain/compendiums"
 	"github.com/crueber/scriobh/internal/domain/docs"
@@ -87,7 +88,7 @@ func TestAPublicRemoteOfTheRealMirrorCarriesOnlyWhatAReaderSees(t *testing.T) {
 	call("doc.update", docs.UpdateIn{ID: part.ID, BaseRevision: part.Revision, IncludeInCompile: &no})
 	wctx, wcancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer wcancel()
-	waitMirrorCurrent(t, srv.Mirror, pid)
+	waitMirrorCurrent(t, srv.Mirror, d, pid)
 
 	remoteDir := filepath.Join(t.TempDir(), "remote.git")
 	url := initBare(t, remoteDir)
@@ -127,23 +128,32 @@ func TestAPublicRemoteOfTheRealMirrorCarriesOnlyWhatAReaderSees(t *testing.T) {
 	}
 }
 
-// waitMirrorCurrent waits until the real mirror has written the project as the database holds it now. WaitIdle is not
-// that: it looks only at the mirror's own dirty flags, and a change reaches the mirror as an event, a moment later.
-func waitMirrorCurrent(t *testing.T, m *mirror.Mirror, projectID string) {
+// waitMirrorCurrent waits until the real mirror has read every event there is and has written the project as the database
+// holds it now. WaitIdle is not that: it looks only at the mirror's own dirty flags, and a change reaches the mirror as an
+// event, a moment later. Nor is Current alone: it can be true between two reads of the event log (the first flush already
+// holds a later change, and the second read marks the project again), so a push that follows at once is refused as "the
+// mirror is behind". So the event cursor must have reached the last event, and a second look must still find the mirror
+// current (the mark a read makes is in place before the cursor moves).
+func waitMirrorCurrent(t *testing.T, m *mirror.Mirror, d *db.DB, projectID string) {
 	t.Helper()
 	deadline := time.Now().Add(60 * time.Second)
 	for {
+		var last int64
+		_ = d.Read().QueryRow(`SELECT COALESCE(max(seq), 0) FROM events`).Scan(&last)
 		cur, err := m.Current(context.Background(), projectID)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if cur {
-			return
+		if cur && m.Cursor() >= last {
+			time.Sleep(60 * time.Millisecond)
+			if again, err := m.Current(context.Background(), projectID); err == nil && again {
+				return
+			}
 		}
 		if time.Now().After(deadline) {
 			t.Fatal("the mirror did not become current")
 		}
-		time.Sleep(20 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 
@@ -173,7 +183,7 @@ func TestTheRealMirrorKnowsWhenItIsBehindAndAPublicPushWaits(t *testing.T) {
 	}
 	pid := call("project.create", projects.CreateIn{Title: "The Salt Road"}).(projects.Item).Item.ID
 	ch := call("doc.create", docs.CreateIn{ProjectID: pid, Title: "Opening", Kind: "chapter", Content: "The harbour woke.\n"}).(docs.Item).Item
-	waitMirrorCurrent(t, srv.Mirror, pid)
+	waitMirrorCurrent(t, srv.Mirror, d, pid)
 	// A change the mirror is never told about (the database is edited under it).
 	if _, err := d.Writer().Exec(`UPDATE documents SET content = ?, content_hash = 'changed-behind-its-back' WHERE id = ?`, "The harbour woke. %%PRIVATE-NOW%%\n", ch.ID); err != nil {
 		t.Fatal(err)
