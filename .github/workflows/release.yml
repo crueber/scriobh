@@ -274,6 +274,9 @@ jobs:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
+      # The job checks out only tools/ and src/, so the gh calls get the repository from here, not from a .git in the
+      # working folder (v2.1.0's first release run failed on exactly that).
+      GH_REPO: ${{ github.repository }}
       TAG: ${{ needs.plan.outputs.tag }}
     steps:
       - uses: actions/checkout@v4.2.2

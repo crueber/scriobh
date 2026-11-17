@@ -45,6 +45,12 @@ exit 0
 `
 
 func TestReviewServerHoldsNoInheritableDescriptors(t *testing.T) {
+	// Descriptors the test process was started with are its parent's doing, not the server's: a CI runner may hand
+	// the test binary some without close-on-exec (GitHub's did: 142 and 145). Only what the server opens counts.
+	inherited := map[int]bool{}
+	for _, fd := range nonCloexec() {
+		inherited[fd] = true
+	}
 	d, err := db.Open(filepath.Join(t.TempDir(), "scriobh.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -63,8 +69,14 @@ func TestReviewServerHoldsNoInheritableDescriptors(t *testing.T) {
 		t.Skip(err)
 	}
 	defer fh.Close()
-	if leaked := nonCloexec(); len(leaked) > 0 {
-		t.Fatalf("descriptors a child would inherit: %v", leaked)
+	var leaked []int
+	for _, fd := range nonCloexec() {
+		if !inherited[fd] {
+			leaked = append(leaked, fd)
+		}
+	}
+	if len(leaked) > 0 {
+		t.Fatalf("descriptors a child would inherit: %v (the process started with %d of its own)", leaked, len(inherited))
 	}
 	self, _ := os.Executable()
 	run := func(helper string) []string {
