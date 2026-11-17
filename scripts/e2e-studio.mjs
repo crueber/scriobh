@@ -124,7 +124,7 @@ await kit.test("the dashboard: every number is the API's, and the hand count's",
   eq(await pg.locator("[data-streak]").innerText(), "2", "the streak");
   eq(await pg.locator("[data-longest]").innerText(), "Longest run: 2 days", "the longest run");
   eq(await pg.locator("[data-today]").innerText(), "0 / 100 words today in The Salt Road", "today against the target, named for the project the goal belongs to");
-  ok((await pg.locator("#streak").innerText()).includes("2 days in a row so far. 100 words keep it going today"), "the streak's message");
+  ok((await pg.locator("#streak").innerText()).includes("2 days in a row so far. Write 100 more today to keep it going."), "the streak's message");
   // the calendar: 24 columns, Monday first, Mon/Wed/Fri labelled, each day named with its date and words
   eq(d.calendar.writing_days, 9, "the API's writing days in 24 weeks"); eq(d.calendar.all_time_writing_days, 10, "the API's writing days in all");
   eq(await pg.locator("[data-cal-sum]").innerText(), "9 writing days in the last 24 weeks", "the calendar's count");

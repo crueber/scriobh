@@ -1,12 +1,17 @@
 # Deploys the landing page, the files under landing/, to GitHub Pages at https://crueber.github.io/scriobh/.
 #
 #   push to main that changes landing/      builds and deploys the page
+#   a release is published                  deploys it again, so the download links name the new files
+#   the release workflow finishes           the same, because a Release made with the workflow token starts nothing
 #   Actions -> pages -> Run workflow        deploys what main holds now
 #
-# The page is plain HTML and CSS with no build step, so the "build" job only copies the demo video in from docs/media and
-# uploads the folder as the Pages artifact (nothing is generated, bundled or minified, and nothing is fetched). The page makes no request to any other site,
-# and the Content-Security-Policy in each page says so; scripts/publish-check.sh does not run the page, it only checks
-# that this workflow and the folder are published.
+# The page is plain HTML and CSS with no build step. The "build" job copies the demo video in from docs/media, writes the
+# real download links of the latest release into landing/index.html (scripts/landing-downloads.py, from
+# `gh release view`), and uploads the folder as the Pages artifact. The visitor's browser asks nobody for those links: they
+# are in the page. The step FAILS, and nothing deploys, when an expected file is missing from the release, so the page
+# never goes up with a dead link; on a release event it retries for a few minutes first, because the files are attached
+# after the Release is published. The page makes no request to any other site, and the Content-Security-Policy in each
+# page says so; scripts/publish-check.sh does not run the page, it checks this workflow, the script and the files.
 #
 # ONE-TIME SETUP, by the repository's owner, because a workflow cannot do it with its own token: Pages must be set to
 # deploy from GitHub Actions (Settings, Pages, Build and deployment, Source: GitHub Actions), or with the CLI:
@@ -27,7 +32,15 @@ on:
     paths:
       - "landing/**"
       - "docs/media/demo.*"
+      - "scripts/landing-downloads.py"
       - ".github/workflows/pages.yml"
+  release:
+    types: [published]
+  # A Release that the release workflow makes with its own token does not start the `release` event above (GitHub does not
+  # run workflows for events made with GITHUB_TOKEN), but the end of that workflow's run starts this one.
+  workflow_run:
+    workflows: [release]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -60,6 +73,27 @@ jobs:
             test -s "docs/media/$v"
             cp "docs/media/$v" "landing/media/$v"
           done
+
+      # The links come from the latest Release (the newest that is neither a draft nor a pre-release), read with the
+      # workflow's own token. A push or a manual run reads it once; a release event waits up to ten minutes for the files.
+      - name: Write the latest release's download links into the page
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -eu
+          tries=1
+          case "$EVENT" in release|workflow_run) tries=20 ;; esac
+          i=1
+          while :; do
+            gh release view --json tagName,isPrerelease,assets >release.json
+            if python3 scripts/landing-downloads.py release.json landing/index.html; then break; fi
+            [ "$i" -lt "$tries" ] || { echo "the latest release does not have every file the page links to; not deploying" >&2; exit 1; }
+            i=$((i + 1))
+            sleep 30
+          done
+          rm -f release.json
 
       - uses: actions/configure-pages@v5.0.0
 

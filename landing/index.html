@@ -3,16 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self'; media-src 'self'; style-src 'self'; font-src 'self'; script-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self'; media-src 'self'; style-src 'self'; font-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#FBFAF7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#131311" media="(prefers-color-scheme: dark)">
-<title>Scríobh: a quiet room for the long thing you are writing</title>
-<meta name="description" content="Scríobh is a self-hosted, private, long-form writing application. One Go binary, one SQLite file, Markdown underneath, sign-in through the identity provider you already run, and AI only if you ask for it.">
+<title>Scríobh: a writing app for long projects</title>
+<meta name="description" content="Scríobh is a writing app for long projects: novels, reports, essays. Your words are kept as plain text files you can open anywhere, nothing leaves your computer unless you send it, and AI is off until you turn it on.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/newsreader.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="style.css">
+<script src="os.js" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to the content</a>
@@ -21,10 +22,9 @@
   <div class="wrap">
     <a class="mark" href="./" aria-label="Scríobh, home">Scríobh</a>
     <nav class="nav" aria-label="Page">
-      <a href="#commitments">Commitments</a>
       <a href="#features">Features</a>
-      <a href="#install">Install</a>
-      <a href="#docs">Docs</a>
+      <a href="#get">Get the app</a>
+      <a href="#running">Running it</a>
       <a href="https://github.com/crueber/scriobh">GitHub</a>
     </nav>
   </div>
@@ -34,14 +34,15 @@
 
 <section class="hero" aria-labelledby="top-title">
   <div class="wrap">
-    <p class="eyebrow">Self-hosted long-form writing</p>
-    <h1 id="top-title">A quiet room for the long thing you are writing.</h1>
-    <p class="lede">Private, and built for the whole life of a piece of work: a blog post, an essay, a report, a novel. You run it on your own machine or home lab, or open it as a desktop app. Your words stay on your disk.</p>
+    <p class="eyebrow">Self-hosted writing app</p>
+    <h1 id="top-title">A writing app for long projects.</h1>
+    <p class="lede">Scríobh is for the things that outgrow one file: a novel, a report, a run of essays. Your words are kept as plain text files you can open anywhere, and nothing leaves your computer unless you send it.</p>
     <div class="actions">
-      <a class="btn" href="#install">Install it</a>
-      <a class="textlink" href="https://github.com/crueber/scriobh">Read the source on GitHub</a>
+      <a class="btn" href="#get">Download</a>
+      <a class="textlink" href="https://github.com/crueber/scriobh">Source on GitHub</a>
     </div>
-    <p class="promise">No account on someone else&rsquo;s server. No telemetry. No editor that phones home mid-sentence.</p>
+    <p class="promise strong"><strong>AI is off.</strong> It stays off unless you add your own key and switch it on, project by project, feature by feature.</p>
+    <p class="promise">There&rsquo;s no analytics and no telemetry, and no account on anyone else&rsquo;s server.</p>
 
     <figure class="shot">
       <picture>
@@ -49,44 +50,58 @@
         <img src="media/hero-light.png" width="1440" height="900" fetchpriority="high" decoding="async"
              alt="The writing view. A manuscript tree on the left lists a dedication, two parts and their chapters with word counts; a formatting toolbar sits above a single paper page where the chapter The Gauge is set in a serif face.">
       </picture>
-      <figcaption>The writing view: the manuscript tree, one page of paper, a status line. Nothing animates or reflows while you type.</figcaption>
+      <figcaption>The writing view: your chapters on the left, one page of paper on the right.</figcaption>
     </figure>
 
     <dl class="facts">
-      <div><dt>It runs as</dt><dd>One Go binary and one SQLite file</dd></div>
-      <div><dt>You sign in with</dt><dd>The OpenID Connect provider you already run</dd></div>
-      <div><dt>Underneath</dt><dd>Markdown, in a database you can read</dd></div>
-      <div><dt>It sends</dt><dd>Nothing you did not configure</dd></div>
+      <div><dt>Where it lives</dt><dd>On your computer, or a server you run</dd></div>
+      <div><dt>How it&rsquo;s kept</dt><dd>As plain text files you can open anywhere</dd></div>
+      <div><dt>What leaves</dt><dd>Nothing, unless you send it</dd></div>
+      <div><dt>AI</dt><dd>Off until you turn it on</dd></div>
     </dl>
+  </div>
+</section>
+
+<section class="block band" id="ai" aria-labelledby="ai-title">
+  <div class="wrap">
+    <h2 id="ai-title">AI is off until you turn it on.</h2>
+    <div class="two">
+      <div>
+        <p>A fresh install sends nothing anywhere. There&rsquo;s no built-in AI service. To use any, you add your own key or point Scríobh at a model running on your own computer. Even then it stays off for every project until you turn it on for that one.</p>
+        <p>Each feature is its own switch, per project: suggestions on a selection, alternative wordings, chat, critique, summaries, continuity checks, pulling characters and places out of a chapter, and the Lab. None of them starts on.</p>
+      </div>
+      <div>
+        <p>When it&rsquo;s on, you see exactly what will be sent before it goes. You can keep it to a model on your own computer. Nothing it writes goes into your text unless you accept it.</p>
+        <p>The book works without it. Outline, characters, timeline, research, revisions and compile never need AI.</p>
+      </div>
+    </div>
   </div>
 </section>
 
 <section class="block" id="watch" aria-labelledby="watch-title">
   <div class="wrap">
-    <p class="eyebrow">A short walk-through</p>
-    <h2 id="watch-title">Watch it work.</h2>
+    <h2 id="watch-title">Demo</h2>
     <figure class="shot video">
       <video controls muted playsinline preload="none" poster="media/demo-poster.png" width="1280" height="720" aria-describedby="demo-desc">
         <source src="media/demo.mp4" type="video/mp4">
         <source src="media/demo.webm" type="video/webm">
-        <p>This browser cannot play the video. <a href="media/demo.mp4">Download the MP4</a> or <a href="media/demo.webm">the WebM</a>.</p>
+        <p>This browser can&rsquo;t play the video. <a href="media/demo.mp4">Download the MP4</a> or <a href="media/demo.webm">the WebM</a>.</p>
       </video>
-      <figcaption id="demo-desc">Nothing plays until you press play, and there is no sound. The walk-through shows the library, opening a project, typing a sentence, cycling an alternative wording in place, the outline, the Writing Studio, and compiling an EPUB, with a caption for each step. The book in it is invented.</figcaption>
+      <figcaption id="demo-desc">A short demo with no sound. It won&rsquo;t start until you press play. It goes through the library, opening a project, typing a sentence, cycling alternative wordings, the outline, the Writing Studio and compiling an EPUB. The book is made up.</figcaption>
     </figure>
   </div>
 </section>
 
 <section class="block" id="what" aria-labelledby="what-title">
   <div class="wrap">
-    <p class="eyebrow">What it is</p>
-    <h2 id="what-title">Organised around the project, not the note.</h2>
+    <h2 id="what-title">What it is</h2>
     <div class="two">
       <div>
-        <p>Most writing tools are either note apps with a publish button or desktop word processors with a sync problem. Neither holds a manuscript.</p>
-        <p>Scríobh (Irish for &ldquo;write&rdquo;) is built around the project: a manuscript tree, a plan beside it, a cast of characters underneath it, and a revision of every word. Sign in with the identity provider you already have. Keep a plain-text copy in a Git repository you control. Bring your own AI keys if you want AI at all, including a model on the same box.</p>
+        <p>Most writing tools are note apps with a publish button, or word processors with a sync problem. Neither holds a manuscript well.</p>
+        <p>Scríobh is built around the project: a manuscript tree, a plan next to it, a cast of characters under it, and a history of every word you change. The name is Irish for &ldquo;write&rdquo;.</p>
       </div>
       <div>
-        <p class="prose-ui"><strong>What it is not.</strong> Not a notes app, not a real-time collaborative document, not a publishing platform, not an AI book generator, not multi-tenant SaaS. It is not encrypted at rest either: protecting the volume is your job.</p>
+        <p class="prose-ui">It isn&rsquo;t a notes app, a live collaborative editor, a publishing platform or an AI book generator. Your work isn&rsquo;t encrypted on disk either, so protect the disk it&rsquo;s on.</p>
       </div>
     </div>
     <figure class="shot sub">
@@ -95,50 +110,39 @@
         <img src="media/shelf-light.png" width="1440" height="900" loading="lazy" decoding="async"
              alt="The library: a shelf of five flat typographic covers, one per project, in moss, green, ochre, plum and blue, with a card to continue where you left off and a progress bar under each title.">
       </picture>
-      <figcaption>The library is a shelf of flat typographic covers, one per project, with a card to continue where you left off.</figcaption>
+      <figcaption>The library: one cover per project, and a card to pick up where you left off.</figcaption>
     </figure>
   </div>
 </section>
 
-<section class="block" id="commitments" aria-labelledby="commit-title">
+<section class="block" id="count" aria-labelledby="count-title">
   <div class="wrap">
-    <p class="eyebrow">Commitments</p>
-    <h2 id="commit-title">Five promises that decide arguments.</h2>
+    <h2 id="count-title">What you can count on</h2>
     <ol class="commit">
       <li>
-        <h3>Private by construction</h3>
-        <p>No analytics, no telemetry, no external fonts or CDNs, no error-reporting service, and no outbound request you did not configure. AI is opt-in per project, previewed before anything is sent, and can be forced to a local model. This page keeps the same promise: it loads nothing from any other site.</p>
+        <h3>Your words stay yours</h3>
+        <p>There&rsquo;s no analytics, no telemetry and no outside fonts, and the app doesn&rsquo;t make requests you didn&rsquo;t ask for. This page loads nothing from other sites either.</p>
       </li>
       <li>
-        <h3>OIDC only</h3>
-        <p>No local passwords, no reset flow, no second factor of its own. Your identity provider decides who can sign in. The desktop app does not bypass this: it runs a real embedded OpenID Connect issuer on the same code path.</p>
+        <h3>Nothing gets in your way</h3>
+        <p>While you type, nothing animates, shifts around or interrupts you. Text you didn&rsquo;t write never goes into your chapter unless you accept it, and live updates never overwrite something you haven&rsquo;t saved.</p>
       </li>
       <li>
-        <h3>Markdown underneath</h3>
-        <p>The database is canonical, and a read-only Markdown copy of every project is written continuously, so <code>grep</code>, <code>git</code> and a text editor always see your work. Git is push-only: Scríobh never pulls, and import is the only way a remote&rsquo;s text enters it.</p>
-      </li>
-      <li>
-        <h3>Editorial before generative</h3>
-        <p>Outline, entities, timeline, research, revisions and compile do not depend on AI. AI can be switched off and the book stays whole.</p>
-      </li>
-      <li>
-        <h3>The writing surface is sacred</h3>
-        <p>Nothing animates, reflows or interrupts while you type. Generated text is never inserted without an explicit accept, and live updates never overwrite what you have not saved.</p>
+        <h3>You can leave any time</h3>
+        <p>Export to Word, EPUB, print-ready PDF or Markdown, and import from Word, Scrivener, Obsidian and more. Every version of your text is kept, and you can compare any two and restore one.</p>
       </li>
     </ol>
-    <p class="alsonote">It is also small enough to trust: one binary, one data directory, no queue, cache or search service. No gradients. Both themes are designed, and contrast is checked by a script.</p>
   </div>
 </section>
 
 <section class="block" id="features" aria-labelledby="features-title">
   <div class="wrap">
-    <p class="eyebrow">Features at a glance</p>
-    <h2 id="features-title">What is in it.</h2>
+    <h2 id="features-title">Features</h2>
 
     <div class="row">
       <div class="copy">
-        <h3>Other wordings, kept beside the chosen one</h3>
-        <p>Alternatives, ghosting, the stash and the Lab keep other phrasings next to the one in the text. The document always holds the wording you chose, so an export reads as ordinary Markdown. Ghosting never deletes; the Lab never rewrites.</p>
+        <h3>Alternative wordings</h3>
+        <p>Keep other phrasings next to the one in the text. The page always holds the wording you picked, so an export reads as plain text. Ghosting a wording hides it. It never deletes it.</p>
       </div>
       <figure class="shot">
         <picture>
@@ -146,14 +150,14 @@
           <img src="media/alts-light.png" width="1440" height="900" loading="lazy" decoding="async"
                alt="The writing view with a small bar above a word in the first paragraph that reads 2 of 3, with arrows to cycle its wording in place and an Original button to go back.">
         </picture>
-        <figcaption>A word with three alternatives, cycled in place; the page holds the one you chose.</figcaption>
+        <figcaption>Cycling through three wordings of one word. The text holds the one you chose.</figcaption>
       </figure>
     </div>
 
     <div class="row">
       <div class="copy">
-        <h3>An outline that shows where the book stands</h3>
-        <p>Synopses, targets and statuses, with progress for every part and chapter, in manuscript order, in story-timeline order or by point of view.</p>
+        <h3>Outline</h3>
+        <p>Synopses, targets and statuses, with progress for every part and chapter. Look at it in manuscript order, story-timeline order or by point of view.</p>
       </div>
       <figure class="shot">
         <picture>
@@ -161,14 +165,14 @@
           <img src="media/outline-light.png" width="1440" height="900" loading="lazy" decoding="async"
                alt="The outline of a novel: a dedication, then parts and chapters, each with a one-line synopsis, a status such as Draft or Revise, and a progress bar toward its word target.">
         </picture>
-        <figcaption>The outline: a synopsis, a status and a target for every part and chapter.</figcaption>
+        <figcaption>Every part and chapter has a synopsis, a status and a word target.</figcaption>
       </figure>
     </div>
 
     <div class="row">
       <div class="copy">
-        <h3>The book&rsquo;s bible, beside the book</h3>
-        <p>Characters, places, items, organisations and concepts, with aliases and relations, a timeline with continuity checks, research notes and attachments. A Compendium can be shared across projects.</p>
+        <h3>Compendium</h3>
+        <p>Characters, places, items, organisations and concepts, with aliases and relations. It also has a timeline with continuity checks, research notes and attachments, and one Compendium can be shared across projects.</p>
       </div>
       <figure class="shot">
         <picture>
@@ -176,14 +180,14 @@
           <img src="media/compendium-light.png" width="1440" height="900" loading="lazy" decoding="async"
                alt="The Compendium: a list of seven entities for a novel, each with a type, a one-line description and its aliases, under tabs for Overview, Entities, Timeline, Research, Attachments and Scratchpad.">
         </picture>
-        <figcaption>The Compendium holds the cast and the places.</figcaption>
+        <figcaption>The cast and the places of the book.</figcaption>
       </figure>
     </div>
 
     <div class="row">
       <div class="copy">
-        <h3>Goals that never shame a cut</h3>
-        <p>Words by day, week and year, a habit streak, sprints and goals. It counts words added; cutting is part of writing and is never held against a day. Computed on your server and shown to nobody but you.</p>
+        <h3>Writing Studio</h3>
+        <p>Words by day, week and year, a streak, sprints and goals. It counts words added, and cutting text never counts against you. Everything is worked out where your writing lives, and only you see it.</p>
       </div>
       <figure class="shot">
         <picture>
@@ -191,14 +195,14 @@
           <img src="media/studio-light.png" width="1440" height="900" loading="lazy" decoding="async"
                alt="The Writing Studio: tiles for words written today and over 7, 30 and 365 days, a habit streak of eight days, and a calendar of writing activity in flat squares of five sizes.">
         </picture>
-        <figcaption>The Writing Studio.</figcaption>
+        <figcaption>The Writing Studio dashboard.</figcaption>
       </figure>
     </div>
 
     <div class="row">
       <div class="copy">
-        <h3>Compile when it is ready</h3>
-        <p>US and UK manuscript DOCX, styled DOCX, EPUB 3, Markdown, and print-ready PDF with covers. You look at it first, and nothing is made until you press Download. Exports are deterministic and recorded with a manifest of what they included.</p>
+        <h3>Compile</h3>
+        <p>Make a US or UK manuscript DOCX, a styled DOCX, an EPUB, Markdown or a print-ready PDF with covers. You preview the pages first, and nothing is made until you press Download. Each export records a list of what it included.</p>
       </div>
       <figure class="shot">
         <picture>
@@ -212,8 +216,8 @@
 
     <div class="row phone">
       <div class="copy">
-        <h3>The same page at phone width</h3>
-        <p>An installable app shell with an offline page, and a formatting bar that sits above the keyboard. The same server-rendered pages, drawn for 390 px as well as for a desk.</p>
+        <h3>On a phone</h3>
+        <p>The same pages work at phone width. It can be installed as an app, it has an offline page, and the formatting bar sits above the keyboard.</p>
       </div>
       <figure class="shot shot-phone">
         <picture>
@@ -224,99 +228,135 @@
       </figure>
     </div>
 
-    <h3 class="grid-title" id="more">And the rest of it</h3>
+    <h3 class="grid-title" id="more">And</h3>
     <ul class="grid" aria-labelledby="more">
-      <li><h3>Writing and structure</h3><p>A ProseMirror editor with a Source view of the same Markdown, wiki links and backlinks, versions you can compare and restore, search, and light and dark themes.</p></li>
-      <li><h3>Review and sharing</h3><p>Comments anchored to the text, suggestions an editor accepts or rejects, read-only or comment links for guests, and an administrator console.</p></li>
-      <li><h3>Going in and out</h3><p>Import from a folder, Git, Obsidian, Word (tracked changes become suggestions), Scrivener, WordPress, Ghost, an EPUB or a PDF with a text layer. Push-only Git sync, a Markdown mirror, backup and restore.</p></li>
-      <li><h3>Beyond the compile presets</h3><p>A submission bundle, HTML export, and static site publishing, alongside the manuscript, EPUB and print-ready PDF.</p></li>
-      <li><h3>AI, optional</h3><p>A local Ollama or any OpenAI-compatible server, OpenRouter or OpenCode. A per-project policy, a preview of the exact request, budgets. Nothing is written into a chapter without an explicit accept.</p></li>
-      <li><h3>Agents and integrations</h3><p>One operation registry behind the pages, a REST API, a scoped command-line tool with a generated skill, an MCP endpoint and signed webhooks.</p></li>
+      <li><h3>Writing and structure</h3><p>Links between pages and backlinks, a Source view that shows the plain text, search, light and dark themes, and versions you can compare and restore.</p></li>
+      <li><h3>Review and sharing</h3><p>Comments tied to the text, suggestions an editor accepts or rejects, and read-only or comment-only links for guests.</p></li>
+      <li><h3>Import, export and publishing</h3><p>Import from Word (tracked changes become suggestions), Scrivener, Obsidian, WordPress, Ghost, an EPUB, a PDF with a text layer or a folder of files. Export a submission bundle or HTML, or publish a static site.</p></li>
     </ul>
   </div>
 </section>
 
-<section class="block" id="desktop" aria-labelledby="desktop-title">
+<section class="block" id="get" aria-labelledby="get-title">
   <div class="wrap">
-    <p class="eyebrow">The desktop app</p>
-    <h2 id="desktop-title">Or open it as an app.</h2>
+    <h2 id="get-title">Get the app</h2>
     <div class="two">
       <div>
-        <p>The same server binary in a <a href="https://tauri.app">Tauri</a> window, with no server to run and no identity provider to set up. A first-run local profile (a name, no password) signs in through an embedded OpenID Connect issuer, never a bypass.</p>
-        <p>Your writing lives in the system&rsquo;s place for application data, and with AI off nothing leaves the computer. The app never looks for updates by itself.</p>
+        <p>The desktop app runs on your computer and needs nothing set up. Open it, make a local profile (a name, no password) and start writing. Your writing lives in your system&rsquo;s app data folder, and Help, Show the Data Folder opens it. It never checks for updates, so come back here for new versions.</p>
+        <p>It isn&rsquo;t signed yet. macOS will make you allow it the first time (System Settings, Privacy &amp; Security, Open Anyway), and Windows SmartScreen will warn you (More info, Run anyway). The Status section below says how little it has been tested.</p>
       </div>
-      <aside class="note" aria-labelledby="desktop-honest">
-        <p class="eyebrow" id="desktop-honest">Said plainly</p>
-        <p>Nothing is signed or notarised, and there is no update server. The app has been run, unsigned, on one Mac. A Linux package is built and its server is seen to answer in CI, but nobody has looked at a Linux window, and nothing has been seen on Windows. The screenshots on this page are of the browser.</p>
-        <p><a href="https://github.com/crueber/scriobh/blob/main/docs/DESKTOP.md">docs/DESKTOP.md</a> says what is verified, and what is not.</p>
-      </aside>
+      <div class="download">
+        <div id="dl-primary" hidden>
+          <a class="btn big" data-main href="#downloads">Download</a>
+          <a class="textlink" data-alt href="#downloads" hidden></a>
+          <p class="detail" data-detail></p>
+        </div>
+        <p id="dl-none" class="detail" hidden>The desktop app is for macOS, Windows and Linux. Pick one below from a computer.</p>
+        <p class="detail">Version <span data-fill="version">latest</span>.</p>
+      </div>
+    </div>
+
+    <h3 class="sub" id="downloads">All downloads</h3>
+    <ul class="dl-os" aria-labelledby="downloads">
+      <li data-os="mac">
+        <h4>macOS</h4>
+        <ul>
+          <li><a href="https://github.com/crueber/scriobh/releases/latest" data-dl="mac-universal" data-primary="mac" data-detail="One .dmg for Apple silicon and Intel Macs.">Universal .dmg</a> <span class="size">(<span data-fill="size:mac-universal">about 40 MB</span>)</span><span class="hint">Apple silicon and Intel. The one to pick.</span></li>
+          <li><a href="https://github.com/crueber/scriobh/releases/latest" data-dl="mac-arm64">Apple silicon .dmg</a> <span class="size">(<span data-fill="size:mac-arm64">about 19 MB</span>)</span></li>
+          <li><a href="https://github.com/crueber/scriobh/releases/latest" data-dl="mac-intel">Intel .dmg</a> <span class="size">(<span data-fill="size:mac-intel">about 20 MB</span>)</span></li>
+        </ul>
+      </li>
+      <li data-os="windows">
+        <h4>Windows</h4>
+        <ul>
+          <li><a href="https://github.com/crueber/scriobh/releases/latest" data-dl="windows" data-primary="windows" data-detail="Installer for 64-bit Windows 10 and 11.">Setup .exe</a> <span class="size">(<span data-fill="size:windows">about 15 MB</span>)</span><span class="hint">64-bit Windows 10 and 11. It needs the WebView2 runtime. Windows 11 and up-to-date Windows 10 usually have it.</span></li>
+        </ul>
+      </li>
+      <li data-os="linux">
+        <h4>Linux</h4>
+        <ul>
+          <li><a href="https://github.com/crueber/scriobh/releases/latest" data-dl="linux-appimage" data-primary="linux" data-detail="An AppImage for 64-bit Linux. It needs fuse2.">AppImage</a> <span class="size">(<span data-fill="size:linux-appimage">about 98 MB</span>)</span><span class="hint">64-bit. It needs fuse2.</span></li>
+          <li><a href="https://github.com/crueber/scriobh/releases/latest" data-dl="linux-deb" data-secondary="linux" data-label="Or the .deb">.deb package</a> <span class="size">(<span data-fill="size:linux-deb">about 21 MB</span>)</span></li>
+        </ul>
+      </li>
+    </ul>
+
+    <h3 class="sub">Check what you downloaded</h3>
+    <p class="prose-ui">The checksums are in <a href="https://github.com/crueber/scriobh/releases/latest" data-dl="sums-desktop">SHA256SUMS-desktop.txt</a>. On Linux, run <code>sha256sum -c --ignore-missing SHA256SUMS-desktop.txt</code> in the folder with your download. On a Mac, run <code>shasum -a 256 &lt;file&gt;</code> and compare it by eye. The list comes from the same place as the files, so it catches a bad download, not a hostile release.</p>
+
+    <p class="prose-ui">Running it on a server for yourself or other people? That&rsquo;s <a href="#running">at the bottom of this page</a>.</p>
+  </div>
+</section>
+
+<section class="block" id="status" aria-labelledby="status-title">
+  <div class="wrap">
+    <h2 id="status-title">Status</h2>
+    <div class="two rev">
+      <div>
+        <p>Releases are tagged as the work lands. A tag says what was built. It doesn&rsquo;t say the roadmap&rsquo;s exit criteria are met. This is what hasn&rsquo;t been checked.</p>
+      </div>
+      <ul class="plain">
+        <li>The desktop app has been run, unsigned, on one Mac and nowhere else by a person. Nobody has installed it on a clean machine, fetched an update or seen it on Windows. An automated test installs the Linux build and checks that its server answers, but nobody has looked at the window.</li>
+        <li>No screen reader, real phone or browser other than Chromium has been used on the newer screens.</li>
+        <li>No real printer, copy of Word or AI service has been used. Stand-ins on a local machine were.</li>
+        <li>The checks that need other people haven&rsquo;t happened: two people installing from the guide on their own, a printed proof, and a restore on a clean machine by someone other than the author.</li>
+      </ul>
     </div>
   </div>
 </section>
 
-<section class="block" id="install" aria-labelledby="install-title">
+<section class="block" id="running" aria-labelledby="running-title">
   <div class="wrap">
-    <p class="eyebrow">Install</p>
-    <h2 id="install-title">Pick one way in.</h2>
-    <ul class="ways">
-      <li><h3>The container image</h3><p>The server, published to the GitHub container registry as <code>ghcr.io/crueber/scriobh</code>. Needs an OpenID Connect provider you already run.</p></li>
-      <li><h3>Binaries and desktop packages</h3><p>Server and command-line binaries for Linux, macOS and Windows, a Linux <code>.deb</code>, and desktop packages, when a release has them. Unsigned, with a <code>SHA256SUMS.txt</code>. <a href="https://github.com/crueber/scriobh/releases">The releases page</a> has the current list.</p></li>
-      <li><h3>From source</h3><p>A development build with a built-in sign-in for three fixed test users, to look at it: <code>make run</code>, or <code>docker compose up --build</code>. It must never be exposed to a network.</p></li>
-    </ul>
+    <h2 id="running-title">For the people running it</h2>
+    <p class="lede-sm">Everything above is for writers. This part is for you if you&rsquo;re putting Scríobh on a server, running the container or building it yourself.</p>
 
-    <h3>Running the image</h3>
-    <ol class="steps">
-      <li>Register Scríobh with your identity provider as a confidential client (authorization code with PKCE) and note the issuer, client id and secret.</li>
-      <li>Write an <code>.env</code> with <code>SCRIOBH_BASE_URL</code>, <code>SCRIOBH_OIDC_ISSUER</code>, <code>SCRIOBH_OIDC_CLIENT_ID</code>, <code>SCRIOBH_OIDC_CLIENT_SECRET</code> and <code>SCRIOBH_SECRET_KEY</code> (from <code>openssl rand -hex 32</code>; keep a copy off the machine).</li>
-      <li>Run it, and put TLS in front.</li>
-    </ol>
-    <pre role="region" aria-label="Command: run the container image" tabindex="0"><code>docker run -d --name scriobh --restart unless-stopped \
+    <div class="tech">
+      <h3>How it&rsquo;s built</h3>
+      <p>It&rsquo;s one Go binary and one SQLite file. Pages are rendered on the server with HTMX, the editor is one pinned ProseMirror bundle, and nothing needs npm at runtime. Every write is a registered operation, and each operation is served as a page, a REST route, a CLI command and an MCP tool, so an agent holding a scoped key can do what a person does and nothing more.</p>
+      <p>The database is the source of truth. A read-only Markdown copy of every project is written continuously, so <code>grep</code>, <code>git</code> and a text editor always see the work. Git sync is push-only. Scríobh never pulls, and import is the only way text comes in from a remote.</p>
+      <p>The desktop app is a <a href="https://tauri.app">Tauri</a> window around the same server binary, on a loopback port. It runs its own embedded OpenID Connect issuer and signs in through it, the same way the server does.</p>
+
+      <h3>Sign-in</h3>
+      <p>Sign-in is OpenID Connect only. There are no local passwords. Register Scríobh with your identity provider as a confidential client, authorization code with PKCE. The redirect URI is <code>$SCRIOBH_BASE_URL/auth/oidc/callback</code>. The ID token itself needs <code>sub</code>, <code>email</code>, a true <code>email_verified</code> and a <code>groups</code> list. Roles come from three groups, <code>scriobh-admins</code>, <code>scriobh-writers</code> and <code>scriobh-readers</code>, and you can rename them.</p>
+
+      <h3>The container image</h3>
+      <ol class="steps">
+        <li>Register the client with your identity provider and note the issuer, client id and secret.</li>
+        <li>Write an <code>.env</code> with <code>SCRIOBH_BASE_URL</code>, <code>SCRIOBH_OIDC_ISSUER</code>, <code>SCRIOBH_OIDC_CLIENT_ID</code>, <code>SCRIOBH_OIDC_CLIENT_SECRET</code> and <code>SCRIOBH_SECRET_KEY</code>. Make the key with <code>openssl rand -hex 32</code> and keep a copy off the machine. It isn&rsquo;t in backups.</li>
+        <li>Run it, then put TLS in front. Run one container per data volume.</li>
+      </ol>
+      <pre role="region" aria-label="Command: run the container image" tabindex="0"><code>docker run -d --name scriobh --restart unless-stopped \
   --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true \
   -p 127.0.0.1:8080:8080 -v scriobh-data:/data --env-file .env \
   ghcr.io/crueber/scriobh:latest</code></pre>
-    <p class="prose-ui">The tag <code>latest</code> moves; for anything that must not change under you, pin a release tag. The whole guide, with reverse-proxy examples, backups and the provider notes, is <a href="https://github.com/crueber/scriobh/blob/main/docs/OPERATIONS.md">docs/OPERATIONS.md</a>.</p>
+      <p class="prose-ui"><code>latest</code> moves, so pin a release tag if you need it to stay put. The full guide, with reverse-proxy examples and backups, is <a href="https://github.com/crueber/scriobh/blob/main/docs/OPERATIONS.md">docs/OPERATIONS.md</a>. To look at it without an identity provider, <code>make run</code> or <code>docker compose up --build</code> gives a development build with three fixed test users. Never expose that to a network.</p>
 
-    <aside class="note" aria-labelledby="install-honest">
-      <p class="eyebrow" id="install-honest">Said plainly</p>
-      <p>The image is built and published by CI, and its job checks the image&rsquo;s user and that the production binary refuses the development issuer. The server inside the image has never been run to serve. The image can be pulled without signing in.</p>
-    </aside>
-  </div>
-</section>
+      <h3>AI providers</h3>
+      <p class="prose-ui">There&rsquo;s no built-in AI service. An administrator adds a provider in the app: a local Ollama, any OpenAI-compatible server, OpenRouter or OpenCode. A project&rsquo;s owner then picks, per project, a mode, which features are allowed, which providers and models, a budget and whether names are redacted. A project with no policy has mode off, and nothing is sent.</p>
 
-<section class="block" id="unverified" aria-labelledby="unverified-title">
-  <div class="wrap">
-    <p class="eyebrow">Status</p>
-    <h2 id="unverified-title">What has not been verified.</h2>
-    <div class="two rev">
-      <div>
-        <p>The plan in the repository&rsquo;s <code>docs/</code> is the contract, and the releases are tagged as the work lands. A tag records what was built, not a claim that the roadmap&rsquo;s exit criteria are met. Said plainly, because the documentation leans on it, here is the list.</p>
-        <p>The complete statement is in <a href="https://github.com/crueber/scriobh/blob/main/docs/OVERVIEW.md">docs/OVERVIEW.md</a>.</p>
-      </div>
+      <h3>Server binaries</h3>
+      <p class="prose-ui">Server and CLI archives for <span data-fill="version">the latest release</span>, with <a href="https://github.com/crueber/scriobh/releases/latest" data-dl="sums">SHA256SUMS.txt</a>. They&rsquo;re static, the server is the production build with no development sign-in, and only the macOS Apple silicon one has been run. The rest are cross-compiled.</p>
+      <ul class="servers" data-fill="servers"><li><a href="https://github.com/crueber/scriobh/releases/latest">All server downloads</a></li></ul>
+
+      <h3>What hasn&rsquo;t been verified here</h3>
       <ul class="plain">
-      <li>The desktop app has been run unsigned on one Mac and nowhere else by a person. No installer was used on a clean machine, no update was ever fetched, and nothing was seen on Windows.</li>
-      <li>The container image has never been run to serve, and the compose files only parse.</li>
-      <li>No real identity provider has been registered against this build; only the built-in development issuer has been used. No real AI provider, MCP client, printer, copy of Word, mail relay, Pandoc, embedding model or Git host has been used; stand-ins on loopback were.</li>
-      <li>No screen reader, physical phone or browser other than Chromium has been used on the newer screens.</li>
-      <li>The exit criteria that need people (two independent users installing from the guide unaided, a printed proof, a restore on a clean machine by someone other than the author) have not been met.</li>
-    </ul>
-    </div>
-  </div>
-</section>
+        <li>The container image has never been run to serve, and the compose files only parse.</li>
+        <li>No real identity provider has been registered against this build. Only the built-in development issuer has been used.</li>
+        <li>No real MCP client, mail relay, Pandoc, embedding model or Git host has been used. Stand-ins on loopback were.</li>
+      </ul>
 
-<section class="block" id="docs" aria-labelledby="docs-title">
-  <div class="wrap">
-    <p class="eyebrow">Documentation</p>
-    <h2 id="docs-title">Read before you run.</h2>
-    <ul class="docs">
-      <li><a href="https://github.com/crueber/scriobh/blob/main/docs/OPERATIONS.md">Operations</a>Install, sign-in, proxy, backup and restore, AI providers, Git sync, webhooks.</li>
-      <li><a href="https://github.com/crueber/scriobh/blob/main/docs/OVERVIEW.md">Overview</a>What exists, what is not built, what is not verified.</li>
-      <li><a href="https://github.com/crueber/scriobh/blob/main/docs/VISION.md">Vision</a>Who this is for, what it is not, and the principles that decide arguments.</li>
-      <li><a href="https://github.com/crueber/scriobh/blob/main/docs/FEATURES.md">Features</a>Every feature, and the things deliberately not built.</li>
-      <li><a href="https://github.com/crueber/scriobh/blob/main/docs/DESKTOP.md">Desktop</a>What the app is made of, where it keeps things, what it will and will not do.</li>
-      <li><a href="https://github.com/crueber/scriobh/blob/main/docs/ARCHITECTURE.md">Architecture</a>Go, HTMX, SQLite, the operation registry, security, performance budgets.</li>
-      <li><a href="https://github.com/crueber/scriobh/blob/main/docs/AGENT-GUIDE.md">Working with an agent</a>A scoped key, the command-line tool, and the generated skill.</li>
-      <li><a href="https://github.com/crueber/scriobh/blob/main/docs/DESIGN.md">Design</a>Typography, colour, motion and the editor. The look of this page comes from it.</li>
-    </ul>
+      <h3>Documentation</h3>
+      <ul class="docs">
+        <li><a href="https://github.com/crueber/scriobh/blob/main/docs/OPERATIONS.md">Operations</a>Install, sign-in, proxy, backup and restore, AI providers, Git sync, webhooks.</li>
+        <li><a href="https://github.com/crueber/scriobh/blob/main/docs/ARCHITECTURE.md">Architecture</a>Go, HTMX, SQLite, the operation registry, security and performance budgets.</li>
+        <li><a href="https://github.com/crueber/scriobh/blob/main/docs/AGENT-GUIDE.md">Working with an agent</a>A scoped key, the command-line tool and the generated skill.</li>
+        <li><a href="https://github.com/crueber/scriobh/blob/main/docs/DESKTOP.md">Desktop</a>What the app is made of, where it keeps things, and what is verified.</li>
+        <li><a href="https://github.com/crueber/scriobh/blob/main/docs/OVERVIEW.md">Overview</a>What exists, what isn&rsquo;t built and what isn&rsquo;t verified.</li>
+        <li><a href="https://github.com/crueber/scriobh/blob/main/docs/FEATURES.md">Features</a>Every feature, and the things deliberately left out.</li>
+        <li><a href="https://github.com/crueber/scriobh/blob/main/docs/VISION.md">Vision</a>Who it&rsquo;s for and the rules that decide arguments.</li>
+        <li><a href="https://github.com/crueber/scriobh/blob/main/docs/DESIGN.md">Design</a>Type, colour and motion. This page borrows from it.</li>
+      </ul>
+    </div>
   </div>
 </section>
 
@@ -326,7 +366,7 @@
   <div class="wrap">
     <div>
       <a class="mark" href="./" aria-label="Scríobh, home">Scríobh</a>
-      <p>MIT licence. Fonts are Newsreader and Instrument Sans (SIL Open Font License), self-hosted and subset. This page loads nothing from any other site: no scripts, analytics, embeds or trackers.</p>
+      <p>MIT licence. The fonts are Newsreader and Instrument Sans (SIL Open Font License), self-hosted and trimmed. This page makes no request to any other site. Its one script is a small file that picks your download button.</p>
     </div>
     <nav aria-label="Project">
       <a href="https://github.com/crueber/scriobh">Source</a>

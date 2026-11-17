@@ -2125,3 +2125,14 @@ Decided:
 - **A private remote carries the cover (`include_cover` 1) and a public one does not (0), including after the upgrade**, as migration `1837` says; a remote from before the audience existed is private, so it has it on. The rehearsal asserts exactly that, in both directions, on the old release's own remotes.
 - **The derived cover pictures are compared by what they are, not as backed-up files**: absent from the archive, rebuilt by the restored server with the same bytes. A comparison of the whole `files/` tree would have failed the moment a cover existed.
 - **`cover.derive`'s baseline is the best of three and is added by hand-merging the candidate**, so the other entries stay as they were (see above). The next phase that adds a metric should do the same.
+
+## Release notes for v2.2.1
+
+A small release so the new landing page can go live. No migration, no change to stored data.
+
+- **The landing page and README are rewritten** in plain words. AI being off until you add a key and switch it on, per project and per feature, is stated at the top. The page offers the download for the visitor's system (a small self-hosted script; without it, every download is listed), and the technical detail sits in one section at the end. Its download links are written in when the page deploys, from the latest GitHub Release, so a visitor's browser asks GitHub's API nothing.
+- **A universal macOS disk image** (Apple silicon and Intel in one) is built on GitHub, and is the macOS default on the page.
+- **The Writing Studio's streak sentences** read as sentences ("8 days in a row so far. Write 300 more today to keep it going.").
+- **A sponsor link** at the top of the README.
+
+Not verified: the universal macOS leg and the page's deploy-time download step have run only locally until this release's GitHub runs; real Safari, Firefox and phones against the page's platform detection.

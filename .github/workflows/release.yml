@@ -23,7 +23,10 @@
 #   linux-x86_64     the Linux .deb through `tauri build`, and an AppImage that may fail; both are named for the tag
 #                    (Scriobh_<version>_amd64.deb, linux-deb.sh `name` and `appimage`), as the other platforms' are
 #   macos-*          desktop/scripts/build-macos.sh, the script the development forge's macOS job runs too: server, Tauri
-#                    command line, build, ad-hoc signature, checks, and a .dmg named Scriobh_<version>_<aarch64|x86_64>.dmg
+#                    command line, build, ad-hoc signature, checks, and a .dmg named Scriobh_<version>_<aarch64|x86_64|universal>.dmg
+#                    (the universal one is its own leg: one app with both architectures, built from the two servers joined with lipo;
+#                    the landing page offers it first, because a browser cannot tell Apple silicon from Intel. It has run by hand on an
+#                    Apple-silicon Mac, never as a job here)
 #   windows-x86_64   a NATIVE `tauri build --bundles nsis` on windows-latest (the forge cross-compiles with
 #                    desktop/scripts/build-windows-cross.sh instead, because it has no Windows runner; GitHub has one,
 #                    and a native build needs no cross toolchain and no download of Microsoft's SDK). The installer
@@ -151,6 +154,11 @@ jobs:
             triple: x86_64-apple-darwin
             bundles: app,dmg
             target_flag: --target x86_64-apple-darwin
+          - name: macos-universal
+            os: macos-15
+            triple: universal-apple-darwin
+            bundles: app,dmg
+            target_flag: --target universal-apple-darwin
           - name: windows-x86_64
             os: windows-latest
             triple: x86_64-pc-windows-msvc
@@ -187,7 +195,12 @@ jobs:
 
       - name: Rust toolchain, pinned
         run: |
-          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --target "${{ matrix.triple }}"
+          # the universal leg is no Rust target of its own: it needs both Apple ones
+          targets="${{ matrix.triple }}"
+          if [ "$targets" = universal-apple-darwin ]; then targets="aarch64-apple-darwin x86_64-apple-darwin"; fi
+          args=()
+          for t in $targets; do args+=(--target "$t"); done
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal "${args[@]}"
           rustup default "$RUST_TOOLCHAIN"
           rustc -vV
 
@@ -208,7 +221,7 @@ jobs:
 
       # macOS: one script does the server binary (stamped with the version), the Tauri command line, the build, the
       # ad-hoc signature (no certificate is used here), the checks (identifier, version, architectures, signature,
-      # that the .dmg mounts) and writes DIST_DIR/Scriobh_<version>_<aarch64|x86_64>.dmg, named for VERSION (the tag
+      # that the .dmg mounts) and writes DIST_DIR/Scriobh_<version>_<aarch64|x86_64|universal>.dmg, named for VERSION (the tag
       # without its v, so v2.0.1 gives Scriobh_2.0.1_*; the script prints a WARNING when that is not the app's own
       # version). SRC_DIR (the job's) is the tag's tree, so the script of the commit the run is on builds it.
       - name: Build, sign ad hoc and check the macOS package
@@ -318,7 +331,7 @@ jobs:
 
           - `scriobh-@TAG@-<os>-<arch>.tar.gz` (`.zip` on Windows): the production server `scriobh` and the agent CLI `scriobh-cli`, with LICENSE, NOTICE and README.md. Linux on amd64, arm64, arm (ARMv7), 386, riscv64 and ppc64le, macOS on Intel and Apple silicon, Windows on amd64, arm64 and 386, FreeBSD on amd64 and arm64, OpenBSD on amd64 and NetBSD on amd64. Only the macOS one for Apple silicon has been run; the rest are cross-compiled. Static programs (no CGO); the server is the `prod` build, which has no development sign-in.
           - `SHA256SUMS.txt`: the SHA-256 of every archive above. Check with `sha256sum -c SHA256SUMS.txt` (`shasum -a 256 -c` on macOS).
-          - The desktop app, for the platforms whose build succeeded, with `SHA256SUMS-desktop.txt`. Read docs/DESKTOP.md before relying on it. Linux: `Scriobh_<version>_amd64.deb` (and `Scriobh_<version>_amd64.AppImage` when that build worked), where `<version>` is this release's tag without its `v`. Windows: `scriobh-desktop-@TAG@-windows-amd64-setup.exe`, an installer for 64-bit Windows 10 and 11, built on a Windows runner. macOS: `Scriobh_<version>_aarch64.dmg` (Apple silicon) and `Scriobh_<version>_x86_64.dmg` (Intel), where `<version>` is this release's tag without its `v`.
+          - The desktop app, for the platforms whose build succeeded, with `SHA256SUMS-desktop.txt`. Read docs/DESKTOP.md before relying on it. Linux: `Scriobh_<version>_amd64.deb` (and `Scriobh_<version>_amd64.AppImage` when that build worked), where `<version>` is this release's tag without its `v`. Windows: `scriobh-desktop-@TAG@-windows-amd64-setup.exe`, an installer for 64-bit Windows 10 and 11, built on a Windows runner. macOS: `Scriobh_<version>_universal.dmg` (one app for Apple silicon and Intel, the one to pick), `Scriobh_<version>_aarch64.dmg` (Apple silicon only) and `Scriobh_<version>_x86_64.dmg` (Intel only), where `<version>` is this release's tag without its `v`.
           - The container image, built by the image workflow from the same tag push, so check the repository's Packages before relying on it: `ghcr.io/crueber/scriobh:@TAG@`.
 
           **Nothing is signed.** There are no signatures, no notarisation and no signing certificate: the checksum lists come from the same place as the files, so they detect a damaged download and prove nothing about who made it. Check the checksum first. macOS and Windows will warn:
