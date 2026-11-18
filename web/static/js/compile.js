@@ -237,7 +237,7 @@
       return r.blob().then(function (blob) {
         var a = el("a"); a.href = URL.createObjectURL(blob); a.download = name; doc.body.appendChild(a); a.click(); a.remove();
         win.setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
-        manifest({ name: name, docs: h("X-Export-Documents"), words: h("X-Export-Words"), skipped: h("X-Export-Skipped"), sha: h("X-Export-Sha256"), input: h("X-Export-Input-Hash"), id: h("X-Export-Id"), warns: h("X-Export-Warnings"), cover: action === "cover" });
+        manifest({ name: name, docs: h("X-Export-Documents"), words: h("X-Export-Words"), skipped: h("X-Export-Skipped"), sha: h("X-Export-Sha256"), input: h("X-Export-Input-Hash"), id: h("X-Export-Id"), warns: h("X-Export-Warnings"), notes: h("X-Export-Notes"), cover: action === "cover" });
         say(T("made", "Made {name}. It is recorded with a manifest.", { name: name }));
       });
     }).catch(function (e) { say(e.message || T("offline", "Could not reach the server."), true); });
@@ -247,6 +247,7 @@
     function row(k, v, cls) { var d = el("div"); d.appendChild(el("dt", null, k)); var dd = el("dd", cls, v); d.appendChild(dd); dl.appendChild(d); }
     row(T("m_file", "File"), m.name); row(T("m_docs", "Documents"), m.docs); row(T("m_words", "Words"), fmt(parseInt(m.words, 10)));
     if (parseInt(m.warns, 10) > 0) row(T("m_warns", "Warnings in the file"), m.warns);
+    if (m.notes) decodeURIComponent(m.notes).split("\n").forEach(function (n) { row(T("m_note", "Note"), n); });
     if (parseInt(m.skipped, 10) > 0) row(T("m_skipped", "Left out (do not compile)"), m.skipped);
     row(T("m_sha", "SHA-256 of the file"), m.sha, "cmp-hash"); row(T("m_input", "Input hash"), m.input, "cmp-hash");
     var same = last && last.input_hash && last.input_hash === m.input;

@@ -141,10 +141,12 @@ await kit.test("a print-ready PDF is made through the page: its bytes are a PDF 
   ok(/Yes: the input hashes are equal/.test(await text(page, "#cmp-mfacts")), "the file is what the preview said");
 });
 
-await kit.test("the cover: the thickness is asked for, the wrap is measured and drawn, the PDF has the wrap and the front", async () => {
+await kit.test("the cover: the thickness is asked for, the wrap is measured and drawn, the PDF is the wrap on one page", async () => {
   const page = owner.page; kit.main = page;
+  kit.allowed.push(/status of 422/); // the missing thickness is a 422 answer to the form, shown as a sentence
   await page.locator("#cmp-cv-form button[type=submit]").click();
-  await kit.waitFor(async () => /thickness per page/.test(await text(page, "#cmp-status")), "the missing thickness is said");
+  await kit.waitFor(async () => /thickness per page/.test(await text(page, "#cv-out")), "the missing thickness is said, in an alert");
+  eq(await page.locator("#cv-out [role=alert]").count(), 1, "once");
   eq(await page.locator("#cv-thick").getAttribute("aria-invalid"), "true", "and the field is marked");
   eq(await active(page), "cv-thick", "the focus goes to it");
   await page.fill("#cv-thick", "0.0025");
@@ -163,7 +165,9 @@ await kit.test("the cover: the thickness is asked for, the wrap is measured and 
   await dl.saveAs(p);
   const buf = readFileSync(p);
   ok(/-cover\.pdf$/.test(dl.suggestedFilename()) && buf.subarray(0, 5).toString("latin1") === "%PDF-", "a cover PDF: " + dl.suggestedFilename());
-  eq(pdfPages(buf), 2, "the wrap and the front");
+  eq(pdfPages(buf), 1, "the file for the printer is one page: the wrap");
+  ok(await page.locator("#cv-proof").isHidden(), "a generated cover has no proof to offer");
+  ok(await page.locator("#cv-front").isVisible(), "the front alone is offered");
   ok(!(await text(page, "#cmp-mfacts")).includes("Same content as the preview"), "a cover is not compared with the book's preview");
 });
 

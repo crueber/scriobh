@@ -91,6 +91,8 @@
   <p class="sr-only" id="cv-live" role="status" aria-live="polite"></p>
   {{if .Warnings}}<section class="cv-warnings" aria-labelledby="cv-warn-h"><h2 id="cv-warn-h">{{$.T "cover.warnings"}}</h2><ul>{{range .Warnings}}<li>{{.Text}}</li>{{end}}</ul></section>{{end}}
 
+  {{if .PrintNotes}}<section class="cv-warnings cv-print" aria-labelledby="cv-print-h"><h2 id="cv-print-h">{{$.T "cover.print_h"}}</h2><p class="fine">{{$.T "cover.print_help"}} <a href="/p/{{.Slug}}/compile">{{$.T "cover.print_link"}}</a></p><ul>{{range .PrintNotes}}<li>{{.Text}}</li>{{end}}</ul></section>{{end}}
+
   <div class="cv-grid">
   <div class="cv-main">
   {{if .CanEdit}}

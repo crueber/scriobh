@@ -1,6 +1,6 @@
 [package]
 name = "scriobh-desktop"
-version = "2.2.0"
+version = "2.3.0"
 description = "The desktop shell for Scríobh: a window around the unchanged server binary"
 edition = "2021"
 rust-version = "1.85"
@@ -27,6 +27,9 @@ tauri-plugin-deep-link = "2.6"
 rfd = { version = "0.17", default-features = false, features = ["common-controls-v6", "gtk3"] }
 tauri-plugin-opener = "2.7"
 tauri-plugin-updater = "2.14"
+# Named only for the redirect policy and the timeouts of the update client (update_net.rs); the plugin already links it, at this
+# version, and every feature is the plugin's own.
+reqwest = { version = "0.13", default-features = false }
 keyring = "4.2"
 getrandom = "0.4"
 zeroize = "1.9"

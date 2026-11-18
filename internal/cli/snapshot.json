@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "hash": "sha256:e7191bde55bb012977b830e8b371252da2e3eb15f8985376cd6e2869be243bb3",
+  "hash": "sha256:55f262ef070755e913d4d92bf78e90d45bd52054ceba8e4a876b9336338e7d3c",
   "ops": [
     {
       "name": "account.typography.get",
@@ -23899,7 +23899,7 @@
       "input": {
         "properties": {
           "barcode": {
-            "description": "A white box for the barcode on the back (2 x 1.2 in).",
+            "description": "A white box for the barcode on the lower right of the back, the profile's size (2 x 1.2 in for kdp and generic, 1.75 x 1 in for ingram).",
             "type": "boolean"
           },
           "bleed_in": {
@@ -23918,6 +23918,10 @@
           "options": {
             "description": "Options that override the preset, as for export.compile.",
             "properties": {
+              "back_cover": {
+                "description": "EPUB: put the project's own back cover (project.cover_layout.get) last in the book, on a page of its own outside the reading order (default false). Only a layout that gives the back a picture, or a wrap, has one; the generated cover has no back page. Off when own_cover is false.",
+                "type": "boolean"
+              },
               "back_matter": {
                 "description": "Back matter documents, last (default true).",
                 "type": "boolean"
@@ -23974,6 +23978,10 @@
               },
               "cover": {
                 "description": "EPUB: put the cover first: a cover page and the cover image the shops and readers use. It is the project's own cover when it has one (project.cover_layout.get), else the generated cover. Default true. KDP takes the cover as a separate upload and asks for no cover page in the file, so turn this off for a file bound for KDP.",
+                "type": "boolean"
+              },
+              "cover_page": {
+                "description": "Print, for a proof or a copy you print yourself (default false): the cover's front as the first page of the PDF, edge to edge (into the bleed with crop marks), followed by a blank page so the title page stays a right-hand page. Do not upload a file made with it to a print-on-demand printer as the interior: KDP and IngramSpark take the cover as a separate file, and a printer counts and prints every page of the interior, so these two pages would be printed and would change the page count and the spine. The page count that export.cover and compile.cover_spec use does not include them. It is the project's own cover, or the generated one when there is none or own_cover is false. A right-to-left book has no PDF.",
                 "type": "boolean"
               },
               "crop_marks": {
@@ -24211,8 +24219,26 @@
             "description": "The paper's thickness per page in inches (0.0005 to 0.01), from your printer's cover template or guide. Required: the spine is the page count times this.",
             "type": "number"
           },
+          "part": {
+            "description": "Which file: cover (the default) is the one page a printer takes, the whole wrap, named \u003ctitle\u003e-cover.pdf; front is the front alone at trim plus bleed (\u003ctitle\u003e-cover-front.pdf); proof is the proof page, the wrap at half size with the cut lines over it (\u003ctitle\u003e-cover-proof.pdf), for a cover with a layout, never for a printer. Each is recorded as its own export.",
+            "enum": [
+              "cover",
+              "front",
+              "proof"
+            ],
+            "type": "string"
+          },
           "preset": {
             "description": "A print preset (print-6x9, print-5x8, ...); its trim size and layout give the page count. Default print-6x9.",
+            "type": "string"
+          },
+          "profile": {
+            "description": "The printer's figures for the text-safe margin, the barcode box and the page count from which the spine has type. Default generic. With no layout the cover keeps its own margin and barcode place unless a profile is named.",
+            "enum": [
+              "kdp",
+              "ingram",
+              "generic"
+            ],
             "type": "string"
           }
         },
@@ -24240,6 +24266,30 @@
             ],
             "type": "object"
           },
+          "barcode_box": {
+            "description": "The barcode box on the lower right of the back, in points from the left and bottom edges of the wrap.",
+            "properties": {
+              "x0": {
+                "type": "number"
+              },
+              "x1": {
+                "type": "number"
+              },
+              "y0": {
+                "type": "number"
+              },
+              "y1": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "x0",
+              "y0",
+              "x1",
+              "y1"
+            ],
+            "type": "object"
+          },
           "bleed_in": {
             "type": "number"
           },
@@ -24258,6 +24308,81 @@
             ],
             "type": "object"
           },
+          "layout": {
+            "description": "Present when the cover is made from the project's own layout.",
+            "properties": {
+              "measured_spine_in": {
+                "description": "A wrap's spine as measured from its picture.",
+                "type": "number"
+              },
+              "pictures": {
+                "description": "Each placed picture and its resolution where it prints.",
+                "items": {
+                  "properties": {
+                    "dpi": {
+                      "type": "number"
+                    },
+                    "part": {
+                      "enum": [
+                        "front",
+                        "back",
+                        "wrap"
+                      ],
+                      "type": "string"
+                    },
+                    "print_height_in": {
+                      "type": "number"
+                    },
+                    "print_width_in": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "part",
+                    "dpi",
+                    "print_width_in",
+                    "print_height_in"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "proof": {
+                "description": "The PDF has a third page, the proof.",
+                "type": "boolean"
+              },
+              "shape": {
+                "enum": [
+                  "sides",
+                  "wrap"
+                ],
+                "type": "string"
+              },
+              "stale": {
+                "description": "A wrap whose measured spine is over 1/32 in from the book's: cover_wrap_stale.",
+                "type": "boolean"
+              },
+              "trim": {
+                "type": "string"
+              },
+              "wrap_height_in": {
+                "type": "number"
+              },
+              "wrap_width_in": {
+                "description": "The first page's width: for a wrap, the picture's measured size, whatever the book's spine.",
+                "type": "number"
+              }
+            },
+            "required": [
+              "shape",
+              "trim",
+              "proof",
+              "wrap_width_in",
+              "wrap_height_in",
+              "pictures"
+            ],
+            "type": "object"
+          },
           "page_count": {
             "type": "integer"
           },
@@ -24269,6 +24394,15 @@
             "type": "string"
           },
           "preset": {
+            "type": "string"
+          },
+          "profile": {
+            "description": "The profile in force (generic by default).",
+            "enum": [
+              "kdp",
+              "ingram",
+              "generic"
+            ],
             "type": "string"
           },
           "spine": {
@@ -24287,10 +24421,24 @@
             "type": "object"
           },
           "spine_has_text": {
-            "description": "The spine is wide enough for type (a quarter inch or more).",
+            "description": "The spine carries type: it is a quarter inch or more, the book has the profile's pages, and the cover is not a wrap or right to left.",
             "type": "boolean"
           },
           "spine_in": {
+            "type": "number"
+          },
+          "spine_text_why": {
+            "description": "When spine_has_text is false: why.",
+            "enum": [
+              "narrow",
+              "few_pages",
+              "wrap",
+              "rtl"
+            ],
+            "type": "string"
+          },
+          "text_margin_in": {
+            "description": "Text and important art stay this far inside the trim (the profile's; a generated cover with no profile named keeps 0.125 in in its guides).",
             "type": "number"
           },
           "trim_height_in": {
@@ -24310,6 +24458,16 @@
                   "type": "string"
                 },
                 "message": {
+                  "type": "string"
+                },
+                "part": {
+                  "description": "A cover warning only: which part of the cover it is about (the spine, the barcode's back, a wrap or a side). Empty for every other warning and for a cover warning about the cover as a whole.",
+                  "enum": [
+                    "front",
+                    "back",
+                    "spine",
+                    "wrap"
+                  ],
                   "type": "string"
                 },
                 "title": {
@@ -24341,6 +24499,9 @@
           "bleed_in",
           "spine_in",
           "spine_has_text",
+          "profile",
+          "text_margin_in",
+          "barcode_box",
           "wrap_width_in",
           "wrap_height_in",
           "back",
@@ -24380,6 +24541,10 @@
           "options": {
             "description": "The options that differ from the base.",
             "properties": {
+              "back_cover": {
+                "description": "EPUB: put the project's own back cover (project.cover_layout.get) last in the book, on a page of its own outside the reading order (default false). Only a layout that gives the back a picture, or a wrap, has one; the generated cover has no back page. Off when own_cover is false.",
+                "type": "boolean"
+              },
               "back_matter": {
                 "description": "Back matter documents, last (default true).",
                 "type": "boolean"
@@ -24436,6 +24601,10 @@
               },
               "cover": {
                 "description": "EPUB: put the cover first: a cover page and the cover image the shops and readers use. It is the project's own cover when it has one (project.cover_layout.get), else the generated cover. Default true. KDP takes the cover as a separate upload and asks for no cover page in the file, so turn this off for a file bound for KDP.",
+                "type": "boolean"
+              },
+              "cover_page": {
+                "description": "Print, for a proof or a copy you print yourself (default false): the cover's front as the first page of the PDF, edge to edge (into the bleed with crop marks), followed by a blank page so the title page stays a right-hand page. Do not upload a file made with it to a print-on-demand printer as the interior: KDP and IngramSpark take the cover as a separate file, and a printer counts and prints every page of the interior, so these two pages would be printed and would change the page count and the spine. The page count that export.cover and compile.cover_spec use does not include them. It is the project's own cover, or the generated one when there is none or own_cover is false. A right-to-left book has no PDF.",
                 "type": "boolean"
               },
               "crop_marks": {
@@ -24711,6 +24880,10 @@
               "options": {
                 "description": "Every option, resolved.",
                 "properties": {
+                  "back_cover": {
+                    "description": "EPUB: put the project's own back cover (project.cover_layout.get) last in the book, on a page of its own outside the reading order (default false). Only a layout that gives the back a picture, or a wrap, has one; the generated cover has no back page. Off when own_cover is false.",
+                    "type": "boolean"
+                  },
                   "back_matter": {
                     "description": "Back matter documents, last (default true).",
                     "type": "boolean"
@@ -24767,6 +24940,10 @@
                   },
                   "cover": {
                     "description": "EPUB: put the cover first: a cover page and the cover image the shops and readers use. It is the project's own cover when it has one (project.cover_layout.get), else the generated cover. Default true. KDP takes the cover as a separate upload and asks for no cover page in the file, so turn this off for a file bound for KDP.",
+                    "type": "boolean"
+                  },
+                  "cover_page": {
+                    "description": "Print, for a proof or a copy you print yourself (default false): the cover's front as the first page of the PDF, edge to edge (into the bleed with crop marks), followed by a blank page so the title page stays a right-hand page. Do not upload a file made with it to a print-on-demand printer as the interior: KDP and IngramSpark take the cover as a separate file, and a printer counts and prints every page of the interior, so these two pages would be printed and would change the page count and the spine. The page count that export.cover and compile.cover_spec use does not include them. It is the project's own cover, or the generated one when there is none or own_cover is false. A right-to-left book has no PDF.",
                     "type": "boolean"
                   },
                   "crop_marks": {
@@ -25124,6 +25301,10 @@
                 "options": {
                   "description": "Every option, resolved.",
                   "properties": {
+                    "back_cover": {
+                      "description": "EPUB: put the project's own back cover (project.cover_layout.get) last in the book, on a page of its own outside the reading order (default false). Only a layout that gives the back a picture, or a wrap, has one; the generated cover has no back page. Off when own_cover is false.",
+                      "type": "boolean"
+                    },
                     "back_matter": {
                       "description": "Back matter documents, last (default true).",
                       "type": "boolean"
@@ -25180,6 +25361,10 @@
                     },
                     "cover": {
                       "description": "EPUB: put the cover first: a cover page and the cover image the shops and readers use. It is the project's own cover when it has one (project.cover_layout.get), else the generated cover. Default true. KDP takes the cover as a separate upload and asks for no cover page in the file, so turn this off for a file bound for KDP.",
+                      "type": "boolean"
+                    },
+                    "cover_page": {
+                      "description": "Print, for a proof or a copy you print yourself (default false): the cover's front as the first page of the PDF, edge to edge (into the bleed with crop marks), followed by a blank page so the title page stays a right-hand page. Do not upload a file made with it to a print-on-demand printer as the interior: KDP and IngramSpark take the cover as a separate file, and a printer counts and prints every page of the interior, so these two pages would be printed and would change the page count and the spine. The page count that export.cover and compile.cover_spec use does not include them. It is the project's own cover, or the generated one when there is none or own_cover is false. A right-to-left book has no PDF.",
                       "type": "boolean"
                     },
                     "crop_marks": {
@@ -25455,6 +25640,10 @@
           "options": {
             "description": "Options to change; the rest keep their values.",
             "properties": {
+              "back_cover": {
+                "description": "EPUB: put the project's own back cover (project.cover_layout.get) last in the book, on a page of its own outside the reading order (default false). Only a layout that gives the back a picture, or a wrap, has one; the generated cover has no back page. Off when own_cover is false.",
+                "type": "boolean"
+              },
               "back_matter": {
                 "description": "Back matter documents, last (default true).",
                 "type": "boolean"
@@ -25511,6 +25700,10 @@
               },
               "cover": {
                 "description": "EPUB: put the cover first: a cover page and the cover image the shops and readers use. It is the project's own cover when it has one (project.cover_layout.get), else the generated cover. Default true. KDP takes the cover as a separate upload and asks for no cover page in the file, so turn this off for a file bound for KDP.",
+                "type": "boolean"
+              },
+              "cover_page": {
+                "description": "Print, for a proof or a copy you print yourself (default false): the cover's front as the first page of the PDF, edge to edge (into the bleed with crop marks), followed by a blank page so the title page stays a right-hand page. Do not upload a file made with it to a print-on-demand printer as the interior: KDP and IngramSpark take the cover as a separate file, and a printer counts and prints every page of the interior, so these two pages would be printed and would change the page count and the spine. The page count that export.cover and compile.cover_spec use does not include them. It is the project's own cover, or the generated one when there is none or own_cover is false. A right-to-left book has no PDF.",
                 "type": "boolean"
               },
               "crop_marks": {
@@ -25791,6 +25984,10 @@
               "options": {
                 "description": "Every option, resolved.",
                 "properties": {
+                  "back_cover": {
+                    "description": "EPUB: put the project's own back cover (project.cover_layout.get) last in the book, on a page of its own outside the reading order (default false). Only a layout that gives the back a picture, or a wrap, has one; the generated cover has no back page. Off when own_cover is false.",
+                    "type": "boolean"
+                  },
                   "back_matter": {
                     "description": "Back matter documents, last (default true).",
                     "type": "boolean"
@@ -25847,6 +26044,10 @@
                   },
                   "cover": {
                     "description": "EPUB: put the cover first: a cover page and the cover image the shops and readers use. It is the project's own cover when it has one (project.cover_layout.get), else the generated cover. Default true. KDP takes the cover as a separate upload and asks for no cover page in the file, so turn this off for a file bound for KDP.",
+                    "type": "boolean"
+                  },
+                  "cover_page": {
+                    "description": "Print, for a proof or a copy you print yourself (default false): the cover's front as the first page of the PDF, edge to edge (into the bleed with crop marks), followed by a blank page so the title page stays a right-hand page. Do not upload a file made with it to a print-on-demand printer as the interior: KDP and IngramSpark take the cover as a separate file, and a printer counts and prints every page of the interior, so these two pages would be printed and would change the page count and the spine. The page count that export.cover and compile.cover_spec use does not include them. It is the project's own cover, or the generated one when there is none or own_cover is false. A right-to-left book has no PDF.",
                     "type": "boolean"
                   },
                   "crop_marks": {
@@ -26117,6 +26318,10 @@
           "options": {
             "description": "Options that override the preset.",
             "properties": {
+              "back_cover": {
+                "description": "EPUB: put the project's own back cover (project.cover_layout.get) last in the book, on a page of its own outside the reading order (default false). Only a layout that gives the back a picture, or a wrap, has one; the generated cover has no back page. Off when own_cover is false.",
+                "type": "boolean"
+              },
               "back_matter": {
                 "description": "Back matter documents, last (default true).",
                 "type": "boolean"
@@ -26173,6 +26378,10 @@
               },
               "cover": {
                 "description": "EPUB: put the cover first: a cover page and the cover image the shops and readers use. It is the project's own cover when it has one (project.cover_layout.get), else the generated cover. Default true. KDP takes the cover as a separate upload and asks for no cover page in the file, so turn this off for a file bound for KDP.",
+                "type": "boolean"
+              },
+              "cover_page": {
+                "description": "Print, for a proof or a copy you print yourself (default false): the cover's front as the first page of the PDF, edge to edge (into the bleed with crop marks), followed by a blank page so the title page stays a right-hand page. Do not upload a file made with it to a print-on-demand printer as the interior: KDP and IngramSpark take the cover as a separate file, and a printer counts and prints every page of the interior, so these two pages would be printed and would change the page count and the spine. The page count that export.cover and compile.cover_spec use does not include them. It is the project's own cover, or the generated one when there is none or own_cover is false. A right-to-left book has no PDF.",
                 "type": "boolean"
               },
               "crop_marks": {
@@ -26495,6 +26704,10 @@
           "options": {
             "description": "Every option, resolved: the preset with your overrides.",
             "properties": {
+              "back_cover": {
+                "description": "EPUB: put the project's own back cover (project.cover_layout.get) last in the book, on a page of its own outside the reading order (default false). Only a layout that gives the back a picture, or a wrap, has one; the generated cover has no back page. Off when own_cover is false.",
+                "type": "boolean"
+              },
               "back_matter": {
                 "description": "Back matter documents, last (default true).",
                 "type": "boolean"
@@ -26551,6 +26764,10 @@
               },
               "cover": {
                 "description": "EPUB: put the cover first: a cover page and the cover image the shops and readers use. It is the project's own cover when it has one (project.cover_layout.get), else the generated cover. Default true. KDP takes the cover as a separate upload and asks for no cover page in the file, so turn this off for a file bound for KDP.",
+                "type": "boolean"
+              },
+              "cover_page": {
+                "description": "Print, for a proof or a copy you print yourself (default false): the cover's front as the first page of the PDF, edge to edge (into the bleed with crop marks), followed by a blank page so the title page stays a right-hand page. Do not upload a file made with it to a print-on-demand printer as the interior: KDP and IngramSpark take the cover as a separate file, and a printer counts and prints every page of the interior, so these two pages would be printed and would change the page count and the spine. The page count that export.cover and compile.cover_spec use does not include them. It is the project's own cover, or the generated one when there is none or own_cover is false. A right-to-left book has no PDF.",
                 "type": "boolean"
               },
               "crop_marks": {
@@ -27136,6 +27353,16 @@
                   "type": "string"
                 },
                 "message": {
+                  "type": "string"
+                },
+                "part": {
+                  "description": "A cover warning only: which part of the cover it is about (the spine, the barcode's back, a wrap or a side). Empty for every other warning and for a cover warning about the cover as a whole.",
+                  "enum": [
+                    "front",
+                    "back",
+                    "spine",
+                    "wrap"
+                  ],
                   "type": "string"
                 },
                 "title": {
@@ -35433,6 +35660,10 @@
           "options": {
             "description": "Options that override the preset for this compile only.",
             "properties": {
+              "back_cover": {
+                "description": "EPUB: put the project's own back cover (project.cover_layout.get) last in the book, on a page of its own outside the reading order (default false). Only a layout that gives the back a picture, or a wrap, has one; the generated cover has no back page. Off when own_cover is false.",
+                "type": "boolean"
+              },
               "back_matter": {
                 "description": "Back matter documents, last (default true).",
                 "type": "boolean"
@@ -35489,6 +35720,10 @@
               },
               "cover": {
                 "description": "EPUB: put the cover first: a cover page and the cover image the shops and readers use. It is the project's own cover when it has one (project.cover_layout.get), else the generated cover. Default true. KDP takes the cover as a separate upload and asks for no cover page in the file, so turn this off for a file bound for KDP.",
+                "type": "boolean"
+              },
+              "cover_page": {
+                "description": "Print, for a proof or a copy you print yourself (default false): the cover's front as the first page of the PDF, edge to edge (into the bleed with crop marks), followed by a blank page so the title page stays a right-hand page. Do not upload a file made with it to a print-on-demand printer as the interior: KDP and IngramSpark take the cover as a separate file, and a printer counts and prints every page of the interior, so these two pages would be printed and would change the page count and the spine. The page count that export.cover and compile.cover_spec use does not include them. It is the project's own cover, or the generated one when there is none or own_cover is false. A right-to-left book has no PDF.",
                 "type": "boolean"
               },
               "crop_marks": {
@@ -35794,6 +36029,16 @@
                 "message": {
                   "type": "string"
                 },
+                "part": {
+                  "description": "A cover warning only: which part of the cover it is about (the spine, the barcode's back, a wrap or a side). Empty for every other warning and for a cover warning about the cover as a whole.",
+                  "enum": [
+                    "front",
+                    "back",
+                    "spine",
+                    "wrap"
+                  ],
+                  "type": "string"
+                },
                 "title": {
                   "type": "string"
                 }
@@ -35832,7 +36077,7 @@
       "name": "export.cover",
       "method": "POST",
       "path": "/api/v1/projects/{id}/export/cover",
-      "desc": "A print cover as a PDF of two pages: the full wrap (back, spine and front with bleed; a flat colour from the project's cover colour with white type, no gradient and no image) and the front on its own. The spine is set only when it is wide enough for type. Optional guides (trim, spine and safe-area lines) and a white box for the barcode. Deterministic and recorded. This is a typographic cover, not a designed one; check it against your printer's template.",
+      "desc": "A print cover as a PDF. The default file is exactly one page, the full wrap with bleed, which is what KDP and IngramSpark take (part front is the front on its own, part proof the proof). With no cover layout (or own_cover false) it is the generated cover: a flat colour from the project's cover colour with white type, no gradient and no image, in any language. With the project's own layout (project.cover_layout.get) it is made from the layout: an image side fills its panel to the bleed, cropped from the centre, a page side lays its picture on a page of the trim by its fit, scale, position, background and margin, a generated side keeps the typographic drawing, a back left out is the cover colour, and a wrap picture is the whole first page at its measured size with nothing drawn over it; part proof is a separate file, the proof (the wrap at half size with the trim, bleed, spine folds, text-safe margin and barcode box over it, and a legend: never send it to a printer), and part front the front alone. The layout's trim must be the preset's (cover_trim_mismatch refuses otherwise). Pictures go in at full resolution (a JPEG as it is), in RGB: a picture's own RGB colour profile goes with it, anything else is DeviceRGB, and a printer that wants CMYK converts. profile (kdp, ingram, generic) sets the text-safe margin, barcode box and the page count from which the spine carries type. The spine is set only when it is wide enough for type and the book has the profile's pages. Warnings: image_low_resolution (under 285 dpi where the picture prints; print asks for 300, and a picture made at 300 for the trim lands at about 288 once it covers the bleed), cover_print_cropped (an image side loses over 5 per cent of its picture to fill the panel and bleed), cover_wrap_stale (the wrap's spine is over 1/32 in from the book's), cover_margin_crossed, cover_bleed_missing, cover_barcode_area, spine_narrow, spine_few_pages, spine_rtl, cover_profile_not_srgb. Optional guides (trim, spine and safe-area lines) and a white box for the barcode. A right-to-left book needs page_count; its layout may not have a generated side (cover_rtl_text refuses the file, compile.cover_spec still measures it). Deterministic and recorded. Check it against your printer's template.",
       "auth": {
         "kind": "project",
         "role": "editor"
@@ -35842,7 +36087,7 @@
       "input": {
         "properties": {
           "barcode": {
-            "description": "A white box for the barcode on the back (2 x 1.2 in).",
+            "description": "A white box for the barcode on the lower right of the back, the profile's size (2 x 1.2 in for kdp and generic, 1.75 x 1 in for ingram).",
             "type": "boolean"
           },
           "bleed_in": {
@@ -35861,6 +36106,10 @@
           "options": {
             "description": "Options that override the preset, as for export.compile.",
             "properties": {
+              "back_cover": {
+                "description": "EPUB: put the project's own back cover (project.cover_layout.get) last in the book, on a page of its own outside the reading order (default false). Only a layout that gives the back a picture, or a wrap, has one; the generated cover has no back page. Off when own_cover is false.",
+                "type": "boolean"
+              },
               "back_matter": {
                 "description": "Back matter documents, last (default true).",
                 "type": "boolean"
@@ -35917,6 +36166,10 @@
               },
               "cover": {
                 "description": "EPUB: put the cover first: a cover page and the cover image the shops and readers use. It is the project's own cover when it has one (project.cover_layout.get), else the generated cover. Default true. KDP takes the cover as a separate upload and asks for no cover page in the file, so turn this off for a file bound for KDP.",
+                "type": "boolean"
+              },
+              "cover_page": {
+                "description": "Print, for a proof or a copy you print yourself (default false): the cover's front as the first page of the PDF, edge to edge (into the bleed with crop marks), followed by a blank page so the title page stays a right-hand page. Do not upload a file made with it to a print-on-demand printer as the interior: KDP and IngramSpark take the cover as a separate file, and a printer counts and prints every page of the interior, so these two pages would be printed and would change the page count and the spine. The page count that export.cover and compile.cover_spec use does not include them. It is the project's own cover, or the generated one when there is none or own_cover is false. A right-to-left book has no PDF.",
                 "type": "boolean"
               },
               "crop_marks": {
@@ -36154,8 +36407,26 @@
             "description": "The paper's thickness per page in inches (0.0005 to 0.01), from your printer's cover template or guide. Required: the spine is the page count times this.",
             "type": "number"
           },
+          "part": {
+            "description": "Which file: cover (the default) is the one page a printer takes, the whole wrap, named \u003ctitle\u003e-cover.pdf; front is the front alone at trim plus bleed (\u003ctitle\u003e-cover-front.pdf); proof is the proof page, the wrap at half size with the cut lines over it (\u003ctitle\u003e-cover-proof.pdf), for a cover with a layout, never for a printer. Each is recorded as its own export.",
+            "enum": [
+              "cover",
+              "front",
+              "proof"
+            ],
+            "type": "string"
+          },
           "preset": {
             "description": "A print preset (print-6x9, print-5x8, ...); its trim size and layout give the page count. Default print-6x9.",
+            "type": "string"
+          },
+          "profile": {
+            "description": "The printer's figures for the text-safe margin, the barcode box and the page count from which the spine has type. Default generic. With no layout the cover keeps its own margin and barcode place unless a profile is named.",
+            "enum": [
+              "kdp",
+              "ingram",
+              "generic"
+            ],
             "type": "string"
           }
         },
@@ -36229,6 +36500,16 @@
                   "type": "string"
                 },
                 "message": {
+                  "type": "string"
+                },
+                "part": {
+                  "description": "A cover warning only: which part of the cover it is about (the spine, the barcode's back, a wrap or a side). Empty for every other warning and for a cover warning about the cover as a whole.",
+                  "enum": [
+                    "front",
+                    "back",
+                    "spine",
+                    "wrap"
+                  ],
                   "type": "string"
                 },
                 "title": {
@@ -36484,6 +36765,10 @@
           "options": {
             "description": "Options that override the preset.",
             "properties": {
+              "back_cover": {
+                "description": "EPUB: put the project's own back cover (project.cover_layout.get) last in the book, on a page of its own outside the reading order (default false). Only a layout that gives the back a picture, or a wrap, has one; the generated cover has no back page. Off when own_cover is false.",
+                "type": "boolean"
+              },
               "back_matter": {
                 "description": "Back matter documents, last (default true).",
                 "type": "boolean"
@@ -36540,6 +36825,10 @@
               },
               "cover": {
                 "description": "EPUB: put the cover first: a cover page and the cover image the shops and readers use. It is the project's own cover when it has one (project.cover_layout.get), else the generated cover. Default true. KDP takes the cover as a separate upload and asks for no cover page in the file, so turn this off for a file bound for KDP.",
+                "type": "boolean"
+              },
+              "cover_page": {
+                "description": "Print, for a proof or a copy you print yourself (default false): the cover's front as the first page of the PDF, edge to edge (into the bleed with crop marks), followed by a blank page so the title page stays a right-hand page. Do not upload a file made with it to a print-on-demand printer as the interior: KDP and IngramSpark take the cover as a separate file, and a printer counts and prints every page of the interior, so these two pages would be printed and would change the page count and the spine. The page count that export.cover and compile.cover_spec use does not include them. It is the project's own cover, or the generated one when there is none or own_cover is false. A right-to-left book has no PDF.",
                 "type": "boolean"
               },
               "crop_marks": {
@@ -36843,6 +37132,16 @@
                   "type": "string"
                 },
                 "message": {
+                  "type": "string"
+                },
+                "part": {
+                  "description": "A cover warning only: which part of the cover it is about (the spine, the barcode's back, a wrap or a side). Empty for every other warning and for a cover warning about the cover as a whole.",
+                  "enum": [
+                    "front",
+                    "back",
+                    "spine",
+                    "wrap"
+                  ],
                   "type": "string"
                 },
                 "title": {
@@ -51087,6 +51386,10 @@
       "status": 200,
       "input": {
         "properties": {
+          "barcode": {
+            "description": "As in export.cover: the barcode box is drawn. When it is off, a wrap or a back picture gets the note to leave the box's place clear.",
+            "type": "boolean"
+          },
           "bleed_in": {
             "description": "The print cover's bleed, 0 to 0.5 inches. Default 0.125 (a wrap's own bleed when it has one).",
             "type": "number"
@@ -51302,7 +51605,7 @@
             "type": "object"
           },
           "not_checked": {
-            "description": "What the profile asks for that this version does not check yet: the print cover's text margin and barcode box (the print cover phase).",
+            "description": "What this check cannot say from what it was given: spine_text (give page_count and page_thickness_in), colour_profile (it reads no picture: export.cover says when a picture's profile is not sRGB).",
             "items": {
               "type": "string"
             },
@@ -51381,6 +51684,10 @@
               "barcode_height_in": {
                 "type": "number"
               },
+              "barcode_inset_in": {
+                "description": "How far the barcode box's lower right corner is from the trim of the back, on both sides.",
+                "type": "number"
+              },
               "barcode_width_in": {
                 "type": "number"
               },
@@ -51392,8 +51699,15 @@
                 ],
                 "type": "string"
               },
+              "spine_narrow_under_in": {
+                "type": "number"
+              },
               "spine_text_edge_in": {
                 "description": "Spine text stays this far from the spine's edges.",
+                "type": "number"
+              },
+              "spine_text_edge_narrow_in": {
+                "description": "The edge distance used instead for a spine narrower than spine_narrow_under_in.",
                 "type": "number"
               },
               "spine_text_from_pages": {
@@ -51410,6 +51724,7 @@
               "text_margin_in",
               "barcode_width_in",
               "barcode_height_in",
+              "barcode_inset_in",
               "spine_text_from_pages",
               "spine_text_edge_in"
             ],
@@ -51426,7 +51741,7 @@
             "items": {
               "properties": {
                 "code": {
-                  "description": "cover_low_resolution, cover_picture_small, cover_profile_not_srgb, cover_profile_dropped, cover_cropped, cover_wrap_low_resolution, cover_wrap_stale, cover_trim_mismatch.",
+                  "description": "On the layout: cover_low_resolution, cover_picture_small, cover_profile_not_srgb, cover_profile_dropped, cover_cropped, cover_wrap_low_resolution, cover_wrap_stale, cover_trim_mismatch. From the print check and export.cover: image_low_resolution (at the printed size, under 300 dpi), cover_margin_crossed, cover_bleed_missing, cover_wrap_stale, cover_wrap_bleed, cover_barcode_area, spine_narrow, spine_few_pages, spine_rtl, cover_rtl_text.",
                   "type": "string"
                 },
                 "message": {
@@ -51436,6 +51751,7 @@
                   "enum": [
                     "front",
                     "back",
+                    "spine",
                     "wrap"
                   ],
                   "type": "string"
@@ -51925,7 +52241,7 @@
                 "items": {
                   "properties": {
                     "code": {
-                      "description": "cover_low_resolution, cover_picture_small, cover_profile_not_srgb, cover_profile_dropped, cover_cropped, cover_wrap_low_resolution, cover_wrap_stale, cover_trim_mismatch.",
+                      "description": "On the layout: cover_low_resolution, cover_picture_small, cover_profile_not_srgb, cover_profile_dropped, cover_cropped, cover_wrap_low_resolution, cover_wrap_stale, cover_trim_mismatch. From the print check and export.cover: image_low_resolution (at the printed size, under 300 dpi), cover_margin_crossed, cover_bleed_missing, cover_wrap_stale, cover_wrap_bleed, cover_barcode_area, spine_narrow, spine_few_pages, spine_rtl, cover_rtl_text.",
                       "type": "string"
                     },
                     "message": {
@@ -51935,6 +52251,7 @@
                       "enum": [
                         "front",
                         "back",
+                        "spine",
                         "wrap"
                       ],
                       "type": "string"
@@ -52561,7 +52878,7 @@
             "items": {
               "properties": {
                 "code": {
-                  "description": "cover_low_resolution, cover_picture_small, cover_profile_not_srgb, cover_profile_dropped, cover_cropped, cover_wrap_low_resolution, cover_wrap_stale, cover_trim_mismatch.",
+                  "description": "On the layout: cover_low_resolution, cover_picture_small, cover_profile_not_srgb, cover_profile_dropped, cover_cropped, cover_wrap_low_resolution, cover_wrap_stale, cover_trim_mismatch. From the print check and export.cover: image_low_resolution (at the printed size, under 300 dpi), cover_margin_crossed, cover_bleed_missing, cover_wrap_stale, cover_wrap_bleed, cover_barcode_area, spine_narrow, spine_few_pages, spine_rtl, cover_rtl_text.",
                   "type": "string"
                 },
                 "message": {
@@ -52571,6 +52888,7 @@
                   "enum": [
                     "front",
                     "back",
+                    "spine",
                     "wrap"
                   ],
                   "type": "string"
@@ -52874,7 +53192,7 @@
             "items": {
               "properties": {
                 "code": {
-                  "description": "cover_low_resolution, cover_picture_small, cover_profile_not_srgb, cover_profile_dropped, cover_cropped, cover_wrap_low_resolution, cover_wrap_stale, cover_trim_mismatch.",
+                  "description": "On the layout: cover_low_resolution, cover_picture_small, cover_profile_not_srgb, cover_profile_dropped, cover_cropped, cover_wrap_low_resolution, cover_wrap_stale, cover_trim_mismatch. From the print check and export.cover: image_low_resolution (at the printed size, under 300 dpi), cover_margin_crossed, cover_bleed_missing, cover_wrap_stale, cover_wrap_bleed, cover_barcode_area, spine_narrow, spine_few_pages, spine_rtl, cover_rtl_text.",
                   "type": "string"
                 },
                 "message": {
@@ -52884,6 +53202,7 @@
                   "enum": [
                     "front",
                     "back",
+                    "spine",
                     "wrap"
                   ],
                   "type": "string"

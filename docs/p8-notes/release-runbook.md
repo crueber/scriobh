@@ -16,12 +16,12 @@ node node_modules/@tauri-apps/cli/tauri.js signer generate -w ~/secure/scriobh-u
 It asks for a password and writes `scriobh-updater.key` (private) and `scriobh-updater.key.pub` (public). *(Run here with a throwaway key: the two files are written as described.)*
 
 - Keep the private key and its password out of the repository and off the build machine's disk: in a password manager, and in the pipeline's secret store. `desktop/.gitignore` refuses `*.key`, `*.key.pub`, `*.pem`, `*.p12`, `*.pfx`, `*.p8`.
-- Copy `desktop/src-tauri/tauri.release.example.json` to `desktop/src-tauri/tauri.release.conf.json`, put the contents of the `.pub` file in `pubkey` and your release address in `endpoints`. That file holds nothing secret (a public key and an address), **and the intent is that you commit it**: the pipeline looks for exactly `src-tauri/tauri.release.conf.json` and makes and signs update artefacts only when it is in the checkout and the signing secrets exist, so until someone commits it CI builds without update artefacts. `desktop/.gitignore` ignores `tauri.release.local.json` instead: that name is for a copy you keep on your own machine and do not commit (for instance one that also carries a Windows signing command naming your certificate). Until a release configuration is used the app is built with a placeholder key and Help, Check for Updates… says updates are not set up.
+- **The key exists** (made on 17 November 2026): the public half is committed as `desktop/updater.pub`; the private half and its password are repository Actions secrets on the published repository, `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (not in an Environment: one restricted to the `v*` tags and `main`, with the owner as required reviewer, can be added later, `docs/UPDATES.md`, decision 5). Keep two copies the owner trusts (a password manager and one offline). **No file is committed that names an update address or holds a key**: the release workflow writes the build configuration (`desktop/scripts/updater-manifest.py config`: the tag's version, the update packages, the address `https://github.com/<repository>/releases/latest/download/latest.json`, the public key) into the runner's temporary folder, and the build scripts take its path in `TAURI_BUILD_CONFIG`. `tauri.release.example.json` is gone.
 - `requireSignedVersion` stays `true`: each signature then names the version it was made for, and an old release cannot be served as a new one.
 
 ## Secrets the pipeline uses
 
-the development repository's `desktop.yml` workflow signs only when these repository secrets exist. Without them it builds unsigned packages.
+the project's **GitHub release workflow** (`scripts/publish/release.yml`) makes signed update packages only when the two update-key secrets exist; without them (a fork, a run that builds the files only) it builds packages with no update artefacts and the app has no update source. The development forge's workflows are given **no** update key. The Apple and Windows rows are for the signing steps below, none of which is set up.
 
 | Secret | For | What it is |
 | --- | --- | --- |
@@ -51,8 +51,10 @@ cd desktop && npm ci
 export APPLE_SIGNING_IDENTITY="Developer ID Application: <name> (<team id>)"
 export APPLE_API_ISSUER=<issuer id> APPLE_API_KEY=<key id> APPLE_API_KEY_PATH=~/secure/AuthKey_<key id>.p8
 export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/secure/scriobh-updater.key)" TAURI_SIGNING_PRIVATE_KEY_PASSWORD=<password>
-node node_modules/@tauri-apps/cli/tauri.js build --target aarch64-apple-darwin --bundles app,dmg --config src-tauri/tauri.release.conf.json
-node node_modules/@tauri-apps/cli/tauri.js build --target x86_64-apple-darwin  --bundles app,dmg --config src-tauri/tauri.release.conf.json
+# the workflow's file; by hand: python3 desktop/scripts/updater-manifest.py config --tag vX.Y.Z --updater --repo <owner>/<repo> --pubkey desktop/updater.pub --out /tmp/build.json
+export TAURI_BUILD_CONFIG=/tmp/build.json   # or use desktop/scripts/build-macos.sh, which takes it
+node node_modules/@tauri-apps/cli/tauri.js build --target aarch64-apple-darwin --bundles app,dmg --config "$TAURI_BUILD_CONFIG"
+node node_modules/@tauri-apps/cli/tauri.js build --target x86_64-apple-darwin  --bundles app,dmg --config "$TAURI_BUILD_CONFIG"
 ```
 
 With those variables set the bundler signs the shell and the server inside it with the hardened runtime, has the result notarised with `notarytool` and staples the ticket. It writes `Scriobh.app`, a `.dmg`, and for the updater `Scriobh.app.tar.gz` with `Scriobh.app.tar.gz.sig`. *(Run here unsigned, debug: the `.app`, the `.tar.gz` and the `.sig` are made; the URL scheme and both document types are in `Info.plist`.)*
@@ -77,10 +79,10 @@ Needs Windows 10 or 11 with the MSVC build tools, and a code-signing certificate
 ```
 desktop/scripts/sidecar.sh x86_64-pc-windows-msvc
 cd desktop && npm ci
-node node_modules/@tauri-apps/cli/tauri.js build --bundles nsis --config src-tauri/tauri.release.conf.json
+node node_modules/@tauri-apps/cli/tauri.js build --bundles nsis --config "$TAURI_BUILD_CONFIG"
 ```
 
-To sign, add to `tauri.release.conf.json` under `bundle.windows` either the certificate in the machine's store:
+To sign, add to a configuration file merged with `--config` (the workflow's, or your own) under `bundle.windows` either the certificate in the machine's store:
 
 ```
 "certificateThumbprint": "<thumbprint>", "digestAlgorithm": "sha256", "timestampUrl": "http://timestamp.digicert.com"
@@ -105,7 +107,7 @@ Needs the packages the Linux job installs (`libwebkit2gtk-4.1-dev libgtk-3-dev l
 ```
 desktop/scripts/sidecar.sh x86_64-unknown-linux-gnu
 cd desktop && npm ci
-node node_modules/@tauri-apps/cli/tauri.js build --bundles deb,appimage --config src-tauri/tauri.release.conf.json
+node node_modules/@tauri-apps/cli/tauri.js build --bundles deb,appimage --config "$TAURI_BUILD_CONFIG"
 ```
 
 The `.deb` is for Debian and Ubuntu; the AppImage is the format the updater can replace in place, and gets a `.sig` from the updater key. The AppImage step downloads its packaging tools the first time (three of them; the bundler checks none of them and one is a moving `continuous` build), so it needs the network. It runs linuxdeploy with `APPIMAGE_EXTRACT_AND_RUN=1`, so FUSE is not needed. The release workflows build an AppImage after the `.deb` with those tools fetched first and checked against pinned SHA-256 values (`desktop/scripts/linux-deb.sh`, step `appimage`); that step has never been run, and a failure of it does not stop the release. There is no operating-system signature on Linux: publish the SHA-256 of each file, and if you keep a package repository, sign that with its own key. The app needs a Secret Service (GNOME Keyring, KWallet) for the keychain; without one it says so once and uses the key file.
@@ -114,23 +116,16 @@ The `.deb` is for Debian and Ubuntu; the AppImage is the format the updater can 
 
 ## Publishing an update
 
-The app asks one address for one file. For each target put a `latest.json` where the `endpoints` pattern points (`{{target}}` is `darwin`, `linux` or `windows`; `{{arch}}` is `aarch64` or `x86_64`):
+Pushing a `v*` tag to the published repository is the whole of it. The release workflow builds every package with the tag's version stamped in, signs the update packages with the key in the repository secrets, makes the Release as a **draft**, uploads everything, writes `latest.json` from what the Release holds (`desktop/scripts/updater-manifest.py manifest`, which refuses anything it cannot vouch for), uploads it **last**, and publishes. `latest.json` names only legs that built and signed, every address pinned to the tag; a prerelease (a hyphen in the tag) gets none and is never offered. Installed apps that have said yes read `https://github.com/<repository>/releases/latest/download/latest.json` about once a day.
 
-```
-{
-  "version": "2.0.1",
-  "notes": "What changed, in a sentence or two.",
-  "pub_date": "2027-01-15T12:00:00Z",
-  "url": "https://<release host>/desktop/darwin-aarch64/Scriobh_2.0.1_aarch64.app.tar.gz",
-  "signature": "<the contents of the .sig file>"
-}
-```
-
-Serve it over HTTPS from a host you control, as static files; no service is needed and nothing is logged beyond what any web server logs. Upload the package first, then `latest.json`. To withdraw a release, put the previous `latest.json` back: installed copies do not downgrade.
-
-Test an update before announcing it: install the previous release on a clean machine, point nothing else at the release host, choose Help, Check for Updates…, and watch that it asks before contacting the host, names the version, installs, restarts, and that the writing is there. **This round trip has not been done.**
+- **The bridge release.** The first tag that has the key. Set `BRIDGE_TAG` in `release.yml` to it before tagging: its notes tell people on 2.2.x or earlier to install it by hand, once.
+- **To withdraw a release:** mark it a draft or delete it on GitHub, or upload the previous `latest.json` to the latest release with `gh release upload <tag> latest.json --clobber`: installed copies do not downgrade.
+- **No staging round trip.** The owner decided against a staging repository (UPDATES.md decision 12), so v2.3.0, the bridge release, is the first real run, and the update to the release after it is the first real update. Check it on each system then.
+- **A release with a migration** says so in its notes, with where the pre-migration copy of the database is (`data/backups/migrate/`): there is no automatic way back (`docs/OPERATIONS.md`, upgrade and rollback).
 
 ## If the key is lost or leaked
 
 - **Lost:** installed copies can no longer update. Make a new key, build a release with the new public key, and tell people to download it by hand once.
-- **Leaked:** the same, at once, and take the release host's files down until the new release is up: the old key can sign anything.
+- **Leaked:** the same, at once, and take the release's `latest.json` down until the new release is up: the old key can sign anything. (A leaked key alone cannot push a bad update to everyone: the manifest also has to come from the project's GitHub releases over TLS.)
+- **Rotation, planned:** an installed app trusts exactly one public key, so rotation is a *bridge release*: release N is signed with the old key and built with the new public key (`desktop/updater.pub` changed in that commit, the secrets changed after N is built and before N+1); installs that update to N then trust the new key, and N+1 is signed with the new one. An install that has not reached N cannot verify N+1, so N stays the release `latest.json` names for weeks, and the rest reinstall by hand. A leaked key cannot be rotated this way, because the bridge would be signed by the leaked key.
+

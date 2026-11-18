@@ -97,7 +97,8 @@ func tooBigForPDF(g *Gate, words int) error {
 	if words <= g.PDFMaxWords {
 		return nil
 	}
-	return ops.Invalid("", fmt.Sprintf("This book has %d words and a PDF compile is limited to %d words on this server (the layout of a long book needs about a gigabyte of memory per million words). Compile a part at a time, or ask the administrator to raise SCRIOBH_COMPILE_PDF_MAX_WORDS.", words, g.PDFMaxWords))
+	return &ops.Error{Code: ops.CodeInvalid, Message: fmt.Sprintf("This book has %d words and a PDF compile is limited to %d words on this server (the layout of a long book needs about a gigabyte of memory per million words). Compile a part at a time, or ask the administrator to raise SCRIOBH_COMPILE_PDF_MAX_WORDS.", words, g.PDFMaxWords),
+		Data: map[string]any{"reason": "pdf_too_large", "words": words, "max_words": g.PDFMaxWords}}
 }
 
 // cancelled maps a context error to the error an op returns.

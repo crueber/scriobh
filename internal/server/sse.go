@@ -368,6 +368,16 @@ func (s *Server) eventsStream(w http.ResponseWriter, r *http.Request) {
 	if !sendPresence() {
 		return
 	}
+	// Desktop only: a writing page's stream (js/live.js adds flush=1 for a page whose marker says so) is told when the shell is
+	// about to restart the app for an update, and the page saves (desktop_save.go). The frame has no id line, so it never moves
+	// the resume cursor, and it never passes through the hub or the events table.
+	var flushC <-chan int64
+	var flushID string
+	if s.desk != nil && sc.Kind == events.ScopeProject && q.Get("flush") == "1" {
+		f, unregister := s.desk.save.register()
+		defer unregister()
+		flushC, flushID = f.wake, f.id
+	}
 	// When this project locks (by anyone), look again at once and end the stream if this session may no longer read it.
 	var relock <-chan struct{}
 	if sc.Kind == events.ScopeProject {
@@ -406,6 +416,10 @@ func (s *Server) eventsStream(w http.ResponseWriter, r *http.Request) {
 			}
 			sent = e.Seq
 			if !send(e) {
+				return
+			}
+		case n := <-flushC:
+			if !put("event: desktop.save\ndata: {\"n\":" + strconv.FormatInt(n, 10) + ",\"flusher\":\"" + flushID + "\"}\n\n") {
 				return
 			}
 		case <-presC:

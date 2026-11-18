@@ -13,7 +13,7 @@
 #   dist/Scriobh_2.2.0_aarch64.dmg   dist/Scriobh_2.2.0_x86_64.dmg   dist/Scriobh_2.2.0_universal.dmg
 # With VERSION set to a release tag (v2.2.1) the files are named for it instead (Scriobh_2.2.1_aarch64.dmg), and a
 # WARNING says so when the tag is not the app's version.
-# and, only when update artefacts are being made (an updater key and tauri.release.conf.json are present),
+# and, only when update artefacts are being made (TAURI_BUILD_CONFIG asks for them and the update key is present),
 # dist/Scriobh_2.2.0_<arch>.app.tar.gz and its .sig.
 #
 # What it does: makes sure the Rust target is installed (user-level, `rustup target add`), installs the pinned
@@ -33,10 +33,17 @@
 #     but signature indicates they must be present") and a downloaded copy would be reported as damaged rather
 #     than as from an unidentified developer. An ad-hoc signature makes the bundle consistent; Gatekeeper still
 #     asks the person to allow it (docs/DESKTOP.md, "macOS: building and Gatekeeper").
-#   - TAURI_SIGNING_PRIVATE_KEY (+ _PASSWORD) with src-tauri/tauri.release.conf.json makes signed update artefacts.
+#   - The update key (TAURI_SIGNING_PRIVATE_KEY and its password) is read at the top of this script, removed from the
+#     environment, and given to the bundling command only.
+#   - TAURI_BUILD_CONFIG, the path of a JSON file for `tauri build --config` (written by `updater-manifest.py config`,
+#     docs/UPDATES.md): it stamps the release's version into the app and, when it asks for update artefacts, carries
+#     the update source. Those need TAURI_SIGNING_PRIVATE_KEY (+ _PASSWORD) and are signed with it.
 #
 # Environment:
 #   SRC_DIR            the tree to build, when it is not the one this script is in (a tag's checkout)
+#   TAURI_BUILD_CONFIG an absolute path to the JSON file `tauri build --config` merges over tauri.conf.json: the version
+#                      of the tag, and for a release with update artefacts the update source; without it the app's own
+#                      configuration is built as it is (and no update artefacts are made)
 #   DIST_DIR           where the .dmg files go (default: dist/ in that tree)
 #   VERSION            the release tag, as written: stamped into the bundled server (sidecar.sh; default `git describe`)
 #                      and used, without its leading v, in the names of the files in dist/
@@ -62,6 +69,12 @@ case "$target_dir" in /*) ;; *) target_dir="$PWD/$target_dir" ;; esac
 say() { echo "build-macos: $*"; }
 die() { echo "build-macos: FAIL: $*" >&2; exit 1; }
 
+# The update key reaches ONE command: the bundler's. It is taken out of the environment here, before npm, Go and Cargo run
+# (their lifecycle and build scripts would otherwise see it), and handed to `tauri bundle` alone.
+signing_key="${TAURI_SIGNING_PRIVATE_KEY:-}"
+signing_password="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}"
+unset TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+
 [ "$(uname -s)" = "Darwin" ] || die "this builds the macOS app and has to run on a Mac (this is $(uname -s))"
 for tool in node npm go rustc cargo lipo codesign hdiutil plutil; do
   command -v "$tool" >/dev/null 2>&1 || die "$tool is not on PATH"
@@ -69,6 +82,14 @@ done
 
 version="$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' "$desktop/src-tauri/tauri.conf.json" | head -1)"
 [ -n "$version" ] || die "could not read the version from tauri.conf.json"
+# A release stamps its tag's version into the app with TAURI_BUILD_CONFIG (docs/UPDATES.md): it is the version the
+# bundle, the checks below and the update signatures carry, whatever tauri.conf.json says.
+if [ -n "${TAURI_BUILD_CONFIG:-}" ]; then
+  case "$TAURI_BUILD_CONFIG" in /*) ;; *) die "TAURI_BUILD_CONFIG must be an absolute path: $TAURI_BUILD_CONFIG" ;; esac
+  [ -f "$TAURI_BUILD_CONFIG" ] || die "TAURI_BUILD_CONFIG names no file: $TAURI_BUILD_CONFIG"
+  stamped="$(plutil -extract version raw -o - "$TAURI_BUILD_CONFIG" 2>/dev/null || true)"
+  [ -z "$stamped" ] || version="$stamped"
+fi
 product="$(sed -n 's/^ *"productName": *"\([^"]*\)".*/\1/p' "$desktop/src-tauri/tauri.conf.json" | head -1)"
 identifier="$(sed -n 's/^ *"identifier": *"\([^"]*\)".*/\1/p' "$desktop/src-tauri/tauri.conf.json" | head -1)"
 main_bin="$(sed -n 's/^ *"mainBinaryName": *"\([^"]*\)".*/\1/p' "$desktop/src-tauri/tauri.conf.json" | head -1)"
@@ -77,7 +98,8 @@ sidecar_name="scriobh-desktop-server"
 # The version in the file names: the release (VERSION, a tag as written, without its leading v) when one is given, else
 # the app's own version. A tag that is not the app's version (v2.2.1 on a tree whose tauri.conf.json says 2.2.0) must
 # not publish Scriobh_2.2.0_*.dmg under it, so the name follows the tag and this says so, as build-windows-cross.sh does.
-# What is inside the app (the bundle's version, which the checks below compare with tauri.conf.json) stays the app's.
+# What is inside the app (the bundle's version, which the checks below compare) is the stamped version when
+# TAURI_BUILD_CONFIG carries one (a release), and otherwise the app's own: tauri.conf.json's.
 name_version="$version"
 if [ -n "${VERSION:-}" ]; then
   case "$VERSION" in *[!A-Za-z0-9._+-]*) die "VERSION may hold only letters, digits and . _ + -: $VERSION" ;; esac
@@ -151,16 +173,21 @@ fi
 unset APPLE_API_KEY_P8
 
 extra=()
-if [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ] && [ -f "$desktop/src-tauri/tauri.release.conf.json" ]; then
-  say "an updater key and a release configuration are present; update artefacts will be made and signed"
-  extra=(--config src-tauri/tauri.release.conf.json)
-else
-  unset TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+bundle_env=()
+if [ -n "${TAURI_BUILD_CONFIG:-}" ]; then
+  extra=(--config "$TAURI_BUILD_CONFIG")
+  if [ "$(plutil -extract bundle.createUpdaterArtifacts raw -o - "$TAURI_BUILD_CONFIG" 2>/dev/null || true)" = "true" ]; then
+    [ -n "$signing_key" ] || die "TAURI_BUILD_CONFIG asks for update artefacts and TAURI_SIGNING_PRIVATE_KEY is not set"
+    bundle_env=("TAURI_SIGNING_PRIVATE_KEY=$signing_key" "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$signing_password")
+    say "update artefacts will be made and signed (version $version)"
+  fi
 fi
 
 say "building $product $version for $triple"
 export CARGO_TARGET_DIR="$target_dir"
-(cd "$desktop" && node node_modules/@tauri-apps/cli/tauri.js build --target "$triple" --bundles app,dmg ${extra[@]+"${extra[@]}"})
+# Compiled without the key, then bundled (and signed) with it: `tauri bundle` runs no Cargo build and no npm script.
+(cd "$desktop" && node node_modules/@tauri-apps/cli/tauri.js build --target "$triple" --no-bundle ${extra[@]+"${extra[@]}"})
+(cd "$desktop" && env ${bundle_env[@]+"${bundle_env[@]}"} node node_modules/@tauri-apps/cli/tauri.js bundle --target "$triple" --bundles app,dmg ${extra[@]+"${extra[@]}"})
 
 bundle="$target_dir/$triple/release/bundle"
 app="$bundle/macos/$product.app"

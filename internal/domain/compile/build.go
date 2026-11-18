@@ -22,6 +22,8 @@ type Warning struct {
 	Message    string `json:"message"`
 	DocumentID string `json:"document_id,omitempty"`
 	Title      string `json:"title,omitempty"`
+	// Part is set on a cover's warnings: the side of the cover it is about.
+	Part string `json:"part,omitempty" enum:"front,back,spine,wrap" desc:"A cover warning only: which part of the cover it is about (the spine, the barcode's back, a wrap or a side). Empty for every other warning and for a cover warning about the cover as a whole."`
 }
 
 // Excluded is a document the compile leaves out because it is marked "do not

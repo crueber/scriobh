@@ -15,7 +15,9 @@
 #   test       desktop/scripts/test.sh (the stand-in server's tests and the real server's)
 #   cli        the pinned Tauri command line (npm ci in desktop/)
 #   compile    build the app without packaging
-#   package    build the .deb (signed update artefacts only when a key and a release configuration exist)
+#   package    build the .deb (TAURI_BUILD_CONFIG, when set, stamps the release's version and may ask for update artefacts)
+#   sign       sign the .deb with the update key, so the manifest can list it (docs/UPDATES.md: the app only ever says that
+#              a newer .deb exists); needs TAURI_SIGNING_PRIVATE_KEY, and does nothing when TAURI_BUILD_CONFIG asks for none
 #   name       with VERSION a release tag: name the .deb and the AppImage for the tag (see below); package and appimage do
 #              it for their own file, so this step is for a .deb made some other way (the GitHub release's Linux leg)
 #   appimage   build the AppImage and open it (UNVERIFIED: never run on the runner); its packaging tools come from the
@@ -27,8 +29,14 @@
 # FILE NAMES. The Tauri bundler names its files for the app's own version (Scriobh_2.2.0_amd64.deb, from
 # desktop/src-tauri/tauri.conf.json). With VERSION a release tag (v followed by a digit) the published files are named
 # for the tag without its v (Scriobh_2.2.1_amd64.deb), as build-windows-cross.sh and build-macos.sh name theirs, and
-# a WARNING says so when the tag is not the app's version; what is inside the package (the .deb's control file) stays
-# the app's. Without VERSION, or with something that is not a tag, the bundler's names are left alone.
+# a WARNING says so when the tag is not the version the packages carry. A release stamps the tag's version into them
+# (TAURI_BUILD_CONFIG), so they agree; without it what is inside the package (the .deb's control file) is the app's own.
+# Without VERSION, or with something that is not a tag, the bundler's names are left alone.
+#
+# TAURI_BUILD_CONFIG is the absolute path of a JSON file that every `tauri build` here merges over tauri.conf.json with
+# --config (`desktop/scripts/updater-manifest.py config` writes it): the release's version, so that the package, the file
+# name and the update signature all carry the tag's, and for a release with update artefacts the update source. Without
+# it the app is built as it is committed and makes no update artefacts.
 #
 # SRC_DIR is the tree to build (default: the tree this script is in). release.yml builds a tag's tree with the
 # script of the commit it runs on, so the tag need not contain this script; the tree's own sidecar.sh,
@@ -40,8 +48,47 @@ cd "$root"
 export RUST_TOOLCHAIN="${RUST_TOOLCHAIN:-1.100.0}"
 export PATH="$HOME/.cargo/bin:$PATH"
 
+# The update key reaches ONLY the bundler and the signing command: it is taken out of the environment here, before npm and Cargo
+# run (their lifecycle and build scripts would otherwise see it), and handed to `tauri bundle` and `tauri signer sign` alone.
+signing_key="${TAURI_SIGNING_PRIVATE_KEY:-}"
+signing_password="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}"
+unset TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+
 as_root() { if [ "$(id -u)" = 0 ]; then "$@"; else sudo "$@"; fi; }
 tauri() { (cd desktop && node node_modules/@tauri-apps/cli/tauri.js "$@"); }
+
+# Build and bundle with the release's configuration, when there is one: `tauri build --no-bundle` (compiles, no key in its
+# environment) then `tauri bundle` (no Cargo build, no npm script; the key is given to this command alone, when update artefacts
+# are asked for). Every build in this file goes through it, so the .deb and the AppImage of one release carry one version.
+tauri_build() {
+  local bundles=("$@") cfg=() key=()
+  if [ -n "${TAURI_BUILD_CONFIG:-}" ]; then
+    case "$TAURI_BUILD_CONFIG" in /*) ;; *) echo "linux-deb: TAURI_BUILD_CONFIG must be an absolute path: $TAURI_BUILD_CONFIG" >&2; exit 1 ;; esac
+    [ -f "$TAURI_BUILD_CONFIG" ] || { echo "linux-deb: TAURI_BUILD_CONFIG names no file: $TAURI_BUILD_CONFIG" >&2; exit 1; }
+    cfg=(--config "$TAURI_BUILD_CONFIG")
+    if wants_updater_artefacts; then
+      [ -n "$signing_key" ] || { echo "linux-deb: TAURI_BUILD_CONFIG asks for update artefacts and TAURI_SIGNING_PRIVATE_KEY is not set" >&2; exit 1; }
+      key=("TAURI_SIGNING_PRIVATE_KEY=$signing_key" "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$signing_password")
+    fi
+  fi
+  tauri build --no-bundle ${cfg[@]+"${cfg[@]}"}
+  (cd desktop && env ${key[@]+"${key[@]}"} node node_modules/@tauri-apps/cli/tauri.js bundle "${bundles[@]}" ${cfg[@]+"${cfg[@]}"})
+}
+
+# True when the release configuration asks for signed update artefacts.
+wants_updater_artefacts() {
+  [ -n "${TAURI_BUILD_CONFIG:-}" ] && [ -f "$TAURI_BUILD_CONFIG" ] && grep -q '"createUpdaterArtifacts": *true' "$TAURI_BUILD_CONFIG"
+}
+
+# The version the packages carry: the release's, from TAURI_BUILD_CONFIG, else the app's own (tauri.conf.json).
+app_version() {
+  local v=""
+  if [ -n "${TAURI_BUILD_CONFIG:-}" ] && [ -f "$TAURI_BUILD_CONFIG" ]; then
+    v="$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' "$TAURI_BUILD_CONFIG" | head -1)"
+  fi
+  [ -n "$v" ] || v="$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' desktop/src-tauri/tauri.conf.json | head -1)"
+  printf '%s' "$v"
+}
 
 step_deps() {
   export DEBIAN_FRONTEND=noninteractive
@@ -65,19 +112,37 @@ step_lint() { (cd desktop/src-tauri && cargo clippy --locked --all-targets -- -D
 # run without it), and the stand-in's tests run beside them.
 step_test() { desktop/scripts/test.sh; }
 step_cli() { (cd desktop && npm ci --no-audit --no-fund); }
-step_compile() { tauri build --no-bundle; }
+step_compile() { tauri build --no-bundle; }  # no packages, so no release configuration
 
 step_package() {
-  local extra=()
-  if [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ] && [ -f desktop/src-tauri/tauri.release.conf.json ]; then
-    echo "an updater key and a release configuration are present; update artefacts will be made and signed"
-    extra=(--config src-tauri/tauri.release.conf.json)
+  if wants_updater_artefacts; then
+    echo "the release configuration asks for update artefacts; they are made and signed"
   else
-    echo "no updater key or no release configuration; building without update artefacts"
+    echo "building without update artefacts"
   fi
-  tauri build --bundles deb ${extra[@]+"${extra[@]}"}
+  tauri_build --bundles deb
   release_name desktop/src-tauri/target/release/bundle/deb deb
   ls -l desktop/src-tauri/target/release/bundle/deb/
+}
+
+# Signs the .deb(s) of the bundle folder with the update key, bound to the app's version (`--app-version`: the same
+# trusted comment the bundler writes for the other packages, which the app checks against the manifest). The Tauri
+# bundler makes update artefacts for the AppImage only; the manifest lists the .deb so that the app can say a newer
+# one exists, and for that it needs the signature. The app never installs a .deb.
+step_sign() {
+  wants_updater_artefacts || { echo "linux-deb: no update artefacts are asked for; the .deb is not signed"; return 0; }
+  local f n=0 v
+  v="$(app_version)"
+  for f in desktop/src-tauri/target/release/bundle/deb/*.deb; do
+    [ -f "$f" ] || continue
+    rm -f "$f.sig"
+    [ -n "$signing_key" ] || { echo "linux-deb: update artefacts are asked for and TAURI_SIGNING_PRIVATE_KEY is not set" >&2; exit 1; }
+    (cd desktop && env TAURI_SIGNING_PRIVATE_KEY="$signing_key" TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$signing_password" node node_modules/@tauri-apps/cli/tauri.js signer sign --app-version "$v" "$root/$f")
+    [ -s "$f.sig" ] || { echo "linux-deb: signing $f made no signature" >&2; exit 1; }
+    n=$((n + 1))
+    echo "linux-deb: $f is signed for version $v"
+  done
+  [ "$n" -gt 0 ] || { echo "linux-deb: no .deb to sign" >&2; exit 1; }
 }
 
 # release_name DIR EXT: with VERSION a release tag, rename the bundler's Scriobh_<app version>_amd64.EXT in DIR (and
@@ -88,7 +153,7 @@ release_name() {
   local dir="$1" ext="$2" version product name_version want f base new
   case "${VERSION:-}" in v[0-9]*) ;; *) return 0 ;; esac
   case "$VERSION" in *[!A-Za-z0-9._+-]*) echo "linux-deb: VERSION may hold only letters, digits and . _ + -: $VERSION" >&2; exit 1 ;; esac
-  version="$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' desktop/src-tauri/tauri.conf.json | head -1)"
+  version="$(app_version)"
   product="$(sed -n 's/^ *"productName": *"\([^"]*\)".*/\1/p' desktop/src-tauri/tauri.conf.json | head -1)"
   [ -n "$version" ] && [ -n "$product" ] || { echo "linux-deb: could not read the version and productName from desktop/src-tauri/tauri.conf.json" >&2; exit 1; }
   name_version="${VERSION#v}"
@@ -147,7 +212,7 @@ step_appimage() {
     36a2d7e274d12e1050d0e9ecfe11d339ed54720b2bec464c286d53f8b07f5c62 linuxdeploy-07333c6-x86_64.AppImage
   appimage_tool "$gh/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage" \
     49d6a17160675a6bd1781699aae6bdf7692d98552e02a3671d2183d10547842e linuxdeploy-plugin-appimage.AppImage
-  NO_STRIP=true tauri build --bundles appimage
+  NO_STRIP=true tauri_build --bundles appimage
   ls -l "$dir"
   appimage_examine "$dir"
   release_name "$dir" AppImage
@@ -197,7 +262,7 @@ step_launch() {
 [ $# -gt 0 ] || { sed -n '2,/^set -euo/p' "${BASH_SOURCE[0]}" | sed '$d' | sed 's/^# \{0,1\}//' >&2; exit 2; }
 for s in "$@"; do
   case "$s" in
-    deps|toolchain|versions|sidecar|fmt|lint|test|cli|compile|package|name|appimage|install|launch)
+    deps|toolchain|versions|sidecar|fmt|lint|test|cli|compile|package|sign|name|appimage|install|launch)
       echo "linux-deb: $s"
       "step_$s" ;;
     *) echo "linux-deb: unknown step: $s" >&2; exit 2 ;;

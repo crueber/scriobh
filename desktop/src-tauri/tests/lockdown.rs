@@ -262,3 +262,234 @@ fn every_error_kind_the_shell_asks_for_is_in_the_error_page() {
         assert!(js.contains(&format!("    {kind}: [")), "error.js has no text for the error kind {kind:?}");
     }
 }
+
+// ---- the update feature (docs/UPDATES.md) ----------------------------------------------------------------------------
+
+/// The text of a top-level item from its start (a `fn` line, an `impl` line) to the line that closes it, comments out.
+fn item_of(path: &Path, start: &str) -> String {
+    let code = code_of(path);
+    let from = code.find(start).unwrap_or_else(|| panic!("{} has no {start:?}", path.display()));
+    let rest = &code[from..];
+    let end = rest.find("\n}").map(|i| i + 2).unwrap_or(rest.len());
+    rest[..end].to_string()
+}
+
+#[test]
+fn a_package_is_installed_by_one_call_that_needs_the_proof_and_by_nothing_else() {
+    let src = root().join("src");
+    let mut calls = Vec::new();
+    for path in files(&src, "rs") {
+        let code = code_of(&path);
+        for pattern in [".install(", "download_and_install", "install_inner", "installer_arg", "installer_args"] {
+            for _ in code.matches(pattern) {
+                calls.push((path.file_name().unwrap().to_string_lossy().into_owned(), pattern));
+            }
+        }
+    }
+    assert_eq!(calls, [("updater.rs".to_string(), ".install(")], "the install call must be one, in updater.rs");
+    let updater = item_of(&src.join("updater.rs"), "fn install_package(");
+    assert!(updater.contains("_permit: &InstallPermit") && updater.contains(".install(bytes)"), "{updater}");
+    // The proof is made in one place, from the pure decision, and the restart takes it before it stops anything.
+    let policy = code_of(&src.join("update_policy.rs"));
+    assert_eq!(
+        policy.matches("InstallPermit(())").count(),
+        2,
+        "the proof is made in one place (and named in its own type)"
+    );
+    assert!(policy.contains("(kind(os, bundle) == Kind::Install).then_some(InstallPermit(()))"));
+    let restart = item_of(&src.join("updater.rs"), "fn do_restart(");
+    let permit = restart.find("install_permit(").expect("do_restart asks for the permit");
+    assert!(permit < restart.find("stop_server").unwrap() && permit < restart.find("install_package(").unwrap());
+    // The save, the clean stop and the hiding of the windows come before the install, in that order.
+    let order: Vec<usize> = ["save_pages(app)", "app::stop_server(app)", "w.hide()", "install_package(&permit"]
+        .iter()
+        .map(|m| restart.find(m).unwrap_or_else(|| panic!("{m}")))
+        .collect();
+    assert!(order.windows(2).all(|w| w[0] < w[1]), "the restart's order changed: {order:?}");
+}
+
+#[test]
+fn no_code_path_reads_an_update_source_from_anywhere_but_the_configuration() {
+    let src = root().join("src");
+    for file in ["updater.rs", "update_policy.rs", "update_cache.rs"] {
+        let code = code_of(&src.join(file));
+        for forbidden in [
+            ".endpoints(",
+            ".pubkey(",
+            ".target(",
+            ".header(",
+            ".headers(",
+            ".proxy(",
+            ".timeout(",
+            ".connect_timeout(",
+            ".read_timeout(",
+            ".redirect(",
+            ".configure_client(",
+            "dangerous",
+            "env::var",
+            "env::args",
+            "UpdaterBuilder",
+            "set_endpoints",
+        ] {
+            assert!(!code.contains(forbidden), "{file} uses {forbidden}");
+        }
+    }
+    // The deadlines and the redirect policy live in ONE audited place, `update_net.rs`: no other file sets a timeout or a redirect.
+    // That file sets no address, key, target, header or proxy either.
+    let net = code_of(&src.join("update_net.rs"));
+    for forbidden in [
+        ".endpoints(",
+        ".pubkey(",
+        ".target(",
+        ".header(",
+        ".headers(",
+        ".proxy(",
+        "dangerous",
+        "env::var",
+        "set_endpoints",
+    ] {
+        assert!(!net.contains(forbidden), "update_net.rs uses {forbidden}");
+    }
+    assert!(net.contains(".timeout(") && net.contains(".redirect(https_only())") && net.contains("MAX_PACKAGE"));
+    for path in files(&src, "rs") {
+        if path.file_name().is_some_and(|n| n != "update_net.rs") {
+            let code = code_of(&path);
+            for pattern in [".timeout(", ".connect_timeout(", ".read_timeout(", ".redirect(", ".configure_client("] {
+                assert!(
+                    !code.contains(pattern),
+                    "{} sets {pattern}; the update client's deadlines are in update_net.rs only",
+                    path.display()
+                );
+            }
+        }
+    }
+    // The plugin is registered as it was: no builder call that sets an address, a key or a target.
+    let app = code_of(&src.join("app.rs"));
+    assert!(app.contains(".plugin(tauri_plugin_updater::Builder::new().build())"));
+    // The one use of the plugin's builder only notes the version it compares.
+    let updater = code_of(&src.join("updater.rs"));
+    assert_eq!(updater.matches("updater_builder()").count(), 1);
+    let chain = updater.split("updater_builder()").nth(1).unwrap().split(".build()").next().unwrap();
+    assert!(chain.trim_start().starts_with(".version_comparator("), "{chain}");
+    assert!(
+        updater.contains("update_net::harden(app.updater_builder()"),
+        "the check does not go through the deadlines"
+    );
+    assert!(
+        updater.contains("update_net::bounded_download("),
+        "the download does not go through the size and time limits"
+    );
+    assert!(!updater.contains(".download("), "a download that bypasses update_net");
+    assert!(!chain.contains(".endpoints") && !chain.contains(".pubkey"));
+}
+
+#[test]
+fn a_release_build_has_no_switch_that_starts_or_answers_an_update() {
+    let app = fs::read_to_string(root().join("src").join("app.rs")).unwrap();
+    let release = app.split("#[cfg(not(debug_assertions))]\n    fn from_args").nth(1).expect("the release from_args");
+    let release = release.split("\n    }\n").next().unwrap();
+    for flag in ["--update-now", "--update-restart", "--restart-now", "--auto-dialogs", "--sidecar"] {
+        assert!(!release.contains(flag), "a release build reads {flag}");
+    }
+    assert!(release.contains("updater::Debug::default()"));
+    assert!(app.contains("#[cfg(debug_assertions)]\n    fn from_args") && app.contains("\"--update-now\""));
+}
+
+#[test]
+fn the_daily_check_and_the_background_download_show_nothing_and_take_no_focus() {
+    let updater = root().join("src").join("updater.rs");
+    let mut background = String::new();
+    for start in [
+        "async fn background(",
+        "async fn keep_or_note(",
+        "fn note_available(",
+        "async fn download_and_keep(",
+        "fn schedule(",
+        "impl ScheduleEnv for Real",
+        "async fn fetch(",
+        "fn restore_kept(",
+        "fn restore(",
+    ] {
+        background.push_str(&item_of(&updater, start));
+    }
+    // (`dialogs::note` writes a line in a development build; it is not a dialog.)
+    let background = background.replace("dialogs::note(", "note(");
+    for forbidden in
+        ["dialogs::", "focus(", "set_focus", "show(", "navigate", "go(", "offer_outside", "restart(", "stop_server"]
+    {
+        assert!(!background.contains(forbidden), "the background path uses {forbidden}");
+    }
+    // The only dialogs that come unasked are the notice of an install that failed and the first question, in `say_what_is_due`:
+    // only on a page where nobody is typing, only when the question was never answered, and with the safe button first. The page
+    // is never touched: the shell injects nothing and evaluates nothing (the test above), so the notice is the menu.
+    let due = item_of(&updater, "fn say_what_is_due(");
+    assert!(
+        due.contains("Consent::Unasked")
+            && due.contains("policy::first_run_question")
+            && due.contains("wait_until_calm(app)")
+    );
+    assert!(
+        due.contains("dialogs::ask_safe_first(") && !due.contains("dialogs::ask("),
+        "the first question must have the safe button first"
+    );
+    assert!(
+        due.find("wait_until_calm(app)").unwrap() < due.find("dialogs::").unwrap(),
+        "a dialog before the wait for a calm page"
+    );
+    let up = item_of(&updater, "pub fn window_is_up(");
+    assert!(
+        !up.contains("dialogs::ask") && !up.contains("first_run_question"),
+        "the question must not be asked from the start-up path"
+    );
+}
+
+#[test]
+fn the_public_update_key_is_committed_and_is_a_public_key() {
+    let key = fs::read_to_string(root().join("..").join("updater.pub")).unwrap();
+    let key = key.trim();
+    assert!(
+        key.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'/' | b'=')),
+        "not one line of base64"
+    );
+    // base64 of "untrusted comment: minisign public key: "; a private key's comment is another text
+    assert!(
+        key.starts_with("dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6"),
+        "desktop/updater.pub is not a minisign public key"
+    );
+    assert!(key.len() < 200, "a public key is short; this is not one");
+    // The committed configuration still carries no key and no address that works: only a release build for a tag has them.
+    let conf = fs::read_to_string(root().join("tauri.conf.json")).unwrap();
+    assert!(!conf.contains(key), "the public key is in the committed configuration; it is injected at build time");
+}
+
+/// rfd decides what a closed dialog reports, and each backend does it its own way. Only the `gtk3` backend (and Windows' common
+/// controls) was reviewed: a new feature (`xdg-portal`, `zenity`, ...) is another backend whose answer for a closed window is
+/// unknown, so it fails here until someone has looked, and the first question can only be answered yes by the explicit label.
+#[test]
+fn a_new_dialog_backend_is_reviewed_before_it_can_answer_the_first_question() {
+    const REVIEWED_RFD_FEATURES: [&str; 2] = ["common-controls-v6", "gtk3"];
+    let manifest = fs::read_to_string(root().join("Cargo.toml")).unwrap();
+    let line = manifest.lines().find(|l| l.starts_with("rfd = ")).expect("the rfd dependency");
+    assert!(line.contains("default-features = false"), "rfd's default features choose a backend: {line}");
+    let features: Vec<&str> = line
+        .split("features = [")
+        .nth(1)
+        .and_then(|f| f.split(']').next())
+        .map(|f| f.split(',').map(|x| x.trim().trim_matches('"')).filter(|x| !x.is_empty()).collect())
+        .unwrap_or_default();
+    for f in &features {
+        assert!(
+            REVIEWED_RFD_FEATURES.contains(f),
+            "rfd feature {f:?} enables a dialog backend that was not reviewed. Check what it reports for a closed dialog, extend \
+             `dialogs::is_explicit_other`'s tests, then add it to REVIEWED_RFD_FEATURES here"
+        );
+    }
+    let dialogs = code_of(&root().join("src").join("dialogs.rs"));
+    let safe_first = item_of(&root().join("src").join("dialogs.rs"), "pub fn ask_safe_first(");
+    assert!(
+        safe_first.contains("is_explicit_other(&answer"),
+        "ask_safe_first does not use the explicit mapping: {safe_first}"
+    );
+    assert!(dialogs
+        .contains("other != safe && matches!(answer, rfd::MessageDialogResult::Custom(label) if label == other)"));
+}

@@ -2502,13 +2502,15 @@ scriobh-cli compile cover-spec "The Salt Road" --page-thickness-in 1
 ```
 
 - `<project>, --id, --project  (required, name or id)  Project id.`
-- `--barcode  A white box for the barcode on the back (2 x 1.2 in).`
+- `--barcode  A white box for the barcode on the lower right of the back, the profile's size (2 x 1.2 in for kdp and generic, 1.75 x 1 in for ingram).`
 - `--bleed-in N  Bleed in inches, 0 to 0.5 (default 0.125).`
 - `--guides  Draw dashed trim, spine and safe-area lines on the art (for checking; turn off for the file you send).`
 - `--options JSON  Options that override the preset, as for export.compile.`
 - `--page-count N  Use this page count instead of the layout's (2 to 1,500). Printers print leaves, so give an even number.`
 - `--page-thickness-in N  (required)  The paper's thickness per page in inches (0.0005 to 0.01), from your printer's cover template or guide. Required: the spine is the page count times this.`
+- `--part cover|front|proof  Which file: cover (the default) is the one page a printer takes, the whole wrap, named <title>-cover.pdf; front is the front alone at trim plus bleed (<title>-cover-front.pdf); proof is the proof page, the wrap at half size with the cut lines over it (<title>-cover-proof.pdf), for a cover with a layout, never for a printer. Each is recorded as its own export.`
 - `--preset TEXT  A print preset (print-6x9, print-5x8, ...); its trim size and layout give the page count. Default print-6x9.`
+- `--profile kdp|ingram|generic  The printer's figures for the text-safe margin, the barcode box and the page count from which the spine has type. Default generic. With no layout the cover keeps its own margin and barcode place unless a profile is named.`
 
 #### `compile preset create`
 
@@ -3254,7 +3256,7 @@ scriobh-cli export compile "The Salt Road" --output result.out
 
 #### `export cover`
 
-A print cover as a PDF of two pages: the full wrap (back, spine and front with bleed; a flat colour from the project's cover colour with white type, no gradient and no image) and the front on its own. The spine is set only when it is wide enough for type. Optional guides (trim, spine and safe-area lines) and a white box for the barcode. Deterministic and recorded. This is a typographic cover, not a designed one; check it against your printer's template.
+A print cover as a PDF. The default file is exactly one page, the full wrap with bleed, which is what KDP and IngramSpark take (part front is the front on its own, part proof the proof). With no cover layout (or own_cover false) it is the generated cover: a flat colour from the project's cover colour with white type, no gradient and no image, in any language. With the project's own layout (project.cover_layout.get) it is made from the layout: an image side fills its panel to the bleed, cropped from the centre, a page side lays its picture on a page of the trim by its fit, scale, position, background and margin, a generated side keeps the typographic drawing, a back left out is the cover colour, and a wrap picture is the whole first page at its measured size with nothing drawn over it; part proof is a separate file, the proof (the wrap at half size with the trim, bleed, spine folds, text-safe margin and barcode box over it, and a legend: never send it to a printer), and part front the front alone. The layout's trim must be the preset's (cover_trim_mismatch refuses otherwise). Pictures go in at full resolution (a JPEG as it is), in RGB: a picture's own RGB colour profile goes with it, anything else is DeviceRGB, and a printer that wants CMYK converts. profile (kdp, ingram, generic) sets the text-safe margin, barcode box and the page count from which the spine carries type. The spine is set only when it is wide enough for type and the book has the profile's pages. Warnings: image_low_resolution (under 285 dpi where the picture prints; print asks for 300, and a picture made at 300 for the trim lands at about 288 once it covers the bleed), cover_print_cropped (an image side loses over 5 per cent of its picture to fill the panel and bleed), cover_wrap_stale (the wrap's spine is over 1/32 in from the book's), cover_margin_crossed, cover_bleed_missing, cover_barcode_area, spine_narrow, spine_few_pages, spine_rtl, cover_profile_not_srgb. Optional guides (trim, spine and safe-area lines) and a white box for the barcode. A right-to-left book needs page_count; its layout may not have a generated side (cover_rtl_text refuses the file, compile.cover_spec still measures it). Deterministic and recorded. Check it against your printer's template.
 
 `POST /api/v1/projects/{id}/export/cover`, key scope `write`, needs project editor role. Can be previewed with `--dry-run`.
 
@@ -3263,13 +3265,15 @@ scriobh-cli export cover "The Salt Road" --page-thickness-in 1 --output result.o
 ```
 
 - `<project>, --id, --project  (required, name or id)  Project id.`
-- `--barcode  A white box for the barcode on the back (2 x 1.2 in).`
+- `--barcode  A white box for the barcode on the lower right of the back, the profile's size (2 x 1.2 in for kdp and generic, 1.75 x 1 in for ingram).`
 - `--bleed-in N  Bleed in inches, 0 to 0.5 (default 0.125).`
 - `--guides  Draw dashed trim, spine and safe-area lines on the art (for checking; turn off for the file you send).`
 - `--options JSON  Options that override the preset, as for export.compile.`
 - `--page-count N  Use this page count instead of the layout's (2 to 1,500). Printers print leaves, so give an even number.`
 - `--page-thickness-in N  (required)  The paper's thickness per page in inches (0.0005 to 0.01), from your printer's cover template or guide. Required: the spine is the page count times this.`
+- `--part cover|front|proof  Which file: cover (the default) is the one page a printer takes, the whole wrap, named <title>-cover.pdf; front is the front alone at trim plus bleed (<title>-cover-front.pdf); proof is the proof page, the wrap at half size with the cut lines over it (<title>-cover-proof.pdf), for a cover with a layout, never for a printer. Each is recorded as its own export.`
 - `--preset TEXT  A print preset (print-6x9, print-5x8, ...); its trim size and layout give the page count. Default print-6x9.`
+- `--profile kdp|ingram|generic  The printer's figures for the text-safe margin, the barcode box and the page count from which the spine has type. Default generic. With no layout the cover keeps its own margin and barcode place unless a profile is named.`
 
 #### `export html`
 
@@ -4692,6 +4696,7 @@ scriobh-cli project cover-layout check "The Salt Road"
 ```
 
 - `<project>, --id, --project  (required, name or id)  Project id.`
+- `--barcode  As in export.cover: the barcode box is drawn. When it is off, a wrap or a back picture gets the note to leave the box's place clear.`
 - `--bleed-in N  The print cover's bleed, 0 to 0.5 inches. Default 0.125 (a wrap's own bleed when it has one).`
 - `--page-count N  With page_thickness_in, the spine to compare a wrap's measured spine with (pages times thickness).`
 - `--page-thickness-in N  The paper's thickness per page in inches, from the printer's guide.`
@@ -7014,4 +7019,4 @@ scriobh-cli webhook update "The Salt Road" text
 - `--url TEXT  A new address, replacing the whole of the old one (the old path and query are never shown, so they cannot be edited). The failure count starts again.`
 
 
-Schema hash: `sha256:e7191bde55bb012977b830e8b371252da2e3eb15f8985376cd6e2869be243bb3`. `scriobh-cli skill check` compares an installed copy, and this CLI, with the server.
+Schema hash: `sha256:55f262ef070755e913d4d92bf78e90d45bd52054ceba8e4a876b9336338e7d3c`. `scriobh-cli skill check` compares an installed copy, and this CLI, with the server.

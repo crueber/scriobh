@@ -1,16 +1,15 @@
 /* Scríobh compile page, print. The proof: each page compile.preview placed, drawn as an SVG of the trim size with the text
    block dashed and every line at the layout's own position and size; the breaks and the places are the file's, the
    letterforms are the browser's serif, and a line the browser sets wider than the file's is squeezed to its measure. The
-   facts a printer asks about, and a proof checklist read from the warnings. The paperback cover: its measurements from
-   compile.cover_spec, a flat drawing of the wrap, and the PDF from export.cover through the page's download route.
+   facts a printer asks about, and a proof checklist read from the warnings. The paperback cover: the form that asks the
+   server to measure and draw it (htmx), and the downloads of export.cover through the page's download route.
    compile.js hands its helpers on root.cmp; this file answers on root.cmpPrint. Everything is set as text or as an SVG
    attribute: no style attribute, no markup. */
 (function () {
   "use strict";
-  var doc = document, root = doc.getElementById("cmp");
+  var doc = document, win = window, root = doc.getElementById("cmp");
   if (!root || !root.cmp) return;
-  var C = root.cmp, T = C.T, el = C.el, NS = "http://www.w3.org/2000/svg", look = {}, last = null;
-  try { look = JSON.parse(root.dataset.cover || "{}"); } catch (e) { look = {}; }
+  var C = root.cmp, T = C.T, el = C.el, NS = "http://www.w3.org/2000/svg", last = null;
   function $(s) { return doc.querySelector(s); }
   function svg(tag, at, text) { var e = doc.createElementNS(NS, tag); for (var k in at) e.setAttribute(k, at[k]); if (text != null) e.textContent = text; return e; }
   function r(n, d) { var f = Math.pow(10, d || 2); return Math.round(n * f) / f; }
@@ -76,76 +75,43 @@
   }
   root.cmpPrint = { show: show, page: page, pos: pos };
 
-  // ---- the cover ------------------------------------------------------------------------------------------------------------
-  var sec = $("#cmp-cover"), thick = $("#cv-thick");
-  function onFormat(f) { sec.hidden = f !== "pdf"; }
+  // ---- the cover -------------------------------------------------------------------------------------------------------------
+  // The server measures it and draws it (htmx swaps the answer into #cv-out, in words of the catalogue); this adds what the
+  // server cannot know, the preset and its options, says the answer, and measures again when a setting changes.
+  var sec = $("#cmp-cover"), form = $("#cmp-cv-form"), thick = $("#cv-thick"), out = $("#cv-out");
+  function onFormat(f) { sec.hidden = f !== "pdf"; $("#cmp-coverpage").hidden = f === "pdf"; }
   root.addEventListener("cmp:format", function (e) { onFormat(e.detail); });
   onFormat(C.format());
-  function fields() {
-    return { page_thickness_in: thick.value.trim(), page_count: $("#cv-pages").value.trim(), bleed_in: $("#cv-bleed").value.trim(), guides: $("#cv-guides").checked ? "1" : "", barcode: $("#cv-barcode").checked ? "1" : "" };
+  function fields(part) {
+    return { page_thickness_in: thick.value.trim(), page_count: $("#cv-pages").value.trim(), bleed_in: $("#cv-bleed").value.trim(), profile: $("#cv-profile").value, guides: $("#cv-guides").checked ? "1" : "", barcode: $("#cv-barcode").checked ? "1" : "", part: part || "" };
   }
-  function ready() {
-    if (thick.value.trim()) return true;
-    thick.setAttribute("aria-invalid", "true"); thick.focus();
-    C.say(T("cv_need", "Give the paper's thickness per page: it is in your printer's cover guide."), true);
-    return false;
-  }
-  thick.addEventListener("input", function () { thick.removeAttribute("aria-invalid"); });
-  $("#cmp-cv-form").addEventListener("submit", function (e) {
-    e.preventDefault();
-    if (!ready()) return;
-    var f = fields(), b = C.request();
-    b.page_thickness_in = parseFloat(f.page_thickness_in);
-    if (f.page_count) b.page_count = parseInt(f.page_count, 10);
-    if (f.bleed_in) b.bleed_in = parseFloat(f.bleed_in);
-    C.say(T("cv_working", "Measuring the cover…"));
-    C.api("POST", "/compile/cover-spec", b).then(function (res) {
-      if (!res.ok) { C.say(C.why(res), true); return; }
-      draw(res.json, f.barcode === "1");
-      C.say(T("cv_ready", "The cover is measured: the spine is {s} in wide.", { s: r(res.json.spine_in, 3) }));
+  form.addEventListener("htmx:configRequest", function (e) { var b = C.request(); e.detail.parameters.preset = b.preset; e.detail.parameters.options = JSON.stringify(b.options); });
+  var auto = false; // the last request was a change somewhere else, not the person's own Measure
+  function gone() { var a = out.firstElementChild; if (a && !a.querySelector(".cmp-gone")) a.insertBefore(el("p", "cmp-warn cmp-gone", T("cv_pic_gone", "A picture of your cover can't be loaded. Choose it again on the Cover page.")), a.firstChild).setAttribute("role", "alert"); }
+  out.addEventListener("htmx:afterSwap", function () {
+    var a = out.firstElementChild || {}, d = a.dataset || {}, f = d.focus && $("#" + d.focus), mine = !auto;
+    auto = false; out.hidden = !a.tagName;
+    ["cv-thick", "cv-pages", "cv-bleed"].forEach(function (i) { $("#" + i).removeAttribute("aria-invalid"); });
+    $("#cv-download").classList.toggle("solid", !!a.tagName && !d.bad); $("#cv-measure").classList.toggle("solid", !a.tagName || !!d.bad); // once measured, the file for the printer is the main action
+    if (!d.bad) $("#cv-proof").hidden = $("#cv-proof-h").hidden = !d.proof; // a proof is of the project's own cover
+    C.say(d.bad ? "" : d.say || "", false); // a refusal is the alert inside the answer: said once
+    // the shell moves focus to a field marked invalid once a swap settles: the mark waits until then after a measure the person did not ask for
+    if (f) { if (mine) { f.setAttribute("aria-invalid", "true"); f.focus(); } else out.addEventListener("htmx:afterSettle", function () { win.setTimeout(function () { f.setAttribute("aria-invalid", "true"); }, 0); }, { once: true }); }
+    [].forEach.call(out.querySelectorAll("image"), function (i) { i.addEventListener("error", gone); });
+  });
+  form.addEventListener("htmx:sendError", function () { C.say(T("offline", "Could not reach the server."), true); });
+  form.addEventListener("htmx:responseError", function () { C.say(T("failed", "That did not work. Try again."), true); });
+  // a change to the cover's own settings, the options or the preset measures again, when it has been measured
+  var again = 0;
+  root.addEventListener("change", function (e) {
+    if (sec.hidden || out.hidden || !thick.value.trim() || !(form.contains(e.target) || e.target.closest("#cmp-opts") || e.target.id === "cmp-preset")) return;
+    win.clearTimeout(again); // one measure for the changes of one moment
+    again = win.setTimeout(function () { if (!sec.hidden) { auto = true; win.htmx.trigger(form, "submit"); } }, 60);
+  });
+  [["cv-download", "cover"], ["cv-front", "front"], ["cv-proof", "proof"]].forEach(function (b) {
+    $("#" + b[0]).addEventListener("click", function () {
+      if (thick.value.trim()) C.file("cover", fields(b[1] === "cover" ? "" : b[1]));
+      else win.htmx.trigger(form, "submit"); // the answer says what is missing, in words, and where
     });
   });
-  $("#cv-download").addEventListener("click", function () { if (ready()) C.file("cover", fields()); });
-
-  // words broken into lines of about n characters
-  function wrap(text, n) {
-    var out = [], line = "";
-    text.split(/\s+/).forEach(function (w) { if (line && (line + " " + w).length > n) { out.push(line); line = w; } else line = line ? line + " " + w : w; });
-    if (line) out.push(line);
-    return out;
-  }
-  function lines(s, words, x, y, sz, cls) {
-    words.forEach(function (w, i) { s.appendChild(svg("text", { "class": cls, x: x, y: y + i * sz * 1.2, "font-size": sz, "text-anchor": "middle" }, w)); });
-    return y + words.length * sz * 1.2;
-  }
-  function draw(c, barcode) {
-    var W = c.wrap_width_in * 72, H = c.wrap_height_in * 72, b = c.bleed_in * 72, tw = c.trim_width_in * 72, th = c.trim_height_in * 72, m = tw * 0.12;
-    var s = svg("svg", { viewBox: "0 0 " + W + " " + H, "class": "cmp-wrapart", role: "img", "aria-label": T("cv_alt", "The cover laid flat, back, spine and front, {w} × {h} in with the bleed", { w: r(c.wrap_width_in, 3), h: r(c.wrap_height_in, 3) }) });
-    s.appendChild(svg("rect", { x: 0, y: 0, width: W, height: H, fill: look.color || "#2F5D50" }));
-    var k = s.appendChild(svg("g", { fill: "#FFFFFF" })); // white type on the colour in either theme, as in the file
-    // the front: the title in a third of the panel, the subtitle, the author near the foot
-    var fx = c.front.x0 + tw / 2, sz = tw * 0.08, title = look.title || T("untitled", "Untitled"), tl;
-    for (;;) { tl = wrap(title, Math.max(6, Math.floor((tw - 2 * m) / (sz * 0.52)))); if (tl.length * sz * 1.2 <= th * 0.38 || sz <= tw * 0.035) break; sz *= 0.9; }
-    var y = lines(k, tl, fx, b + th * 0.16 + sz, sz, "cv-t");
-    if (look.subtitle) lines(k, wrap(look.subtitle, Math.floor((tw - 2 * m) / (tw * 0.02))), fx, y + tw * 0.04, tw * 0.0375, "cv-s");
-    if (look.author) k.appendChild(svg("text", { "class": "cv-a", x: fx, y: b + th * 0.88, "font-size": tw * 0.045, "text-anchor": "middle" }, look.author));
-    // the back: the kind of book, and the barcode's box
-    if (look.kind) k.appendChild(svg("text", { "class": "cv-k", x: c.back.x0 + tw / 2, y: b + th * 0.18, "font-size": tw * 0.023, "text-anchor": "middle" }, look.kind.toUpperCase()));
-    if (barcode) s.appendChild(svg("rect", { x: c.back.x1 - m / 2 - 144, y: b + th - m / 2 - 86.4, width: 144, height: 86.4, fill: "#FFFFFF" }));
-    // the spine, read top to bottom, when it is wide enough for type
-    var sw = c.spine.x1 - c.spine.x0, sx = c.spine.x0 + sw / 2;
-    if (c.spine_has_text) k.appendChild(svg("text", { "class": "cv-p", x: sx, y: H / 2, "font-size": Math.min(sw * 0.5, 11), "text-anchor": "middle", "dominant-baseline": "central", transform: "rotate(90 " + sx + " " + H / 2 + ")" }, title + (look.author ? "   " + look.author : "")));
-    // the trim and the folds, dashed
-    s.appendChild(svg("rect", { "class": "cv-g", stroke: "#FFFFFF", x: b, y: b, width: W - 2 * b, height: th, "vector-effect": "non-scaling-stroke" }));
-    [c.spine.x0, c.spine.x1].forEach(function (x) { if (sw > 0) s.appendChild(svg("line", { "class": "cv-g", stroke: "#FFFFFF", x1: x, y1: 0, x2: x, y2: H, "vector-effect": "non-scaling-stroke" })); });
-    var art = $("#cv-art"), dl = $("#cv-facts"), wn = $("#cv-warn");
-    art.textContent = ""; art.appendChild(s); dl.textContent = ""; wn.textContent = "";
-    row(dl, T("cv_pagecount", "Pages"), c.page_count_source === "given" ? T("cv_given", "{n}, as you gave it", { n: c.page_count }) : T("cv_layout", "{n}, from the layout", { n: c.page_count }));
-    row(dl, T("cv_spine", "Spine"), T("p_inch", "{n} in", { n: r(c.spine_in, 3) }) + (c.spine_has_text ? "" : " · " + T("cv_notype", "too narrow for type")));
-    row(dl, T("cv_wrap", "Full wrap with the bleed"), size(r(c.wrap_width_in, 3), r(c.wrap_height_in, 3)));
-    row(dl, T("p_trim", "Trim size"), size(r(c.trim_width_in, 3), r(c.trim_height_in, 3)));
-    row(dl, T("cv_bleed", "Bleed"), T("p_inch", "{n} in", { n: r(c.bleed_in, 3) }));
-    (c.warnings || []).forEach(function (w) { wn.appendChild(el("p", "cmp-warn", w.message)); });
-    $("#cv-out").hidden = false;
-  }
 })();

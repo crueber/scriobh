@@ -23,9 +23,44 @@ type PDFLine struct {
 type PDFPage struct {
 	W, H   float64
 	Trim   []float64 // the trim box, nil when absent
+	Bleed  []float64 // the bleed box, nil when absent
 	Lines  []PDFLine
 	Images int
 	Label  string // the page label a viewer shows
+	// Draws is each image drawn, in order, with where; Fills each filled rectangle; Strokes how many lines or rectangles
+	// were stroked. They let a test say exactly what a page holds (a wrap cover's first page is one picture and nothing else).
+	Draws   []PDFDraw
+	Fills   []PDFFill
+	Strokes int
+}
+
+// PDFDraw is one image drawn on a page: the matrix that places the unit square in page space (points, from the bottom
+// left), the clip in force (nil for none) and the image.
+type PDFDraw struct {
+	CTM   [6]float64
+	Clip  []float64 // x0, y0, x1, y1 in page space
+	Image PDFImage
+}
+
+// Rect is the page-space rectangle the image covers (for a matrix without rotation).
+func (d PDFDraw) Rect() [4]float64 {
+	return [4]float64{d.CTM[4], d.CTM[5], d.CTM[4] + d.CTM[0], d.CTM[5] + d.CTM[3]}
+}
+
+// PDFFill is a filled rectangle in page space with the colour it was filled with (0 to 1 a channel).
+type PDFFill struct {
+	Rect  [4]float64
+	Color [3]float64
+}
+
+// PDFImage is an image XObject.
+type PDFImage struct {
+	W, H       int
+	Filter     string // the stream's filter, "" for none
+	ColorSpace string // DeviceRGB, DeviceGray, Indexed or ICCBased
+	ICC        []byte // the profile of an ICCBased image
+	Masked     bool   // the image has a soft mask (live transparency)
+	Data       []byte // the stream as stored (the JPEG file of a DCTDecode image)
 }
 
 // Text is the page's text, one line per text line.
@@ -82,6 +117,7 @@ type pdfCheck struct {
 	offs     []int
 	visited  map[int]bool
 	pageObjs map[int]int // page object -> index
+	imgs     map[int]PDFImage
 	fonts    map[int]*fontInfo
 	nobj     int
 }
@@ -148,7 +184,7 @@ func (c *pdfCheck) get(v any) any {
 
 // ParsePDF validates data and returns its structure along with the problems.
 func ParsePDF(data []byte) (*PDFDoc, []string) {
-	c := &pdfCheck{data: data, objs: map[int]any{}, visited: map[int]bool{}, pageObjs: map[int]int{}, fonts: map[int]*fontInfo{}}
+	c := &pdfCheck{data: data, objs: map[int]any{}, visited: map[int]bool{}, pageObjs: map[int]int{}, imgs: map[int]PDFImage{}, fonts: map[int]*fontInfo{}}
 	doc := &PDFDoc{}
 	defer func() {
 		if r := recover(); r != nil {
@@ -164,6 +200,7 @@ func ParsePDF(data []byte) (*PDFDoc, []string) {
 		return doc, c.probs
 	}
 	c.catalog(doc, root, info)
+	doc.Images = len(c.imgs)
 	return doc, c.probs
 }
 
@@ -586,6 +623,9 @@ func (c *pdfCheck) page(doc *PDFDoc, idx, obj int) {
 			if name == "TrimBox" {
 				pg.Trim = b
 			}
+			if name == "BleedBox" {
+				pg.Bleed = b
+			}
 		}
 	}
 	res := dictOf(c.get(d["Resources"]))
@@ -609,7 +649,7 @@ func (c *pdfCheck) page(doc *PDFDoc, idx, obj int) {
 			fonts[name] = c.font(int(r))
 		}
 	}
-	xobjs := map[string]bool{}
+	xobjs := map[string]int{}
 	if xd := dictOf(res["XObject"]); xd != nil {
 		for name, ref := range xd {
 			r, ok := ref.(pdfRef)
@@ -618,7 +658,7 @@ func (c *pdfCheck) page(doc *PDFDoc, idx, obj int) {
 				continue
 			}
 			c.image(int(r))
-			xobjs[name] = true
+			xobjs[name] = int(r)
 		}
 	}
 	cr, ok := d["Contents"].(pdfRef)
@@ -652,7 +692,7 @@ func (c *pdfCheck) streamData(what string, st pdfStream) []byte {
 	return out
 }
 
-func (c *pdfCheck) content(doc *PDFDoc, idx int, st pdfStream, fonts map[string]*fontInfo, xobjs map[string]bool) {
+func (c *pdfCheck) content(doc *PDFDoc, idx int, st pdfStream, fonts map[string]*fontInfo, xobjs map[string]int) {
 	what := fmt.Sprintf("page %d content", idx+1)
 	data := c.streamData(what, st)
 	if data == nil {
@@ -667,6 +707,15 @@ func (c *pdfCheck) content(doc *PDFDoc, idx int, st pdfStream, fonts map[string]
 	var curBase string
 	var size float64
 	lineOpen := false
+	type gstate struct {
+		ctm  [6]float64
+		clip []float64
+	}
+	st0 := gstate{ctm: [6]float64{1, 0, 0, 1, 0, 0}}
+	stack0 := []gstate{}
+	var lastRect []float64
+	var pendingClip bool
+	fillCol := [3]float64{0, 0, 0}
 	nargs := map[string]int{"re": 4, "m": 2, "l": 2, "cm": 6, "Tf": 2, "Tm": 6, "TJ": 1, "g": 1, "G": 1, "rg": 3, "RG": 3, "w": 1, "Tc": 1, "Ts": 1, "Tr": 1, "d": 2, "Do": 1,
 		"q": 0, "Q": 0, "f": 0, "S": 0, "h": 0, "n": 0, "W": 0, "BT": 0, "ET": 0}
 	ops := 0
@@ -695,12 +744,58 @@ func (c *pdfCheck) content(doc *PDFDoc, idx int, st pdfStream, fonts map[string]
 		switch name {
 		case "q":
 			qdepth++
+			stack0 = append(stack0, st0)
 		case "Q":
 			qdepth--
 			if qdepth < 0 {
 				c.problem("%s: Q without q", what)
 				return
 			}
+			st0 = stack0[len(stack0)-1]
+			stack0 = stack0[:len(stack0)-1]
+		case "cm":
+			var m [6]float64
+			for i := range m {
+				m[i], _ = numOf(stack[i])
+			}
+			n := st0.ctm
+			st0.ctm = [6]float64{m[0]*n[0] + m[1]*n[2], m[0]*n[1] + m[1]*n[3], m[2]*n[0] + m[3]*n[2], m[2]*n[1] + m[3]*n[3],
+				m[4]*n[0] + m[5]*n[2] + n[4], m[4]*n[1] + m[5]*n[3] + n[5]}
+		case "re":
+			var r [4]float64
+			for i := range r {
+				r[i], _ = numOf(stack[i])
+			}
+			x0, y0 := r[0]*st0.ctm[0]+r[1]*st0.ctm[2]+st0.ctm[4], r[0]*st0.ctm[1]+r[1]*st0.ctm[3]+st0.ctm[5]
+			x1, y1 := (r[0]+r[2])*st0.ctm[0]+(r[1]+r[3])*st0.ctm[2]+st0.ctm[4], (r[0]+r[2])*st0.ctm[1]+(r[1]+r[3])*st0.ctm[3]+st0.ctm[5]
+			lastRect = []float64{min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)}
+		case "W":
+			pendingClip = true
+		case "n":
+			if pendingClip && lastRect != nil {
+				if st0.clip == nil {
+					st0.clip = lastRect
+				} else {
+					st0.clip = []float64{max(st0.clip[0], lastRect[0]), max(st0.clip[1], lastRect[1]), min(st0.clip[2], lastRect[2]), min(st0.clip[3], lastRect[3])}
+				}
+			}
+			pendingClip, lastRect = false, nil
+		case "g":
+			v, _ := numOf(stack[0])
+			fillCol = [3]float64{v, v, v}
+		case "rg":
+			fillCol = [3]float64{}
+			for i := range fillCol {
+				fillCol[i], _ = numOf(stack[i])
+			}
+		case "f":
+			if lastRect != nil {
+				pg.Fills = append(pg.Fills, PDFFill{Rect: [4]float64{lastRect[0], lastRect[1], lastRect[2], lastRect[3]}, Color: fillCol})
+			}
+			lastRect = nil
+		case "S":
+			pg.Strokes++
+			lastRect = nil
 		case "BT":
 			if inText {
 				c.problem("%s: BT inside a text object", what)
@@ -775,10 +870,12 @@ func (c *pdfCheck) content(doc *PDFDoc, idx int, st pdfStream, fonts map[string]
 			}
 		case "Do":
 			n, _ := stack[0].(pdfName)
-			if !xobjs[string(n)] {
+			obj, has := xobjs[string(n)]
+			if !has {
 				c.problem("%s: Do names /%s, which the page does not have", what, string(n))
 			}
 			pg.Images++
+			pg.Draws = append(pg.Draws, PDFDraw{CTM: st0.ctm, Clip: st0.clip, Image: c.imgs[obj]})
 		}
 		stack = stack[:0]
 	}
@@ -1128,8 +1225,14 @@ func (c *pdfCheck) image(obj int) {
 		c.problem("image %d has %v bits per component", obj, bpc)
 	}
 	comps := 0
+	info := PDFImage{W: int(w), H: int(h), Data: st.data}
+	if f, ok := st.d["Filter"].(pdfName); ok {
+		info.Filter = string(f)
+	}
+	defer func() { c.imgs[obj] = info }()
 	switch cs := st.d["ColorSpace"].(type) {
 	case pdfName:
+		info.ColorSpace = string(cs)
 		switch cs {
 		case "DeviceGray":
 			comps = 1
@@ -1139,7 +1242,34 @@ func (c *pdfCheck) image(obj int) {
 			c.problem("image %d has colour space /%s", obj, string(cs))
 		}
 	case pdfArr:
-		if len(cs) == 4 && cs[0] == pdfName("Indexed") && cs[1] == pdfName("DeviceRGB") {
+		if len(cs) == 2 && cs[0] == pdfName("ICCBased") {
+			// an ICC profile of RGB data, written by this program: a stream of the right header and size
+			info.ColorSpace = "ICCBased"
+			comps = 3
+			r, ok := cs[1].(pdfRef)
+			pst, ok2 := c.get(cs[1]).(pdfStream)
+			if !ok || !ok2 {
+				c.problem("image %d: the ICC profile is not a stream", obj)
+				break
+			}
+			c.visited[int(r)] = true
+			if n, _ := numOf(pst.d["N"]); n != 3 || pst.d["Alternate"] != pdfName("DeviceRGB") {
+				c.problem("image %d: the ICC profile is not of three components with an RGB alternate", obj)
+			}
+			for k := range pst.d {
+				switch k {
+				case "N", "Alternate", "Filter", "Length":
+				default:
+					c.problem("image %d: the ICC profile has /%s", obj, k)
+				}
+			}
+			prof := c.streamData("an ICC profile", pst)
+			if len(prof) < 128 || string(prof[36:40]) != "acsp" || string(prof[16:20]) != "RGB " {
+				c.problem("image %d: the ICC profile is not a profile of RGB data", obj)
+			}
+			info.ICC = prof
+		} else if len(cs) == 4 && cs[0] == pdfName("Indexed") && cs[1] == pdfName("DeviceRGB") {
+			info.ColorSpace = "Indexed"
 			comps = 1
 			if hi, _ := numOf(cs[2]); hi < 0 || hi > 255 {
 				c.problem("image %d has a palette of %v colours", obj, hi)
@@ -1193,6 +1323,7 @@ func (c *pdfCheck) image(obj int) {
 	default:
 		c.problem("image %d uses an unsupported filter", obj)
 	}
+	_, info.Masked = st.d["SMask"]
 	if m, ok := st.d["SMask"].(pdfRef); ok {
 		mst, ok := c.get(m).(pdfStream)
 		if !ok || mst.d["ColorSpace"] != pdfName("DeviceGray") {

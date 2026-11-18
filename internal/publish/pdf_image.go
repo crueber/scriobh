@@ -62,6 +62,9 @@ func (e *imageEmbedder) embed(img Image) (*pdfw.Image, string) {
 	if key == "" {
 		key = fmt.Sprintf("%d:%s", len(img.Data), img.Ext)
 	}
+	if img.Flat { // the same picture flattened on another colour is another object
+		key += fmt.Sprintf("/flat%02x%02x%02x", img.Flatten[0], img.Flatten[1], img.Flatten[2])
+	}
 	if im, ok := e.cache[key]; ok {
 		return im, ""
 	}
@@ -113,7 +116,9 @@ func (e *imageEmbedder) jpeg(img Image) (*pdfw.Image, string) {
 	if !ok {
 		return nil, "the JPEG is cut short"
 	}
-	if bytes.Contains(img.Data, []byte("ICC_PROFILE\x00")) {
+	if cs == "/DeviceRGB" && len(img.ICC) > 0 {
+		cs = e.d.NewICC(img.ICC)
+	} else if bytes.Contains(img.Data, []byte("ICC_PROFILE\x00")) {
 		e.profiled++
 	}
 	return e.d.NewImage(pdfw.ImageSpec{Width: cfg.Width, Height: cfg.Height, ColorSpace: cs, BPC: 8, Filter: "/DCTDecode"}, d), ""
@@ -183,7 +188,11 @@ func (e *imageEmbedder) png(img Image) (*pdfw.Image, string) {
 	if int64(w)*int64(h) > MaxImagePixels {
 		return nil, fmt.Sprintf("the PNG has %d million pixels, more than the %d million a PDF here takes", int64(w)*int64(h)/1_000_000, MaxImagePixels/1_000_000)
 	}
-	e.noteProfile(chunks)
+	if cs == "/DeviceRGB" && len(img.ICC) > 0 {
+		cs = e.d.NewICC(img.ICC)
+	} else {
+		e.noteProfile(chunks)
+	}
 	// The stream must inflate to exactly the rows the header promises, each
 	// starting with a filter type from 0 to 4; it is read a row at a time, so
 	// a hostile stream costs one row of memory and no more.
@@ -226,7 +235,7 @@ func (e *imageEmbedder) decode(img Image) (*pdfw.Image, string) {
 	if e.decoded+px > maxDecodeTotalPixels {
 		return nil, "the images in this book that need preparing are over the pixel budget"
 	}
-	if img.Ext == "png" {
+	if img.Ext == "png" && len(img.ICC) == 0 {
 		if chunks, _, ok := pngChunks(img.Data); ok {
 			e.noteProfile(chunks)
 		}
@@ -255,13 +264,25 @@ func (e *imageEmbedder) decode(img Image) (*pdfw.Image, string) {
 		return nil, "the image's first frame is larger than the size it declares"
 	}
 	rgb := make([]byte, 0, w*h*3)
-	alpha := make([]byte, 0, w*h)
+	var alpha []byte
+	if !img.Flat {
+		alpha = make([]byte, 0, w*h)
+	}
 	opaque := true
 	for y := b.Min.Y; y < b.Max.Y; y++ {
 		for x := b.Min.X; x < b.Max.X; x++ {
 			c := color.NRGBAModel.Convert(m.At(x, y)).(color.NRGBA)
+			if img.Flat && c.A != 255 { // over what is behind it, and no mask
+				a := uint32(c.A)
+				c.R = uint8((uint32(c.R)*a + uint32(img.Flatten[0])*(255-a) + 127) / 255)
+				c.G = uint8((uint32(c.G)*a + uint32(img.Flatten[1])*(255-a) + 127) / 255)
+				c.B = uint8((uint32(c.B)*a + uint32(img.Flatten[2])*(255-a) + 127) / 255)
+				c.A = 255
+			}
 			rgb = append(rgb, c.R, c.G, c.B)
-			alpha = append(alpha, c.A)
+			if !img.Flat {
+				alpha = append(alpha, c.A)
+			}
 			if c.A != 255 {
 				opaque = false
 			}
@@ -271,5 +292,32 @@ func (e *imageEmbedder) decode(img Image) (*pdfw.Image, string) {
 	if !opaque {
 		mask = e.d.NewImage(pdfw.ImageSpec{Width: w, Height: h, ColorSpace: "/DeviceGray", BPC: 8}, alpha)
 	}
-	return e.d.NewImage(pdfw.ImageSpec{Width: w, Height: h, ColorSpace: "/DeviceRGB", BPC: 8, Mask: mask}, rgb), ""
+	cs := "/DeviceRGB"
+	if len(img.ICC) > 0 {
+		cs = e.d.NewICC(img.ICC)
+	}
+	return e.d.NewImage(pdfw.ImageSpec{Width: w, Height: h, ColorSpace: cs, BPC: 8, Mask: mask}, rgb), ""
+}
+
+// PNGNeedsDecode says whether a PNG would have to be decoded to go in a PDF (an alpha channel, a transparency chunk,
+// interlacing, a damaged stream), which takes memory a caller may want to reserve first; a plain RGB, grey or indexed
+// PNG is passed through as its own stream.
+func PNGNeedsDecode(data []byte) bool {
+	chunks, idat, ok := pngChunks(data)
+	ihdr := chunks["IHDR"]
+	if !ok || len(ihdr) != 13 || len(idat) == 0 {
+		return true
+	}
+	depth, ctype, comp, filt, interlace := int(ihdr[8]), int(ihdr[9]), ihdr[10], ihdr[11], ihdr[12]
+	if comp != 0 || filt != 0 || interlace != 0 || chunks["tRNS"] != nil {
+		return true
+	}
+	switch {
+	case ctype == 0 && (depth == 1 || depth == 2 || depth == 4 || depth == 8 || depth == 16):
+	case ctype == 2 && (depth == 8 || depth == 16):
+	case ctype == 3 && depth <= 8:
+	default:
+		return true
+	}
+	return false
 }

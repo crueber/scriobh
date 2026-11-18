@@ -714,7 +714,7 @@ func TestDesktopOffChangesNothing(t *testing.T) {
 		t.Fatal("a server outside desktop mode has desktop parts")
 	}
 	admin := s.newCaller(t, "admin", ops.RoleAdmin)
-	for _, path := range []string{"/desktop/start", "/desktop/start?t=" + deskToken, "/desktop/profile", "/desktop/identity", "/desktop/identity/verify", "/desktop/local-model",
+	for _, path := range []string{"/desktop/start", "/desktop/start?t=" + deskToken, "/desktop/profile", "/desktop/identity", "/desktop/identity/verify", "/desktop/local-model", "/desktop/save-status?n=1",
 		"/desktop-idp/.well-known/openid-configuration", "/desktop-idp/jwks", "/desktop-idp/authorize", "/desktop-idp/", "/desktop-idp"} {
 		for _, c := range []caller{{}, admin} {
 			if rec := s.do(c, "GET", path, ""); rec.Code != 404 {
@@ -722,7 +722,7 @@ func TestDesktopOffChangesNothing(t *testing.T) {
 			}
 		}
 	}
-	for _, c := range []struct{ method, path string }{{"POST", "/desktop/profile"}, {"POST", "/desktop-idp/token"}, {"POST", "/ui/desktop/identity/save"}, {"POST", "/ui/desktop/local-model/detect"}} {
+	for _, c := range []struct{ method, path string }{{"POST", "/desktop/profile"}, {"POST", "/desktop/save-now"}, {"POST", "/desktop/saved"}, {"POST", "/desktop-idp/token"}, {"POST", "/ui/desktop/identity/save"}, {"POST", "/ui/desktop/local-model/detect"}} {
 		if rec := s.do(admin, c.method, c.path, ""); rec.Code != 404 && rec.Code != 405 {
 			t.Errorf("%s %s outside desktop mode: %d, want 404", c.method, c.path, rec.Code)
 		}

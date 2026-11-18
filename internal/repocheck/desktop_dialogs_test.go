@@ -15,7 +15,7 @@ import (
 // g_main_context_iteration). The shell's dialogs therefore use the asynchronous API wherever GTK is the backend, and
 // keep the blocking calls only on the branch for macOS and Windows. The blocking call also used to serialise the
 // dialogs, so the asynchronous ones go through one queue (dialog_queue().run) that shows one at a time, in request
-// order. This test keeps that shape: each of the three entry points (info, ask, save) opens with a GTK_BACKEND
+// order. This test keeps that shape: each of the three entry points (info, ask_raw, which `ask` and `ask_safe_first` use, and save) opens with a GTK_BACKEND
 // branch that hands the asynchronous dialog to the queue and returns, before its blocking construction; nothing in
 // that branch spawns a dialog task of its own (it would bypass the queue); and no other file in the shell touches
 // rfd (a second use would bypass the guard).
@@ -40,7 +40,7 @@ func TestShellDialogsDoNotBlockTheMainThreadOnGtk(t *testing.T) {
 		t.Errorf("dialogs.rs has %d GTK guards, %d blocking dialogs and %d asynchronous ones; there must be three of each (info, ask, save)", n, bl, as)
 	}
 	// Each function: guard, then the asynchronous dialog handed to the queue, then a return, then the blocking one.
-	for _, fn := range []string{"pub fn info_then(", "pub fn ask(", "pub fn save("} {
+	for _, fn := range []string{"pub fn info_then(", "fn ask_raw(", "pub fn save("} {
 		i := strings.Index(text, fn)
 		if i < 0 {
 			t.Fatalf("dialogs.rs has no %s", fn)

@@ -78,8 +78,36 @@
 .cv-t { font-weight: 700; }
 .cv-s { font-style: italic; }
 .cv-k { font-weight: 700; letter-spacing: .12em; }
-.cv-g { fill: none; stroke-opacity: .7; stroke-dasharray: 4 4; }
 #cmp input[type="number"], #cmp textarea { inline-size: 100%; min-block-size: max(var(--target), 40px); padding: 0 var(--s-3); border: 1px solid var(--field-line); border-radius: var(--r-1); background: var(--surface); color: var(--fg); font: inherit; }
 #cmp textarea { min-block-size: 6rem; padding-block: var(--s-2); resize: vertical; }
 @media (max-width: 600px) { #cmp-pfacts div, #cv-facts div { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
 .cmp-pfacts { margin: var(--s-3) 0; }
+
+/* The paperback cover: the profile's one line follows the choice (without :has every line shows); the drawing's lines are two
+   strokes, a paper-coloured one under an ink-coloured one, so each shows on any picture, and each has a pattern of its own. */
+@supports selector(:has(*)) {
+  .cv-profile [data-pf] { display: none; }
+  .cv-profile:has(option[value="kdp"]:checked) [data-pf="kdp"], .cv-profile:has(option[value="ingram"]:checked) [data-pf="ingram"], .cv-profile:has(option[value="generic"]:checked) [data-pf="generic"] { display: inline; }
+}
+#cmp-cover form { margin-block-start: var(--s-3); }
+#cmp-cover .cv-files { margin-block-start: var(--s-2); }
+#cmp-cover .field:has(select)::after { content: none; }
+.cv-selbox { position: relative; }
+.cv-selbox::after { content: ""; position: absolute; inset-inline-end: 14px; inset-block-start: calc(50% - 5px); inline-size: 6px; block-size: 6px; border-inline-end: 1.5px solid var(--muted); border-block-end: 1.5px solid var(--muted); transform: rotate(45deg); pointer-events: none; }
+#cmp-cover .cv-files .btn.quiet { border: 1px solid var(--line); }
+.cmp-cvout { margin-block-start: var(--s-3); }
+.cv-halo, .cv-line { fill: none; }
+.cv-halo *, .cv-line * { fill: none; vector-effect: non-scaling-stroke; }
+.cv-halo * { stroke: var(--surface); stroke-width: 4px; }
+.cv-line * { stroke: var(--fg); stroke-width: 1.5px; }
+.cv-g-fold { stroke-dasharray: 18 10; }
+.cv-g-margin { stroke-dasharray: 2 6; }
+.cv-g-book { stroke-dasharray: 22 6 3 6; }
+.cmp-wrapart .cv-lbl { fill: var(--fg); stroke: var(--surface); stroke-width: .16em; paint-order: stroke; font-family: var(--font-ui); font-weight: 600; }
+.cv-key { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-4); margin: var(--s-2) 0 var(--s-1); padding: 0; list-style: none; font-size: var(--text-sm); color: var(--fg-2); }
+.cv-key li { display: flex; align-items: center; gap: var(--s-2); }
+.cv-sw { flex: none; inline-size: 28px; block-size: 8px; }
+.cv-sw .cv-g-fold { stroke-dasharray: 9 5; }
+.cv-sw .cv-g-book { stroke-dasharray: 11 3 2 3; }
+.cv-sw * { fill: none; stroke: var(--fg); stroke-width: 2px; vector-effect: non-scaling-stroke; }
+@media (forced-colors: active) { .cv-halo * { stroke: Canvas; } .cv-line *, .cmp-wrapart .cv-lbl, .cv-sw * { stroke: CanvasText; } .cmp-wrapart .cv-lbl { fill: CanvasText; stroke: Canvas; } }

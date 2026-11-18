@@ -36,6 +36,8 @@ struct Options {
     press_restart: bool,
     press_quit: bool,
     close_window: bool,
+    /// The switches that start an update unattended (`--update-now`, `--update-restart`, `--restart-now`).
+    update: updater::Debug,
 }
 
 impl Options {
@@ -52,6 +54,10 @@ impl Options {
                 "--press-restart" => o.press_restart = true,
                 "--press-quit" => o.press_quit = true,
                 "--close-window" => o.close_window = true,
+                // Make one check now, whatever was answered; restart to a ready update unasked; restart the app unasked.
+                "--update-now" => o.update.check_now = true,
+                "--update-restart" => o.update.restart_when_ready = true,
+                "--restart-now" => o.update.restart_now = true,
                 "--auto-dialogs" => {
                     if let Some(dir) = it.next() {
                         dialogs::answer_automatically(PathBuf::from(dir));
@@ -76,6 +82,7 @@ impl Options {
             press_restart: false,
             press_quit: false,
             close_window: false,
+            update: updater::Debug::default(),
         };
         (o, args.to_vec())
     }
@@ -146,6 +153,7 @@ pub fn run() {
         .collect();
     let (opts, rest) = Options::from_args(&args);
     let first = deeplink::first_open(&rest);
+    let update_state = updater::State::new(opts.update);
     let state = Arc::new(Shell {
         opts,
         inner: Mutex::new(Inner {
@@ -184,13 +192,16 @@ pub fn run() {
         // Registered for what it does at install time (the scheme) and for nothing at run time: links arrive as
         // launch arguments or as `RunEvent::Opened` and are read by `deeplink`.
         .plugin(tauri_plugin_deep_link::init())
-        // Registered so that Help, Check for Updates… can use it. It does nothing until then.
+        // Registered so that the update feature can use it. It does nothing by itself: a check is made only by the
+        // shell's own schedule after a yes, or by Check for Updates… (`updater.rs`).
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(state)
+        .manage(update_state)
         .menu(menu::build)
         .on_menu_event(on_menu)
         .setup(|app| {
             let handle = app.handle().clone();
+            updater::init(&handle);
             clear_downloads(&handle);
             let starter = handle.clone();
             thread::spawn(move || start_server(&starter));
@@ -328,6 +339,8 @@ fn start_server(app: &AppHandle) {
             if let Some(o) = pending {
                 open(app, o);
             }
+            // The window is up: the update feature may now ask its one question and start its schedule (off this thread).
+            updater::window_is_up(app);
         }
         Err(LaunchError::AlreadyRunning) => {
             // Another Scríobh server holds the data folder and it is not one this app started (a second copy of
@@ -365,6 +378,27 @@ pub(crate) fn refusal_text(refused: &StartRefused, tail: &str) -> (&'static str,
         }
         StartRefused::NotTheServer => ("notserver", tail.to_string()),
     }
+}
+
+/// The path of the page every main window shows (there is normally one; every `main-*` window counts).
+pub(crate) fn main_paths(app: &AppHandle) -> Vec<String> {
+    windows_with(app, MAIN).iter().filter_map(|w| w.url().ok()).map(|u| u.path().to_string()).collect()
+}
+
+/// The AppImage file this process runs from: the runtime sets `APPIMAGE` to it. Read here and nowhere in the update code, which
+/// reads no variable (an update source is the build's configuration and nothing else).
+pub(crate) fn appimage_path() -> Option<PathBuf> {
+    std::env::var_os("APPIMAGE").filter(|v| !v.is_empty()).map(PathBuf::from)
+}
+
+/// Whether the app is on its way out.
+pub(crate) fn quitting(app: &AppHandle) -> bool {
+    shell(app).lock().phase == Phase::Quitting
+}
+
+/// What the shell needs to make its own requests of the running server (the update's "save now"): its port and its key.
+pub(crate) fn server_access(app: &AppHandle) -> Option<(u16, zeroize::Zeroizing<String>)> {
+    shell(app).lock().server.as_ref().map(|s| s.shell_access())
 }
 
 /// Stops the server: asked first, killed after ten seconds. Safe to call more than once.
@@ -540,7 +574,7 @@ fn follow_title(window: WebviewWindow, title: String) {
 /// Asks whether to open an outside address in the system browser. The navigation that led here was already
 /// refused; this returns at once and the question is put from the main loop. One question at a time: a page that
 /// fires a hundred gets one.
-fn offer_outside(app: &AppHandle, url: Url) {
+pub(crate) fn offer_outside(app: &AppHandle, url: Url) {
     let shell = shell(app);
     if shell.asking.swap(true, Ordering::SeqCst) {
         return;
@@ -750,7 +784,7 @@ fn tell_once(app: &AppHandle, notice: Notice) {
 /// The shell's own folder for the little it keeps: the "said once" markers (configuration) and downloads on
 /// their way to where the person wants them (cache). A development build keeps both in the temporary folder so
 /// that it leaves nothing in the places the installed app uses.
-fn own_dir(app: &AppHandle, cache: bool) -> Option<PathBuf> {
+pub(crate) fn own_dir(app: &AppHandle, cache: bool) -> Option<PathBuf> {
     if cfg!(debug_assertions) {
         return Some(std::env::temp_dir().join("scriobh-desktop-dev-shell").join(if cache {
             "cache"
@@ -760,6 +794,10 @@ fn own_dir(app: &AppHandle, cache: bool) -> Option<PathBuf> {
     }
     if cache {
         app.path().app_cache_dir().ok()
+    } else if cfg!(windows) {
+        // Not the roaming profile: the markers (what was said once, the answer about updates, when a check was last tried) belong to
+        // this computer, and a roaming profile would carry a "yes" to another one.
+        app.path().app_local_data_dir().ok()
     } else {
         app.path().app_config_dir().ok()
     }
@@ -949,7 +987,8 @@ fn on_menu(app: &AppHandle, event: tauri::menu::MenuEvent) {
             }
         }
         menu::DATA_FOLDER => show_data_folder(app),
-        menu::UPDATES => updater::check(app),
+        menu::UPDATES | menu::UPDATES_APP => updater::on_updates_item(app),
+        menu::AUTO_UPDATES | menu::AUTO_UPDATES_APP => updater::on_automatic_item(app),
         _ => {}
     }
 }

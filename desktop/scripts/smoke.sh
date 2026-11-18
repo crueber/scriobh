@@ -64,6 +64,12 @@ check "no call from the page to the shell was allowed" '! seen | has ALLOWED'
 check "every attempted call was refused" '[ "$(seen | grep -o "refused:" | wc -l)" -ge 14 ]'
 check "window.confirm is the one the webview came with, not replaced" 'seen | has "\"confirmSource\":\"native\""'
 check "the launch token is in no note" '! grep -qE "[0-9a-f]{64}" "$err"'
+# The update feature (docs/UPDATES.md): a development build has no update source, so it asks nothing and makes no request of
+# its own, and no consent marker appears. (The unit tests of the schedule and of the consent are the proof that a build WITH a
+# source makes no request before a yes; this checks the real process of a build without one.)
+outside() { lsof -nP -a -p "$app_pid" -i -Fn 2>/dev/null | sed -n 's/^n//p' | tr -d '[]' | sed 's/(.*//' | tr '>-' '\n\n' | grep -v '^$' | grep -vE '^(127\.0\.0\.1|::1|localhost|\*)[:]' || true; }
+check "the shell has no connection but to this computer" '[ -z "$(outside)" ]'
+check "no question about updates was asked and no consent marker was written" '[ ! -e "${TMPDIR:-/tmp}/scriobh-desktop-dev-shell/config/updates-asked" ] && ! grep -qi "update" "$err"'
 
 echo "2. a second launch hands over and exits"
 second; check "a second launch exits with status 0" '[ $? -eq 0 ]'
@@ -132,6 +138,9 @@ second --press-quit
 for _ in $(seq 1 60); do kill -0 "$app_pid" 2>/dev/null || break; sleep 0.25; done
 check "Quit from the menu's handler stops the server cleanly and leaves nothing" '! kill -0 "$app_pid" 2>/dev/null && grep -q "server stopped: Clean(Some(0))" "$err" && [ "$(servers)" = 0 ]'
 start close
+# The switch closes the window that exists: it is sent once the window has loaded (its title is noted), not merely once the server
+# is up, or it can arrive before the window is built and close nothing (a race in this script that failed about half of the runs).
+for _ in $(seq 1 60); do grep -q "page title" "$err" 2>/dev/null && break; sleep 0.25; done
 second --close-window
 for _ in $(seq 1 60); do kill -0 "$app_pid" 2>/dev/null || break; sleep 0.25; done
 check "closing the window quits, stops the server cleanly and leaves nothing" '! kill -0 "$app_pid" 2>/dev/null && grep -q "server stopped: Clean(Some(0))" "$err" && [ "$(servers)" = 0 ]'

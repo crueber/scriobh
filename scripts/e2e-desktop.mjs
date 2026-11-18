@@ -20,6 +20,7 @@
 //   node scripts/e2e-desktop.mjs [--shots DIR]
 import { createKit, eq, ok } from "./e2e-kit.mjs";
 import { build, desktopEnv, launchToken, startServer } from "./harness.mjs";
+import { createHmac } from "node:crypto";
 import { createServer, request } from "node:http";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -208,6 +209,52 @@ await kit.test("a project is made, written in, searched and exported", async () 
   eq(exp.status(), 200, "export.markdown");
   ok((await exp.text()).includes("grey sand"), "the export holds the text");
   ok(/^attachment/.test(exp.headers()["content-disposition"] || ""), "the export is sent as a download, which the shell hands to its save dialog: " + exp.headers()["content-disposition"]);
+});
+
+// "Save now" (docs/UPDATES.md, contract change 31): what the shell asks of the server before it installs an update. The shell proves
+// itself with a key derived from the launch token; the writing page's live stream is told, and the page answers with its own save.
+const shellKey = createHmac("sha256", token).update("scriobh desktop shell key v1").digest("hex");
+const asShell = (method, path, key = shellKey) => new Promise((res, rej) => {
+  const r = request({ host: "127.0.0.1", port, path, method, headers: key ? { "X-Scriobh-Shell": key } : {} }, (m) => {
+    let b = ""; m.on("data", (c) => { b += c; }); m.on("end", () => { let json = null; try { json = JSON.parse(b); } catch { /* not JSON */ } res({ status: m.statusCode, json }); });
+  });
+  r.on("error", rej); r.end();
+});
+await kit.test("save now: the writing page is told over its live stream and saves, and says when it cannot", async () => {
+  kit.main = page;
+  kit.allowed.push(/Failed to load resource/, /net::ERR/, /Failed to fetch/i);
+  eq((await asShell("POST", "/desktop/save-now", "")).status, 404, "save-now without the shell's key");
+  eq((await asShell("POST", "/desktop/save-now", "0".repeat(64))).status, 404, "save-now with another key");
+  await page.goto(`${base}/p/${slug}/d/${doc}`, { waitUntil: "load" });
+  await page.waitForSelector(".scriobh-prose", { timeout: 15000 });
+  await kit.waitFor(async () => (await asShell("POST", "/desktop/save-now")).json?.pages === 1, "the writing page's stream to be registered", 15000);
+  // 1. words typed and not yet saved: asked, the page saves at once with its ordinary request, and says it has
+  await page.locator(".scriobh-prose").click();
+  await page.keyboard.press("ControlOrMeta+End");
+  await page.keyboard.type(" The gulls turned inland.");
+  const round = (await asShell("POST", "/desktop/save-now")).json;
+  eq(round.pages, 1, "one writing page was asked");
+  await kit.waitFor(async () => { const s = (await asShell("GET", `/desktop/save-status?n=${round.n}`)).json; return s && s.pending === 0; }, "the page to answer", 10000);
+  const s1 = (await asShell("GET", `/desktop/save-status?n=${round.n}`)).json;
+  eq(s1.unsaved, 0, "the page says it saved everything");
+  ok(((await api(ctx, "GET", `/api/v1/docs/${doc}`)).json.item.content || "").includes("gulls turned inland"), "the words are on the server when the page has answered");
+  // 2. words typed while the page's saves are refused by the network: it says it still holds them, and nothing is lost from the editor
+  const refuse = (route) => (route.request().method() === "PATCH" ? route.abort("connectionfailed") : route.continue());
+  await page.route(`**/api/v1/docs/${doc}`, refuse);
+  try {
+    await page.keyboard.type(" Nobody saw the boat.");
+    const round2 = (await asShell("POST", "/desktop/save-now")).json;
+    eq(round2.pages, 1, "the page's stream is still there");
+    await kit.waitFor(async () => { const s = (await asShell("GET", `/desktop/save-status?n=${round2.n}`)).json; return s && s.pending === 0; }, "the page to answer while its saves fail", 20000);
+    const s2 = (await asShell("GET", `/desktop/save-status?n=${round2.n}`)).json;
+    eq(s2.unsaved, 1, "a page that could not save says so (the shell then asks before it installs)");
+    ok((await page.locator(".scriobh-prose").innerText()).includes("Nobody saw the boat"), "the words are still in the editor");
+  } finally {
+    await page.unroute(`**/api/v1/docs/${doc}`, refuse);
+  }
+  await kit.waitFor(async () => ((await api(ctx, "GET", `/api/v1/docs/${doc}`)).json.item.content || "").includes("Nobody saw the boat"), "the page to save them when it can", 40000);
+  // a round that is over is over
+  eq((await asShell("GET", `/desktop/save-status?n=${round.n}`)).status, 409, "the status of an old round");
 });
 
 await kit.test("the pages about this computer: reached from the menu, and the look for a model asks only when pressed", async () => {

@@ -60,6 +60,7 @@ type Options struct {
 	Language     string   `json:"language,omitempty" desc:"Overrides the project's language tag (BCP 47), up to 16 characters."`
 	OwnCover     *bool    `json:"own_cover,omitempty" desc:"EPUB: use the project's own cover (project.cover_layout.get) when it has one. Default true; false puts the generated cover in its place. A release for a public Git remote follows that remote's include_cover."`
 	Cover        *bool    `json:"cover,omitempty" desc:"EPUB: put the cover first: a cover page and the cover image the shops and readers use. It is the project's own cover when it has one (project.cover_layout.get), else the generated cover. Default true. KDP takes the cover as a separate upload and asks for no cover page in the file, so turn this off for a file bound for KDP."`
+	BackCover    *bool    `json:"back_cover,omitempty" desc:"EPUB: put the project's own back cover (project.cover_layout.get) last in the book, on a page of its own outside the reading order (default false). Only a layout that gives the back a picture, or a wrap, has one; the generated cover has no back page. Off when own_cover is false."`
 	Contact      *bool    `json:"contact,omitempty" desc:"DOCX manuscript title page: show your contact block (default true). false leaves the block off the page and leaves the word count top right."`
 	Clear        []string `json:"clear,omitempty" desc:"Options to reset to empty when this is laid over a preset: byline, header_title, ornament, language, chapter_label, imprint. An empty string in a field means 'not set', so this is how to clear one."`
 
@@ -77,6 +78,7 @@ type Options struct {
 	Hyphenate       *bool    `json:"hyphenate,omitempty" desc:"Print: break words at the end of a line (default false). Not built: setting it is refused until a hyphenation dictionary ships."`
 	CropMarks       *bool    `json:"crop_marks,omitempty" desc:"Print: a proof with crop marks: the page grows by a 0.125 inch bleed and a quarter-inch slug, the marks are drawn outside the trim and the trim and bleed boxes are set (default false)."`
 	CopyrightPage   *bool    `json:"copyright_page,omitempty" desc:"Print: a copyright page after the title page (default true)."`
+	CoverPage       *bool    `json:"cover_page,omitempty" desc:"Print, for a proof or a copy you print yourself (default false): the cover's front as the first page of the PDF, edge to edge (into the bleed with crop marks), followed by a blank page so the title page stays a right-hand page. Do not upload a file made with it to a print-on-demand printer as the interior: KDP and IngramSpark take the cover as a separate file, and a printer counts and prints every page of the interior, so these two pages would be printed and would change the page count and the spine. The page count that export.cover and compile.cover_spec use does not include them. It is the project's own cover, or the generated one when there is none or own_cover is false. A right-to-left book has no PDF."`
 	Imprint         string   `json:"imprint,omitempty" desc:"Print: the text of the copyright page, up to 8 lines and 600 characters. Default: 'Copyright © Name' and 'All rights reserved.', with no year (the program never reads the clock; put the year in this text)."`
 }
 
@@ -140,7 +142,7 @@ func Merge(base, over Options) Options {
 	}
 	out := base
 	// copy the base's pointers so the result shares nothing with it
-	for _, d := range []**bool{&out.FrontMatter, &out.BackMatter, &out.TitlePage, &out.PartPages, &out.TheEnd, &out.SceneTitles, &out.LinkURLs, &out.Justify, &out.Cover, &out.OwnCover, &out.HeaderUpper, &out.Contact, &out.RunningHeads, &out.DropCap, &out.ChapterOrnament, &out.TOC, &out.Hyphenate, &out.CropMarks, &out.CopyrightPage} {
+	for _, d := range []**bool{&out.FrontMatter, &out.BackMatter, &out.TitlePage, &out.PartPages, &out.TheEnd, &out.SceneTitles, &out.LinkURLs, &out.Justify, &out.Cover, &out.OwnCover, &out.HeaderUpper, &out.Contact, &out.RunningHeads, &out.DropCap, &out.ChapterOrnament, &out.TOC, &out.Hyphenate, &out.CropMarks, &out.CopyrightPage, &out.CoverPage, &out.BackCover} {
 		if *d != nil {
 			x := **d
 			*d = &x
@@ -200,6 +202,8 @@ func Merge(base, over Options) Options {
 	b(&out.Hyphenate, over.Hyphenate)
 	b(&out.CropMarks, over.CropMarks)
 	b(&out.CopyrightPage, over.CopyrightPage)
+	b(&out.CoverPage, over.CoverPage)
+	b(&out.BackCover, over.BackCover)
 	s(&out.Imprint, over.Imprint)
 	for _, name := range over.Clear {
 		switch name {

@@ -155,11 +155,18 @@ fn is_yes(answer: rfd::MessageDialogResult, yes: &str) -> bool {
     }
 }
 
-/// Asks a question with two named buttons. `then` gets `true` only for the first.
-pub fn ask(app: &AppHandle, title: &str, body: &str, yes: &str, no: &str, then: impl FnOnce(bool) + Send + 'static) {
-    let (title, body, yes, no) = (title.to_string(), body.to_string(), yes.to_string(), no.to_string());
+/// Asks a question with two named buttons and hands the raw answer to `then`.
+fn ask_raw(
+    app: &AppHandle,
+    title: &str,
+    body: &str,
+    first: &str,
+    second: &str,
+    then: impl FnOnce(rfd::MessageDialogResult) + Send + 'static,
+) {
+    let (title, body, first, second) = (title.to_string(), body.to_string(), first.to_string(), second.to_string());
     if GTK_BACKEND && auto().is_none() {
-        let buttons = rfd::MessageButtons::OkCancelCustom(yes.clone(), no);
+        let buttons = rfd::MessageButtons::OkCancelCustom(first, second);
         dialog_queue().run(
             rfd::AsyncMessageDialog::new()
                 .set_level(rfd::MessageLevel::Info)
@@ -167,23 +174,52 @@ pub fn ask(app: &AppHandle, title: &str, body: &str, yes: &str, no: &str, then: 
                 .set_description(body)
                 .set_buttons(buttons)
                 .show(),
-            move |answer| then(is_yes(answer, &yes)),
+            then,
         );
         return;
     }
     later(app, move || {
         if auto().is_some() {
-            note(&format!("question (not shown, answered {no}): {title}"));
-            return then(false);
+            note(&format!("question (not shown, answered Cancel, which is the safe answer): {title}"));
+            return then(rfd::MessageDialogResult::Cancel);
         }
         let answer = rfd::MessageDialog::new()
             .set_level(rfd::MessageLevel::Info)
             .set_title(title)
             .set_description(body)
-            .set_buttons(rfd::MessageButtons::OkCancelCustom(yes.clone(), no))
+            .set_buttons(rfd::MessageButtons::OkCancelCustom(first, second))
             .show();
-        then(is_yes(answer, &yes));
+        then(answer);
     });
+}
+
+/// Asks a question with two named buttons. `then` gets `true` only for the first.
+pub fn ask(app: &AppHandle, title: &str, body: &str, yes: &str, no: &str, then: impl FnOnce(bool) + Send + 'static) {
+    let yes_label = yes.to_string();
+    ask_raw(app, title, body, yes, no, move |answer| then(is_yes(answer, &yes_label)));
+}
+
+/// Whether an answer is an explicit choice of the OTHER button: the dialog said, by that button's own label, that it was
+/// pressed. Nothing else is: not the safe button's label, not `Cancel`, `Ok`, `Yes`, `No`, an empty or differently written label,
+/// whatever a backend reports for a window that was closed. So a backend added to rfd later (zenity, the desktop portal) can only
+/// turn a dialog into consent by naming the label of the button that asks for it.
+pub fn is_explicit_other(answer: &rfd::MessageDialogResult, safe: &str, other: &str) -> bool {
+    other != safe && matches!(answer, rfd::MessageDialogResult::Custom(label) if label == other)
+}
+
+/// Asks a question whose FIRST button, the one a stray Return presses, is the safe one. `then` gets `true` only when the
+/// second button was explicitly chosen (`is_explicit_other`): closing the dialog, Escape and anything else is the safe answer.
+/// Which button GTK makes the default is not verified (UPDATES.md): the question does not depend on it, because a close is safe.
+pub fn ask_safe_first(
+    app: &AppHandle,
+    title: &str,
+    body: &str,
+    safe: &str,
+    other: &str,
+    then: impl FnOnce(bool) + Send + 'static,
+) {
+    let (safe_label, other_label) = (safe.to_string(), other.to_string());
+    ask_raw(app, title, body, safe, other, move |answer| then(is_explicit_other(&answer, &safe_label, &other_label)));
 }
 
 /// The save dialog. `then` gets the place the person chose, or `None` when they cancelled.
@@ -234,6 +270,28 @@ mod tests {
         events.lock().unwrap().push(format!("close {n}"));
         open_now.fetch_sub(1, Ordering::SeqCst);
         n
+    }
+
+    #[test]
+    fn only_the_explicit_label_of_the_other_button_is_consent() {
+        use rfd::MessageDialogResult::*;
+        let (safe, other) = ("Only When I Ask", "Check Automatically");
+        assert!(is_explicit_other(&Custom(other.into()), safe, other));
+        for not in [
+            Custom(safe.into()),
+            Custom(String::new()),
+            Custom("check automatically".into()),
+            Custom("Check Automatically ".into()),
+            Custom("Ok".into()),
+            Cancel,
+            Ok,
+            Yes,
+            No,
+        ] {
+            assert!(!is_explicit_other(&not, safe, other), "{not:?} was taken for consent");
+        }
+        // two buttons that carry one label cannot tell which was pressed
+        assert!(!is_explicit_other(&Custom("Same".into()), "Same", "Same"));
     }
 
     #[test]

@@ -7,7 +7,7 @@
 {{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "compile" .Data.Project.Role}}{{end}}
 {{define "content"}}
 {{with .Data}}
-<div class="settings cmp" id="cmp" data-project="{{.ProjectID}}" data-presets="{{.Presets}}" data-options="{{.Options}}" data-cover="{{.Cover}}" data-dir="{{.Dir}}" data-lang="{{.Lang}}" data-csrf="{{.CSRF}}" data-pandoc="{{.Pandoc}}">
+<div class="settings cmp" id="cmp" data-project="{{.ProjectID}}" data-presets="{{.Presets}}" data-options="{{.Options}}" data-dir="{{.Dir}}" data-lang="{{.Lang}}" data-csrf="{{.CSRF}}" data-pandoc="{{.Pandoc}}">
   <h1>{{$.T "cmp.title"}}</h1>
   <p class="sub">{{.Project.Title}}. {{$.T "cmp.intro"}}</p>
   {{if .Flash}}<p class="saved" role="status">{{.Flash}}</p>{{end}}
@@ -57,23 +57,25 @@
 
     <section class="cmp-cover" id="cmp-cover" aria-labelledby="cmp-cv-h" hidden>
       <h2 id="cmp-cv-h">{{$.T "cmp.cover"}}</h2>
-      <p class="fine">{{$.T "cmp.cover_note"}}</p>
-      <form id="cmp-cv-form" novalidate>
-        <div class="field"><label for="cv-thick">{{$.T "cmp.cv_thick"}}</label><input id="cv-thick" type="number" inputmode="decimal" step="any" min="0.0005" max="0.01" required aria-describedby="cv-thick-h"><span class="hint" id="cv-thick-h">{{$.T "cmp.cv_thick_hint"}}</span></div>
+      <p class="fine">{{if .Project.CoverLayout}}{{$.T "cmp.cover_note"}}{{else}}{{$.T "cmp.cover_note_plain"}}{{end}}</p>
+      <p class="fine">{{if .Project.CoverLayout}}{{$.T "cover.cmp_state_own"}}{{else}}{{$.T "cover.cmp_state_generated"}}{{end}} <a href="/p/{{.Slug}}/cover">{{$.T "cmp.cv_change"}}</a></p>
+      <form id="cmp-cv-form" novalidate hx-post="/ui/projects/{{.ProjectID}}/compile/cover-spec" hx-target="#cv-out" hx-swap="innerHTML" hx-sync="this:queue last">
+        <div class="field cv-profile"><label for="cv-profile">{{$.T "cmp.cv_profile"}}</label>
+          <div class="cv-selbox"><select id="cv-profile" name="profile" aria-describedby="cv-profile-h">{{range .Profiles}}<option value="{{.Name}}"{{if eq .Name "generic"}} selected{{end}}>{{$.T (print "cmp.cv.profile." .Name)}}</option>{{end}}</select></div>
+          <span class="hint" id="cv-profile-h">{{range .Profiles}}<span data-pf="{{.Name}}">{{$.T "cmp.cv.profile_line" "name" ($.T (print "cmp.cv.profile." .Name)) "margin" .Margin "bw" .BW "bh" .BH "from" .From}} </span>{{end}}</span></div>
+        <div class="field"><label for="cv-thick">{{$.T "cmp.cv_thick"}}</label><input id="cv-thick" name="page_thickness_in" type="number" inputmode="decimal" step="any" min="0.0005" max="0.01" required aria-describedby="cv-thick-h"><span class="hint" id="cv-thick-h">{{$.T "cmp.cv_thick_hint"}}</span></div>
         <div class="field-row">
-          <div class="field"><label for="cv-pages">{{$.T "cmp.cv_pages"}}</label><input id="cv-pages" type="number" inputmode="numeric" step="1" min="2" max="1500" aria-describedby="cv-pages-h"><span class="hint" id="cv-pages-h">{{$.T "cmp.cv_pages_hint"}}</span></div>
-          <div class="field"><label for="cv-bleed">{{$.T "cmp.cv_bleed"}}</label><input id="cv-bleed" type="number" inputmode="decimal" step="any" min="0" max="0.5" placeholder="0.125" aria-describedby="cv-bleed-h"><span class="hint" id="cv-bleed-h">{{$.T "cmp.cv_bleed_hint"}}</span></div>
+          <div class="field"><label for="cv-pages">{{$.T "cmp.cv_pages"}}</label><input id="cv-pages" name="page_count" type="number" inputmode="numeric" step="1" min="2" max="1500" aria-describedby="cv-pages-h"><span class="hint" id="cv-pages-h">{{$.T "cmp.cv_pages_hint"}}</span></div>
+          <div class="field"><label for="cv-bleed">{{$.T "cmp.cv_bleed"}}</label><input id="cv-bleed" name="bleed_in" type="number" inputmode="decimal" step="any" min="0" max="0.5" placeholder="0.125" aria-describedby="cv-bleed-h"><span class="hint" id="cv-bleed-h">{{$.T "cmp.cv_bleed_hint"}}</span></div>
         </div>
-        <div class="field"><label class="check"><input type="checkbox" id="cv-guides"><span>{{$.T "cmp.cv_guides"}}</span></label></div>
-        <div class="field"><label class="check"><input type="checkbox" id="cv-barcode"><span>{{$.T "cmp.cv_barcode"}}</span></label></div>
-        <div class="cmp-actions"><button type="submit" class="btn solid">{{$.T "cmp.cv_measure"}}</button><button type="button" class="btn" id="cv-download">{{$.T "cmp.cv_download"}}</button></div>
+        <div class="field"><label class="check"><input type="checkbox" id="cv-guides" name="guides" value="1"><span>{{$.T "cmp.cv_guides"}}</span></label></div>
+        <div class="field"><label class="check"><input type="checkbox" id="cv-barcode" name="barcode" value="1"><span>{{$.T "cmp.cv_barcode"}}</span></label></div>
+        <div class="cmp-actions"><button type="submit" class="btn solid" id="cv-measure">{{$.T "cmp.cv_measure"}}</button></div>
+        <div class="cmp-actions cv-files"><button type="button" class="btn" id="cv-download">{{$.T "cmp.cv_download"}}</button></div>
+        <div class="cmp-actions cv-files"><button type="button" class="btn quiet" id="cv-front">{{$.T "cmp.cv_front"}}</button><button type="button" class="btn quiet" id="cv-proof" aria-describedby="cv-proof-h"{{if not .Project.CoverLayout}} hidden{{end}}>{{$.T "cmp.cv_proof"}}</button></div>
+        <p class="fine" id="cv-proof-h"{{if not .Project.CoverLayout}} hidden{{end}}>{{$.T "cmp.cv_proof_note"}}</p>
       </form>
-      <div id="cv-out" hidden>
-        <div class="cmp-wrap" id="cv-art"></div>
-        <p class="fine">{{$.T "cmp.cv_art_note"}}</p>
-        <dl class="cmp-facts" id="cv-facts"></dl>
-        <div id="cv-warn"></div>
-      </div>
+      <div id="cv-out" hidden></div>
     </section>
 
     {{template "compile-kindle" (dict "P" $ "K" .Kindle "ID" .ProjectID "Slug" .Slug "CSRF" .CSRF)}}

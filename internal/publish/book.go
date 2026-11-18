@@ -55,6 +55,14 @@ type Image struct {
 	// Orient is the EXIF orientation of a JPEG (1 to 8); 0 means read it from
 	// Data when there is Data, else 1. A PDF shows the picture upright.
 	Orient int
+	// ICC is the picture's own RGB colour profile, when a caller that has vetted it passes one (a cover's picture): a PDF
+	// then names it as the picture's colour space instead of DeviceRGB, so the colours mean what the file says. Empty: the
+	// picture is DeviceRGB, and a profile it may carry is not applied (the book's pictures are warned about).
+	ICC []byte
+	// Flat asks a PDF to lay a transparent picture on Flatten (an opaque RGB colour) and write it with no soft mask: a
+	// printer wants a flattened file. The caller says what is behind the picture.
+	Flat    bool
+	Flatten [3]uint8
 }
 
 // orientation is the orientation a PDF shows the image in.
@@ -109,6 +117,13 @@ type Book struct {
 	// there is one; CoverAlt is its description for screen readers.
 	CoverImage []byte
 	CoverAlt   string
+	// BackCoverImage is the project's own back cover, a JPEG made for screens, for an EPUB with the back_cover option;
+	// BackCoverAlt describes it.
+	BackCoverImage []byte
+	BackCoverAlt   string
+	// PrintCover is the cover the PDF's cover_page option puts first: the front, planned at the PDF's own page size (the
+	// caller sets the trim to the page; the writer takes the bleed from the crop marks). Nil: the option has nothing to put.
+	PrintCover *CoverSpec
 	Sections   []Section
 	Images     map[string]Image
 	// Warnings collects what a writer had to leave out (an image it could not

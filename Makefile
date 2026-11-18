@@ -130,6 +130,11 @@ e2e-extra: scripts-deps ## The browser scripts e2e-fast leaves out: the save-loo
 workflows-check: ## Parse the CI workflow files with a real YAML parser (a file that does not parse makes every run fail in 0 s)
 	./scripts/check-workflows.sh
 
+updater-check: ## The update manifest script's own tests: the golden file and every refusal (python3 only; desktop/scripts/updater-manifest-test.py)
+	python3 desktop/scripts/updater-manifest-test.py
+
+.PHONY: updater-check
+
 release-dist: ## The release files of VERSION in ./dist (server and CLI for the fifteen platforms of scripts/release-dist.sh, archives, SHA256SUMS.txt); `make release-dist VERSION=v2.1.0`
 	bash scripts/release-dist.sh --version "$(VERSION)" --out dist
 
@@ -236,6 +241,7 @@ desktop-build-macos: ## The macOS packages in ./dist (ARCH=arm64, x86_64, univer
 
 ci: ## Run the CI steps locally, in CI order
 	$(MAKE) --no-print-directory workflows-check
+	$(MAKE) --no-print-directory updater-check
 	$(MAKE) --no-print-directory fmt-check
 	$(MAKE) --no-print-directory vet
 	$(MAKE) --no-print-directory editor-deps

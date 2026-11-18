@@ -34,6 +34,7 @@ type Doc struct {
 	pages   []*Page
 	outline []OutlineItem
 	labels  []PageLabel
+	icc     map[string]string // ICC profiles written, by their bytes
 
 	Title, Author, Subject, Language string
 	// Created is written as the creation and modification date when it is not

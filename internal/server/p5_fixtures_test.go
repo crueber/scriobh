@@ -150,7 +150,7 @@ func compileFixture(withErr bool) compileData {
 	d := compileData{Project: proj, Slug: proj.Slug, ProjectID: proj.ID, CSRF: "tok_writer", Dir: "ltr", Lang: "en",
 		Presets: `{"presets":[{"id":"shunn-us","name":"US Standard Manuscript","builtin":true,"format":"docx","description":"Shunn","options":{"font":"Times New Roman"}}]}`,
 		Options: `[{"key":"font","type":"string","enum":["Times New Roman"],"group":"page"}]`,
-		Contact: compile.ContactOut{Name: "Máire <b>Nolan</b>", Email: "m@example.org"}}
+		Contact: compile.ContactOut{Name: "Máire <b>Nolan</b>", Email: "m@example.org"}, Profiles: coverProfileViews()}
 	if withErr {
 		d.Flash, d.Error = "The contact block was saved.", "That email address is too long."
 	}

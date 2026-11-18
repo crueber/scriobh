@@ -196,6 +196,7 @@ func (a *archive) opf(opfPath string, opf *node, trees map[string]*node) {
 		}
 	}
 	seen := map[string]bool{}
+	var nonLinear []string // spine items outside the reading order, which must be reachable from the navigation document
 	nSpine := 0
 	for _, k := range spine.kids {
 		if k.name != "itemref" {
@@ -212,6 +213,13 @@ func (a *archive) opf(opfPath string, opf *node, trees map[string]*node) {
 		}
 		seen[id] = true
 		nSpine++
+		switch k.attr("linear") {
+		case "", "yes":
+		case "no":
+			nonLinear = append(nonLinear, id)
+		default:
+			a.problem("spine item %s has linear=%q, which is yes or no", id, k.attr("linear"))
+		}
 		if it.mt != "application/xhtml+xml" && it.mt != "image/svg+xml" {
 			a.problem("spine item %s is not a content document (%s)", id, it.mt)
 		}
@@ -287,7 +295,11 @@ func (a *archive) opf(opfPath string, opf *node, trees map[string]*node) {
 			continue
 		}
 		hasTOC := false
+		linked := map[string]bool{}
 		t.walk(func(n *node) {
+			if n.name == "a" {
+				linked[resolve(it.file, n.attr("href"))] = true
+			}
 			if n.name == "nav" {
 				if v, _ := n.attrNS(nsOPS, "type"); strings.Contains(" "+v+" ", " toc ") {
 					hasTOC = true
@@ -309,6 +321,11 @@ func (a *archive) opf(opfPath string, opf *node, trees map[string]*node) {
 		})
 		if !hasTOC {
 			a.problem("the navigation document has no nav of type toc")
+		}
+		for _, id := range nonLinear {
+			if !linked[items[id].file] {
+				a.problem("spine item %s is outside the reading order (linear=no) and the navigation document does not link to it", id)
+			}
 		}
 	}
 	// the NCX

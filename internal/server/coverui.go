@@ -175,6 +175,7 @@ type coverPageData struct {
 	Yours, Saved                *coverVersion // on a conflict: the writer's draft and the layout someone else saved
 	Warnings                    []coverNote
 	Notes                       []coverNote
+	PrintNotes                  []coverNote // what the print check says of the saved cover
 	Palette                     []coverSwatch
 	Positions                   []coverPos
 	FrontSvg                    *coverSvg
@@ -583,6 +584,7 @@ func (s *Server) coverPage(w http.ResponseWriter, r *http.Request) {
 			d.Warnings = append(d.Warnings, coverNote{Part: wn.Part, Text: s.coverWarning(r, wn, v.Pictures, v.Trim)})
 		}
 	}
+	d.PrintNotes = s.coverPrintNotes(r, proj.ID, v)
 	if fl := s.flashTake(r); fl != nil {
 		d.Flash = fl["msg"]
 	}
@@ -1077,4 +1079,42 @@ func (s *Server) uiCoverClear(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.coverClear(w, r, proj)
+}
+
+// coverPrintNotes is what the print check says of a saved cover that has pictures, as sentences: a picture that prints under
+// 300 dpi, one that runs into the margin or has no bleed, the corner the printer's barcode takes. It checks against the
+// generic profile at the layout's own page size; the Compile page checks against the printer and the book's spine. A
+// warning the layout already carries on this page is not said twice.
+func (s *Server) coverPrintNotes(r *http.Request, id string, v *coverlayout.View) []coverNote {
+	if v == nil || len(v.Pictures) == 0 {
+		return nil
+	}
+	out, err := s.Reg.Call(r.Context(), s.principal(r), "project.cover_layout.check", coverlayout.CheckIn{ID: id, Profile: "generic"})
+	if err != nil {
+		return nil
+	}
+	co := out.(coverlayout.CheckOut)
+	have := map[string]bool{}
+	for _, w := range v.Warnings {
+		have[w.Code+"/"+w.Part] = true
+	}
+	var notes []coverNote
+	for _, w := range co.Warnings {
+		if have[w.Code+"/"+w.Part] {
+			continue
+		}
+		f := printFacts{Part: w.Part, Margin: co.Profile.TextMarginIn, Profile: co.Profile.Name, BarcodeW: co.Profile.BarcodeWidthIn, BarcodeH: co.Profile.BarcodeHeightIn, Inch: co.Profile.BarcodeInsetIn,
+			FromPages: co.Profile.SpineTextFromPages}
+		for _, p := range co.Pictures {
+			if p.Part == w.Part {
+				f.DPI = p.DPI
+			}
+		}
+		text := s.printWarning(r, w.Code, f)
+		if text == "" {
+			text = s.tr(r, "cmp.cv.w.unknown", "code", w.Code)
+		}
+		notes = append(notes, coverNote{Part: w.Part, Text: text})
+	}
+	return notes
 }

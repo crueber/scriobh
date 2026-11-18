@@ -802,5 +802,17 @@
 
   S.beforeSignOut = flushAll; // signing out (shell.js) saves first, and stays if it cannot
 
+  // The desktop app is about to restart for an update and has asked the server, which tells every writing page over the live stream
+  // (js/live.js, data-flush; a plain server never sends it): save now, then say whether anything is left. It is the page's own save and
+  // changes nothing on the screen, takes no focus and asks nothing of the person; what cannot be saved stays in the local draft.
+  doc.addEventListener("scriobh:event", function (e) {
+    var d = e.detail || {};
+    if (d.type !== "desktop.save" || !d.flusher) return;
+    flushAll().then(function (ok) {
+      var saved = ok && !unsaved();
+      fetch("/desktop/saved", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "X-Scriobh-Fetch": "1" }, body: JSON.stringify({ n: d.n, flusher: d.flusher, saved: saved }) }).catch(function () { /* the app waits ten seconds and says so */ });
+    });
+  });
+
   start();
 })();

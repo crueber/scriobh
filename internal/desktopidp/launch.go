@@ -21,6 +21,9 @@ type Launch struct {
 	formKey  []byte
 	// proofKey answers the shell's challenge on /healthz (see Proof). It is derived from the token and is not the token.
 	proofKey []byte
+	// shellKey is what the shell presents with a request of its own, such as "save now" (see ShellOK). Derived like
+	// proofKey, with its own label, so one is no use as the other.
+	shellKey []byte
 
 	mu   sync.Mutex
 	used bool
@@ -41,7 +44,9 @@ func NewLaunch(token string) *Launch {
 	f.Write([]byte("scriobh desktop form key v1"))
 	p := hmac.New(sha256.New, []byte(token))
 	p.Write([]byte("scriobh desktop healthz key v1"))
-	return &Launch{tokenSum: sha256.Sum256([]byte(token)), cookie: hex.EncodeToString(cookie), formKey: f.Sum(nil), proofKey: p.Sum(nil)}
+	k := hmac.New(sha256.New, []byte(token))
+	k.Write([]byte(ShellKeyLabel))
+	return &Launch{tokenSum: sha256.Sum256([]byte(token)), cookie: hex.EncodeToString(cookie), formKey: f.Sum(nil), proofKey: p.Sum(nil), shellKey: k.Sum(nil)}
 }
 
 // ChallengeHeader and ProofHeader are how the shell asks `/healthz` whether the program that answers is the server it
@@ -54,6 +59,24 @@ const (
 	ChallengeHeader = "X-Scriobh-Challenge"
 	ProofHeader     = "X-Scriobh-Proof"
 )
+
+// ShellHeader carries the shell's own key on a request the shell makes of the server (not the window): the lower-case
+// hexadecimal of HMAC-SHA256(key = the token's ASCII characters, message = ShellKeyLabel). A page cannot send it (it never
+// sees the token or the key, and a custom header on a cross-site request is refused without a preflight the server
+// never answers); another program of the same user can read the token itself, which is outside what this defends.
+const (
+	ShellHeader   = "X-Scriobh-Shell"
+	ShellKeyLabel = "scriobh desktop shell key v1"
+)
+
+// ShellOK reports whether r carries the shell's key, exactly once, in constant time.
+func (l *Launch) ShellOK(r *http.Request) bool {
+	v := r.Header.Values(ShellHeader)
+	if len(v) != 1 {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(v[0]), []byte(hex.EncodeToString(l.shellKey))) == 1
+}
 
 // Proof answers a challenge. ok is false when the nonce is not exactly 64 lower-case hexadecimal characters: nothing
 // is computed for anything else.

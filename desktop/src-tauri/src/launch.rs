@@ -211,6 +211,9 @@ pub struct Running {
     stdin: Option<ChildStdin>,
     tail: Arc<Mutex<Tail>>,
     secrets: Vec<Zeroizing<String>>,
+    /// What the shell presents with its own requests to this server (see [`shell_key`]); derived from the token, which
+    /// is not kept for any other purpose.
+    shell_key: Zeroizing<String>,
 }
 
 /// Calls `each(line, truncated)` for every line the stream gives. A line is kept up to `MAX_LINE_BYTES` and the
@@ -314,7 +317,8 @@ pub fn spawn(cfg: SpawnConfig) -> Result<Running, LaunchError> {
         });
     }
 
-    let mut running = Running { port: 0, stdin: child.stdin.take(), child, tail, secrets };
+    let shell_key = shell_key(&cfg.token);
+    let mut running = Running { port: 0, stdin: child.stdin.take(), child, tail, secrets, shell_key };
 
     // Step 1: the address.
     let port = loop {
@@ -398,18 +402,30 @@ const LOOK_DEADLINE: Duration = Duration::from_secs(4);
 /// a socket to 127.0.0.1 and nothing else. Returns the head and body as read, at most `limit` bytes. The whole
 /// exchange is over within [`LOOK_DEADLINE`]: an answer still arriving then is a `TimedOut` error.
 pub fn loopback_get(port: u16, path: &str, extra_headers: &str, limit: usize) -> std::io::Result<String> {
-    request(port, path, extra_headers, limit, false)
+    request(port, "GET", path, extra_headers, limit, false)
 }
 
 /// As [`loopback_get`], but reading stops at the end of the response head (the blank line), which is all a
 /// check of headers needs. `limit` bounds the head.
-fn request(port: u16, path: &str, extra_headers: &str, limit: usize, head_only: bool) -> std::io::Result<String> {
+fn request(
+    port: u16,
+    method: &str,
+    path: &str,
+    extra_headers: &str,
+    limit: usize,
+    head_only: bool,
+) -> std::io::Result<String> {
     let began = Instant::now();
     let timed_out = || std::io::Error::new(std::io::ErrorKind::TimedOut, "the answer took too long");
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, port));
     let mut stream = TcpStream::connect_timeout(&addr, Duration::from_millis(1000))?;
     stream.set_write_timeout(Some(Duration::from_millis(2000)))?;
-    write!(stream, "GET {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n{extra_headers}\r\n")?;
+    // A POST here carries no body: the shell's requests of the server say everything in their address and one header.
+    let body_length = if method == "POST" { "Content-Length: 0\r\n" } else { "" };
+    write!(
+        stream,
+        "{method} {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n{body_length}{extra_headers}\r\n"
+    )?;
     let mut out: Vec<u8> = Vec::new();
     let mut chunk = [0u8; 1024];
     while out.len() < limit {
@@ -501,7 +517,7 @@ fn healthz(port: u16, token: &str) -> Health {
     let Ok(raw) = new_token() else { return Health::Down };
     let nonce = raw.as_str();
     let request_headers = format!("{CHALLENGE_HEADER}: {nonce}\r\n");
-    match request(port, "/healthz", &request_headers, 8192, true) {
+    match request(port, "GET", "/healthz", &request_headers, 8192, true) {
         Ok(head) if head.starts_with("HTTP/1.1 200") || head.starts_with("HTTP/1.0 200") => {
             if proof_matches(&head, token, nonce) {
                 Health::Proven
@@ -513,7 +529,84 @@ fn healthz(port: u16, token: &str) -> Health {
     }
 }
 
+/// The key the shell presents, in the `X-Scriobh-Shell` header, with a request of its own to the server (save now,
+/// before an update): the lower-case hex of HMAC-SHA-256 under the token's characters of the fixed message
+/// `scriobh desktop shell key v1` (Go: `desktopidp.Launch.ShellOK`; the same test vector is held on both sides). A page
+/// never sees the token, so it cannot make it.
+pub fn shell_key(token: &str) -> Zeroizing<String> {
+    let mut mac = Hmac::<Sha256>::new_from_slice(token.as_bytes()).expect("HMAC takes a key of any length");
+    mac.update(b"scriobh desktop shell key v1");
+    hex(&mac.finalize().into_bytes()[..])
+}
+
+/// A request the shell makes of its own server with its key: the status and the body (at most 4 KiB).
+fn shell_call(port: u16, method: &str, path: &str, key: &str) -> std::io::Result<(u16, String)> {
+    let raw = request(port, method, path, &format!("X-Scriobh-Shell: {key}\r\n"), 4096, false)?;
+    let (head, body) = raw.split_once("\r\n\r\n").unwrap_or((raw.as_str(), ""));
+    let status = head
+        .lines()
+        .next()
+        .and_then(|l| l.split_whitespace().nth(1))
+        .and_then(|c| c.parse().ok())
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "no status line"))?;
+    Ok((status, body.to_string()))
+}
+
+/// What a round of "save now" is, as the server counts it.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct SaveRound {
+    pub n: i64,
+    /// Writing pages that were asked. Zero means nobody was asked (no writing page has a live stream), which is not
+    /// the same as everything being saved.
+    pub pages: u32,
+}
+
+/// How a round stands: pages that have not answered, pages that answered that they still hold unsaved text, and pages
+/// whose connection closed before they answered (nobody confirmed that their text was saved).
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct SaveStatus {
+    pub pending: u32,
+    pub unsaved: u32,
+    pub gone: u32,
+}
+
+fn json_u(body: &str, key: &str) -> Option<i64> {
+    serde_json::from_str::<serde_json::Value>(body).ok()?.get(key)?.as_i64()
+}
+
+/// Asks the server to have its open writing pages save now. `Err` is "could not be asked" (the server is not there, or
+/// is a server that does not know this request): the caller treats that as nobody having been asked.
+pub fn save_now(port: u16, key: &str) -> std::io::Result<SaveRound> {
+    let (status, body) = shell_call(port, "POST", "/desktop/save-now", key)?;
+    let bad = || std::io::Error::new(std::io::ErrorKind::InvalidData, "not a save-now answer");
+    if status != 200 {
+        return Err(bad());
+    }
+    Ok(SaveRound {
+        n: json_u(&body, "n").ok_or_else(bad)?,
+        pages: u32::try_from(json_u(&body, "pages").ok_or_else(bad)?).map_err(|_| bad())?,
+    })
+}
+
+/// How round `n` stands.
+pub fn save_status(port: u16, key: &str, n: i64) -> std::io::Result<SaveStatus> {
+    let (status, body) = shell_call(port, "GET", &format!("/desktop/save-status?n={n}"), key)?;
+    let bad = || std::io::Error::new(std::io::ErrorKind::InvalidData, "not a save-status answer");
+    if status != 200 {
+        return Err(bad());
+    }
+    let count = |k: &str| u32::try_from(json_u(&body, k).ok_or_else(bad)?).map_err(|_| bad());
+    // A server that does not say "gone" (an older one) has none.
+    let gone = if body.contains("\"gone\"") { count("gone")? } else { 0 };
+    Ok(SaveStatus { pending: count("pending")?, unsaved: count("unsaved")?, gone })
+}
+
 impl Running {
+    /// What the shell needs to talk to this server: its port and its key.
+    pub fn shell_access(&self) -> (u16, Zeroizing<String>) {
+        (self.port, self.shell_key.clone())
+    }
+
     /// The address the webview loads first. It carries the launch token, so it is never logged or shown. It is
     /// given only after two looks: the server has not exited (the token is not offered to a port nobody is serving
     /// from any more), and `/healthz` at the port, asked a fresh challenge now, answers with the proof that needs the
@@ -696,6 +789,66 @@ mod tests {
     }
 
     #[test]
+    fn the_shell_key_is_the_one_the_server_derives() {
+        let key = shell_key(TOKEN);
+        assert_eq!(key.as_str(), "df273ae541b1d2b556b04201920d974ac90f102420e414904784074538a002c7");
+        assert_ne!(key.as_str(), PROOF, "the key and the healthz proof are not interchangeable");
+        assert_ne!(key.as_str(), shell_key(&TOKEN.replace('5', "6")).as_str(), "another token, another key");
+    }
+
+    /// A server that answers each request with the next canned reply and keeps what it was sent.
+    fn canned(replies: Vec<&'static str>) -> (u16, mpsc::Receiver<String>) {
+        use std::net::TcpListener;
+        let l = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = l.local_addr().unwrap().port();
+        let (tx, rx) = mpsc::channel();
+        thread::spawn(move || {
+            for reply in replies {
+                let (mut s, _) = l.accept().unwrap();
+                let mut got = Vec::new();
+                let mut chunk = [0u8; 512];
+                while !got.windows(4).any(|w| w == b"\r\n\r\n") {
+                    let n = s.read(&mut chunk).unwrap();
+                    if n == 0 {
+                        break;
+                    }
+                    got.extend_from_slice(&chunk[..n]);
+                }
+                tx.send(String::from_utf8_lossy(&got).into_owned()).unwrap();
+                let _ = s.write_all(reply.as_bytes());
+            }
+        });
+        (port, rx)
+    }
+
+    #[test]
+    fn save_now_and_its_status_are_asked_with_the_key_and_read_strictly() {
+        let key = shell_key(TOKEN);
+        let ok = |body: &str| format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{body}");
+        let leaked: &'static str = Box::leak(ok("{\"n\":3,\"pages\":2}\n").into_boxed_str());
+        let status: &'static str = Box::leak(ok("{\"n\":3,\"pending\":1,\"unsaved\":0,\"gone\":2}\n").into_boxed_str());
+        let (port, seen) = canned(vec![
+            leaked,
+            status,
+            "HTTP/1.1 404 Not Found\r\n\r\nnot found",
+            "HTTP/1.1 200 OK\r\n\r\n<html>a page</html>",
+            "HTTP/1.1 409 Conflict\r\n\r\n{\"error\":\"that round is over\"}",
+        ]);
+        assert_eq!(save_now(port, &key).unwrap(), SaveRound { n: 3, pages: 2 });
+        let req = seen.recv().unwrap();
+        assert!(req.starts_with("POST /desktop/save-now HTTP/1.1\r\n"), "{req}");
+        assert!(req.contains(&format!("X-Scriobh-Shell: {}\r\n", key.as_str())), "{req}");
+        assert!(req.contains("Content-Length: 0\r\n") && req.contains(&format!("Host: 127.0.0.1:{port}\r\n")), "{req}");
+        assert_eq!(save_status(port, &key, 3).unwrap(), SaveStatus { pending: 1, unsaved: 0, gone: 2 });
+        let req = seen.recv().unwrap();
+        assert!(req.starts_with("GET /desktop/save-status?n=3 HTTP/1.1\r\n"), "{req}");
+        // A server that does not know the request (404), one that answers with something else, and a round that is over.
+        assert!(save_now(port, &key).is_err());
+        assert!(save_now(port, &key).is_err());
+        assert!(save_status(port, &key, 3).is_err());
+    }
+
+    #[test]
     fn a_look_at_the_head_stops_at_the_end_of_the_head() {
         use std::net::TcpListener;
         let l = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -716,11 +869,11 @@ mod tests {
             }
         });
         let began = Instant::now();
-        let head = request(port, "/", "", 8192, true).unwrap();
+        let head = request(port, "GET", "/", "", 8192, true).unwrap();
         assert!(head.starts_with("HTTP/1.1 200 OK\r\nX-A: b\r\n\r\n"), "{head:?}");
         assert!(began.elapsed() < Duration::from_secs(2), "it waited for a body it does not need");
         // A head split across reads is still found, and a body-reading call keeps reading until the deadline.
-        assert!(request(port, "/", "", 8192, false).is_err());
+        assert!(request(port, "GET", "/", "", 8192, false).is_err());
     }
 
     fn os(k: &str, v: &str) -> (OsString, OsString) {

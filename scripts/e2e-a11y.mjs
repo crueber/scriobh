@@ -678,6 +678,18 @@ const P = [
     await pg.getByRole("button", { name: "Preview", exact: true }).click();
     await kit.waitFor(async () => /The preview is ready/.test(await pg.locator("#cmp-status").innerText()), "the proof", 30000);
   } },
+  // the paperback cover on the Compile page: measured and drawn from a layout (KDP, with the barcode box), a wrap whose spine does not fit
+  // the page count, a layout for another page size (the refusal, as an alert), and the generated cover
+  ...[["compile-cover", () => S.slug, "print-6x9", "200", "kdp", true], ["compile-cover-stale", () => S.wslug, "print-6x9", "300", "kdp", false],
+    ["compile-cover-refused", () => S.slug, "print-5x8", "200", "kdp", false], ["compile-cover-generated", () => "harbour-notes", "print-6x9", "200", "ingram", false]].map(([id, slug, preset, pages, profile, barcode]) => (
+    { id, who: "owner", path: () => `/p/${slug()}/compile`, wait: "#cmp-preset option", titleOk: true, expect: id.endsWith("refused") ? [/status of 422/] : undefined, pre: async (pg) => {
+      await pg.selectOption("#cmp-preset", preset);
+      await pg.fill("#cv-thick", "0.0025"); await pg.fill("#cv-pages", pages); await pg.selectOption("#cv-profile", profile);
+      if (barcode) await pg.check("#cv-barcode");
+      await pg.locator("#cmp-cv-form button[type=submit]").click();
+      await kit.waitFor(async () => (await pg.locator("#cv-out").innerText()).length > 20, "the cover answer", 20000);
+      await pg.waitForFunction(() => [...document.querySelectorAll("#cv-art image")].every((i) => { const im = new Image(); im.src = i.getAttribute("href"); return im.complete; }));
+    } })),
   { id: "site", who: "owner", path: () => `/p/${S.slug}/site` },
   { id: "webhooks", who: "owner", path: () => `/p/${S.slug}/webhooks` },
   { id: "people", who: "owner", path: () => `/p/${S.slug}/people` },

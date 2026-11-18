@@ -3,11 +3,11 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/crueber/scriobh/internal/cover"
 	"github.com/crueber/scriobh/internal/domain/compile"
 	"github.com/crueber/scriobh/internal/domain/projects"
 	"github.com/crueber/scriobh/internal/ops"
@@ -49,8 +49,8 @@ var optionLayout = []struct{ group, keys string }{
 	{"output", "format crop_marks"},
 	{"page", "page_size font font_size line_spacing justify hyphenate indent_inches space_after_pt"},
 	{"margins", "margin_inches margin_top margin_bottom margin_inside margin_outside gutter_inches"},
-	{"title", "title_page title_layout byline contact word_count cover own_cover language"},
-	{"front", "copyright_page imprint toc"},
+	{"title", "title_page title_layout byline contact word_count cover own_cover back_cover language"},
+	{"front", "copyright_page imprint toc cover_page"},
 	{"header", "header header_title header_upper running_heads page_numbers"},
 	{"chapters", "chapter_heading chapter_label chapter_start chapter_drop chapter_ornament drop_cap part_pages the_end"},
 	{"scenes", "scene_break ornament scene_titles"},
@@ -62,6 +62,8 @@ var optionLayout = []struct{ group, keys string }{
 var printOnly = map[string][]string{"crop_marks": {"pdf"}}
 
 func init() {
+	printOnly["cover_page"] = []string{"pdf"}
+	printOnly["back_cover"] = []string{"epub"}
 	for _, k := range strings.Fields("margin_top margin_bottom margin_inside margin_outside gutter_inches footnotes running_heads drop_cap chapter_ornament toc hyphenate copyright_page imprint") {
 		printOnly[k] = []string{"pdf", "html-paged"}
 	}
@@ -118,15 +120,6 @@ func (s *Server) compileOptionDescs() []optionDesc {
 
 func asString(v any) string { s, _ := v.(string); return s }
 
-// coverLook is what the cover preview draws with: the project's words and colour as the cover writer reads them.
-type coverLook struct {
-	Title    string `json:"title"`
-	Subtitle string `json:"subtitle,omitempty"`
-	Author   string `json:"author,omitempty"`
-	Kind     string `json:"kind,omitempty"`
-	Color    string `json:"color"`
-}
-
 type compileData struct {
 	Project         projects.Project
 	Slug, ProjectID string
@@ -134,11 +127,27 @@ type compileData struct {
 	Dir, Lang       string
 	Presets         string // JSON: compile.preset.list
 	Options         string // JSON: the option descriptors
-	Cover           string // JSON: coverLook
 	Contact         compile.ContactOut
 	Kindle          kindleCompile // the Send to Kindle section (mailui.go)
 	Flash, Error    string
 	Pandoc          bool // the bridge is on and usable: the Pandoc formats are offered
+	Profiles        []coverProfileView
+}
+
+// coverProfileView is a printer's profile as the cover form's one line about it needs the figures: the table the PDF is drawn from.
+type coverProfileView struct {
+	Name           string
+	Margin, BW, BH string
+	From           int
+}
+
+func coverProfileViews() []coverProfileView {
+	var out []coverProfileView
+	for _, n := range []string{"kdp", "ingram", "generic"} {
+		p := publish.CoverProfiles[n]
+		out = append(out, coverProfileView{Name: n, Margin: num3(p.TextMarginIn), BW: num3(p.BarcodeWIn), BH: num3(p.BarcodeHIn), From: p.SpineTextFromPages})
+	}
+	return out
 }
 
 func (s *Server) compilePage(w http.ResponseWriter, r *http.Request) {
@@ -163,9 +172,7 @@ func (s *Server) compilePage(w http.ResponseWriter, r *http.Request) {
 	}
 	pj, _ := json.Marshal(po)
 	oj, _ := json.Marshal(s.compileOptionDescs())
-	cs := cover.Spec{Title: proj.Title, Subtitle: proj.Subtitle, Author: proj.AuthorName, Kind: proj.Kind, Color: proj.CoverColor}.Clean()
-	cj, _ := json.Marshal(coverLook{Title: cs.Title, Subtitle: cs.Subtitle, Author: cs.Author, Kind: cs.Kind, Color: cs.Color})
-	d := compileData{Project: proj, Slug: proj.Slug, ProjectID: proj.ID, CSRF: authFrom(ctx).CSRF, Dir: textDir(proj.Language), Lang: proj.Language, Presets: string(pj), Options: string(oj), Cover: string(cj), Pandoc: s.pandocUsable(ctx)}
+	d := compileData{Project: proj, Slug: proj.Slug, ProjectID: proj.ID, CSRF: authFrom(ctx).CSRF, Dir: textDir(proj.Language), Lang: proj.Language, Presets: string(pj), Options: string(oj), Pandoc: s.pandocUsable(ctx), Profiles: coverProfileViews()}
 	d.Kindle = s.kindleCompileState(r)
 	if co, err := s.Reg.Call(ctx, p, "compile.contact.get", compile.ContactIn{ProjectID: proj.ID}); err == nil {
 		d.Contact = co.(compile.ContactOut)
@@ -200,6 +207,16 @@ func (s *Server) uiCompile(w http.ResponseWriter, r *http.Request) {
 		}
 		s.flashSet(r, map[string]string{"msg": s.page(r, "", nil).T("cmp.contact_saved")})
 		http.Redirect(w, r, "/p/"+proj.Slug+"/compile#contact", http.StatusSeeOther)
+	case "cover-spec":
+		var opts publish.Options
+		if raw := r.PostFormValue("options"); raw != "" {
+			if err := json.Unmarshal([]byte(raw), &opts); err != nil {
+				s.fail(w, r, ops.Invalid("options", "The options could not be read."))
+				return
+			}
+		}
+		in, bad := coverForm(r, proj.ID, r.PostFormValue("preset"), opts)
+		s.compileCoverSpec(w, r, proj, in, strings.TrimSpace(r.PostFormValue("page_thickness_in")) != "", bad)
 	case "download", "submission", "cover":
 		var opts publish.Options
 		if raw := r.PostFormValue("options"); raw != "" {
@@ -225,7 +242,7 @@ func (s *Server) uiCompile(w http.ResponseWriter, r *http.Request) {
 			out, err = s.Reg.Call(ctx, p, "export.compile", compile.CompileIn{ProjectID: proj.ID, Preset: preset, Options: opts})
 		}
 		if err != nil {
-			s.fail(w, r, err)
+			s.fail(w, r, s.coverPrintError(r, err))
 			return
 		}
 		f := out.(compile.Out)
@@ -238,7 +255,10 @@ func (s *Server) uiCompile(w http.ResponseWriter, r *http.Request) {
 		h.Set("X-Export-Input-Hash", f.InputHash)
 		h.Set("X-Export-Format", f.Format)
 		h.Set("X-Export-Warnings", strconv.Itoa(len(f.Warnings)))
-		h.Set("Access-Control-Expose-Headers", "X-Export-Id, X-Export-Documents, X-Export-Words, X-Export-Skipped, X-Export-Sha256, X-Export-Input-Hash, X-Export-Format, X-Export-Warnings, Content-Disposition")
+		if notes := s.coverFileNotes(r, f.Warnings); len(notes) > 0 && r.PathValue("action") == "cover" {
+			h.Set("X-Export-Notes", url.PathEscape(strings.Join(notes, "\n")))
+		}
+		h.Set("Access-Control-Expose-Headers", "X-Export-Notes, X-Export-Id, X-Export-Documents, X-Export-Words, X-Export-Skipped, X-Export-Sha256, X-Export-Input-Hash, X-Export-Format, X-Export-Warnings, Content-Disposition")
 		h.Set("Cache-Control", "no-store")
 		writeDownload(w, f)
 	default:
@@ -248,7 +268,7 @@ func (s *Server) uiCompile(w http.ResponseWriter, r *http.Request) {
 
 // coverForm reads the cover's numbers from the form; the op bounds them. An empty field is "not given".
 func coverForm(r *http.Request, projectID, preset string, opts publish.Options) (compile.CoverIn, error) {
-	in := compile.CoverIn{ProjectID: projectID, Preset: preset, Options: opts, Guides: r.PostFormValue("guides") == "1", Barcode: r.PostFormValue("barcode") == "1"}
+	in := compile.CoverIn{ProjectID: projectID, Preset: preset, Options: opts, Guides: r.PostFormValue("guides") == "1", Barcode: r.PostFormValue("barcode") == "1", Profile: strings.TrimSpace(r.PostFormValue("profile")), Part: strings.TrimSpace(r.PostFormValue("part"))}
 	num := func(k string) (float64, bool, error) {
 		v := strings.TrimSpace(r.PostFormValue(k))
 		if v == "" {
@@ -256,7 +276,7 @@ func coverForm(r *http.Request, projectID, preset string, opts publish.Options) 
 		}
 		f, err := strconv.ParseFloat(v, 64)
 		if err != nil {
-			return 0, false, ops.Invalid(k, k+" is a number.")
+			return 0, false, &ops.Error{Code: ops.CodeInvalid, Field: k, Message: k + " is a number.", Data: map[string]any{"reason": "form_number"}}
 		}
 		return f, true, nil
 	}
@@ -270,7 +290,7 @@ func coverForm(r *http.Request, projectID, preset string, opts publish.Options) 
 	}
 	if set {
 		if pc != float64(int(pc)) {
-			return in, ops.Invalid("page_count", "page_count is a whole number.")
+			return in, &ops.Error{Code: ops.CodeInvalid, Field: "page_count", Message: "page_count is a whole number.", Data: map[string]any{"reason": "form_whole"}}
 		}
 		in.PageCount = int(pc)
 	}

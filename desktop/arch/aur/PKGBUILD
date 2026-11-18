@@ -24,10 +24,10 @@
 #
 # depends, and why they are what they are: see desktop/arch/PKGBUILD.
 pkgname=scriobh-desktop-bin
-pkgver=2.2.0
-_debver=2.2.0   # the release's version as the .deb's file name has it (hyphens kept); pkgver is this with - as _
+pkgver=2.3.0
+_debver=2.3.0   # the release's version as the .deb's file name has it (hyphens kept); pkgver is this with - as _
 pkgrel=1
-_tag=v2.2.0
+_tag=v2.3.0
 pkgdesc='Scriobh, a private place to write long things: the desktop app (prebuilt)'
 arch=('x86_64')
 url='https://github.com/crueber/scriobh'

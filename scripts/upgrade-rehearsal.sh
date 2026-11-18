@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Upgrade rehearsal (docs/OPERATIONS.md, "Upgrades").
 #
-#   scripts/upgrade-rehearsal.sh               from v0.1, v0.5, v1.0, v1.1, v1.2 and v2.0
+#   scripts/upgrade-rehearsal.sh               from v0.1, v0.5, v1.0, v1.1, v1.2, v2.0, v2.2.0 and v2.2.1
 #   scripts/upgrade-rehearsal.sh v0.3 v0.5     from each tag named
-#   scripts/upgrade-rehearsal.sh --all         from every release tag (v2.0 included)
+#   scripts/upgrade-rehearsal.sh --all         from every release tag (v2.2.1 included)
 #
 # For each tag: `git archive` the tag into a temporary directory (nothing in
 # this tree is touched), build its development server the way its Makefile's
@@ -52,7 +52,7 @@ export GOPROXY=off GOFLAGS=-mod=mod
 
 tags=("$@")
 if [ "${#tags[@]}" -eq 0 ]; then
-  tags=(v0.1 v0.5 v1.0 v1.1 v1.2 v2.0)
+  tags=(v0.1 v0.5 v1.0 v1.1 v1.2 v2.0 v2.2.0 v2.2.1)
 elif [ "${tags[0]}" = "--all" ]; then
   tags=()
   while IFS= read -r t; do tags+=("$t"); done < <(git tag --list 'v[0-9]*' --sort=version:refname)

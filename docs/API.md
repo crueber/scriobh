@@ -425,7 +425,7 @@ How to read it. **Request** is the method and path. **Access** is who may call t
 
 <!-- BEGIN GENERATED: op table (make skill) -->
 
-453 operations, schema `sha256:e7191bde55bb`. Generated from the op registry by `make skill`; do not edit between the markers.
+453 operations, schema `sha256:55f262ef0707`. Generated from the op registry by `make skill`; do not edit between the markers.
 
 #### `account` (3)
 
@@ -692,7 +692,7 @@ How to read it. **Request** is the method and path. **Access** is who may call t
 | Op | Request | Access | Scope | Notes | What it does |
 | --- | --- | --- | --- | --- | --- |
 | `export.compile` | `POST /api/v1/projects/{id}/export/compile` | project editor | write |  | Compile the manuscript with a preset into a DOCX (US Standard Manuscript, UK manuscript, styled), an EPUB 3 (also, in a custom preset's format… |
-| `export.cover` | `POST /api/v1/projects/{id}/export/cover` | project editor | write |  | A print cover as a PDF of two pages: the full wrap (back, spine and front with bleed; a flat colour from the project's cover colour with white type… |
+| `export.cover` | `POST /api/v1/projects/{id}/export/cover` | project editor | write |  | A print cover as a PDF. The default file is exactly one page, the full wrap with bleed, which is what KDP and IngramSpark take (part front is the… |
 | `export.html` | `POST /api/v1/projects/{id}/export/html` | project editor | write |  | Export the manuscript as HTML to read or share: one self-contained file, or a zip of pages with an index. |
 | `export.markdown` | `POST /api/v1/projects/{id}/export` | project editor | write |  | Export the manuscript as Markdown: one file, or a zip that mirrors the tree. |
 | `export.submission` | `POST /api/v1/projects/{id}/export/submission` | project editor | write |  | A submission bundle: the manuscript as a DOCX (a manuscript preset), a synopsis, a cover letter template and a manifest, in one zip. |

@@ -12,6 +12,9 @@ pub mod keychain;
 pub mod launch;
 pub mod menu;
 pub mod nav;
+pub mod update_cache;
+pub mod update_net;
+pub mod update_policy;
 
 mod app;
 mod dialogs;

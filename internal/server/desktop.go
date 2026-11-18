@@ -38,11 +38,13 @@ type desktopRT struct {
 	// issuer is nil when the instance signs in through an external provider.
 	issuer *desktopidp.Server
 	svc    *desktop.Service
+	// save is the "save now" round the shell starts before it installs an update (desktop_save.go).
+	save *saveHub
 }
 
 // initDesktop builds the desktop parts. It is called by New, before the routes, and only in desktop mode.
 func (s *Server) initDesktop(key []byte) error {
-	rt := &desktopRT{launch: desktopidp.NewLaunch(s.Cfg.LaunchToken)}
+	rt := &desktopRT{launch: desktopidp.NewLaunch(s.Cfg.LaunchToken), save: newSaveHub()}
 	rt.svc = &desktop.Service{On: true, Embedded: s.Cfg.DesktopEmbedded(), DataDir: s.Cfg.DataDir, Version: s.Cfg.Version, Box: secrets.New(key)}
 	s.Reg.Env().SetService(desktop.ServiceName, rt.svc)
 	if s.Cfg.DesktopEmbedded() {
@@ -88,6 +90,9 @@ func (s *Server) registerDesktop(m *http.ServeMux) {
 		return
 	}
 	m.HandleFunc("GET /desktop/start", s.desktopStart)
+	m.HandleFunc("POST /desktop/save-now", s.desktopSaveNow)
+	m.HandleFunc("GET /desktop/save-status", s.desktopSaveStatus)
+	m.HandleFunc("POST /desktop/saved", s.desktopSaved)
 	m.HandleFunc("GET /desktop/identity", s.desktopIdentityPage)
 	m.HandleFunc("GET /desktop/identity/verify", s.desktopIdentityVerify)
 	s.uiRoute("POST /ui/desktop/identity/{action}", s.uiDesktopIdentity)

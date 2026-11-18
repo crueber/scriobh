@@ -1,0 +1,9 @@
+{{define "compile-cover"}}<div class="cmp-cvout" data-say="{{.Say}}"{{if .Bad}} data-bad="1"{{end}}{{if .Focus}} data-focus="{{.Focus}}"{{end}}{{if .Proof}} data-proof="1"{{end}}>
+{{if .Err}}<p class="cmp-warn" role="alert">{{.Err}}</p>
+{{if .Link}}<p><a class="btn small" href="/p/{{.Slug}}/cover">{{.Pg.T "cmp.cv_change"}}</a></p>{{end}}
+{{else}}<div class="cmp-wrap" id="cv-art">{{.SVG}}</div>
+<ul class="cv-key" aria-label="{{.Pg.T "cmp.cv_key"}}">{{range .Key}}<li><svg class="cv-sw" viewBox="0 0 28 8" aria-hidden="true" focusable="false"><g class="cv-line">{{if .Box}}<rect class="{{.Class}}" x="6" y="1" width="16" height="6"/>{{else}}<path class="{{.Class}}" d="M0 4H28"/>{{end}}</g></svg>{{.Text}}</li>{{end}}</ul>
+<p class="fine">{{.Note}}</p>
+{{if .Warns}}<div id="cv-warn" role="group" aria-label="{{.Pg.T "cmp.cv_warn"}}">{{range .Warns}}<p class="cmp-warn">{{.}}</p>{{end}}</div>{{end}}
+<dl class="cmp-facts" id="cv-facts">{{range .Facts}}<div><dt>{{.K}}</dt><dd>{{.V}}</dd></div>{{end}}</dl>
+{{end}}</div>{{end}}

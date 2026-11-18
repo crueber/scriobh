@@ -14,7 +14,7 @@ A self-hosted, privacy-first long-form writing application. Go, SQLite, server-r
 4. **Markdown, database canonical.** The on-disk mirror is a generated projection. Never make the filesystem a second writer.
 5. **Git is push-only.** Never pull, ever. Force-push is an explicit UI action with a typed confirmation and a local bundle; import is the only path from a remote into Scríobh.
 6. **Desktop-ready from Phase 0.** Loopback binding with an ephemeral port, no hardcoded origin, no reverse-proxy assumption, no wrapper-only feature, no filesystem bridge into the web layer. Test it every phase.
-7. **Privacy by construction.** No telemetry, no external CDNs or fonts, no outbound request the user did not configure. AI is opt-in per project, previewed before sending, and can be forced local.
+7. **Privacy by construction.** No telemetry, no external CDNs or fonts, no outbound request the user did not configure, except the desktop app's update check, which exists only after the person says yes, and only in GitHub release builds. AI is opt-in per project, previewed before sending, and can be forced local.
 8. **The writing surface is sacred.** No generated text is inserted without an explicit accept. Nothing animates or reflows while typing. Live updates never clobber unsaved input.
 9. **No gradients.** Flat fills, hairline rules, one accent, both themes designed. Judge looks from a real browser screenshot, not from CSS.
 10. **Small, with one exception.** No npm at runtime, no client-side router, no framework. One pinned ProseMirror editor bundle is built in CI and embedded; the rest of the JS stays inside the shell budget in `docs/ARCHITECTURE.md`. Assets are self-hosted.

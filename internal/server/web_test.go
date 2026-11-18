@@ -291,6 +291,8 @@ func baseFragmentFixtures() []fragmentFixture {
 		{"git-parts", "git-setup", gitFixture("new", true)},
 		{"git-parts", "git-form", gitEmptyFixture(true)},
 		{"git-force", "git-force", gitForceFixture()},
+		{"compile-cover", "compile-cover", compileCoverFixture(false)},
+		{"compile-cover", "compile-cover", compileCoverFixture(true)},
 		{"release-live", "release-live", releaseFixture()},
 		{"admin-tabs", "admin-tabs", map[string]any{"T": Page{}, "Tab": "users"}},
 		{"icon", "icon", "library"},
@@ -734,7 +736,7 @@ var lazyJS = map[string]int{
 	"js/gate.js":           4608,      // every page of a project that has a passphrase, once it is open: the cover over the page when the project locks, the unlock from it, Lock now
 	"js/held.js":           3584,      // every page of a project that has a passphrase: a local draft for every field that is not saved yet, put back after an unlock
 	"js/jump.js":           1024,      // the writing view opened from a search by meaning: scrolls to the passage, selected, and changes nothing
-	"js/compile-print.js":  5 * 1024,  // the Compile page: the print proof drawn from the placed lines, the printer's checklist, the paperback cover
+	"js/compile-print.js":  5 * 1024,  // the Compile page: the print proof drawn from the placed lines, the printer's checklist, the paperback cover form (the server draws and words it)
 	"js/share.js":          8 * 1024,  // the page a share link opens: unlock, contents, chapters as they are reached, comments for a comment link
 	"js/suggest.js":        7 * 1024,  // suggestion mode in the reading view: the marks, the Suggestions tab, accept and reject, the plan for accept all
 	"js/aiadmin.js":        11776,     // /settings/ai and /p/{slug}/ai only: providers, policy, exclusions, budgets and usage, all through the ai.* ops

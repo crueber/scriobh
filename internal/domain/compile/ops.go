@@ -476,6 +476,8 @@ type resolved struct {
 	contact       Contact
 	b             *built
 	hash          string
+	// release gives back the decode memory a cover page's pictures were reserved (nil when none were).
+	release func()
 }
 
 // pandocHash finds the bridge for an export that needs it, and refuses (with the reason) when it is
@@ -563,6 +565,40 @@ func resolve(c *ops.Ctx, projectID, presetID string, over publish.Options, readI
 			}
 		}
 	}
+	var release func()
+	if opts.Format == "epub" && publish.Set(opts.BackCover) && publish.On(opts.OwnCover) {
+		// The back cover is a page of its own after the last, from the layout's back (or the back of a wrap). Its hash is the
+		// back's alone, so a change to the front alone is the same file when the cover page is off. With own_cover off
+		// there is no layout's picture in the file or the hash: the generated cover has no back page.
+		bh, _, err := coverlayout.BackHashOf(c, c.DB().Read(), projectID, opts.Language)
+		if err != nil {
+			return nil, err
+		}
+		if bh != "" {
+			sum := sha256.Sum256([]byte(hash + "\x00backcover\x00" + bh))
+			hash = hex.EncodeToString(sum[:])
+			if readImages && !c.DryRun() {
+				d, _, err := coverlayout.MakeFor(c, c.Env, projectID, coverlayout.NameBack, true, opts.Language)
+				switch {
+				case errors.Is(err, coverlayout.ErrNoPicture):
+				case err != nil:
+					return nil, err
+				case d != nil:
+					b.book.BackCoverImage = d.Data
+				}
+			}
+		}
+	}
+	if opts.Format == "pdf" && publish.Set(opts.CoverPage) {
+		var h string
+		if h, release, err = coverPage(c, projectID, src, opts, b, readImages && !c.DryRun()); err != nil {
+			return nil, err
+		}
+		if h != "" {
+			sum := sha256.Sum256([]byte(hash + "\x00coverpage\x00" + h))
+			hash = hex.EncodeToString(sum[:])
+		}
+	}
 	var bridge *pandoc.Service
 	if pandoc.ValidExport(opts.Format) {
 		// Pandoc's output is the same only for the same Pandoc: the version is part of what the hash stands for.
@@ -572,7 +608,7 @@ func resolve(c *ops.Ctx, projectID, presetID string, over publish.Options, readI
 		}
 	}
 	b.book.InputHash = hash // a PDF's document id comes from it
-	return &resolved{preset: preset, opts: opts, src: src, contact: co.contact(), b: b, hash: hash, pandoc: bridge}, nil
+	return &resolved{preset: preset, opts: opts, src: src, contact: co.contact(), b: b, hash: hash, pandoc: bridge, release: release}, nil
 }
 
 // ---- the export ---------------------------------------------------------------------------
@@ -693,6 +729,9 @@ func exportCompile(c *ops.Ctx, in CompileIn) (Out, error) {
 		r, err = resolve(c, in.ProjectID, in.Preset, in.Options, true)
 		if err != nil {
 			return struct{}{}, err
+		}
+		if r.release != nil {
+			defer r.release()
 		}
 		if r.b.empty {
 			return struct{}{}, ops.Invalid("", "There is nothing to compile: every document is excluded or empty. Check which documents are marked do not compile.")

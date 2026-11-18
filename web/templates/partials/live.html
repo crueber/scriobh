@@ -1,1 +1,1 @@
-{{define "live-marker"}}<span hidden data-live="{{.Scope}}:{{.ID}}" data-ext="{{asset "js/live.js"}}"></span>{{end}}
+{{define "live-marker"}}<span hidden data-live="{{.Scope}}:{{.ID}}"{{if .Flush}} data-flush="1"{{end}} data-ext="{{asset "js/live.js"}}"></span>{{end}}

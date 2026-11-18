@@ -48,6 +48,9 @@ jobs:
       - name: Workflow files are valid YAML
         run: make workflows-check
 
+      - name: The update manifest script's tests
+        run: make updater-check
+
       - name: gofmt
         run: make fmt-check
 

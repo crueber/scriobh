@@ -86,13 +86,20 @@ func (l *PDFLayout) Render() ([]byte, []Warn, error) {
 	}
 	d.ID = pdfw.DocumentID("scriobh-pdf", b.InputHash, b.Title, b.Identifier, fmt.Sprint(len(l.sheets)))
 	d.TwoPage = true
+	base := 0 // the pages before the book's own first page: the cover and the blank page behind it
+	if Set(l.o.CoverPage) && b.PrintCover != nil {
+		if err := r.coverPages(*b.PrintCover); err != nil {
+			return nil, nil, err
+		}
+		base = 2
+	}
 	for idx, sh := range l.sheets {
 		if l.ctx != nil && l.ctx.Err() != nil {
 			return nil, nil, l.ctx.Err()
 		}
 		r.sheet(idx, sh)
 	}
-	l.labelsAndOutline(r)
+	l.labelsAndOutline(r, base)
 	out, err := d.Finish()
 	if err != nil {
 		return nil, nil, err
@@ -106,15 +113,20 @@ func (l *PDFLayout) Render() ([]byte, []Warn, error) {
 	return out, r.warns, nil
 }
 
-func (l *PDFLayout) labelsAndOutline(r *renderer) {
+func (l *PDFLayout) labelsAndOutline(r *renderer, base int) {
 	d := r.d
-	if l.bodyStart > 0 && l.bodyStart < len(l.sheets) {
-		d.SetLabels([]pdfw.PageLabel{{Page: 0, Style: "r"}, {Page: l.bodyStart, Style: "D", Start: 1}})
-	} else if l.bodyStart >= len(l.sheets) {
-		d.SetLabels([]pdfw.PageLabel{{Page: 0, Style: "r"}})
-	} else {
-		d.SetLabels([]pdfw.PageLabel{{Page: 0, Style: "D", Start: 1}})
+	var labels []pdfw.PageLabel
+	if base > 0 { // the cover and the page behind it are labelled "Cover", outside the numbering
+		labels = append(labels, pdfw.PageLabel{Page: 0, Prefix: "Cover"})
 	}
+	if l.bodyStart > 0 && l.bodyStart < len(l.sheets) {
+		labels = append(labels, pdfw.PageLabel{Page: base, Style: "r"}, pdfw.PageLabel{Page: base + l.bodyStart, Style: "D", Start: 1})
+	} else if l.bodyStart >= len(l.sheets) {
+		labels = append(labels, pdfw.PageLabel{Page: base, Style: "r"})
+	} else {
+		labels = append(labels, pdfw.PageLabel{Page: base, Style: "D", Start: 1})
+	}
+	d.SetLabels(labels)
 	var items []pdfw.OutlineItem
 	hasPart := false
 	for _, s := range l.b.Sections {
@@ -135,7 +147,7 @@ func (l *PDFLayout) labelsAndOutline(r *renderer) {
 			lv = 1
 		}
 		y := r.off + l.pr.top + l.secY[i]
-		items = append(items, pdfw.OutlineItem{Title: label, Page: l.secPage[i], Level: lv, Y: y})
+		items = append(items, pdfw.OutlineItem{Title: label, Page: base + l.secPage[i], Level: lv, Y: y})
 	}
 	d.SetOutline(items)
 }
@@ -600,4 +612,58 @@ func (r *renderer) row(c *pdfw.Content, g geom, it *vitem, y mpt) {
 		rule(bottom, 250, 700)
 	}
 	c.Restore()
+}
+
+// coverPages puts the cover's front first, edge to edge on a page of the book's own size (into the bleed, with the crop
+// marks, when the book has them), and a blank page behind it. The blank page is the inside of the cover: with it the
+// title page is still a right-hand page, the margins still mirror, and a file printed on both sides still has the
+// cover's reverse blank. Neither is a page of the book: they are labelled "Cover", and the page count that sets a spine
+// does not include them.
+func (r *renderer) coverPages(cs CoverSpec) error {
+	pr := r.l.pr
+	cs.TrimW, cs.TrimH, cs.Bleed, cs.Spine, cs.FrontOnly = pr.pageW, pr.pageH, 0, 0, true
+	if pr.cropMarks {
+		cs.Bleed = pr.bleed
+	}
+	p, err := planCover(cs)
+	if err != nil {
+		return err
+	}
+	cd, err := newCoverDrawer(r.d, cs, p, r.imgs)
+	if err != nil {
+		return err
+	}
+	cd.r.mediaH = r.mediaH
+	cd.placeholder = true
+	for i := 0; i < 2; i++ {
+		pg := r.d.NewPage(r.mediaW, r.mediaH)
+		if pr.cropMarks {
+			pg.Trim = [4]int64{r.off, r.off, r.off + pr.pageW, r.off + pr.pageH}
+			pg.Bleed = [4]int64{r.off - pr.bleed, r.off - pr.bleed, r.off + pr.pageW + pr.bleed, r.off + pr.pageH + pr.bleed}
+			r.cropMarks(pg.Content)
+		}
+		if i == 0 {
+			b := cs.Bleed
+			fr := frame{trim: rect{r.off, r.off, r.off + pr.pageW, r.off + pr.pageH}, bl: b, bb: b, br: b, bt: b}
+			if p.wrap != nil {
+				// cut from a wrap, the front has the wrap's bleed on its outer edges only: none on the spine side (what lies
+				// there is the spine's art), and no more than the wrap was made with
+				wb := min(b, p.bleed)
+				fr.bl, fr.br, fr.bb, fr.bt = 0, wb, wb, wb
+				if p.rtl {
+					fr.bl, fr.br = wb, 0
+				}
+			}
+			cd.frontAlone(pg.Content, fr, b)
+		}
+	}
+	if cd.err != nil {
+		return cd.err
+	}
+	r.warns = append(r.warns, plainWarns(p.warns)...)
+	r.warns = append(r.warns, cd.ts.warnings()...)
+	if cd.skipped > 0 {
+		r.warns = append(r.warns, Warn{"image_not_embedded", "The cover page's picture was not read (a preview or a dry run), and a grey box stands in its place."})
+	}
+	return nil
 }

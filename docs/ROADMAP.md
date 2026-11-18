@@ -15,7 +15,9 @@ Phase 5  v0.5 Revision      comments, suggestions, sharing, real exports
 Phase 6  v1.0 Publish       compile presets, print, static site, MCP, hardening
 Phase 7  v1.1 Second Wave   EPUB import, external manuscripts, long tail
 Phase 7.5 v1.2 Writing Studio  goals, streaks, analytics, momentum
-Phase 8  v2.0 Desktop       Tauri shell, embedded OIDC (built, unsigned; the updater is prepared, not run)
+Phase 8  v2.0 Desktop       Tauri shell, embedded OIDC (built, unsigned; the updater ships in v2.3.0 and has not run)
+Phase 9  v2.2.0 Covers      your own cover on screens and in ebooks; the print cover ships in v2.3.0
+Phase 10 v2.3.0 Updates     desktop auto-update from GitHub, after you say yes
 ```
 
 ---
@@ -223,22 +225,36 @@ Phase 8  v2.0 Desktop       Tauri shell, embedded OIDC (built, unsigned; the upd
 - An embedded OIDC issuer on loopback with a single local profile, so desktop still signs in through the same OIDC code path.
 - Ephemeral port, single instance, graceful shutdown, data directory in the OS location, secrets in the OS keychain.
 - Native menus, open/save dialogs, reveal in folder, drag-and-drop, deep links, and file associations.
-- Signed builds and auto-update: Linux and macOS first, then Windows before v2.0 exits.
+- Signed builds and auto-update: Linux and macOS first, then Windows before v2.0 exits. Auto-update is released in v2.3.0 (phases U1 and U2 of [UPDATES.md](UPDATES.md): by consent, from GitHub, installed only on Restart to Update) and has never run against a real release; code signing (a Developer ID, a Windows certificate) is not built.
 - Fully offline operation, including a local model; native print and export dialogs.
 - A switch back to an external IdP for a shared or team install.
 
-**Status:** built and run unsigned on one Mac; the exit criteria below are **not met** (nothing is signed, notarised or released, no installer has been used on a clean machine, Windows has never run, and nothing updates in place). See [DESKTOP.md](DESKTOP.md) and the Phase 8 release notes in [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md).
+**Status:** built and run unsigned on one Mac; the exit criteria below are **not met** (nothing is signed or notarised, no installer has been used on a clean machine, Windows has never run, and nothing has ever updated in place: the updater ships in v2.3.0 and has run against no real release). See [DESKTOP.md](DESKTOP.md) and the Phase 8 release notes in [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md).
 
 **Exit criteria:** a non-technical user installs a `.dmg`, `.msi`, or AppImage on a clean machine, creates a local profile without a server or a password, writes and exports offline, and updates in place; the browser deployment passes its full test suite unchanged; the wrapper introduces no second authentication path and no privileged filesystem access from the web layer. Linux and macOS ship first; Windows is required before v2.0 is called done.
 
-## Phase 9 — v2.2.0 "Covers" (C1 built and released; C2, print, not built)
+## Phase 9 — v2.2.0 "Covers" (C1 released in v2.2.0; C2, print, released in v2.3.0; a printer's previewer is still to do)
 
 **Goal:** the writer's own cover, front and back or one wrap, wherever a cover appears. Design: [COVERS.md](COVERS.md).
 
 - C1, the front: cover layouts (sides or one wrap), cleaned uploads stored as attachments, the cover page and the tree's Cover row, and the layout's front in the library, `project.cover`, the EPUB, the HTML export, the site, the mirror and Git.
-- C2, print: `export.cover` from a layout with printer profiles, a proof page and the checks; the optional EPUB back cover and interior cover page.
+- C2, print: `export.cover` from a layout with printer profiles, a proof page and the checks; the optional EPUB back cover and interior cover page. Released in v2.3.0: the back end, and the Compile page's cover section (the profile, the drawing from the layout's pictures, every finding in words, three downloads: the file for the printer, the front alone and a proof).
 
-**Exit criteria:** as listed under "Phases" in [COVERS.md](COVERS.md), and said plainly what was not verified: no print-on-demand upload or printed proof of a produced cover.
+**Exit criteria:** as listed under "Phases" in [COVERS.md](COVERS.md), and what was not verified is stated: no print-on-demand upload or printed proof of a produced cover. v2.3.0 is released with print covers, and that is still the open item.
+
+## Phase 10 — "Updates" (U1 and U2 released in v2.3.0; the rest is later)
+
+**Goal:** the desktop app updates itself from the project's GitHub releases, when its owner has said yes to one question, and never interrupts writing. Design: [UPDATES.md](UPDATES.md).
+
+- U0, decisions: the owner's decisions and the update key (the owner makes it), the macOS keychain spike, a staging repository.
+- U1, the pipeline: the version stamped from the tag, signed update packages, `latest.json` made by our own script and published last, on a staging repository first.
+- U2, the shell: the first-run question, a daily check, a background download, Restart to Update, macOS and Windows and the AppImage in place, a notice for the `.deb`; tested from one release to the next on all three systems.
+- U3, signing: macOS Developer ID and notarisation (so the keychain item survives an update), and Windows code signing. U4, the bridge release: the first release that carries the key, installed by hand once. U5 and U6 are optional: an in-page notice, and a signed apt repository for the `.deb`.
+
+**Status:** v2.3.0 is released with print covers and desktop auto-update. The updater has run against no real release yet, and v2.3.0 is the first real run; people on v2.2.x or earlier install it by hand, once. The desktop builds are unsigned.
+
+**Exit criteria:** as listed under "Phases" in [UPDATES.md](UPDATES.md): a clean machine of each system updates from one release to the next through the real menu, the refusals refuse, and what was not seen (Windows, the macOS keychain without a Developer ID, anything on Intel) is said plainly.
+
 
 ---
 

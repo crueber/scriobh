@@ -326,7 +326,13 @@ func withProfile(jpg []byte, desc string) []byte {
 // profile is a profile's bytes: a header with its colour space at byte 16 and, if sig, "acsp" at byte 36, then the
 // description, padded to size when that is more.
 func profile(desc, space string, sig bool, size int) []byte {
+	return profileOf(desc, space, "mntr", sig, size, true)
+}
+
+// profileOf is profile with a class (bytes 12 to 15) and, when stated is false, a size field that is not the length.
+func profileOf(desc, space, class string, sig bool, size int, stated bool) []byte {
 	prof := make([]byte, 128)
+	copy(prof[12:], class)
 	copy(prof[16:], space)
 	if sig {
 		copy(prof[36:], "acsp")
@@ -335,6 +341,11 @@ func profile(desc, space string, sig bool, size int) []byte {
 	for len(prof) < size {
 		prof = append(prof, 0)
 	}
+	n := uint32(len(prof))
+	if !stated {
+		n += 7
+	}
+	binary.BigEndian.PutUint32(prof, n)
 	return prof
 }
 
@@ -406,6 +417,8 @@ func TestAProfileThatMayNotBeCarriedIsLeftOut(t *testing.T) {
 		"over 1 MB":  profile("sRGB huge", "RGB ", true, coverlayout.MaxProfileBytes+1),
 		"no acsp":    profile("Display P3", "RGB ", false, 0),
 		"a grey one": profile("Gray Gamma 2.2", "GRAY", true, 0),
+		"an abstract profile (not a colour space a picture may name)": profileOf("Abstract", "RGB ", "abst", true, 0, true),
+		"a size field that is not the length":                         profileOf("Display P3", "RGB ", "mntr", true, 0, false),
 	} {
 		base := jpegOf(600, 900, color.RGBA{R: uint8(len(name))})
 		up := e.upload("front", withICCSegments(base, prof))

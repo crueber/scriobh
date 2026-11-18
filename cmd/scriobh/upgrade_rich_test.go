@@ -910,7 +910,16 @@ func checkCoverTables(t *testing.T, tag string, rr *rich, before, after coverFac
 		t.Errorf("attachments: %d before the upgrade, %d after", len(before.Attachments), len(after.Attachments))
 	}
 	for i, a := range before.Attachments {
-		if i < len(after.Attachments) && !strings.HasPrefix(after.Attachments[i], strings.TrimSuffix(a, "|")+"|") {
+		if i >= len(after.Attachments) {
+			continue
+		}
+		// A release before 0810 has no cover_clean column, so its row ends in "|" and the upgrade adds the value.
+		// A release that already has the column (v2.2.0 and later) must keep the row exactly.
+		if strings.HasSuffix(a, "|") {
+			if !strings.HasPrefix(after.Attachments[i], a) {
+				t.Errorf("attachment %q is now %q", a, after.Attachments[i])
+			}
+		} else if after.Attachments[i] != a {
 			t.Errorf("attachment %q is now %q", a, after.Attachments[i])
 		}
 	}

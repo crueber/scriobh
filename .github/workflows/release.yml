@@ -7,11 +7,21 @@
 #   Actions -> release -> Run workflow, with `tag`   rebuilds and releases an existing tag
 #   Run workflow without `tag`        builds the files as workflow artifacts and makes no release
 #
-# THE FILES ARE NOT SIGNED. Signing is not set up: no Apple Developer ID certificate or notarisation, no Windows
-# code-signing certificate, no updater key. macOS Gatekeeper and Windows SmartScreen will warn, and
-# SHA256SUMS.txt (which comes from the same place as the files) is a checksum list, not a signature. The secrets and
-# steps that would add signing are in docs/p8-notes/release-runbook.md; when they exist, add the environment
-# variables it lists to the build step of the matching platform. Nothing here reads a secret.
+# WHAT IS SIGNED, AND WHAT IS NOT. The update packages are signed with the project's update key (the repository's
+# Actions secrets TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD; the public half is
+# desktop/updater.pub). That is a minisign signature the desktop app checks before it installs anything, and it is
+# nothing the operating system looks at: there is still no Apple Developer ID certificate or notarisation and no Windows
+# code-signing certificate, so macOS Gatekeeper and Windows SmartScreen will warn, and SHA256SUMS.txt (which comes from
+# the same place as the files) is a checksum list, not a signature. Without the secrets (a fork, a run that builds the
+# files only) the packages are built without update artefacts and the app has no update source. docs/UPDATES.md is
+# the design; the secrets and the other signing steps are in docs/p8-notes/release-runbook.md.
+#
+# THE UPDATE FILES. For a tag, every desktop leg builds with a generated configuration (`updater-manifest.py config`):
+# the tag's version, stamped into the app, and, when the key is there, the update packages and the one address the app
+# may look at, this repository's latest release's latest.json. The `release` job makes the Release a DRAFT, uploads
+# every file, writes latest.json from what the Release holds (`updater-manifest.py manifest`, refusing anything
+# it cannot vouch for), uploads it LAST, and only then publishes. A full release is the repository's latest release;
+# a prerelease (a hyphen in the tag) gets no latest.json and is never offered.
 #
 # Written from the development repository's release and desktop workflows (whose Linux job has built and packaged on
 # the forge, and whose Windows installer has been cross-built there; nothing here has run on GitHub's own macOS or
@@ -66,6 +76,9 @@ concurrency:
 
 env:
   RUST_TOOLCHAIN: "1.100.0"
+  # The first release whose app can update itself. Earlier ones cannot, so the notes of this one tell people to install
+  # it by hand, once (docs/UPDATES.md, decision 11). Set it to the tag of that release; it changes nothing else.
+  BRIDGE_TAG: "v2.3.0"
   CARGO_TERM_COLOR: never
   CARGO_INCREMENTAL: "0"
 
@@ -78,6 +91,7 @@ jobs:
     outputs:
       tag: ${{ steps.plan.outputs.tag }}
       version: ${{ steps.plan.outputs.version }}
+      app_version: ${{ steps.plan.outputs.app_version }}
       ref: ${{ steps.plan.outputs.ref }}
     steps:
       - name: Work out the tag, the version and the ref
@@ -97,11 +111,16 @@ jobs:
             esac
             case "$tag" in *[!A-Za-z0-9._+-]*) echo "release: odd characters in '$tag'" >&2; exit 1 ;; esac
             version="$tag"; ref="refs/tags/$tag"
+            # The version the app carries (stamped into it, and the one the update signature records) is the tag's, and
+            # the updater compares versions as semver: 2.3.0 or 2.3.0-rc.1, never 2.3 or 2.3.0+build.
+            app_version="${tag#v}"
+            printf '%s' "$app_version" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$' \
+              || { echo "release: '$tag' is not a semantic version tag (v2.3.0 or v2.3.0-rc.1)" >&2; exit 1; }
           else
-            version="dev-$(printf '%s' "$SHA" | cut -c1-7)"; ref="$SHA"
+            version="dev-$(printf '%s' "$SHA" | cut -c1-7)"; ref="$SHA"; app_version=""
           fi
-          { echo "tag=$tag"; echo "version=$version"; echo "ref=$ref"; } >>"$GITHUB_OUTPUT"
-          echo "tag='$tag' version='$version' ref='$ref'"
+          { echo "tag=$tag"; echo "version=$version"; echo "app_version=$app_version"; echo "ref=$ref"; } >>"$GITHUB_OUTPUT"
+          echo "tag='$tag' version='$version' app_version='$app_version' ref='$ref'"
 
   dist:
     needs: [plan]
@@ -144,26 +163,34 @@ jobs:
             triple: x86_64-unknown-linux-gnu
             bundles: deb
             target_flag: ""
+            packages: true
           - name: macos-aarch64
             os: macos-15
             triple: aarch64-apple-darwin
             bundles: app,dmg
             target_flag: --target aarch64-apple-darwin
+            packages: true
           - name: macos-x86_64
             os: macos-15
             triple: x86_64-apple-darwin
             bundles: app,dmg
             target_flag: --target x86_64-apple-darwin
+            packages: true
           - name: macos-universal
             os: macos-15
             triple: universal-apple-darwin
             bundles: app,dmg
             target_flag: --target universal-apple-darwin
+            # No update package of its own, but the update SOURCE is baked in (the key is only for packages): the universal app
+            # asks the question and updates to the package of its own architecture (docs/UPDATES.md). It is the landing
+            # page's default macOS download, so it must be able to update.
+            packages: false
           - name: windows-x86_64
             os: windows-latest
             triple: x86_64-pc-windows-msvc
             bundles: nsis
             target_flag: ""
+            packages: true
     env:
       # The tree desktop/scripts/linux-deb.sh builds (its own scripts come from `tools/`).
       SRC_DIR: ${{ github.workspace }}/src
@@ -204,6 +231,43 @@ jobs:
           rustup default "$RUST_TOOLCHAIN"
           rustc -vV
 
+      # The build configuration of a release: the tag's version, stamped into the app so that the package, the update
+      # signature and the manifest agree (docs/UPDATES.md), and, on a leg that has an update package and when the update
+      # key is there, the update source. A secret cannot be tested in an `if`, so it is tested here, in the shell. Nothing
+      # of the key is written to the configuration; only its public half (desktop/updater.pub) is.
+      - name: Build configuration (the tag's version; the update source when the key is there)
+        if: needs.plan.outputs.tag != ''
+        env:
+          TAG: ${{ needs.plan.outputs.tag }}
+          REPO: ${{ github.repository }}
+          LEG_PACKAGES: ${{ matrix.packages }}
+          # Only whether the key exists, never the key: this step does not need it.
+          UPDATE_KEY_PRESENT: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' && 'yes' || 'no' }}
+          # Empty in the project's own repository, where the public key is desktop/updater.pub. A staging repository
+          # (docs/UPDATES.md) sets this repository variable to its own test key's public half, so the tree is never edited
+          # and the production key is never in it. In the production repository the variable is REFUSED unless it is the
+          # committed key (a variable left set there would make releases that no installed app trusts).
+          STAGING_PUBKEY: ${{ vars.UPDATER_PUBKEY }}
+        run: |
+          py=python3; command -v python3 >/dev/null 2>&1 || py=python
+          conf="$RUNNER_TEMP/scriobh-build.json"
+          pub="$RUNNER_TEMP/updater.pub"
+          "$py" ../tools/desktop/scripts/updater-manifest.py pubkey --file ../tools/desktop/updater.pub --repo "$REPO" --production "crueber/scriobh" --var "$STAGING_PUBKEY" --out "$pub"
+          flags=()
+          if [ "$UPDATE_KEY_PRESENT" = yes ]; then
+            flags=(--updater --repo "$REPO" --pubkey "$pub")
+            if [ "$LEG_PACKAGES" = true ]; then
+              echo "the update key is present: this leg makes signed update packages"
+            else
+              flags+=(--no-packages)
+              echo "the update key is present: this leg has the update source and makes no update package of its own"
+            fi
+          else
+            echo "no update key: no update source and no update package"
+          fi
+          "$py" ../tools/desktop/scripts/updater-manifest.py config --tag "$TAG" --out "$conf" ${flags[@]+"${flags[@]}"}
+          echo "TAURI_BUILD_CONFIG=$conf" >>"$GITHUB_ENV"
+
       # The production server, built for the platform the app is built for, goes inside the bundle.
       - name: Server binary for the bundle
         if: runner.os != 'macOS'
@@ -215,20 +279,41 @@ jobs:
         if: runner.os != 'macOS'
         run: cd desktop && npm ci --no-audit --no-fund
 
-      - name: Build the unsigned package
+      # The configuration is the generated one only (the version, and the update source); it carries nothing that changes
+      # `webviewInstallMode`. The code is not signed (no certificate); the update packages are, when the key is there.
+      - name: Build the package
         if: runner.os != 'macOS'
-        run: cd desktop && node node_modules/@tauri-apps/cli/tauri.js build --bundles ${{ matrix.bundles }} ${{ matrix.target_flag }}
+        env:
+          # Under other names than the Tauri command line reads, so that the compile below does not see them: the key is
+          # given to the bundling command alone, and only on a tag run.
+          UPDATE_KEY: ${{ needs.plan.outputs.tag != '' && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+          UPDATE_KEY_PASSWORD: ${{ needs.plan.outputs.tag != '' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
+        run: |
+          cfg=(); key=()
+          if [ -n "${TAURI_BUILD_CONFIG:-}" ]; then
+            cfg=(--config "$TAURI_BUILD_CONFIG")
+            if grep -q '"createUpdaterArtifacts": *true' "$TAURI_BUILD_CONFIG"; then
+              [ -n "$UPDATE_KEY" ] || { echo "update packages are asked for and the key is not there" >&2; exit 1; }
+              key=("TAURI_SIGNING_PRIVATE_KEY=$UPDATE_KEY" "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$UPDATE_KEY_PASSWORD")
+            fi
+          fi
+          cd desktop
+          env -u UPDATE_KEY -u UPDATE_KEY_PASSWORD node node_modules/@tauri-apps/cli/tauri.js build --no-bundle ${{ matrix.target_flag }} ${cfg[@]+"${cfg[@]}"}
+          env -u UPDATE_KEY -u UPDATE_KEY_PASSWORD ${key[@]+"${key[@]}"} node node_modules/@tauri-apps/cli/tauri.js bundle --bundles ${{ matrix.bundles }} ${{ matrix.target_flag }} ${cfg[@]+"${cfg[@]}"}
 
       # macOS: one script does the server binary (stamped with the version), the Tauri command line, the build, the
       # ad-hoc signature (no certificate is used here), the checks (identifier, version, architectures, signature,
       # that the .dmg mounts) and writes DIST_DIR/Scriobh_<version>_<aarch64|x86_64|universal>.dmg, named for VERSION (the tag
       # without its v, so v2.0.1 gives Scriobh_2.0.1_*; the script prints a WARNING when that is not the app's own
-      # version). SRC_DIR (the job's) is the tag's tree, so the script of the commit the run is on builds it.
+      # version). SRC_DIR (the job's) is the tag's tree, so the script of the commit the run is on builds it. With
+      # TAURI_BUILD_CONFIG (the step above) it also stamps the tag's version into the app and makes the signed update package.
       - name: Build, sign ad hoc and check the macOS package
         if: runner.os == 'macOS'
         env:
           VERSION: ${{ needs.plan.outputs.version }}
           DIST_DIR: ${{ github.workspace }}/macos-dist
+          TAURI_SIGNING_PRIVATE_KEY: ${{ needs.plan.outputs.tag != '' && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ needs.plan.outputs.tag != '' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
         run: bash ../tools/desktop/scripts/build-macos.sh "${{ matrix.triple }}"
 
       # UNVERIFIED, and allowed to fail: the AppImage. The bundler's build-time downloads are pinned and checked
@@ -241,6 +326,8 @@ jobs:
         timeout-minutes: 30
         env:
           VERSION: ${{ needs.plan.outputs.version }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ needs.plan.outputs.tag != '' && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ needs.plan.outputs.tag != '' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
         run: bash ../tools/desktop/scripts/linux-deb.sh appimage
 
       # The Tauri bundler names the .deb for the app's own version (Scriobh_2.2.0_amd64.deb). The release names it for
@@ -251,6 +338,18 @@ jobs:
         env:
           VERSION: ${{ needs.plan.outputs.version }}
         run: bash ../tools/desktop/scripts/linux-deb.sh name
+
+      # The Tauri bundler makes update artefacts for the AppImage only. The .deb is signed here, with the same key and for
+      # the same version, so that the manifest can list it: the app tells a .deb install that a newer version exists and
+      # never installs one (docs/UPDATES.md). Does nothing when the configuration asks for no update artefacts. If it fails the .deb
+      # is still released, without a manifest entry (the stage step warns).
+      - name: Sign the .deb for the manifest (Linux)
+        if: runner.os == 'Linux'
+        continue-on-error: true
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ needs.plan.outputs.tag != '' && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ needs.plan.outputs.tag != '' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
+        run: bash ../tools/desktop/scripts/linux-deb.sh sign
 
       # upload-artifact roots an artifact at the common parent of everything it uploads, so packages uploaded from
       # their bundle folders would arrive in the release job nested (deb/x.deb, dmg/y.dmg) and `merge-multiple`
@@ -264,17 +363,36 @@ jobs:
           shopt -s nullglob
           b=desktop/src-tauri/target/release/bundle
           mkdir -p out
+          # Whether this leg was asked for signed update packages (the generated configuration says so). A package whose
+          # .sig is missing is still staged (the package matters more than its update), and a warning says that its
+          # platform will have no update: updater-manifest.py names only a package that has its signature.
+          wants_sig=false
+          if [ -n "${TAURI_BUILD_CONFIG:-}" ] && grep -q '"createUpdaterArtifacts": *true' "$TAURI_BUILD_CONFIG"; then wants_sig=true; fi
+          stage_sig() { # stage_sig SOURCE_PACKAGE STAGED_PACKAGE
+            if [ -f "$1.sig" ]; then cp -- "$1.sig" "$2.sig"
+            elif [ "$wants_sig" = true ]; then echo "::warning::update packages were asked for and $1.sig does not exist: this platform gets no update from this release"; fi
+          }
           case "$RUNNER_OS" in
             Linux)
               cp -- "$b"/deb/*.deb out/
-              if [ "$APPIMAGE_OUTCOME" = success ]; then cp -- "$b"/appimage/*.AppImage out/; fi ;;
+              for f in "$b"/deb/*.deb; do stage_sig "$f" "out/$(basename "$f")"; done
+              if [ "$APPIMAGE_OUTCOME" = success ]; then
+                cp -- "$b"/appimage/*.AppImage out/
+                for f in "$b"/appimage/*.AppImage; do stage_sig "$f" "out/$(basename "$f")"; done
+              fi ;;
             macOS)
-              cp -- "$DIST_DIR"/Scriobh_*.dmg out/ ;;
+              cp -- "$DIST_DIR"/Scriobh_*.dmg out/
+              # the update package (.app.tar.gz) and its signature, named by build-macos.sh for the architecture
+              if [ "$wants_sig" = true ]; then
+                for f in "$DIST_DIR"/Scriobh_*.app.tar.gz; do cp -- "$f" out/; stage_sig "$f" "out/$(basename "$f")"; done
+                [ -n "$(ls out/*.app.tar.gz 2>/dev/null)" ] || echo "::warning::update packages were asked for and there is no .app.tar.gz: this platform gets no update from this release"
+              fi ;;
             Windows)
               # the forge's name for the same file (build-windows-cross.sh): the tag, not the bundler's Scriobh_<n>_x64-setup.exe
               exes=("$b"/nsis/*-setup.exe)
               [ ${#exes[@]} -eq 1 ] || { echo "expected one NSIS installer, found ${#exes[@]}" >&2; exit 1; }
-              cp -- "${exes[0]}" "out/scriobh-desktop-$VERSION-windows-amd64-setup.exe" ;;
+              cp -- "${exes[0]}" "out/scriobh-desktop-$VERSION-windows-amd64-setup.exe"
+              stage_sig "${exes[0]}" "out/scriobh-desktop-$VERSION-windows-amd64-setup.exe" ;;
           esac
           ls -l out
           [ -n "$(ls -A out)" ] || { echo "no package was built" >&2; exit 1; }
@@ -288,6 +406,8 @@ jobs:
 
   # The only job that makes the Release. It runs when the archives were built, even if a desktop leg failed (the
   # macOS and Windows legs never ran before), and attaches what there is; a re-run replaces files of the same name.
+  # A new Release is made as a DRAFT and published last, after latest.json (which names only packages that are on it),
+  # so nothing half-made is ever reachable by the address the apps read. A Release that is already published stays so.
   release:
     if: ${{ !cancelled() && needs.plan.outputs.tag != '' && needs.dist.result == 'success' }}
     needs: [plan, dist, desktop]
@@ -332,25 +452,41 @@ jobs:
           - `scriobh-@TAG@-<os>-<arch>.tar.gz` (`.zip` on Windows): the production server `scriobh` and the agent CLI `scriobh-cli`, with LICENSE, NOTICE and README.md. Linux on amd64, arm64, arm (ARMv7), 386, riscv64 and ppc64le, macOS on Intel and Apple silicon, Windows on amd64, arm64 and 386, FreeBSD on amd64 and arm64, OpenBSD on amd64 and NetBSD on amd64. Only the macOS one for Apple silicon has been run; the rest are cross-compiled. Static programs (no CGO); the server is the `prod` build, which has no development sign-in.
           - `SHA256SUMS.txt`: the SHA-256 of every archive above. Check with `sha256sum -c SHA256SUMS.txt` (`shasum -a 256 -c` on macOS).
           - The desktop app, for the platforms whose build succeeded, with `SHA256SUMS-desktop.txt`. Read docs/DESKTOP.md before relying on it. Linux: `Scriobh_<version>_amd64.deb` (and `Scriobh_<version>_amd64.AppImage` when that build worked), where `<version>` is this release's tag without its `v`. Windows: `scriobh-desktop-@TAG@-windows-amd64-setup.exe`, an installer for 64-bit Windows 10 and 11, built on a Windows runner. macOS: `Scriobh_<version>_universal.dmg` (one app for Apple silicon and Intel, the one to pick), `Scriobh_<version>_aarch64.dmg` (Apple silicon only) and `Scriobh_<version>_x86_64.dmg` (Intel only), where `<version>` is this release's tag without its `v`.
+          - `latest.json`, the `.sig` files and `Scriobh_<version>_<arch>.app.tar.gz`: what the desktop app's updater reads. You do not need them to install.
           - The container image, built by the image workflow from the same tag push, so check the repository's Packages before relying on it: `ghcr.io/crueber/scriobh:@TAG@`.
 
-          **Nothing is signed.** There are no signatures, no notarisation and no signing certificate: the checksum lists come from the same place as the files, so they detect a damaged download and prove nothing about who made it. Check the checksum first. macOS and Windows will warn:
+          **The code is not signed.** There is no Apple Developer ID signature or notarisation and no Windows code-signing certificate: the checksum lists come from the same place as the files, so they detect a damaged download and prove nothing about who made it. Check the checksum first. macOS and Windows will warn:
 
-          - Windows (the installer): SmartScreen shows "Windows protected your PC" because the file is unsigned and has no reputation. Choose More info, then Run anyway, if you have checked the checksum. WebView2 is required and is not installed by this installer: the app's window is Microsoft's WebView2 runtime, and the installer is built not to download it, so that installing makes no network request. Windows 11 and an up-to-date Windows 10 normally have it already; if the app opens no window, install the WebView2 Runtime (Evergreen) from Microsoft and open Scríobh again. What the app shows when the runtime is missing has not been seen.
+          - Windows (the installer): SmartScreen shows "Windows protected your PC" because the file is unsigned and has no reputation. Choose More info, then Run anyway, if you have checked the checksum. Where Windows 11's Smart App Control is on, it may block an unsigned installer or app outright, with no Run anyway. WebView2 is required and is not installed by this installer: the app's window is Microsoft's WebView2 runtime, and the installer is built not to download it, so that installing makes no network request. Windows 11 and an up-to-date Windows 10 normally have it already; if the app opens no window, install the WebView2 Runtime (Evergreen) from Microsoft and open Scríobh again. What the app shows when the runtime is missing has not been seen.
           - macOS (the images): they are signed ad hoc and not notarised, so Gatekeeper will not open them at once. On macOS 15 (Sequoia) and later, open the app, then go to System Settings, Privacy and Security, scroll down, choose Open Anyway next to the message about "Scriobh", and Open again (it may ask for your password); on macOS 14 and earlier, right-click the app and choose Open, then Open in the dialog. It is asked once per downloaded copy. `xattr -dr com.apple.quarantine /Applications/Scriobh.app` does the same from a terminal; for the programs in the archives use `xattr -d com.apple.quarantine <file>`.
 
-          There is no update server: install a newer release by hand.
+          **Updates.** The desktop app can look for a newer version by itself, but only if you say yes the first time it opens (and you can change that in the Help menu). About once a day it asks github.com whether a newer release exists; it sends nothing about you or your writing. A newer version is downloaded in the background, checked against the update key built into the app (`latest.json` and the `.sig` files on this Release), and installed only when you choose Restart to Update. On macOS, after an update, macOS asks once for your login password so Scríobh can open its key again: choose Always Allow. (The app is signed ad hoc, so macOS does not know the new version is the same app.) Your writing is not touched. A `.deb` or Arch install is only told that a newer version exists; update it the way you installed it. Only full releases are offered, never a prerelease.
+
+          @BRIDGE@
 
           **Release notes** are in the section headed "release notes" at the end of docs/OPEN-QUESTIONS.md for this version: @NOTES@. They say what has not been verified.
           BODY
-          sed -i "s|@TAG@|$TAG|g; s|@NOTES@|${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/blob/$TAG/docs/OPEN-QUESTIONS.md|g" body.md
-          # An existing Release keeps its title and notes; only a missing one (and only that) is created.
+          # (portable sed and awk, no GNU extensions: scripts/release-steps-check.sh runs these steps on a Mac as well)
+          sed "s|@TAG@|$TAG|g; s|@NOTES@|${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/blob/$TAG/docs/OPEN-QUESTIONS.md|g" body.md >body.new && mv body.new body.md
+          # The one release that older apps cannot update to: they have no update key to check it with.
+          : >bridge.md
+          if [ "$TAG" = "$BRIDGE_TAG" ]; then
+            cat >bridge.md <<'BRIDGE'
+          **If you already have Scríobh 2.2.x or earlier, install this release by hand, once.** Those versions cannot update themselves, so this one is the first that can. Download the file for your system below and open it the way you installed the first time: on macOS drag Scriobh to Applications and replace the old one; on Windows run the installer (it replaces the old version); on Linux install the `.deb` with your package manager or replace the AppImage. Your writing is kept: it lives in the data folder, not in the app. From here on the app can update itself, if you say yes when it asks.
+          BRIDGE
+          fi
+          BRIDGE="$(cat bridge.md)" awk '/^@BRIDGE@$/ { if (ENVIRON["BRIDGE"] != "") print ENVIRON["BRIDGE"]; next } { print }' body.md >body.new && mv body.new body.md
+          # An existing Release keeps its title and notes; only a missing one (and only that) is created, as a DRAFT: it is
+          # published after every file and latest.json are on it. A Release that is already published stays published
+          # (a re-run replaces files and rewrites latest.json; it never makes a public Release a draft again).
           if gh release view "$TAG" >/dev/null 2>err.txt; then
             echo "the Release of $TAG exists; its title and notes are left as they are"
+            if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then echo "PUBLISH_AFTER=true" >>"$GITHUB_ENV"; fi
           elif grep -qi "not found" err.txt; then
-            flags=(--verify-tag)
+            flags=(--verify-tag --draft)
             case "$TAG" in *-*) flags+=(--prerelease) ;; esac
             gh release create "$TAG" --title "$TAG" --notes-file body.md "${flags[@]}"
+            echo "PUBLISH_AFTER=true" >>"$GITHUB_ENV"
           else
             cat err.txt >&2; exit 1
           fi
@@ -376,12 +512,55 @@ jobs:
 
       # The list is made from the desktop assets the Release holds now (everything that is not an archive of this
       # run or a checksum list), so it matches the Release even when a leg failed this time and an older package
-      # is still attached.
+      # is still attached. latest.json is left out: it is written after this list and changes on a re-run.
       - name: Checksums of the desktop packages on the Release
         run: |
           rm -rf onrelease && mkdir onrelease
           gh release download "$TAG" --dir onrelease --pattern '*' --clobber
           for f in dist/*; do rm -f "onrelease/$(basename "$f")"; done
-          rm -f onrelease/SHA256SUMS-desktop.txt
+          rm -f onrelease/SHA256SUMS-desktop.txt onrelease/latest.json
           bash tools/scripts/release-sums.sh onrelease SHA256SUMS-desktop.txt
           if [ -f onrelease/SHA256SUMS-desktop.txt ]; then gh release upload "$TAG" onrelease/SHA256SUMS-desktop.txt --clobber; fi
+
+      # latest.json, for a full release (a hyphen in the tag is a prerelease, which is never offered), written from the
+      # names on the Release and its .sig files by desktop/scripts/updater-manifest.py, which names only a package whose
+      # signature is there and made for this version, pins every address to the tag, and REFUSES anything else: then
+      # this step fails and the Release stays a draft. EVERY signature is also verified against the public key, on the bytes
+      # the Release holds (the sums step above downloaded them into onrelease/): a secret that does not belong to the key, a
+      # stale .sig left by a re-run and a package changed after signing all stop the release here. It is uploaded last.
+      # A full release with NO signed package fails too: published as the latest release without a latest.json it would
+      # leave every installed app asking for a file that is not there.
+      - name: Write latest.json, check it, and upload it last
+        env:
+          STAGING_PUBKEY: ${{ vars.UPDATER_PUBKEY }}
+        run: |
+          case "$TAG" in *-*) echo "$TAG is a prerelease: no latest.json"; exit 0 ;; esac
+          gh release view "$TAG" --json assets --jq '.assets[].name' >assets.txt
+          if ! grep -q '\.sig$' assets.txt; then
+            echo "::error::the Release of $TAG holds no signed update package, so there is nothing to put in latest.json. Not publishing it as the latest release: every installed app would then ask for a latest.json that is not there. The Release stays a draft."
+            exit 1
+          fi
+          python3 tools/desktop/scripts/updater-manifest.py pubkey --file tools/desktop/updater.pub --repo "$GITHUB_REPOSITORY" --production "crueber/scriobh" --var "$STAGING_PUBKEY" --out pub.txt
+          rm -rf sigs && mkdir sigs
+          gh release download "$TAG" --dir sigs --pattern '*.sig' --clobber
+          python3 tools/desktop/scripts/updater-manifest.py manifest --tag "$TAG" --repo "$GITHUB_REPOSITORY" --assets assets.txt --sigs sigs --verify-dir onrelease --pubkey pub.txt --out latest.json
+          python3 tools/desktop/scripts/updater-manifest.py check --tag "$TAG" --repo "$GITHUB_REPOSITORY" --assets assets.txt latest.json
+          cat latest.json
+          gh release upload "$TAG" latest.json --clobber
+
+      # Public only now. A full release is also made the repository's latest release, so the address the apps read does
+      # not depend on commit dates (a hotfix tagged on an older commit would otherwise lose to a newer release), but ONLY
+      # when it is the highest full release there is: a run for an old tag must not make an old manifest the one every app
+      # reads (they would all say "up to date"), so for that tag `--latest=false` keeps the pointer where it was.
+      - name: Publish the Release
+        if: env.PUBLISH_AFTER == 'true'
+        run: |
+          case "$TAG" in
+            *-*) gh release edit "$TAG" --draft=false --prerelease ;;
+            *)
+              others="$(gh release list --limit 200 --json tagName,isDraft,isPrerelease --jq '.[] | select(.isDraft == false and .isPrerelease == false) | .tagName')"
+              newest="$(printf '%s\n%s\n' "$others" "$TAG" | grep -E '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' | sort -V | tail -n 1)"
+              if [ "$newest" = "$TAG" ]; then latest=--latest; else latest=--latest=false; echo "$TAG is not the highest full release ($newest is): it is not made the latest release"; fi
+              gh release edit "$TAG" --draft=false "$latest" ;;
+          esac
+          gh release view "$TAG" --json isDraft,isPrerelease,url --jq '"published: draft=\(.isDraft) prerelease=\(.isPrerelease) \(.url)"'

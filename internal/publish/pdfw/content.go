@@ -71,6 +71,19 @@ func (c *Content) StrokeRect(x, y, w, h int64) {
 	c.b.WriteString("S\n")
 }
 
+// Clip intersects the clipping path with a rectangle (re W n): everything drawn
+// until the enclosing Restore is cut to it.
+func (c *Content) Clip(x, y, w, h int64) {
+	c.Rect(x, y, w, h)
+	c.b.WriteString("W n\n")
+}
+
+// Cm concatenates a matrix to the current one. The six entries are in
+// thousandths (a scale of one half is 500); the translation is in milli-points.
+func (c *Content) Cm(a, b, cc, d, e, f int64) {
+	c.op("%s %s %s %s %s %s cm", U(a), U(b), U(cc), U(d), U(e), U(f))
+}
+
 // Line strokes a line.
 func (c *Content) Line(x0, y0, x1, y1 int64) {
 	c.op("%s %s m %s %s l S", U(x0), U(y0), U(x1), U(y1))

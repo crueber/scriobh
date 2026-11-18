@@ -19,13 +19,27 @@ import (
 //
 // A profile is carried only if it is plausible and small: at most MaxProfileBytes, with the signature "acsp" at byte 36
 // of its header and the colour space "RGB " at byte 16 (a derivative is an RGB picture; a grey or CMYK profile on it
-// would be wrong). Anything else is left out, not cut down, so a front, a thumbnail and an EPUB never carry a huge one.
+// would be wrong), a usable class and the size it says it has. Anything else is left out, not cut down, so a front, a thumbnail and an EPUB never carry a huge one.
 
 // MaxProfileBytes is the largest profile a derivative carries.
 const MaxProfileBytes = 1 << 20
 
+// validProfile is the header check of a profile that may go into a cover's pictures and PDF: at least the 128-byte header, at
+// most MaxProfileBytes, the size the header states (bytes 0 to 3) equal to the length, a class (bytes 12 to 15) a PDF may use
+// for an image's colour space (mntr, a display; scnr, an input device; spac, a colour space), "RGB " as its data colour space
+// and "acsp" at byte 36. It does not parse the tags.
 func validProfile(p []byte) bool {
-	return len(p) >= 128 && len(p) <= MaxProfileBytes && string(p[36:40]) == "acsp" && string(p[16:20]) == "RGB "
+	if len(p) < 128 || len(p) > MaxProfileBytes || string(p[36:40]) != "acsp" || string(p[16:20]) != "RGB " {
+		return false
+	}
+	if int(binary.BigEndian.Uint32(p)) != len(p) {
+		return false
+	}
+	switch string(p[12:16]) {
+	case "mntr", "scnr", "spac":
+		return true
+	}
+	return false
 }
 
 // profileOf finds the ICC profile of a PNG or a JPEG that a derivative may carry (nil: none, or not one that may be

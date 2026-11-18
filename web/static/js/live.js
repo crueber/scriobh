@@ -10,6 +10,9 @@
   var doc = document, win = window, mark = doc.querySelector("[data-live]");
   if (!mark || !win.fetch || !win.TextDecoder || !win.AbortController) return;
   var p = mark.dataset.live.split(":"), url = "/api/v1/events?" + (p[0] === "compendium" ? "compendium=" : "project=") + encodeURIComponent(p[1]);
+  // The writing view's marker says so (data-flush): in the desktop app that stream is also told when the app is about to restart for
+  // an update, and js/doc.js saves (a plain server ignores the parameter).
+  if (mark.dataset.flush === "1") url += "&flush=1";
   var last = "", ac = null, wait = 3000, timer = 0, gone = false, since = 0;
   function emit(type, data) {
     var d = {};

@@ -63,3 +63,22 @@ func (im *Image) write(d *Doc) {
 		d.PutRawStream(im.obj, dict, im.data)
 	}
 }
+
+// NewICC adds an ICC profile to the document as the colour space of the images
+// that name it, and returns the colour space ("[/ICCBased n 0 R]") to put in an
+// ImageSpec. The same profile is written once. The caller has checked that it is
+// a profile of RGB data.
+func (d *Doc) NewICC(profile []byte) string {
+	key := string(profile)
+	if cs, ok := d.icc[key]; ok {
+		return cs
+	}
+	n := d.Alloc()
+	d.PutStream(n, "/N 3 /Alternate /DeviceRGB", profile, true)
+	cs := fmt.Sprintf("[/ICCBased %d 0 R]", n)
+	if d.icc == nil {
+		d.icc = map[string]string{}
+	}
+	d.icc[key] = cs
+	return cs
+}

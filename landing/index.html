@@ -242,8 +242,8 @@
     <h2 id="get-title">Get the app</h2>
     <div class="two">
       <div>
-        <p>The desktop app runs on your computer and needs nothing set up. Open it, make a local profile (a name, no password) and start writing. Your writing lives in your system&rsquo;s app data folder, and Help, Show the Data Folder opens it. It never checks for updates, so come back here for new versions.</p>
-        <p>It isn&rsquo;t signed yet. macOS will make you allow it the first time (System Settings, Privacy &amp; Security, Open Anyway), and Windows SmartScreen will warn you (More info, Run anyway). The Status section below says how little it has been tested.</p>
+        <p>The desktop app runs on your computer and needs nothing set up. Open it, make a local profile (a name, no password) and start writing. Your writing lives in your system&rsquo;s app data folder, and Help, Show the Data Folder opens it. The first time it opens it asks whether it may check GitHub for a newer version. Say yes and it looks about once a day and installs a new one only when you choose Restart. Say no and it never checks, so come back here for new versions.</p>
+        <p>It isn&rsquo;t signed yet. macOS will make you allow it the first time (System Settings, Privacy &amp; Security, Open Anyway), and after an update it asks once for your password so the app can open its key (choose Always Allow). Windows SmartScreen will warn you (More info, Run anyway), and Smart App Control, if it&rsquo;s on, may block it altogether. The Status section below says how little it has been tested.</p>
       </div>
       <div class="download">
         <div id="dl-primary" hidden>
@@ -296,7 +296,7 @@
         <p>Releases are tagged as the work lands. A tag says what was built. It doesn&rsquo;t say the roadmap&rsquo;s exit criteria are met. This is what hasn&rsquo;t been checked.</p>
       </div>
       <ul class="plain">
-        <li>The desktop app has been run, unsigned, on one Mac and nowhere else by a person. Nobody has installed it on a clean machine, fetched an update or seen it on Windows. An automated test installs the Linux build and checks that its server answers, but nobody has looked at the window.</li>
+        <li>The desktop app has been run, unsigned, on one Mac and nowhere else by a person. Nobody has installed it on a clean machine, updated it from a real release or seen it on Windows. An automated test installs the Linux build and checks that its server answers, but nobody has looked at the window.</li>
         <li>No screen reader, real phone or browser other than Chromium has been used on the newer screens.</li>
         <li>No real printer, copy of Word or AI service has been used. Stand-ins on a local machine were.</li>
         <li>The checks that need other people haven&rsquo;t happened: two people installing from the guide on their own, a printed proof, and a restore on a clean machine by someone other than the author.</li>

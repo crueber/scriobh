@@ -222,3 +222,37 @@ fn the_shell_environment_names_are_the_ones_the_real_server_accepts() {
     let mut s = launch::spawn(cfg).expect("variables from a login profile must not reach the server");
     s.shutdown(Duration::from_secs(15));
 }
+
+/// "Save now", before an update: the key the shell derives from its launch token is the one the real server derives,
+/// so the shell can ask, and a request without it, or with the healthz proof's key, is turned away as an unknown address.
+#[test]
+fn real_server_answers_save_now_to_the_shells_key_and_to_nothing_else() {
+    let Some(bin) = real() else { return };
+    let dir = data("savenow");
+    let (cfg, token) = config(&bin, &dir);
+    let mut server = launch::spawn(cfg).expect("the real server starts");
+    let (port, key) = server.shell_access();
+    assert_eq!(key.as_str(), launch::shell_key(&token).as_str());
+
+    // No writing page has a live stream: nobody was asked, which is what the shell is told.
+    let round = launch::save_now(port, &key).expect("the shell's key is accepted");
+    assert_eq!(round.pages, 0, "{round:?}");
+    assert_eq!(
+        launch::save_status(port, &key, round.n).unwrap(),
+        launch::SaveStatus { pending: 0, unsaved: 0, gone: 0 }
+    );
+    // A second round is the next number; asking for a round that is over is refused.
+    let next = launch::save_now(port, &key).unwrap();
+    assert_eq!(next.n, round.n + 1);
+    assert!(launch::save_status(port, &key, round.n).is_err(), "an old round is over");
+
+    // Another key, the token itself, and no key at all get the page an unknown address gets.
+    for wrong in
+        [&token.as_str(), &"0".repeat(64).as_str(), &launch::expected_proof(&token, &"ab".repeat(32)).as_str(), &""]
+    {
+        assert!(launch::save_now(port, wrong).is_err(), "save-now accepted {wrong:?}");
+    }
+    let bare = launch::loopback_get(port, "/desktop/save-status?n=1", "", 512).unwrap();
+    assert_eq!(status_of(&bare), "404", "{bare}");
+    server.shutdown(Duration::from_secs(15));
+}

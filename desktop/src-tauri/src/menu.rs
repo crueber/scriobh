@@ -1,8 +1,13 @@
 //! The native menus. Every item that opens something opens an ordinary page of the app in the same webview;
 //! nothing here does what the web app cannot do in a browser.
 
-use tauri::menu::{AboutMetadataBuilder, Menu, MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
-use tauri::AppHandle;
+use std::sync::OnceLock;
+
+use tauri::menu::{
+    AboutMetadataBuilder, CheckMenuItem, CheckMenuItemBuilder, Menu, MenuBuilder, MenuItem, MenuItemBuilder,
+    PredefinedMenuItem, SubmenuBuilder,
+};
+use tauri::{AppHandle, Wry};
 
 pub const IMPORT: &str = "file.import";
 pub const EXPORT: &str = "file.export";
@@ -18,6 +23,40 @@ pub const FULLSCREEN: &str = "view.fullscreen";
 pub const DOCS: &str = "help.docs";
 pub const DATA_FOLDER: &str = "help.data_folder";
 pub const UPDATES: &str = "help.updates";
+/// The same two items in the macOS application menu, where the notice is also seen (docs/UPDATES.md, decision 8).
+pub const UPDATES_APP: &str = "app.updates";
+pub const AUTO_UPDATES: &str = "help.auto_updates";
+pub const AUTO_UPDATES_APP: &str = "app.auto_updates";
+
+/// The menu items the update feature changes while the app runs: the one that checks, and says Restart to Update when
+/// one is ready, and the switch for checking by itself. On macOS each is there twice (the application menu and Help).
+pub struct UpdateItems {
+    updates: Vec<MenuItem<Wry>>,
+    automatic: Vec<CheckMenuItem<Wry>>,
+}
+
+static UPDATE_ITEMS: OnceLock<UpdateItems> = OnceLock::new();
+
+/// Sets the text of the update item, and whether it can be chosen.
+pub fn set_update_item(text: &str, enabled: bool) {
+    if let Some(items) = UPDATE_ITEMS.get() {
+        for item in &items.updates {
+            let _ = item.set_text(text);
+            let _ = item.set_enabled(enabled);
+        }
+    }
+}
+
+/// Sets the switch for checking by itself: whether it is on, and whether it can be used at all (a build with no update
+/// source cannot check, so its switch is there and off).
+pub fn set_automatic_item(checked: bool, enabled: bool) {
+    if let Some(items) = UPDATE_ITEMS.get() {
+        for item in &items.automatic {
+            let _ = item.set_checked(checked);
+            let _ = item.set_enabled(enabled);
+        }
+    }
+}
 
 /// The accelerators the shell claims, for the collision test and the notes. `CmdOrCtrl` is Command on macOS and
 /// Control elsewhere. The Edit menu's are the platform's own (undo, redo, cut, copy, paste, select all).
@@ -84,6 +123,13 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         ),
     )?;
     let updates = item(UPDATES, "Check for Updates…").build(app)?;
+    let automatic =
+        CheckMenuItemBuilder::with_id(AUTO_UPDATES, "Check for Updates Automatically").checked(false).build(app)?;
+    #[cfg(target_os = "macos")]
+    let updates_app = item(UPDATES_APP, "Check for Updates…").build(app)?;
+    #[cfg(target_os = "macos")]
+    let automatic_app =
+        CheckMenuItemBuilder::with_id(AUTO_UPDATES_APP, "Check for Updates Automatically").checked(false).build(app)?;
     let data_folder = item(DATA_FOLDER, "Show the Data Folder").build(app)?;
 
     let mut menu = MenuBuilder::new(app);
@@ -93,7 +139,8 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     {
         let app_menu = SubmenuBuilder::new(app, crate::dialogs::APP_NAME)
             .item(&about)
-            .item(&updates)
+            .item(&updates_app)
+            .item(&automatic_app)
             .separator()
             .item(&settings)
             .separator()
@@ -144,11 +191,23 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     let window = SubmenuBuilder::new(app, "Window").minimize().maximize().build()?;
     menu = menu.item(&window);
 
-    let mut help = SubmenuBuilder::new(app, "Help").item(&item(DOCS, "Documentation").build(app)?).item(&data_folder);
+    // The pair is in Help on every system, so the switch is always where the person looks for it.
+    let mut help = SubmenuBuilder::new(app, "Help")
+        .item(&item(DOCS, "Documentation").build(app)?)
+        .item(&data_folder)
+        .separator()
+        .item(&updates)
+        .item(&automatic);
     if cfg!(not(target_os = "macos")) {
-        help = help.separator().item(&updates).item(&about);
+        help = help.separator().item(&about);
     }
     menu = menu.item(&help.build()?);
+
+    #[cfg(target_os = "macos")]
+    let (all_updates, all_automatic) = (vec![updates, updates_app], vec![automatic, automatic_app]);
+    #[cfg(not(target_os = "macos"))]
+    let (all_updates, all_automatic) = (vec![updates], vec![automatic]);
+    let _ = UPDATE_ITEMS.set(UpdateItems { updates: all_updates, automatic: all_automatic });
 
     menu.build()
 }

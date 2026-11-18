@@ -13,6 +13,7 @@ import (
 	"github.com/crueber/scriobh/internal/domain/attachments"
 	"github.com/crueber/scriobh/internal/imagesafe"
 	"github.com/crueber/scriobh/internal/ops"
+	"github.com/crueber/scriobh/internal/publish"
 )
 
 // ProjectIn names the project.
@@ -608,16 +609,24 @@ type Profile struct {
 	TextMarginIn       float64 `json:"text_margin_in" desc:"Text and important art stay this far inside the trim."`
 	BarcodeWidthIn     float64 `json:"barcode_width_in"`
 	BarcodeHeightIn    float64 `json:"barcode_height_in"`
+	BarcodeInsetIn     float64 `json:"barcode_inset_in" desc:"How far the barcode box's lower right corner is from the trim of the back, on both sides."`
 	SpineTextFromPages int     `json:"spine_text_from_pages" desc:"A book of fewer pages has no spine text."`
 	SpineTextEdgeIn    float64 `json:"spine_text_edge_in" desc:"Spine text stays this far from the spine's edges."`
+	// SpineTextEdgeNarrowIn replaces it for a spine narrower than SpineNarrowUnderIn (0: no such rule).
+	SpineTextEdgeNarrowIn float64 `json:"spine_text_edge_narrow_in,omitempty" desc:"The edge distance used instead for a spine narrower than spine_narrow_under_in."`
+	SpineNarrowUnderIn    float64 `json:"spine_narrow_under_in,omitempty"`
 }
 
-// Profiles are the named profiles.
-var Profiles = map[string]Profile{
-	"kdp":     {"kdp", 0.125, 2, 1.2, 79, 0.0625},
-	"ingram":  {"ingram", 0.25, 1.75, 1, 48, 0.0625},
-	"generic": {"generic", 0.25, 2, 1.2, 48, 0.0625},
-}
+// Profiles are the named profiles: the figures are publish.CoverProfiles', which the print cover is drawn from, so the
+// check and the file cannot differ.
+var Profiles = func() map[string]Profile {
+	m := map[string]Profile{}
+	for name, p := range publish.CoverProfiles {
+		m[name] = Profile{Name: name, TextMarginIn: p.TextMarginIn, BarcodeWidthIn: p.BarcodeWIn, BarcodeHeightIn: p.BarcodeHIn, BarcodeInsetIn: p.BarcodeInsetIn,
+			SpineTextFromPages: p.SpineTextFromPages, SpineTextEdgeIn: p.SpineEdgeIn, SpineTextEdgeNarrowIn: p.SpineEdgeNarrowIn, SpineNarrowUnderIn: p.SpineNarrowUnderIn}
+	}
+	return m
+}()
 
 // CheckIn asks for the layout to be checked against a print trim and profile.
 type CheckIn struct {
@@ -627,6 +636,7 @@ type CheckIn struct {
 	PageCount       int      `json:"page_count,omitempty" desc:"With page_thickness_in, the spine to compare a wrap's measured spine with (pages times thickness)."`
 	PageThicknessIn float64  `json:"page_thickness_in,omitempty" desc:"The paper's thickness per page in inches, from the printer's guide."`
 	BleedIn         *float64 `json:"bleed_in,omitempty" desc:"The print cover's bleed, 0 to 0.5 inches. Default 0.125 (a wrap's own bleed when it has one)."`
+	Barcode         bool     `json:"barcode,omitempty" desc:"As in export.cover: the barcode box is drawn. When it is off, a wrap or a back picture gets the note to leave the box's place clear."`
 }
 
 // ProjectRef names the project.
@@ -642,7 +652,15 @@ type CheckOut struct {
 	Measured        *Measured     `json:"measured,omitempty"`
 	SpineComputedIn float64       `json:"spine_computed_in,omitempty" desc:"Pages times the paper's thickness, when both were given."`
 	Warnings        []Warning     `json:"warnings"`
-	NotChecked      []string      `json:"not_checked" desc:"What the profile asks for that this version does not check yet: the print cover's text margin and barcode box (the print cover phase)."`
+	NotChecked      []string      `json:"not_checked" desc:"What this check cannot say from what it was given: spine_text (give page_count and page_thickness_in), colour_profile (it reads no picture: export.cover says when a picture's profile is not sRGB)."`
+}
+
+func inchesMpt(v float64) int64 { return int64(math.Round(v * 72000)) }
+
+// publishProfile is a profile as the PDF writer has it.
+func publishProfile(p Profile) publish.CoverProfile {
+	return publish.CoverProfile{Name: p.Name, TextMarginIn: p.TextMarginIn, BarcodeWIn: p.BarcodeWidthIn, BarcodeHIn: p.BarcodeHeightIn, BarcodeInsetIn: p.BarcodeInsetIn,
+		SpineTextFromPages: p.SpineTextFromPages, SpineEdgeIn: p.SpineTextEdgeIn, SpineEdgeNarrowIn: p.SpineTextEdgeNarrowIn, SpineNarrowUnderIn: p.SpineNarrowUnderIn}
 }
 
 func check(c *ops.Ctx, in CheckIn) (CheckOut, error) {
@@ -655,7 +673,7 @@ func check(c *ops.Ctx, in CheckIn) (CheckOut, error) {
 		}
 		prof = p
 	}
-	out := CheckOut{Profile: prof, Pictures: []PictureInfo{}, Warnings: []Warning{}, NotChecked: []string{"text_margin", "barcode_box", "spine_text"}}
+	out := CheckOut{Profile: prof, Pictures: []PictureInfo{}, Warnings: []Warning{}, NotChecked: []string{"colour_profile"}}
 	l, err := Load(c, q, in.ID)
 	if err != nil {
 		return out, err
@@ -701,17 +719,56 @@ func check(c *ops.Ctx, in CheckIn) (CheckOut, error) {
 	if out.Pictures == nil {
 		out.Pictures = []PictureInfo{}
 	}
-	out.Warnings = append(out.Warnings, an.Warnings...)
+	// What the print cover says is the plan's, the one the PDF is drawn from, at the size the pictures print: its
+	// resolution findings replace the screen-size ones, so a picture is reported once.
+	for _, w := range an.Warnings {
+		if w.Code != "cover_low_resolution" {
+			out.Warnings = append(out.Warnings, w)
+		}
+	}
+	spineKnown := false
 	if in.PageCount != 0 || in.PageThicknessIn != 0 {
 		if in.PageCount < 2 || in.PageCount > 1500 || math.IsNaN(in.PageThicknessIn) || in.PageThicknessIn < 0.0005 || in.PageThicknessIn > 0.01 {
 			return out, ops.Invalid("page_count", "Give both page_count (2 to 1,500) and page_thickness_in (0.0005 to 0.01 inches) to compare the spine.")
 		}
 		out.SpineComputedIn = round3(float64(in.PageCount) * in.PageThicknessIn)
-		if out.Measured != nil && math.Abs(out.Measured.SpineIn-out.SpineComputedIn) > 1.0/32 {
-			out.Warnings = append(out.Warnings, Warning{Code: "cover_wrap_stale", Part: "wrap",
-				Message: fmt.Sprintf("The wrap's spine measures %.3f in, but %d pages of this paper make %.3f in. The picture is placed as it is, never stretched: get a new wrap from your designer or the printer's template.",
-					out.Measured.SpineIn, in.PageCount, out.SpineComputedIn)})
+		spineKnown = true
+	}
+	art, err := PrintArt(l, pics.look, pr.rtl())
+	if err != nil {
+		var r *Refusal
+		if asRefusal(err, &r) && l.Shape == ShapeWrap {
+			return out, nil // the wrap's own finding is already among the warnings
 		}
+		return out, refuse(err)
+	}
+	trim, _ := LookupTrim(l.Trim)
+	cs := publish.CoverSpec{TrimW: inchesMpt(trim.W), TrimH: inchesMpt(trim.H), Bleed: inchesMpt(bleed), Profile: publishProfile(prof), ProfileGiven: true, Barcode: in.Barcode, Pages: in.PageCount}
+	if spineKnown {
+		cs.Spine = inchesMpt(out.SpineComputedIn)
+	}
+	art.ApplyTo(&cs)
+	rep, err := publish.PlanCover(cs)
+	if err != nil {
+		code := "cover_plan"
+		if errors.Is(err, publish.ErrCoverRTL) {
+			code = "cover_rtl_text"
+		}
+		out.Warnings = append(out.Warnings, Warning{Code: code, Message: err.Error()})
+		return out, nil
+	}
+	for _, w := range rep.Warnings {
+		out.Warnings = append(out.Warnings, Warning{Code: w.Code, Message: w.Message, Part: w.Part})
+	}
+	for _, pc := range rep.Pictures {
+		for i := range out.Pictures {
+			if out.Pictures[i].Part == pc.Part {
+				out.Pictures[i].DPI = round2(pc.DPI)
+			}
+		}
+	}
+	if l.Shape == ShapeSides && !spineKnown {
+		out.NotChecked = append(out.NotChecked, "spine_text")
 	}
 	return out, nil
 }

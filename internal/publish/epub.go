@@ -91,6 +91,11 @@ func (w *epubWriter) imageSrc(key string) (string, bool) {
 	return "../" + href, true
 }
 
+// hasBackCover says whether the book has a back cover page: the option is on and there is a picture for it.
+func (w *epubWriter) hasBackCover() bool {
+	return Set(w.o.BackCover) && len(w.b.BackCoverImage) > 0
+}
+
 // hasCover says whether the book has a cover page and a cover-image item: the option is on and there is a cover to put in.
 func (w *epubWriter) hasCover() bool {
 	return On(w.o.Cover) && (len(w.b.CoverImage) > 0 || len(w.b.CoverSVG) > 0)
@@ -134,6 +139,17 @@ func (w *epubWriter) build() ([]byte, error) {
 	}
 	for i, s := range b.Sections {
 		w.section(i, s)
+	}
+	if w.hasBackCover() {
+		// The project's own back cover, on a page of its own after the last: out of the reading order (linear="no"), so a
+		// reading system that pages through the book never turns to it, and one that follows the guide's link can.
+		alt := "Back cover of " + title
+		if a := CleanLine(b.BackCoverAlt); a != "" {
+			alt = a
+		}
+		w.items = append(w.items, epubItem{id: "back-cover", href: "text/back-cover.xhtml", mediaType: "application/xhtml+xml", inSpine: true, linear: false,
+			data: w.xhtml(title, "", `<section class="cover backcover"><img src="../images/back-cover.jpg" alt="`+xmlEscape(alt)+`"/></section>`+"\n")})
+		w.media = append(w.media, epubItem{id: "back-cover-image", href: "images/back-cover.jpg", mediaType: "image/jpeg", data: b.BackCoverImage})
 	}
 
 	css := w.css()
@@ -263,7 +279,11 @@ func (w *epubWriter) navXHTML(title string) []byte {
 		if w.hasCover() {
 			s.WriteString(`<li><a epub:type="cover" href="text/cover.xhtml">Cover</a></li>` + "\n")
 		}
-		s.WriteString(`<li><a epub:type="bodymatter" href="` + w.nav[0].href + `">Start of the text</a></li>` + "\n</ol>\n</nav>\n")
+		s.WriteString(`<li><a epub:type="bodymatter" href="` + w.nav[0].href + `">Start of the text</a></li>` + "\n")
+		if w.hasBackCover() { // content outside the reading order must be reachable from the navigation document
+			s.WriteString(`<li><a epub:type="backmatter" href="text/back-cover.xhtml">Back cover</a></li>` + "\n")
+		}
+		s.WriteString("</ol>\n</nav>\n")
 	}
 	data := w.xhtmlNav(title, s.String())
 	return data
@@ -387,7 +407,11 @@ func (w *epubWriter) opf(title string, manifest []epubItem) string {
 	s.WriteString(">\n")
 	for _, it := range manifest {
 		if it.inSpine {
-			s.WriteString(`<itemref idref="` + xmlEscape(it.id) + `"/>` + "\n")
+			lin := ""
+			if !it.linear {
+				lin = ` linear="no"`
+			}
+			s.WriteString(`<itemref idref="` + xmlEscape(it.id) + `"` + lin + `/>` + "\n")
 		}
 	}
 	s.WriteString("</spine>\n</package>\n")

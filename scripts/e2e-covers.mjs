@@ -6,7 +6,9 @@
 //
 //   node scripts/e2e-covers.mjs [--only substring]
 import { createKit, eq, ok, armAnswer } from "./e2e-kit.mjs";
-import { picture, wrap, SVG } from "./covers-pictures.mjs";
+import { picture, wrap, SVG, wrapPng, harbourPng } from "./covers-pictures.mjs";
+import { mkdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
 const kit = await createKit("e2e-covers");
 kit.only = process.argv.includes("--only") ? process.argv[process.argv.indexOf("--only") + 1] : "";
@@ -417,6 +419,208 @@ await kit.test("a reload with the network cut: the cover page is not kept, the o
     await sw.setOffline(false);
   }
   await sw.close();
+});
+
+const text0 = (sel) => pg.locator(sel).first().innerText();
+
+// ---- the Compile page's paperback cover (phase C2): measured and drawn from the layout --------------------------------------
+// --shots DIR writes the screenshots docs/screens/covers-c2 keeps.
+const shots = process.argv.includes("--shots") ? process.argv[process.argv.indexOf("--shots") + 1] : "";
+if (shots) mkdirSync(shots, { recursive: true });
+let pb, wrapAtt;
+const cmpUrl = () => `${base()}/p/${pb.slug}/compile`;
+const say = (p = pg) => p.locator("#cmp-status").innerText();
+const measured = (p = pg) => waitFor(async () => /The cover is measured|spine is/.test(await say(p)) && (await p.locator("#cv-art svg").count()) === 1, "the cover measured", 30000);
+const pdfFacts = (buf) => { const t = buf.toString("latin1"); return { pages: (t.match(/\/Type \/Page(?![s\w])/g) || []).length, trim: (t.match(/\/TrimBox/g) || []).length, head: t.slice(0, 5) }; };
+async function download(p, button) {
+  const [dl] = await Promise.all([p.waitForEvent("download"), p.locator(button).click()]);
+  const f = join(kit.tmp, dl.suggestedFilename());
+  await dl.saveAs(f);
+  return { name: dl.suggestedFilename(), ...pdfFacts(readFileSync(f)) };
+}
+async function openCompile(p = pg, preset = "print-6x9") {
+  await p.goto(cmpUrl(), { waitUntil: "load" });
+  await p.waitForSelector("#cmp-preset option", { state: "attached" });
+  await p.selectOption("#cmp-preset", preset);
+  await p.waitForSelector("#cmp-cover:not([hidden])");
+}
+async function fillCover(p = pg, { pages = "200", profile = "generic" } = {}) {
+  await p.fill("#cv-thick", "0.0025");
+  await p.fill("#cv-pages", pages);
+  await p.selectOption("#cv-profile", profile);
+}
+
+await kit.test("the Compile page's cover: KDP chosen, the layout's wrap drawn with the folds, the margin and the barcode box", async () => {
+  const made = await api(main, "POST", "/api/v1/projects", { title: "Print Book", kind: "novel", author_name: "Máire Nolan", cover_color: "#3B5B7A" });
+  pb = made.json.item;
+  const w = wrapPng();
+  const upl = await main.request.fetch(`${base()}/api/v1/projects/${pb.id}/cover-layout/images?part=wrap&trim=6x9&bleed_in=0.125`, { method: "POST", data: w.buffer, headers: { "Content-Type": "image/png" } });
+  wrapAtt = (await upl.json()).attachment_id;
+  const set = await api(main, "PUT", `/api/v1/projects/${pb.id}/cover-layout`, { revision: 0, shape: "wrap", trim: "6x9", alt: "A wrap in dusk colours", wrap: { attachment: wrapAtt, bleed_in: 0.125 } });
+  ok(set.status < 300, "the wrap layout is saved: " + set.status);
+  await openCompile();
+  ok(await pg.locator("#cmp-coverpage").isHidden(), "the ebook's cover section gives way to the paperback's: one link to the Cover page, not two");
+  ok((await pg.locator("#cmp-cover a[href$='/cover']").count()) === 1, "the link to change the cover");
+  ok(/three|proof/i.test(await text0("#cmp-cover > p.fine")), "the note says what the files are: " + (await text0("#cmp-cover > p.fine")).slice(0, 80));
+  // the profile's one line follows the choice
+  await pg.selectOption("#cv-profile", "kdp");
+  ok(await pg.locator("#cv-profile-h [data-pf=kdp]").isVisible() && !(await pg.locator("#cv-profile-h [data-pf=ingram]").isVisible()), "only the chosen profile's line shows");
+  ok(/0\.125 in inside the trim/.test(await pg.locator("#cv-profile-h").innerText()), "the line gives KDP's margin: " + (await pg.locator("#cv-profile-h").innerText()));
+  await fillCover(pg, { profile: "kdp" });
+  await pg.locator("#cmp-cv-form button[type=submit]").click();
+  await measured();
+  const art = await pg.evaluate(() => {
+    const svg = document.querySelector("#cv-art svg"), vb = svg.getAttribute("viewBox").split(" ").map(Number);
+    const g = (c) => [...svg.querySelectorAll(`.cv-line .${c}`)];
+    const im = svg.querySelector("image");
+    return { vb, href: im && im.getAttribute("href"), fold: (g("cv-g-fold")[0] || { getAttribute: () => "" }).getAttribute("d"), margin: g("cv-g-margin").map((r) => [r.getAttribute("x"), r.getAttribute("y"), r.getAttribute("width"), r.getAttribute("height")]), cut: g("cv-g-cut").map((r) => r.getAttribute("x") + "," + r.getAttribute("width")), bar: g("cv-g-bar").length, book: g("cv-g-book").length };
+  });
+  const near = (a, b, m) => ok(Math.abs(a - b) < 0.6, `${m}: ${a} is not ${b}`);
+  near(art.vb[2], 918, "the drawing is the wrap's size in points (12.75 in)"); near(art.vb[3], 666, "and 9.25 in high");
+  eq(art.href, `/files/${wrapAtt}`, "it draws the layout's own picture");
+  const fold = art.fold.match(/[\d.]+/g).map(Number);
+  near(fold[0], 441, "the spine's first fold"); near(fold[3], 477, "the spine's second fold: 0.5 in apart, 200 pages of 0.0025 in paper");
+  eq(art.margin.length, 2, "a text margin on the back and on the front");
+  near(+art.margin[0][0], 18, "KDP's 0.125 in margin, after the 0.125 in bleed"); near(+art.margin[0][2], 414, "the margin's width: 6 in less twice 0.125");
+  near(+art.cut[0].split(",")[0], 9, "the trim starts after the bleed"); near(+art.cut[0].split(",")[1], 900, "and is the wrap less the bleed");
+  eq(art.bar, 1, "the barcode box"); eq(art.book, 0, "a wrap that fits shows no second set of folds");
+  ok(await pg.evaluate(() => new Promise((r) => { const i = new Image(); i.onload = () => r(i.naturalWidth > 0); i.onerror = () => r(false); i.src = document.querySelector("#cv-art image").getAttribute("href"); })), "the picture loads");
+  ok(await pg.locator("#cv-download.solid").count() === 1 && await pg.locator("#cv-measure.solid").count() === 0, "once measured the file for the printer is the main action");
+  const facts = await pg.locator("#cv-facts").innerText();
+  ok(/KDP/.test(facts) && /Your wrap/.test(facts) && /0\.5 in/.test(facts), "the facts: " + facts.replace(/\s+/g, " "));
+  const warn = (await pg.locator("#cv-warn").count()) ? await pg.locator("#cv-warn").innerText() : "";
+  ok(/Leave the lower right of the back clear/.test(warn), "the barcode corner is said in words, with no wrap to read: " + warn);
+  ok(!/\{|cover_|spine_/.test(warn + facts), "no key, code or placeholder is shown");
+  // another profile measures again by itself: IngramSpark's margin is 0.25 in
+  await pg.selectOption("#cv-profile", "ingram");
+  await waitFor(async () => Math.abs(+(await pg.evaluate(() => (document.querySelector("#cv-art .cv-line .cv-g-margin") || { getAttribute: () => "0" }).getAttribute("x"))) - 27) < 0.6, "the margin to follow the profile: IngramSpark's 0.25 in");
+  ok(/IngramSpark/.test(await pg.locator("#cv-facts").innerText()), "and the facts");
+});
+
+await kit.test("the cover files: the one for the printer, the front alone and the proof, each a PDF with a TrimBox", async () => {
+  await pg.selectOption("#cv-profile", "kdp");
+  await measured();
+  const printer = await download(pg, "#cv-download");
+  ok(/-cover\.pdf$/.test(printer.name) && printer.head === "%PDF-", "the printer's file: " + printer.name);
+  eq(printer.pages, 1, "the printer's file is one page");
+  ok(printer.trim >= 1, "with a TrimBox");
+  const front = await download(pg, "#cv-front");
+  ok(/-cover-front\.pdf$/.test(front.name), "the front's own file: " + front.name);
+  eq(front.pages, 1, "one page"); ok(front.trim >= 1, "with a TrimBox");
+  const proof = await download(pg, "#cv-proof");
+  ok(/-cover-proof\.pdf$/.test(proof.name), "the proof's own file: " + proof.name);
+  eq(proof.pages, 1, "one page");
+  ok(/Made .*-cover-proof\.pdf/.test(await say()), "the status says it was made");
+});
+
+await kit.test("a stale wrap: another page count says the spine does not fit, and what to do; the book's folds are drawn too", async () => {
+  await pg.fill("#cv-pages", "300");
+  await pg.locator("#cv-pages").dispatchEvent("change");
+  await waitFor(async () => (await pg.locator("#cv-art .cv-line .cv-g-book").count()) === 1, "the book's folds", 20000);
+  const warn = await pg.locator("#cv-warn").innerText();
+  ok(/The spine in your wrap is 0\.49\d in wide\. With 300 pages on this paper your spine is 0\.75 in/.test(warn), "the figures: " + warn);
+  ok(/Make the wrap again for this spine/.test(warn), "and what to do");
+  ok(/Where your book's spine folds/.test(await pg.locator(".cv-key").innerText()), "the legend names the second set");
+  ok(/doesn't fit/.test(await say()), "the status line says so: " + (await say()));
+  const foldBook = await pg.locator("#cv-art .cv-line .cv-g-book").getAttribute("d");
+  const bk = foldBook.match(/[\d.]+/g).map(Number);
+  ok(Math.abs(bk[0] - 432) < 0.6 && Math.abs(bk[3] - 486) < 0.6, "the book's folds, centred on the picture and 0.75 in apart: " + foldBook);
+});
+
+await kit.test("a trim the layout was not made for: said in words, with what to do, and the link; the generated cover is the way out", async () => {
+  kit.allowed = [/status of 422/]; // the refusal is a 422 answer to the form, shown as a sentence
+  await pg.selectOption("#cmp-preset", "print-5x8");
+  await waitFor(async () => /Your cover is made for 6 × 9 in, and this preset is 5 × 8 in/.test(await pg.locator("#cv-out").innerText()), "the refusal", 20000);
+  ok(/Make the cover again for 5 × 8 in on the Cover page/.test(await pg.locator("#cv-out").innerText()), "what to do");
+  ok(/switch off “The book's own cover”/.test(await pg.locator("#cv-out").innerText()), "and the way out");
+  eq(await pg.locator("#cv-out [role=alert]").count(), 1, "an alert");
+  ok((await pg.locator("#cv-out a[href$='/cover']").count()) === 1, "a link to the Cover page");
+  eq(await say(), "", "the alert says it, so the status line is empty: it is said once");
+  eq(await pg.locator("#cv-art").count(), 0, "nothing is drawn");
+  ok(await pg.locator("#cv-measure.solid").count() === 1, "and Measure is the main action again");
+  // the download says it in the same words
+  await pg.locator("#cv-download").click();
+  await waitFor(async () => /Your cover is made for 6 × 9 in/.test(await say()), "the download's refusal is in words too");
+  // switch the layout off: the generated cover is drawn for the 5 x 8 page
+  await pg.selectOption("#cmp-preset", "print-6x9");
+  await measured();
+  await pg.locator("#o-own_cover").uncheck();
+  await waitFor(async () => (await pg.locator("#cv-art svg image").count()) === 0 && (await pg.locator("#cv-art svg text").count()) > 0, "the generated cover", 20000);
+  ok(/The generated cover/.test(await pg.locator("#cv-facts").innerText()), "the facts say so");
+  ok(await pg.locator("#cv-proof").isHidden() && await pg.locator("#cv-proof-h").isHidden(), "a generated cover has no proof to offer, and the note goes with the button");
+  await pg.locator("#o-own_cover").check();
+  await measured();
+  await waitFor(() => pg.locator("#cv-proof").isVisible(), "the proof to be back with the layout", 20000);
+});
+
+await kit.test("a refused field is marked and unmarked; another control's change does not move the focus; a picture that will not load is said", async () => {
+  kit.allowed = [/status of 422/, /Failed to load resource|net::ERR_FAILED/];
+  await openCompile();
+  await fillCover(pg, { profile: "kdp" });
+  await pg.fill("#cv-bleed", "9");
+  await pg.locator("#cmp-cv-form button[type=submit]").click();
+  await waitFor(async () => /between 0 and 0\.5/.test(await pg.locator("#cv-out").innerText()), "the bleed refused in words", 20000);
+  eq(await pg.locator("#cv-bleed").getAttribute("aria-invalid"), "true", "the bleed is marked");
+  eq(await pg.evaluate(() => document.activeElement.id), "cv-bleed", "after the person's own Measure the focus is on it");
+  // another control changes: measured again by itself, and the focus stays where the person is
+  await pg.locator("#cv-profile").focus();
+  await pg.selectOption("#cv-profile", "ingram");
+  await kit.sleep(600);
+  eq(await pg.evaluate(() => document.activeElement.id), "cv-profile", "an automatic measure leaves the focus alone");
+  eq(await pg.locator("#cv-bleed").getAttribute("aria-invalid"), "true", "the field is still marked while the answer is a refusal");
+  await pg.fill("#cv-bleed", "");
+  await pg.locator("#cv-bleed").dispatchEvent("change");
+  await waitFor(async () => (await pg.locator("#cv-art svg").count()) === 1, "the cover measured again", 20000);
+  eq(await pg.locator("#cmp-cover [aria-invalid]").count(), 0, "no field is left marked");
+  // the picture cannot be loaded: said, as an alert, and once
+  await pg.route("**/files/*", (r) => r.abort());
+  await pg.locator("#cmp-cv-form button[type=submit]").click();
+  await waitFor(async () => (await pg.locator("#cv-out .cmp-gone[role=alert]").count()) === 1, "the missing picture to be said", 20000);
+  ok(/can't be loaded/.test(await pg.locator(".cmp-gone").innerText()), "in words");
+  await pg.unroute("**/files/*");
+});
+
+await kit.test("the Compile page's cover by the keyboard alone, and the Cover page's print notes", async () => {
+  await openCompile();
+  await pg.evaluate(() => document.activeElement && document.activeElement.blur());
+  const act = () => pg.evaluate(() => document.activeElement && (document.activeElement.id || document.activeElement.tagName));
+  for (let i = 0; i < 120 && (await act()) !== "cv-profile"; i++) await pg.keyboard.press("Tab");
+  eq(await act(), "cv-profile", "Tab reaches the profile");
+  await pg.keyboard.type("Ingram"); // type-ahead on the closed select, as for the preset
+  eq(await pg.locator("#cv-profile").inputValue(), "ingram", "the keyboard chooses a profile");
+  await pg.keyboard.press("Tab");
+  await pg.keyboard.type("0.0025");
+  await pg.keyboard.press("Enter");
+  await measured();
+  const ring = await pg.evaluate(() => { const e = document.activeElement, st = getComputedStyle(e); return st.outlineStyle !== "none" || st.boxShadow !== "none"; });
+  ok(ring, "the focus shows");
+  for (let i = 0; i < 12 && (await act()) !== "cv-download"; i++) await pg.keyboard.press("Tab");
+  eq(await act(), "cv-download", "Tab reaches the cover download");
+  await pg.keyboard.press("Tab");
+  eq(await act(), "cv-front", "then the front"); await pg.keyboard.press("Tab");
+  eq(await act(), "cv-proof", "then the proof");
+  // the Cover page tells the print findings of the saved wrap
+  await pg.goto(`${base()}/p/${pb.slug}/cover`);
+  const notes = await pg.locator(".cv-print").innerText();
+  ok(/If you print this cover/.test(notes) && /Leave the lower right of the back clear/.test(notes), "the print notes: " + notes.slice(0, 160));
+  ok(await pg.locator(".cv-print a[href$='/compile']").count() === 1, "with a way to the Compile page");
+});
+
+await kit.test("the Compile page's cover at 390 px: nothing scrolls sideways, every control is 44 px, the drawing fits", async () => {
+  const phone = await kit.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, storageState: await main.storageState() });
+  const p = await phone.newPage();
+  kit.watch(p, "phone");
+  await openCompile(p);
+  await fillCover(p, { profile: "kdp" });
+  await p.locator("#cmp-cv-form button[type=submit]").tap();
+  await measured(p);
+  eq(await p.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1), false, "no sideways scroll");
+  const small = await p.evaluate(() => [...document.querySelectorAll("#cmp-cover button, #cmp-cover select, #cmp-cover input:not([type=checkbox]), #cmp-cover a.btn, #cmp-cover label.check")].filter((e) => e.offsetParent !== null && !e.disabled).map((e) => { const r = e.getBoundingClientRect(); return { id: e.id || e.textContent.trim().slice(0, 24), w: Math.round(r.width), h: Math.round(r.height) }; }).filter((r) => r.h < 44));
+  eq(small.length, 0, "targets under 44 px: " + JSON.stringify(small));
+  const box = await p.locator("#cv-art svg").boundingBox();
+  ok(box.width <= 390 && box.width > 250, "the drawing fits the phone: " + JSON.stringify(box));
+  if (shots) { await p.locator("#cmp-cover").scrollIntoViewIfNeeded(); await p.screenshot({ path: `${shots}/compile-cover-390.png`, caret: "initial" }); }
+  await phone.close();
 });
 
 await kit.test("a person who is not a member finds nothing", async () => {

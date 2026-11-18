@@ -383,8 +383,8 @@ func parseWrap(raw string) *Wrap {
 
 // Warning is something a writer should know about a layout, in a sentence, with a stable code.
 type Warning struct {
-	Code    string `json:"code" desc:"cover_low_resolution, cover_picture_small, cover_profile_not_srgb, cover_profile_dropped, cover_cropped, cover_wrap_low_resolution, cover_wrap_stale, cover_trim_mismatch."`
+	Code    string `json:"code" desc:"On the layout: cover_low_resolution, cover_picture_small, cover_profile_not_srgb, cover_profile_dropped, cover_cropped, cover_wrap_low_resolution, cover_wrap_stale, cover_trim_mismatch. From the print check and export.cover: image_low_resolution (at the printed size, under 300 dpi), cover_margin_crossed, cover_bleed_missing, cover_wrap_stale, cover_wrap_bleed, cover_barcode_area, spine_narrow, spine_few_pages, spine_rtl, cover_rtl_text."`
 	Message string `json:"message"`
-	// Part says which part of the cover it is about: front, back or wrap.
-	Part string `json:"part,omitempty" enum:"front,back,wrap"`
+	// Part says which part of the cover it is about: front, back, spine or wrap.
+	Part string `json:"part,omitempty" enum:"front,back,spine,wrap"`
 }
