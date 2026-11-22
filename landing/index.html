@@ -288,23 +288,6 @@
   </div>
 </section>
 
-<section class="block" id="status" aria-labelledby="status-title">
-  <div class="wrap">
-    <h2 id="status-title">Status</h2>
-    <div class="two rev">
-      <div>
-        <p>Releases are tagged as the work lands. A tag says what was built. It doesn&rsquo;t say the roadmap&rsquo;s exit criteria are met. This is what hasn&rsquo;t been checked.</p>
-      </div>
-      <ul class="plain">
-        <li>The desktop app has been run, unsigned, on one Mac and nowhere else by a person. Nobody has installed it on a clean machine, updated it from a real release or seen it on Windows. An automated test installs the Linux build and checks that its server answers, but nobody has looked at the window.</li>
-        <li>No screen reader, real phone or browser other than Chromium has been used on the newer screens.</li>
-        <li>No real printer, copy of Word or AI service has been used. Stand-ins on a local machine were.</li>
-        <li>The checks that need other people haven&rsquo;t happened: two people installing from the guide on their own, a printed proof, and a restore on a clean machine by someone other than the author.</li>
-      </ul>
-    </div>
-  </div>
-</section>
-
 <section class="block" id="running" aria-labelledby="running-title">
   <div class="wrap">
     <h2 id="running-title">For the people running it</h2>
@@ -337,13 +320,6 @@
       <h3>Server binaries</h3>
       <p class="prose-ui">Server and CLI archives for <span data-fill="version">the latest release</span>, with <a href="https://github.com/crueber/scriobh/releases/latest" data-dl="sums">SHA256SUMS.txt</a>. They&rsquo;re static, the server is the production build with no development sign-in, and only the macOS Apple silicon one has been run. The rest are cross-compiled.</p>
       <ul class="servers" data-fill="servers"><li><a href="https://github.com/crueber/scriobh/releases/latest">All server downloads</a></li></ul>
-
-      <h3>What hasn&rsquo;t been verified here</h3>
-      <ul class="plain">
-        <li>The container image has never been run to serve, and the compose files only parse.</li>
-        <li>No real identity provider has been registered against this build. Only the built-in development issuer has been used.</li>
-        <li>No real MCP client, mail relay, Pandoc, embedding model or Git host has been used. Stand-ins on loopback were.</li>
-      </ul>
 
       <h3>Documentation</h3>
       <ul class="docs">
