@@ -456,3 +456,43 @@ func TestSplitOffsetsIgnoreCRLF(t *testing.T) {
 		t.Errorf("head %q tail %q", o.Head.Content, o.Tail.Content)
 	}
 }
+
+// A cut right after a hard line break takes the break's own backslash with the line break; an escaped backslash stays,
+// and so does the break when the cut is somewhere else in the paragraph.
+func TestSplitAfterAHardBreakLeavesNoStrayBackslash(t *testing.T) {
+	f := newFx(t)
+	for _, c := range []struct{ name, text, cutAt, head, tail string }{
+		{"after the break", "Line one\\\nline two words.\n\nEnd.\n", "line two", "Line one\n", "line two words.\n\nEnd.\n"},
+		{"two spaces spelling", "Line one  \nline two words.\n", "line two", "Line one\n", "line two words.\n"},
+		{"an escaped backslash is text", "Path C:\\\\\nnext words here.\n", "next", "Path C:\\\\\n", "next words here.\n"},
+		{"the break stays when the cut is elsewhere", "Line one\\\nline two words here.\n", "words", "Line one\\\nline two\n", "words here.\n"},
+	} {
+		d := f.doc(f.ownA, f.pidA, docs.CreateIn{Title: c.name, Content: c.text})
+		off := len(utf16.Encode([]rune(c.text[:strings.Index(c.text, c.cutAt)])))
+		out, err := f.call(f.ownA, "doc.split", docs.SplitIn{ID: d.ID, BaseRevision: 1, Offset: off})
+		if err != nil {
+			t.Errorf("%s: %v", c.name, err)
+			continue
+		}
+		o := out.(docs.SplitOut)
+		if o.Head.Content != c.head || o.Tail.Content != c.tail {
+			t.Errorf("%s: head %q tail %q, want %q and %q", c.name, o.Head.Content, o.Tail.Content, c.head, c.tail)
+		}
+	}
+}
+
+// A cut at the start of the line after a fence, an HTML comment or front matter is made after the line break that ends it
+// (the one the editor's offset names), and the source block itself is never cut.
+func TestSplitRightAfterASourceBlock(t *testing.T) {
+	f := newFx(t)
+	for _, text := range []string{"One.\n\n```\ncode\n```\n\nAfter para.\n", "One.\n\n<!-- c -->\n\nAfter para.\n", "---\nt: x\n---\n\nAfter para.\n"} {
+		block := strings.Index(text, "\n\nAfter") + 1 // just after the block's line break
+		for off, ok := range map[int]bool{block - 1: false, block: true, block + 1: true} {
+			d := f.doc(f.ownA, f.pidA, docs.CreateIn{Title: "T", Content: text})
+			_, err := f.call(f.ownA, "doc.split", docs.SplitIn{ID: d.ID, BaseRevision: 1, Offset: off})
+			if (err == nil) != ok {
+				t.Errorf("%q at %d: err %v, want ok=%v", text, off, err, ok)
+			}
+		}
+	}
+}

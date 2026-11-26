@@ -3,7 +3,7 @@
 <nav class="crumb" aria-label="{{$.T "git.crumb"}}"><a href="/">{{template "icon" "chevron-left"}}<span>{{$.T "git.library"}}</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}/git">{{$.T "git.title"}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "git.pushpage.crumb"}}</span></nav>
 {{end}}
 {{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "git" .Data.Project.Role}}{{end}}
-{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "git" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" (inLang $.Lang (ptabs .Data.Slug "" "git" .Data.Project.Role))}}{{end}}
 {{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "git" .Data.Project.Role}}{{end}}
 {{define "content"}}
 {{with .Data}}

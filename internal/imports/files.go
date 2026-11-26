@@ -130,6 +130,9 @@ type intake struct {
 	// From the EPUB converter: the book as read, for its preview and its edition record. Read only.
 	epub    *epubData
 	tracked *trackedSet // a Word file's tracked changes and comments
+	// From the Word converter: what the chapter detector says of each file it made, by path, and how the book was cut.
+	notes  map[string]*docNote
+	breaks *BreakInfo
 }
 
 // prepass is what a converter (DOCX, Obsidian) reports about the files it made.
@@ -144,6 +147,8 @@ type prepass struct {
 	epub                     *epubData
 	tracked                  *trackedSet // a Word file's changes and comments, to write after the documents
 	tokenMix                 string      // what the token must also cover
+	notes                    map[string]*docNote
+	breaks                   *BreakInfo
 }
 
 // apply puts a converter's report on the intake.
@@ -162,6 +167,7 @@ func (in *intake) apply(p *prepass) {
 		in.token = "imp_" + hex.EncodeToString(sum[:])[:32]
 	}
 	in.tracked = p.tracked
+	in.notes, in.breaks = p.notes, p.breaks
 	if p.tokenMix != "" {
 		sum := sha256.Sum256([]byte(in.token + "\x00" + p.tokenMix))
 		in.token = "imp_" + hex.EncodeToString(sum[:])[:32]

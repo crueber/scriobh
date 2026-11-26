@@ -304,3 +304,9 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 
 /* A right-to-left book: each paragraph takes its direction from its first strong letter (never in a left-to-right book, where it would turn the line round under the caret). */
 .paper[dir="rtl"] .ProseMirror p, .paper[dir="rtl"] .ProseMirror li, .paper[dir="rtl"] .ProseMirror h1, .paper[dir="rtl"] .ProseMirror h2, .paper[dir="rtl"] .ProseMirror h3, .paper[dir="rtl"] .ProseMirror h4, .paper[dir="rtl"] .ProseMirror h5, .paper[dir="rtl"] .ProseMirror h6, .paper[dir="rtl"] .ProseMirror blockquote { unicode-bidi: plaintext; }
+
+/* Comment marks (js/cmarks.js): a faint fill and a hairline under the words an open comment is on. Decorations only: no size, line or position
+   changes, so a mark never moves the text. Not printed. The current card in the Comments tab is outlined, not animated. */
+.cm-mark { background: var(--comment); border-block-end: 1px solid var(--comment-line); }
+.rv-card.is-current { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media print { .cm-mark { background: none; border-block-end: 0; } }

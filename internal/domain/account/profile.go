@@ -51,6 +51,26 @@ type UpdateIn struct {
 	Locale      *string `json:"locale,omitempty" desc:"One of en, ga, fr, de, es, it, pt, nl." enum:"en,ga,fr,de,es,it,pt,nl"`
 }
 
+// ZoneDefaultIn is the browser's zone, sent once by the first signed-in page. It is stored only while the person has no zone.
+type ZoneDefaultIn struct {
+	Timezone string `json:"timezone" desc:"The browser's IANA zone name, such as Europe/Dublin. Stored only if the person has never chosen a zone."`
+}
+
+// checkZone returns the zone name as it is stored, or the refusal for a value that is not one.
+func checkZone(zone string) (string, error) {
+	z := strings.TrimSpace(zone)
+	// LoadLocation("") means UTC and "Local" means whatever the server is
+	// set to; neither is a choice a person made, and "Local" would make the
+	// goal day depend on the host.
+	if z == "" || z == "Local" {
+		return "", ops.Invalid("timezone", "Pick a time zone such as Europe/Dublin.")
+	}
+	if _, err := time.LoadLocation(z); err != nil {
+		return "", ops.Invalid("timezone", "That is not a known time zone. Use a name such as Europe/Dublin.")
+	}
+	return z, nil
+}
+
 // Validate trims and checks every field that was sent.
 func (in *UpdateIn) Validate() error {
 	if in.DisplayName != nil {
@@ -66,15 +86,9 @@ func (in *UpdateIn) Validate() error {
 		in.DisplayName = &n
 	}
 	if in.Timezone != nil {
-		z := strings.TrimSpace(*in.Timezone)
-		// LoadLocation("") means UTC and "Local" means whatever the server is
-		// set to; neither is a choice a person made, and "Local" would make the
-		// goal day depend on the host.
-		if z == "" || z == "Local" {
-			return ops.Invalid("timezone", "Pick a time zone such as Europe/Dublin.")
-		}
-		if _, err := time.LoadLocation(z); err != nil {
-			return ops.Invalid("timezone", "That is not a known time zone. Use a name such as Europe/Dublin.")
+		z, err := checkZone(*in.Timezone)
+		if err != nil {
+			return err
 		}
 		in.Timezone = &z
 	}
@@ -140,6 +154,9 @@ func profileUpdate(c *ops.Ctx, in UpdateIn) (ProfileItem, error) {
 		}
 		add("display_name", in.DisplayName)
 		add("timezone", in.Timezone)
+		if in.Timezone != nil {
+			sets = append(sets, "timezone_set = 1") // a zone the person sent is a choice, even when it is UTC
+		}
 		add("locale", in.Locale)
 		if len(sets) > 0 {
 			args = append(args, db.Now(), c.P.UserID)
@@ -153,6 +170,33 @@ func profileUpdate(c *ops.Ctx, in UpdateIn) (ProfileItem, error) {
 			}
 		}
 		var err error
+		out, err = scanProfile(tx.QueryRowContext(c, profileSQL, c.P.UserID))
+		return err
+	})
+	return ProfileItem{Item: out}, err
+}
+
+// profileZoneDefault stores the browser's zone when the person has never chosen one, and changes nothing otherwise. The write is
+// conditional in SQL (timezone_set = 0), so two pages sending at once cannot overwrite each other or a choice made in between.
+// The answer is the profile as it now is, whichever it was.
+func profileZoneDefault(c *ops.Ctx, in ZoneDefaultIn) (ProfileItem, error) {
+	z, err := checkZone(in.Timezone)
+	if err != nil {
+		return ProfileItem{}, err
+	}
+	var out Profile
+	err = c.DB().WithTx(c, func(tx *sql.Tx) error {
+		res, err := tx.Exec(`UPDATE users SET timezone = ?, timezone_set = 1, updated_at = ? WHERE id = ? AND deleted_at IS NULL AND timezone_set = 0`, z, db.Now(), c.P.UserID)
+		if err != nil {
+			return err
+		}
+		if n, _ := res.RowsAffected(); n == 1 {
+			// The field name only, never the zone, as profile.update does.
+			c.Audit(ops.AuditEntry{Action: "profile.zone_default", TargetType: "user", TargetID: c.P.UserID, Detail: map[string]any{"fields": []string{"timezone"}}})
+			if err := c.FlushTo(tx); err != nil {
+				return err
+			}
+		}
 		out, err = scanProfile(tx.QueryRowContext(c, profileSQL, c.P.UserID))
 		return err
 	})

@@ -9,22 +9,27 @@ import (
 	"github.com/crueber/scriobh/internal/ops"
 )
 
-// The import pages. The page itself only holds the chooser and the words around it; the
-// script (js/import.js) reads the chosen folder or zip in the browser and talks to the
-// import ops over REST (preview, then apply with the preview's token). Nothing here writes.
+// The import pages. The chooser page holds a form for each format and the list of imports in progress; a chosen file is sent once
+// (importshell.go) and the review is its own page, drawn from the draft the server keeps. Nothing here writes but through the ops.
 
 type importData struct {
 	Into   *projects.Project // set when adding to an existing project
 	Caps   importCaps
-	Pandoc bool // the bridge is on and usable: the Pandoc formats are offered
+	Pandoc bool           // the bridge is on and usable: the Pandoc formats are offered
+	Drafts []impDraftItem // imports in progress, to resume or discard
+	Error  string         // why the last file was not kept, in words
+	Panel  string         // the format panel to show after an error
+
+	Sources []impSource // the imports the project has had (adding to a project)
+	Undone  *impUndone  // what an undo just did
 }
 
 type importCaps struct {
-	Listed, Markdown, FileMiB, TotalMiB, BookMiB int
+	Listed, Markdown, FileMiB, TotalMiB, BookMiB, TextMiB int
 }
 
 func caps() importCaps {
-	return importCaps{Listed: imports.MaxListed, Markdown: imports.MaxMarkdown, FileMiB: imports.MaxFileBytes >> 20, TotalMiB: imports.MaxTotalBytes >> 20, BookMiB: editions.MaxFileBytes >> 20}
+	return importCaps{Listed: imports.MaxListed, Markdown: imports.MaxMarkdown, FileMiB: imports.MaxFileBytes >> 20, TotalMiB: imports.MaxTotalBytes >> 20, BookMiB: editions.MaxFileBytes >> 20, TextMiB: imports.MaxText >> 20}
 }
 
 // importPage is GET /import: a new project from a folder or a zip. Instance writers only.
@@ -38,7 +43,7 @@ func (s *Server) importPage(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, ops.Forbidden("Your account can read projects but not create them."))
 		return
 	}
-	s.render(w, r, http.StatusOK, "import", s.page(r, "Import", importData{Caps: caps(), Pandoc: s.pandocUsable(r.Context())}))
+	s.render(w, r, http.StatusOK, "import", s.page(r, s.tr(r, "import.page_title"), importData{Caps: caps(), Pandoc: s.pandocUsable(r.Context()), Drafts: s.importDrafts(r, nil)}))
 }
 
 // importIntoPage is GET /p/{slug}/import: add a folder to a project the person can edit.
@@ -67,5 +72,6 @@ func (s *Server) importIntoPage(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, ops.Forbidden("Only an owner or an editor can add files to a project."))
 		return
 	}
-	s.render(w, r, http.StatusOK, "import", s.page(r, "Import into "+pr.Title, importData{Into: &pr, Caps: caps(), Pandoc: s.pandocUsable(r.Context())}))
+	srcs := s.importSources(r, &pr)
+	s.render(w, r, http.StatusOK, "import", s.page(r, s.tr(r, "import.page_title_into", "t", pr.Title), importData{Into: &pr, Caps: caps(), Pandoc: s.pandocUsable(r.Context()), Drafts: s.importDrafts(r, &pr), Sources: srcs, Undone: s.importUndone(r, srcs)}))
 }

@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -630,6 +631,7 @@ func updateTx(c *ops.Ctx, tx *sql.Tx, l *leases, in UpdateIn, noticesOut *[]stri
 			return ops.ConflictWith("This document changed since you opened it.", map[string]any{"reason": "revision", "current_revision": rev})
 		}
 		changed := false
+		synBefore := synS // the search text is written only when the title or synopsis, or the body, changed
 		if in.Title != nil {
 			t, err := cleanTitle(*in.Title)
 			if err != nil {
@@ -704,7 +706,8 @@ func updateTx(c *ops.Ctx, tx *sql.Tx, l *leases, in UpdateIn, noticesOut *[]stri
 		if !changed {
 			return nil // an idempotent save: nothing to write, the revision stands
 		}
-		words := text.WordCount(content)
+		words, searchBody := text.Derive(content) // one parse: the count and the search text
+		bigCut := contentChanged && revisions.IsBigCut(before.Words, words)
 		if _, err := tx.Exec(`UPDATE documents SET title = ?, content = ?, content_hash = ?, synopsis_short = ?, synopsis_long = ?, status = ?,
 			target_words = ?, include_in_compile = ?, revision = revision + 1, word_count = ?, char_count = ?, updated_at = ?,
 			pov = ?, location = ?, story_date = ?, story_date_end = ?,
@@ -713,15 +716,19 @@ func updateTx(c *ops.Ctx, tx *sql.Tx, l *leases, in UpdateIn, noticesOut *[]stri
 			pov, location, storyDate, storyEnd, contentChanged, now, contentChanged, nullIfEmpty(c.P.UserID), in.ID); err != nil {
 			return err
 		}
-		if err := writeText(tx, in.ID, projectID, title, synS, content); err != nil {
-			return err
+		// doc_text and its index follow the search text. The index is updated on every UPDATE of doc_text, whatever column moved, so a
+		// save that changes no searchable text (a status, a target, a scene) leaves them alone: writing them anyway re-indexes the whole body.
+		if contentChanged || title != before.Title || synS != synBefore {
+			if err := writeTextBody(tx, in.ID, projectID, title, synS, searchBody); err != nil {
+				return err
+			}
 		}
 		if destroyed { // variant wordings were removed or reworded: keep the text that held them
 			if _, err := revisions.EnsureRecorded(tx, before.HeadState, revisions.ReasonSnapshot, "Before alternative wordings were removed or reworded", now); err != nil {
 				return err
 			}
 		}
-		if err := afterSave(tx, before, projectID, in.ID, title, content, contentChanged, now); err != nil {
+		if err := afterSave(tx, before, projectID, in.ID, title, content, contentChanged, bigCut, now); err != nil {
 			return err
 		}
 		if contentChanged { // review comments follow the text they were made on
@@ -819,6 +826,25 @@ func move(c *ops.Ctx, in MoveIn) (Item, error) {
 	return Item{Item: d}, err
 }
 
+// TrashTx moves documents, and every live document inside each, to the trash in the caller's transaction. They share one batch id, so a
+// restore of one brings back exactly what this trash took of it and nothing trashed earlier. It returns the batch id. Links to what was
+// trashed stop resolving. The caller touches the project and emits the events.
+func TrashTx(tx *sql.Tx, projectID string, ids []string, now string) (string, error) {
+	batch := db.NewID("trs")
+	for _, id := range ids {
+		if _, err := tx.Exec(`WITH RECURSIVE sub(id) AS (
+				SELECT id FROM documents WHERE id = ?1 AND project_id = ?2
+				UNION SELECT d.id FROM documents d JOIN sub s ON d.parent_id = s.id WHERE d.project_id = ?2)
+			UPDATE documents SET deleted_at = ?3, updated_at = ?3, trash_batch = ?4 WHERE id IN (SELECT id FROM sub) AND deleted_at IS NULL`, id, projectID, now, batch); err != nil {
+			return "", err
+		}
+	}
+	if err := relinkBatch(tx, projectID, batch); err != nil { // links to what was trashed stop resolving
+		return "", err
+	}
+	return batch, nil
+}
+
 func trash(c *ops.Ctx, in DocIn) (Item, error) {
 	err := c.DB().WithTx(c, func(tx *sql.Tx) error {
 		var projectID string
@@ -829,16 +855,7 @@ func trash(c *ops.Ctx, in DocIn) (Item, error) {
 			return err
 		}
 		now := db.Now()
-		// The document and every live descendant share one batch id, so a restore
-		// brings back exactly what this trash took and nothing trashed earlier.
-		batch := db.NewID("trs")
-		if _, err := tx.Exec(`WITH RECURSIVE sub(id) AS (
-				SELECT id FROM documents WHERE id = ?1 AND project_id = ?2
-				UNION SELECT d.id FROM documents d JOIN sub s ON d.parent_id = s.id WHERE d.project_id = ?2)
-			UPDATE documents SET deleted_at = ?3, updated_at = ?3, trash_batch = ?4 WHERE id IN (SELECT id FROM sub) AND deleted_at IS NULL`, in.ID, projectID, now, batch); err != nil {
-			return err
-		}
-		if err := relinkBatch(tx, projectID, batch); err != nil { // links to what was trashed stop resolving
+		if _, err := TrashTx(tx, projectID, []string{in.ID}, now); err != nil {
 			return err
 		}
 		if err := touchProject(tx, projectID, now); err != nil {
@@ -951,8 +968,26 @@ func utf16Index(s string, off int) (int, bool) {
 // split a block the editor preserves as source: a fenced code block, an HTML
 // comment, or front matter. Cutting exactly at a block's first byte or just
 // after its last line is fine.
-func insideSourceBlock(content string, cut int) bool {
-	type region struct{ start, end int }
+func insideSourceBlock(content string, cut int) bool { return !SafeCut(content)(cut) }
+
+// SafeCut is the cut-safety of doc.split, for a caller that cuts finished Markdown at many places (the importer's split of a file at its
+// second-level headings). It reads content once and answers, for any byte index, whether the text may be cut there: false when the index
+// falls inside a block the editor preserves as source (a fenced code block, an HTML comment, front matter). A cut exactly at a block's
+// first byte, or just after its last line, is safe. Each answer costs a binary search, so a file of thousands of candidates is not
+// scanned once for each.
+func SafeCut(content string) func(cut int) bool {
+	regs := sourceRegions(content)
+	return func(cut int) bool {
+		i := sort.Search(len(regs), func(i int) bool { return regs[i].end > cut })
+		return !(i < len(regs) && cut > regs[i].start && cut < regs[i].end)
+	}
+}
+
+type srcRegion struct{ start, end int }
+
+// sourceRegions lists, in order and without overlap, the blocks of content that a cut must not fall inside.
+func sourceRegions(content string) []srcRegion {
+	type region = srcRegion
 	var regs []region
 	lines := strings.SplitAfter(content, "\n")
 	pos := 0
@@ -1005,12 +1040,32 @@ func insideSourceBlock(content string, cut int) bool {
 	if comment >= 0 {
 		regs = append(regs, region{comment, len(content)})
 	}
+	// A comment or a fence inside front matter is a region of its own inside another: those that overlap are one (those that only touch
+	// are not: a cut where one ends and the next begins is between blocks).
+	sort.SliceStable(regs, func(i, j int) bool { return regs[i].start < regs[j].start })
+	var out []region
 	for _, r := range regs {
-		if cut > r.start && cut < r.end {
-			return true
+		if n := len(out); n > 0 && r.start < out[n-1].end {
+			out[n-1].end = max(out[n-1].end, r.end)
+			continue
+		}
+		out = append(out, r)
+	}
+	return out
+}
+
+// trimHead is the text before a cut with the blank space at its end taken off. A cut made right after a hard line break
+// written as a backslash and a line break ("line one\\\nline two") leaves that backslash at the end of the first part, where it
+// would show as a stray character: it is the break's own mark, and goes with the break. An escaped backslash (an even run) is text.
+func trimHead(head string) string {
+	t := strings.TrimRight(head, " \t\r\n")
+	if strings.Contains(head[len(t):], "\n") {
+		n := len(t) - len(strings.TrimRight(t, "\\"))
+		if n%2 == 1 {
+			t = strings.TrimRight(t[:len(t)-1], " \t")
 		}
 	}
-	return false
+	return t
 }
 
 func split(c *ops.Ctx, l *leases, in SplitIn) (SplitOut, error) {
@@ -1088,8 +1143,8 @@ func split(c *ops.Ctx, l *leases, in SplitIn) (SplitOut, error) {
 		if strings.TrimSpace(tail) == "" {
 			return ops.Invalid("offset", "There is no text after that position to move into a new document.")
 		}
-		keepHead := len(strings.TrimRight(head, " \t\r\n"))
-		head = strings.TrimRight(head, " \t\r\n")
+		head = trimHead(head)
+		keepHead := len(head)
 		if head != "" {
 			head += "\n"
 		}
@@ -1109,8 +1164,8 @@ func split(c *ops.Ctx, l *leases, in SplitIn) (SplitOut, error) {
 		}
 		now := db.Now()
 		// The cut is not undoable by editing, so the whole text is kept first.
-		if _, err := revisions.EnsureRecorded(tx, revisions.HeadState{DocumentID: in.ID, Content: content, Revision: rev, Words: wordCount,
-			ContentAt: contentAt, UpdatedAt: updatedAt, By: contentBy.String}, revisions.ReasonSnapshot, "Before split", now); err != nil {
+		if _, err := revisions.CaptureBefore(tx, revisions.HeadState{DocumentID: in.ID, Content: content, Revision: rev, Words: wordCount,
+			ContentAt: contentAt, UpdatedAt: updatedAt, By: contentBy.String}, revisions.ReasonSplit, now); err != nil {
 			return err
 		}
 		pos, err := placeAmong(c, tx, projectID, parent.String, in.ID, "", false)

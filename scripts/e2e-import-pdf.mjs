@@ -30,9 +30,23 @@ writeFileSync(notPdf, "plain text, not a PDF");
 const docx = makeDocx(join(kit.tmp, "harbour.docx"), kit.tmp);
 
 const open = async (path = "/import") => { await pg.goto(base() + path); await pg.waitForSelector("#imp-fmt"); };
-const status = () => pg.locator("#imp-status").innerText();
-const settle = async () => { await sleep(450); await waitFor(async () => !/Updating|Working out|Reading/.test(await status()), "the preview to settle", 25000); };
-const titles = () => pg.locator("#imp-result .imp-tree .imp-title").allInnerTexts();
+// A change is a form whose answer is swapped into the review: it has settled when htmx has nothing in flight.
+const settle = async () => { await sleep(200); await pg.waitForFunction(() => !document.querySelector(".htmx-request, .htmx-swapping, .htmx-settling, .htmx-added"), null, { timeout: 25000 }); await sleep(100); };
+const titles = () => pg.locator("#imp-tree .imp-title").allInnerTexts();
+const nodeFor = (title) => pg.locator(`#imp-tree > li.imp-node:has(> .imp-row > .imp-title:text-is("${title}"))`).first();
+// Edit opens a row's panel: it is fetched when the row's details open, and its controls are separate small forms.
+const openEdit = async (title, key = false) => {
+  const n = nodeFor(title);
+  if (!(await n.locator("details.imp-edit").first().evaluate((d) => d.open))) {
+    if (key) { await n.locator("summary").first().focus(); await pg.keyboard.press("Enter"); } else await n.locator("summary").first().click();
+  }
+  await n.locator(".imp-edit-body form").first().waitFor();
+  await settle(); // the panel was just swapped in: htmx marks it added for a moment
+  return n;
+};
+// The same file chosen again for the same target is the draft that was already waiting (with its edits), not a second one: a step that
+// wants the file as it came starts with none open.
+const discardDrafts = async () => { for (const d of (await api(main, "GET", "/api/v1/imports/drafts")).json.items) eq((await api(main, "DELETE", `/api/v1/imports/drafts/${d.id}`)).status, 200, "discard a draft"); };
 const shot = async (name, page = pg) => {
   if (!shots) return;
   const v = page.viewportSize(), hgt = await page.evaluate(() => document.documentElement.scrollHeight);
@@ -40,8 +54,8 @@ const shot = async (name, page = pg) => {
   await page.screenshot({ path: join(shots, name + ".png"), caret: "initial" });
   await page.setViewportSize(v);
 };
-const previewPdf = async (file = pdf) => { await open(); await pg.check("#imp-f-pdf"); await pg.locator("#imp-pdffile").setInputFiles(file); await pg.locator("#imp-h").waitFor({ timeout: 25000 }); await settle(); };
-const previewDocx = async () => { await open(); await pg.check("#imp-f-docx"); await pg.locator("#imp-docx").setInputFiles(docx); await pg.locator("#imp-h").waitFor({ timeout: 25000 }); await settle(); };
+const previewPdf = async (file = pdf) => { await discardDrafts(); await open(); await pg.check("#imp-f-pdf"); await pg.locator("#imp-pdffile").setInputFiles(file); await pg.locator("#imp-h").waitFor({ timeout: 25000 }); await pg.waitForLoadState("load"); await settle(); };
+const previewDocx = async () => { await discardDrafts(); await open(); await pg.check("#imp-f-docx"); await pg.locator("#imp-docx").setInputFiles(docx); await pg.locator("#imp-h").waitFor({ timeout: 25000 }); await pg.waitForLoadState("load"); await settle(); };
 
 await kit.test("PDF: the preview says what was read, what could not be recovered, and proposes chapters from headings", async () => {
   await previewPdf();
@@ -53,24 +67,22 @@ await kit.test("PDF: the preview says what was read, what could not be recovered
   // a mark and words, never colour alone
   eq(await pg.locator('.imp-book li[data-ok="false"]').count() > 0, true, "a limit is marked");
   ok(/not kept/.test(await pg.locator('.imp-book li[data-ok="false"]').first().innerText()), "the mark has words with it");
-  await pg.locator("#imp-result details", { hasText: "importer noted" }).locator("summary").click();
-  ok(/Only the text layer is read/.test(await pg.locator("#imp-result details", { hasText: "importer noted" }).innerText()), "the server's own sentences are kept, folded");
+  await pg.locator("#imp-review details", { hasText: "importer noted" }).locator("summary").click();
+  ok(/Only the text layer is read/.test(await pg.locator("#imp-review details", { hasText: "importer noted" }).innerText()), "the server's own sentences are kept, folded");
   await shot("pdf-preview-1280");
 });
 
 await kit.test("PDF: the same mapping editor, by keyboard, and the apply makes the project; no edition, since the PDF is not kept", async () => {
   await previewPdf();
-  await pg.locator('#imp-result summary[aria-label="Edit The Quay"]').focus();
-  await pg.keyboard.press("Enter");
+  await openEdit("The Quay", true);
   await pg.getByRole("button", { name: "Move The Quay up" }).focus();
   await pg.keyboard.press("Enter");
   await settle();
   eq((await titles()).join("|"), "The Quay|Arrival|Departure", "reorder");
-  await pg.locator('#imp-result summary[aria-label="Edit Departure"]').click();
-  await pg.getByRole("button", { name: "Join Departure into another" }).click();
-  const sel = pg.getByRole("combobox", { name: "Join into" });
+  const n = await openEdit("Departure");
+  const sel = n.getByRole("combobox", { name: "Join into", exact: true }); // the picker is in the panel: no opener, no Cancel
   await sel.selectOption(await sel.locator("option", { hasText: "Arrival" }).first().getAttribute("value"));
-  await pg.getByRole("button", { name: "Join", exact: true }).click();
+  await n.locator('button[data-act="merge"]').click();
   await settle();
   eq((await titles()).join("|"), "The Quay|Arrival", "the join");
   await pg.locator("#imp-t").fill("The Harbour Book");
@@ -85,39 +97,77 @@ await kit.test("PDF: the same mapping editor, by keyboard, and the apply makes t
 
 await kit.test("PDF refusals: a scan, an encrypted file and a file that is not a PDF, in the op's words, with no promise of recognition", async () => {
   kit.allowed.push(/status of 422/);
-  for (const [file, re] of [[scan, /No text layer: its pages are pictures|This PDF has no text layer/], [enc, /encrypted \(password protected\)/], [notPdf, /./]]) {
+  await discardDrafts();
+  for (const [file, re] of [[scan, /No text layer: its pages are pictures|This PDF has no text layer/i], [enc, /encrypted \(password protected\)/], [notPdf, /not a PDF/]]) {
     await open();
     await pg.check("#imp-f-pdf");
     await pg.locator("#imp-pdffile").setInputFiles(file);
-    await waitFor(async () => re.test(await status()) && !/Reading|Working/.test(await status()), `the refusal ${re}`, 25000);
-    eq(await pg.locator("#imp-result").isHidden(), true, "a refused PDF shows a preview");
-    ok(/^[A-Z]/.test(await status()), "the refusal begins with a capital: " + (await status()));
+    // The words are looked for wherever the refusal is drawn (the chooser's message, or a page of its own): where it must be is the next step.
+    await waitFor(async () => re.test(await pg.locator("main").innerText()), `the refusal ${re}`, 25000);
   }
   await open();
   await pg.check("#imp-f-pdf");
   await pg.locator("#imp-pdffile").setInputFiles(scan);
-  await waitFor(async () => /character recognition/.test(await status()), "the scan refusal");
-  ok(!/we will|soon|coming/i.test(await status()), "a promise of recognition");
+  // (the chooser's own words about scans also say "character recognition": the wait is for the refusal itself)
+  await waitFor(async () => /this PDF has no text layer/i.test(await pg.locator("main").innerText()), "the scan refusal");
+  ok(/does no character recognition/.test(await pg.locator("main").innerText()), "the refusal does not say there is no recognition");
+  ok(!/we will|soon|coming/i.test(await pg.locator("main").innerText()), "a promise of recognition");
 });
 
-await kit.test("PDF busy: a 429 is said calmly, the file stays chosen, and Try again works", async () => {
-  kit.allowed.push(/status of 429/);
-  await open();
-  await pg.check("#imp-f-pdf");
-  let busy = true;
-  await pg.route("**/api/v1/imports/preview", (route) => { if (busy) { busy = false; return route.fulfill({ status: 429, contentType: "application/json", body: JSON.stringify({ error: { code: "rate_limited", message: "busy" } }) }); } return route.continue(); });
-  await pg.locator("#imp-pdffile").setInputFiles(pdf);
-  await waitFor(async () => /only one at a time/.test(await status()), "the busy sentence");
-  ok(/Nothing was imported and your file is still chosen/.test(await status()), "the sentence does not say nothing was lost");
-  eq(await pg.locator("#imp-status").getAttribute("data-bad"), "", "marked");
-  const retry = pg.getByRole("button", { name: "Try again" });
-  ok(await retry.isVisible(), "no Try again button");
-  ok(await retry.evaluate((b) => document.activeElement === b), "the button is not focused");
-  eq(await pg.locator("#imp-pdffile").evaluate((i) => i.files.length), 1, "the file is no longer chosen");
-  await retry.click();
-  await pg.locator("#imp-h").waitFor({ timeout: 25000 });
-  ok(await retry.isHidden(), "the button stays after it worked");
-  await pg.unroute("**/api/v1/imports/preview");
+await kit.test("PDF refusals: a refused PDF leaves the person on the chooser with the sentence in its message, the file still chosen, and nothing kept", async () => {
+  kit.allowed.push(/status of 422/);
+  await discardDrafts();
+  const bad = [];
+  for (const [file, re] of [[scan, /No text layer: its pages are pictures|This PDF has no text layer/i], [enc, /encrypted \(password protected\)/], [notPdf, /not a PDF/i]]) {
+    await open();
+    await pg.check("#imp-f-pdf");
+    await pg.locator("#imp-pdffile").setInputFiles(file);
+    await waitFor(async () => re.test(await pg.locator("main").innerText()), `the refusal ${re}`, 25000);
+    await pg.waitForLoadState("load");
+    const name = file.split("/").pop();
+    const sentence = (await pg.locator("main").innerText()).split("\n").find((l) => re.test(l)) || "";
+    if (!/^[A-Z]/.test(sentence)) bad.push(`${name}: the refusal does not begin with a capital: ${sentence.slice(0, 40)}`);
+    if ((await pg.locator("#imp-stage-err").count()) !== 1) { bad.push(`${name}: the sentence is not the chooser's message (#imp-stage-err); the page is ${new URL(pg.url()).pathname.replace(/imd_\w+/, "imd_…")}`); continue; }
+    const t = await pg.locator("#imp-stage-err").innerText();
+    if (!re.test(t) || !/^[A-Z]/.test(t)) bad.push(`${name}: the message is ${t}`);
+    if ((await pg.locator("#imp-pdffile").evaluate((i) => i.files.length)) !== 1) bad.push(`${name}: the file is not still chosen`);
+  }
+  const kept = (await api(main, "GET", "/api/v1/imports/drafts")).json.items.filter((d) => d.status === "open");
+  if (kept.length) bad.push(`a refused file is kept as an open draft: ${kept.map((d) => d.name).join(", ")}`);
+  ok(bad.length === 0, bad.join("; "));
+});
+
+await kit.test("PDF busy: when the person is already sending a file, it is said calmly, the file stays chosen, and the button sends it again", async () => {
+  // The server lets one upload at a time in for a person. One is held open here by hand (the headers of a form post whose body never
+  // comes), so the page's own upload meets a real busy server, not a stub.
+  kit.allowed.push(/status of 422/);
+  await discardDrafts();
+  const { connect } = await import("node:net");
+  const u = new URL(base());
+  const cookie = (await main.cookies()).map((c) => `${c.name}=${c.value}`).join("; ");
+  const held = connect(Number(u.port), u.hostname);
+  await new Promise((r) => held.once("connect", r));
+  held.write(`POST /ui/import/stage HTTP/1.1\r\nHost: ${u.host}\r\nCookie: ${cookie}\r\nContent-Type: multipart/form-data; boundary=xx\r\nContent-Length: 5000000\r\n\r\n--xx\r\n`);
+  await sleep(500);
+  try {
+    await open();
+    await pg.check("#imp-f-pdf");
+    await pg.locator("#imp-pdffile").setInputFiles(pdf);
+    const err = pg.locator("#imp-stage-err");
+    await err.waitFor({ timeout: 25000 });
+    ok(/already sending a file/.test(await err.innerText()), "the busy sentence: " + (await err.innerText()));
+    ok(/Wait for it to finish, then try again/.test(await err.innerText()), "the sentence does not say what to do");
+    await waitFor(() => err.evaluate((n) => n === document.activeElement), "the sentence to take focus", 3000);
+    eq(await pg.locator("#imp-pdffile").evaluate((i) => i.files.length), 1, "the file is no longer chosen");
+    eq(await pg.locator("#imp-review").count(), 0, "a review is shown while busy");
+    held.destroy();
+    await sleep(800); // the server lets go of the held upload when its connection ends
+    const retry = pg.locator('form[data-fmt="pdf"] button[type=submit]');
+    eq((await retry.innerText()).trim(), "Review what would be created", "the button's words");
+    await retry.click();
+    await pg.locator("#imp-h").waitFor({ timeout: 25000 });
+    ok(/A PDF/.test(await pg.locator(".imp-sum").innerText()), "the retry did not make the review");
+  } finally { held.destroy(); }
 });
 
 await kit.test("Word: the three choices for tracked changes are each explained, with the keyboard alone", async () => {
@@ -126,11 +176,11 @@ await kit.test("Word: the three choices for tracked changes are each explained, 
   await pg.keyboard.press("ArrowDown");
   const t = await pg.locator('[data-fmt="docx"]').innerText();
   for (const w of [/Suggest them\./, /Accept them\./, /Reject them\./, /each change a reviewer made waits as a suggestion/, /the later change is already in the text/, /whole paragraph a reviewer deleted is gone/]) ok(w.test(t), `the Word panel does not say ${w}`);
-  eq(await pg.locator('input[name="imp-dc"]:checked').getAttribute("value"), "suggest", "suggest is the default");
+  eq(await pg.locator('input[name="opt.docx_changes"]:checked').getAttribute("value"), "suggest", "suggest is the default");
   ok(!/not brought in; the preview/.test(t) || /Pictures are not brought in/.test(t), "the hint still says comments and tracked changes are dropped");
   await pg.locator("#imp-dc-suggest").focus();
   await pg.keyboard.press("ArrowDown");
-  eq(await pg.locator('input[name="imp-dc"]:checked').getAttribute("value"), "accept", "arrow keys move through the three");
+  eq(await pg.locator('input[name="opt.docx_changes"]:checked').getAttribute("value"), "accept", "arrow keys move through the three");
 });
 
 await kit.test("Word: the preview counts suggestions, comments and what was taken as accepted, names the two authors, and says what the chapters hold", async () => {
@@ -152,9 +202,10 @@ await kit.test("Word: the apply writes the suggestions, the chapter holds the or
   await previewDocx();
   await pg.locator("#imp-t").fill("The Harbour Notes");
   await pg.locator("[data-go]").click();
-  await waitFor(async () => /Imported 2 documents/.test(await pg.locator("#imp-h").innerText()), "the result");
-  ok(await pg.evaluate(() => document.activeElement && document.activeElement.id === "imp-h"), "the result does not take the focus");
-  const text = await pg.locator("#imp-result").innerText();
+  // The apply wrote suggestions and comments, so the answer is the draft's own page, with the result first.
+  await waitFor(async () => /Imported 2 documents/.test(await pg.locator("#imp-h").innerText()) && !(await pg.locator("[data-go]").count()), "the result");
+  const focusedId = await pg.evaluate(() => document.activeElement && document.activeElement.id); // asserted last: what follows is still checked
+  const text = await pg.locator("#imp-review").innerText();
   ok(/Suggestions waiting in Review, under the reviewers' Word names: 3/.test(text) && /Word comments written as comments: 1/.test(text), "the result: " + text);
   const top = await pg.locator("#imp-h").boundingBox();
   ok(top && top.y < 400, "the result is not at the top: " + (top && top.y));
@@ -168,6 +219,7 @@ await kit.test("Word: the apply writes the suggestions, the chapter holds the or
   const rv = await pg.locator("main").innerText();
   ok(/Ann Editor \(from a Word file\)/.test(rv), "Review does not show the Word label: " + rv.slice(0, 600));
   kit.word = made;
+  eq(focusedId, "imp-h", "the result does not take the focus");
 });
 
 await kit.test("390 px: the PDF and Word previews fit, with touch targets of 44 px", async () => {
@@ -176,11 +228,13 @@ await kit.test("390 px: the PDF and Word previews fit, with touch targets of 44 
   const p = await ctx.newPage();
   kit.watch(p, "phone");
   for (const [radio, input, file, h] of [["#imp-f-pdf", "#imp-pdffile", pdf, ".imp-book dl"], ["#imp-f-docx", "#imp-docx", docx, ".imp-book h3"]]) {
+    await discardDrafts();
     await p.goto(base() + "/import");
     await p.waitForSelector("#imp-fmt");
     await p.check(radio);
     await p.locator(input).setInputFiles(file);
     await p.locator("#imp-h").waitFor({ timeout: 25000 });
+    await p.waitForLoadState("load");
     await sleep(600);
     const m = await p.evaluate(() => {
       const small = [];
@@ -200,15 +254,18 @@ await kit.test("390 px: the PDF and Word previews fit, with touch targets of 44 
 await kit.test("the right-to-left pseudo-locale: the PDF and Word panels come from the catalogue and nothing overflows", async () => {
   eq((await api(main, "PUT", "/api/v1/me/prefs", { items: { language: "xx-rtl" } })).status, 200, "set the pseudo-locale");
   try {
-    await previewPdf();
+    await open();
     eq(await pg.locator("html").getAttribute("dir"), "rtl", "right to left");
-    ok((await pg.locator(".imp-book").innerText()).includes("⟦"), "the PDF panel's words are not from the catalogue");
+    await pg.check("#imp-f-pdf");
     ok((await pg.locator('[data-fmt="pdf"]').innerText()).includes("⟦"), "the chooser's PDF words are not from the catalogue");
+    await pg.check("#imp-f-docx");
+    ok((await pg.locator('[data-fmt="docx"]').innerText()).includes("⟦"), "the Word chooser's words are not from the catalogue");
+    await previewPdf();
+    ok((await pg.locator(".imp-book").innerText()).includes("⟦"), "the PDF panel's words are not from the catalogue");
     eq(await pg.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false, "the PDF preview scrolls sideways");
     eq((await pg.locator(".imp-book li, .imp-book p, .imp-book h3, .imp-book h4").evaluateAll((l) => l.filter((e) => !e.textContent.includes("⟦")).map((e) => e.textContent.slice(0, 40)))).join(" | "), "", "words of the PDF panel that did not come from the catalogue");
     await previewDocx();
     ok((await pg.locator(".imp-book").innerText()).includes("⟦"), "the Word panel's words are not from the catalogue");
-    ok((await pg.locator('[data-fmt="docx"]').innerText()).includes("⟦"), "the Word chooser's words are not from the catalogue");
     eq(await pg.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false, "the Word preview scrolls sideways");
     eq((await pg.locator(".imp-book li, .imp-book p, .imp-book h3, .imp-book h4").evaluateAll((l) => l.filter((e) => !e.textContent.includes("⟦")).map((e) => e.textContent.slice(0, 40)))).join(" | "), "", "words of the Word panel that did not come from the catalogue");
     await shot("docx-preview-rtl-1280");

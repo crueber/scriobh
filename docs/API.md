@@ -331,6 +331,8 @@ curl -s -H "Authorization: Bearer $KEY" "$BASE/api/v1/projects/$PROJECT/comments
 curl -s -X POST -H "Authorization: Bearer $KEY" $BASE/api/v1/projects/$PROJECT/comments/$COMMENT/resolve    # $COMMENT: the comment's id, from the answers above
 ```
 
+A comment is **shared** (the default: everyone on the project who can read comments) or **private**, "Only me" (`visibility: "private"`): the author alone. Not the owner, not an editor, not an instance administrator who is not the author. Another person's private thread is answered exactly as an id that does not exist (404), by every op, and is never listed, counted or found with `q`. A private comment has no mentions (a `mentions` list is a 422), tells no one (no notification, no event, no webhook, no live-stream line) and is in no export, the mirror, Git, search or AI request. Your own keys (CLI, MCP, REST) act as you and see your private comments. A reply has its thread's visibility; a different one is a 422. A private comment has no 15-minute limit on rewording it (a shared one has, from when it was shared), no hourly limit, and caps of its own (5,000 live per person per project, 100 open anchored per person per chapter). `review.queue` and `review.resolve_all` take `visibility`, default `shared`: Resolve all never touches your own private notes (`private` resolves only those, silently); `review.queue` also accepts `all`.
+
 A reply is `comment.create` with `parent_id` (the thread's first comment). Suggested text changes are `suggestion.create` (reviewer; up to 50 changes at a `base_revision`), accepted or rejected by an editor with `suggestion.accept` and `suggestion.reject`. Both fire webhooks (`comment.created`, `suggestion.created`).
 
 ### AI
@@ -425,7 +427,7 @@ How to read it. **Request** is the method and path. **Access** is who may call t
 
 <!-- BEGIN GENERATED: op table (make skill) -->
 
-453 operations, schema `sha256:55f262ef0707`. Generated from the op registry by `make skill`; do not edit between the markers.
+461 operations, schema `sha256:b62f33b7183a`. Generated from the op registry by `make skill`; do not edit between the markers.
 
 #### `account` (3)
 
@@ -555,7 +557,7 @@ How to read it. **Request** is the method and path. **Access** is who may call t
 | `comment.reanchor` | `POST /api/v1/projects/{id}/comments/{comment_id}/reanchor` | project reviewer | write |  | Give a thread a new place: for one that lost its text (orphaned), or to move it (to another range, another document of the project, or with detach… |
 | `comment.reopen` | `POST /api/v1/projects/{id}/comments/{comment_id}/reopen` | project reviewer | write |  | Reopen a resolved thread. Same permission as resolving. |
 | `comment.resolve` | `POST /api/v1/projects/{id}/comments/{comment_id}/resolve` | project reviewer | write |  | Resolve a thread. An editor or the owner may resolve any thread; a reviewer only their own. |
-| `comment.update` | `PATCH /api/v1/projects/{id}/comments/{comment_id}` | project reviewer | write |  | Reword a comment. Only its author, and only within 15 minutes of writing it; after that, reply instead. |
+| `comment.update` | `PATCH /api/v1/projects/{id}/comments/{comment_id}` | project reviewer | write |  | Reword a comment. Only its author, and only within 15 minutes of writing it (of sharing it, for one that was written as private); after that, reply… |
 
 #### `compendium` (47)
 
@@ -572,7 +574,7 @@ How to read it. **Request** is the method and path. **Access** is who may call t
 | `compendium.attachment.usage` | `GET /api/v1/compendiums/{id}/attachment-usage` | compendium reader | read |  | Storage in use by a Compendium, by you, and its limits. |
 | `compendium.change.get` | `GET /api/v1/compendiums/{id}/changes/{change_id}` | compendium owner | read | browser session only | One recorded merge or split with its before-state: every entity that moved (its name and revision as they were), every entity merged away with its… |
 | `compendium.change.list` | `GET /api/v1/compendiums/{id}/changes` | compendium owner | read | browser session only | The merges and splits that moved entities into or out of this Compendium, newest first: when, by whom, the counts. |
-| `compendium.create` | `POST /api/v1/compendiums` | instance writer | write | 201 on success | Create a Compendium: the shared bible (entities, and later research and a timeline) for one story world or subject. |
+| `compendium.create` | `POST /api/v1/compendiums` | instance writer | write | 201 on success | Create a Compendium: the shared Compendium (entities, and later research and a timeline) for one story world or subject. |
 | `compendium.export` | `POST /api/v1/compendiums/{id}/export` | compendium editor | write |  | Export a Compendium as a Markdown bundle (a zip): one file per entity with front matter (name, kind, aliases, summary, custom fields, relationships)… |
 | `compendium.get` | `GET /api/v1/compendiums/{id}` | compendium reader | read |  | Get one Compendium with what depends on it: the projects that use it (named only when the caller can open them), the Compendiums it references and… |
 | `compendium.list` | `GET /api/v1/compendiums` | any signed-in caller | read |  | List the Compendiums the caller is a member of, most recently changed first. |
@@ -740,19 +742,26 @@ How to read it. **Request** is the method and path. **Access** is who may call t
 | `goal.list` | `GET /api/v1/projects/{id}/goals` | project reader | read |  | List the caller's own goals on a project, with the project's shared word goal and deadline. |
 | `goal.set` | `PUT /api/v1/projects/{id}/goals` | project editor | write |  | Set one of the caller's own goals on a project: a daily words-added target, or a total-word target with an optional deadline. |
 
-#### `import` (9)
+#### `import` (16)
 
 | Op | Request | Access | Scope | Notes | What it does |
 | --- | --- | --- | --- | --- | --- |
 | `import.append` | `POST /api/v1/projects/{id}/import` | project editor | write | 201 on success | Add a previewed folder, document, book or export to an existing project as new documents after what is already there (and research notes after the… |
 | `import.append_preview` | `POST /api/v1/projects/{id}/import/preview` | project editor | write |  | Preview adding a folder of Markdown, a Word document, an Obsidian vault, a Scrivener project, a WordPress export, a Ghost export or an EPUB book to… |
 | `import.apply` | `POST /api/v1/imports` | instance writer | write | 201 on success | Create a new project from a previewed folder, document, book or export, with the writer's edits, in one transaction: all of it or none (documents… |
+| `import.draft.discard` | `DELETE /api/v1/imports/drafts/{id}` | instance writer | write | no dry run, permanent | Throw away an import draft and its staged file. Nothing that was imported is touched. |
+| `import.draft.get` | `GET /api/v1/imports/drafts/{id}` | instance writer | read |  | One import draft: its options, your edits and its revision; with preview=true also what the import would create now (the same answer as… |
+| `import.draft.list` | `GET /api/v1/imports/drafts` | instance writer | read |  | Your imports in progress, and those you finished in the last week, newest change first. |
+| `import.draft.update` | `POST /api/v1/imports/drafts/{id}` | instance writer | write | no dry run | Change an import draft: the options its file is read with, a rename, a kind, a join into another document, a move, a reorder, what to leave out, the… |
 | `import.git_apply` | `POST /api/v1/imports/git` | instance writer | write | no dry run, 201 on success | Import a Git repository as a new project, final step: create the project from a ready job in one transaction, record the address, the commit and the… |
 | `import.git_discard` | `DELETE /api/v1/imports/git` | instance writer | write | no dry run, permanent | Throw away an import job and its clone. A job that is still cloning cannot be discarded yet. |
 | `import.git_job` | `GET /api/v1/imports/git` | instance writer | read |  | One repository import job: running (cloning), preview (ready), done or failed, with a summary when ready. |
 | `import.git_jobs` | `GET /api/v1/imports/git/jobs` | instance writer | read |  | Your repository import jobs, newest first. Jobs that were never applied are removed after a day. |
 | `import.git_preview` | `POST /api/v1/imports/git/preview` | instance writer | write | no dry run | Import a Git repository as a new project, step one. With url (https) or remote_id (a remote of a project you own) it starts a job: a shallow clone… |
 | `import.preview` | `POST /api/v1/imports/preview` | instance writer | write |  | Preview importing a folder of Markdown (or a Scríobh mirror or export), a Word document, an Obsidian vault, a Scrivener project, a WordPress export… |
+| `import.source.list` | `GET /api/v1/projects/{id}/imports` | project editor | read |  | The imports a project has had, newest first (the 20 most recent): what each was, when, how many documents it made and how many are still here, and… |
+| `import.stage` | `POST /api/v1/imports/stage` | instance writer | write | no dry run, body is the file, 201 on success | Hold a file for import on the server while you review what it would create: the request's body is the file (a Word document, an EPUB, a PDF, a zip, a… |
+| `import.undo` | `POST /api/v1/projects/{id}/imports/{source}/undo` | project editor | write |  | Take back one import: move to the project's trash the documents it made that are exactly as it left them, and keep every other. |
 
 #### `key` (3)
 
@@ -841,12 +850,13 @@ How to read it. **Request** is the method and path. **Access** is who may call t
 | `presence.leave` | `POST /api/v1/projects/{id}/presence/leave` | project reader | write | browser session only, no dry run | Say that you have closed the project's page: you are no longer shown. |
 | `presence.list` | `GET /api/v1/projects/{id}/presence` | project reader | read | browser session only | Who else is on this project right now, as you may be told: the same answer as presence.beat without saying you are here. |
 
-#### `profile` (2)
+#### `profile` (3)
 
 | Op | Request | Access | Scope | Notes | What it does |
 | --- | --- | --- | --- | --- | --- |
 | `profile.get` | `GET /api/v1/me` | any signed-in caller | read |  | Get the caller's profile: name, email, instance role, time zone, locale, avatar colour and initials. |
 | `profile.update` | `PATCH /api/v1/me` | any signed-in caller | write |  | Change the caller's display name, time zone or locale. Send only the fields to change. |
+| `profile.zone_default` | `POST /api/v1/me/zone-default` | any signed-in caller | write |  | Store the browser's time zone for the caller, only if they have never chosen one. |
 
 #### `project` (64)
 
@@ -958,8 +968,8 @@ How to read it. **Request** is the method and path. **Access** is who may call t
 | --- | --- | --- | --- | --- | --- |
 | `scene.entities` | `GET /api/v1/docs/{id}/scene-entities` | project reader | read |  | The "in this scene" sidebar: the entities a document mentions, plus its point of view and location, each with kind, summary (the book's override… |
 | `scene.link_entities` | `POST /api/v1/projects/{id}/scenes/link-entities` | project owner | write |  | Turn the free-text point of view and location of this project's scenes into entity references: each distinct value is matched, exactly and ignoring… |
-| `scene.set_location` | `PUT /api/v1/docs/{id}/location` | project editor | write |  | Set where a scene happens to an entity of the bible (usually a place), by id, name or alias among the entities the caller may read (empty clears the… |
-| `scene.set_pov` | `PUT /api/v1/docs/{id}/pov` | project editor | write |  | Set a scene's point of view to a character of the bible, by id, name or alias among the entities the caller may read (empty clears the link and keeps… |
+| `scene.set_location` | `PUT /api/v1/docs/{id}/location` | project editor | write |  | Set where a scene happens to an entity of the Compendium (usually a place), by id, name or alias among the entities the caller may read (empty clears… |
+| `scene.set_pov` | `PUT /api/v1/docs/{id}/pov` | project editor | write |  | Set a scene's point of view to a character of the Compendium, by id, name or alias among the entities the caller may read (empty clears the link and… |
 
 #### `search` (12)
 

@@ -32,7 +32,7 @@ import { installFakePandoc } from "./fake-pandoc.mjs";
 import { desktopEnv, launchToken, rm, startServer, tempDir } from "./harness.mjs";
 import { seedDays } from "./seed-studio.mjs";
 import { startFakeHost } from "./fakehost.mjs";
-import { makeBigEpub, makeDocx, makeEpub, writePdf } from "./fixtures/books.mjs";
+import { makeBigEpub, makeDocx, makeEpub, makeLongDocx, writePdf } from "./fixtures/books.mjs";
 import { harbourPng, wrapPng } from "./covers-pictures.mjs";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -53,7 +53,7 @@ const ALLOW = [
   { rule: "field-contrast", sel: /^textarea#doc-title/, why: "the title is a heading edited in place: it has no box on purpose, so that the page title is not a form field; it is found by its text and shows the focus indicator when edited" },
   { rule: "field-contrast", sel: /^input#(palette-input|jump-input)\[/, why: "the command palette's and the chapter jump's search rows are a bare input beside a magnifier, set apart by the dialog's own rule: the icon and the placeholder identify them and the focus ring is drawn on the input itself; a box inside the dialog's box would be decoration" },
   { rule: "target-44", sel: /^textarea#doc-title/, why: "the same in-place heading; its height is the heading's own line, and a taller box would push the chapter text down (the title is also reachable at 44 px through the chapter jump button beside it)" },
-  { rule: "text-spacing", sel: /^(span#crumb-title|\.crumb-project > span) "/, page: /^(write|editor-write|reviewer-write|write-note|write-project) /, why: "with the text-spacing override the header's breadcrumb ellipsises before the page tabs do; the same title is the page's h1 directly below and the control's accessible name, so no information is lost (WCAG 1.4.12 loss of content)" },
+  { rule: "text-spacing", sel: /^(span#crumb-title|\.crumb-project > span) "/, page: /^(write|editor-write|reviewer-write|reader-write|write-note|write-project) /, why: "with the text-spacing override the header's breadcrumb ellipsises before the page tabs do; the same title is the page's h1 directly below and the control's accessible name, so no information is lost (WCAG 1.4.12 loss of content)" },
   { rule: "text-200", sel: /^(span#crumb-title|\.crumb-project > span|\.crumb-part > span|span\.crumb-here|button#jump-open) "/, why: "at 200% text size the header's breadcrumb ellipsises (the tabs scroll instead of pushing the page sideways); the name of the current page and of the project is also the page's h1 and the control's accessible name, so nothing is lost" },
 ];
 
@@ -322,8 +322,8 @@ function scan(o) {
     if (wd < 24 || ht < 24) {
       // WCAG 2.5.8 spacing exception: no other target within a 24 px square centred on this one
       const c = { x: r.x + r.width / 2, y: r.y + r.height / 2 };
-      const near = T.some((x) => x.e !== e && !e.contains(x.e) && !x.e.contains(e) && x.r.left < c.x + 12 && x.r.right > c.x - 12 && x.r.top < c.y + 12 && x.r.bottom > c.y - 12);
-      if (near) add("target-24", e, `${wd}x${ht} px, under 24x24, with another target close`);
+      const near = T.find((x) => x.e !== e && !e.contains(x.e) && !x.e.contains(e) && x.r.left < c.x + 12 && x.r.right > c.x - 12 && x.r.top < c.y + 12 && x.r.bottom > c.y - 12);
+      if (near) add("target-24", e, `${wd}x${ht} px, under 24x24, with another target close (${near.e.tagName.toLowerCase()}${near.e.id ? "#" + near.e.id : ""}${near.e.className && typeof near.e.className === "string" ? "." + near.e.className.split(" ")[0] : ""} "${(near.e.textContent || near.e.getAttribute("aria-label") || "").trim().slice(0, 24)}" in ${near.e.parentElement ? near.e.parentElement.className || near.e.parentElement.id || near.e.parentElement.tagName : ""} at ${Math.round(near.r.left)},${Math.round(near.r.top)} ${Math.round(near.r.width)}x${Math.round(near.r.height)}; this one at ${Math.round(r.left)},${Math.round(r.top)})`);
     }
     if (o.touch && e.matches(primary) && (wd < 43.5 || ht < 43.5)) add("target-44", e, `${wd}x${ht} px on a touch screen, want 44x44`);
   }
@@ -495,6 +495,9 @@ async function seed() {
   S.epub = makeEpub(join(kit.tmp, "marsh.epub"), "ok", kit.tmp);
   S.pdf = writePdf(join(kit.tmp, "harbour.pdf"));
   S.docx = makeDocx(join(kit.tmp, "harbour.docx"), kit.tmp);
+  S.longDocx = makeLongDocx(join(kit.tmp, "long.docx"), kit.tmp);
+  S.text = join(kit.tmp, "harbour.txt");
+  writeFileSync(S.text, ["Chapter 1", "Chapter 2", "Chapter 3"].map((l) => `${l}\n\nThe boat came in at dawn and the gulls wheeled over it, and nobody said a word.\n\nShe waited by the window until the light was gone.`).join("\n\n") + "\n");
   {
     const b64 = readFileSync(S.epub).toString("base64");
     const pv = await mk("/api/v1/imports/preview", { name: "marsh", epub: b64 });
@@ -554,6 +557,11 @@ async function seed() {
 
 // ---- the page registry. path() -> url; wait: a selector to wait for; titleOk: the title may repeat another page's (same page, other role);
 // status: the expected HTTP status; dialogs: scenarios from DIALOGS below.
+const clearOpenDrafts = (pg) => pg.evaluate(async () => { // five open imports are the most a person may hold: the walk of the import pages makes more
+  const t = document.querySelector('meta[name="csrf-token"]').content;
+  const l = await (await fetch("/api/v1/imports/drafts")).json();
+  for (const d of l.items) if (d.status === "open") await fetch("/api/v1/imports/drafts/" + d.id, { method: "DELETE", headers: { "X-CSRF-Token": t } });
+});
 const P = [
   { id: "signin", who: "anon", path: () => "/" },
   { id: "notfound-anon", who: "anon", path: () => "/nope", status: 404, titleOk: true },
@@ -577,27 +585,72 @@ const P = [
   { id: "import-git", who: "owner", path: () => "/import/git" },
   { id: "import-epub", who: "owner", path: () => "/import", titleOk: true, pre: async (pg) => { await pg.locator("#imp-f-epub").check(); } },
   { id: "import-epub-preview", who: "owner", path: () => "/import", titleOk: true, pre: async (pg) => {
-    // the book, its cut and edition label, and the mapping editor with a picker open
+    // the review of a book: its cut and edition label, and the mapping editor with a row's panel open (nest and join are in it)
     await pg.locator("#imp-f-epub").check();
     await pg.locator("#imp-epub").setInputFiles(S.epub);
     await pg.locator("#imp-h").waitFor({ timeout: 20000 });
-    await pg.waitForFunction(() => !/Working|Reading/.test(document.querySelector("#imp-status").textContent));
-    await pg.locator('#imp-result summary[aria-label="Edit The Road"]').click();
-    await pg.getByRole("button", { name: "Nest The Road under another" }).click();
+    await pg.waitForLoadState("load"); await pg.waitForFunction(() => !document.querySelector(".htmx-request, .htmx-swapping, .htmx-settling, .htmx-added"));
+    await pg.locator('#imp-review summary[aria-label="Edit The Road"]').click();
+    await pg.getByRole("button", { name: "Nest The Road under another" }).waitFor();
+    await pg.waitForLoadState("load"); await pg.waitForFunction(() => !document.querySelector(".htmx-request, .htmx-swapping, .htmx-settling, .htmx-added"));
   } },
   { id: "import-pdf", who: "owner", path: () => "/import", titleOk: true, pre: async (pg) => { await pg.locator("#imp-f-pdf").check(); } },
   { id: "import-pdf-preview", who: "owner", path: () => "/import", titleOk: true, pre: async (pg) => {
     await pg.locator("#imp-f-pdf").check();
     await pg.locator("#imp-pdffile").setInputFiles(S.pdf);
     await pg.locator("#imp-h").waitFor({ timeout: 25000 });
-    await pg.waitForFunction(() => !/Working|Reading/.test(document.querySelector("#imp-status").textContent));
+    await pg.waitForLoadState("load"); await pg.waitForFunction(() => !document.querySelector(".htmx-request, .htmx-swapping, .htmx-settling, .htmx-added"));
   } },
   { id: "import-docx-choice", who: "owner", path: () => "/import", titleOk: true, pre: async (pg) => { await pg.locator("#imp-f-docx").check(); } },
   { id: "import-docx-preview", who: "owner", path: () => "/import", titleOk: true, pre: async (pg) => {
     await pg.locator("#imp-f-docx").check();
     await pg.locator("#imp-docx").setInputFiles(S.docx);
     await pg.locator("#imp-h").waitFor({ timeout: 25000 });
-    await pg.waitForFunction(() => !/Working|Reading/.test(document.querySelector("#imp-status").textContent));
+    await pg.waitForLoadState("load"); await pg.waitForFunction(() => !document.querySelector(".htmx-request, .htmx-swapping, .htmx-settling, .htmx-added"));
+  } },
+  // The writer's own breaks: a chapter's Edit panel with the list of paragraphs to split it at, and the pattern section open.
+  { id: "import-docx-own-breaks", who: "owner", path: () => "/import", titleOk: true, pre: async (pg) => {
+    await pg.locator("#imp-f-docx").check();
+    await pg.locator("#imp-docx").setInputFiles(S.docx);
+    await pg.locator("#imp-h").waitFor({ timeout: 25000 });
+    await pg.waitForLoadState("load"); await pg.waitForFunction(() => !document.querySelector(".htmx-request, .htmx-swapping, .htmx-settling, .htmx-added"));
+    await pg.locator("#imp-pat-sum").click();
+    await pg.locator(".imp-edit summary").first().click();
+    await pg.getByRole("button", { name: /^Split this chapter/ }).waitFor();
+    await pg.getByRole("button", { name: /^Split this chapter/ }).click();
+    await pg.locator(".imp-paras").waitFor();
+    await pg.waitForFunction(() => !document.querySelector(".htmx-request, .htmx-swapping, .htmx-settling, .htmx-added"));
+  } },
+  // What is inside a long chapter: what was found, a button for each kind, and the places one by one, with a pattern that was refused.
+  { id: "import-docx-inside", who: "owner", path: () => "/import", titleOk: true, pre: async (pg) => {
+    await pg.locator("#imp-f-docx").check();
+    await pg.locator("#imp-docx").setInputFiles(S.longDocx);
+    await pg.locator("#imp-h").waitFor({ timeout: 25000 });
+    await pg.waitForLoadState("load"); await pg.waitForFunction(() => !document.querySelector(".htmx-request, .htmx-swapping, .htmx-settling, .htmx-added"));
+    await pg.getByRole("button", { name: /^Look for breaks inside it: The Long One/ }).click();
+    await pg.locator(".imp-inside").waitFor();
+    await pg.waitForFunction(() => !document.querySelector(".htmx-request, .htmx-swapping, .htmx-settling, .htmx-added"));
+  } },
+  // Phase 4: a plain text file (its panel, and its review with the places a chapter could start), a project's earlier imports with the undo
+  // open, and the notice on the review of a book the project has had before.
+  { id: "import-text-choice", who: "owner", path: () => "/import", titleOk: true, pre: async (pg) => { await pg.locator("#imp-f-text").check(); } },
+  { id: "import-text-preview", who: "owner", path: () => "/import", titleOk: true, pre: async (pg) => {
+    await clearOpenDrafts(pg);
+    await pg.locator("#imp-f-text").check();
+    await pg.locator("#imp-textfile").setInputFiles(S.text);
+    await pg.locator("#imp-h").waitFor({ timeout: 25000 });
+    await pg.waitForLoadState("load"); await pg.waitForFunction(() => !document.querySelector(".htmx-request, .htmx-swapping, .htmx-settling, .htmx-added"));
+  } },
+  { id: "import-history", who: "owner", path: () => `/p/${S.edSlug}/import`, titleOk: true },
+  { id: "import-history-undo-open", who: "owner", path: () => `/p/${S.edSlug}/import`, titleOk: true, pre: async (pg) => {
+    await pg.locator("#imp-sources .imp-undo-d > summary").first().click();
+  } },
+  { id: "import-already", who: "owner", path: () => `/p/${S.edSlug}/import`, titleOk: true, pre: async (pg) => {
+    await clearOpenDrafts(pg);
+    await pg.locator("#imp-f-epub").check();
+    await pg.locator("#imp-epub").setInputFiles(S.epub);
+    await pg.locator("#imp-already").waitFor({ timeout: 25000 });
+    await pg.waitForLoadState("load"); await pg.waitForFunction(() => !document.querySelector(".htmx-request, .htmx-swapping, .htmx-settling, .htmx-added"));
   } },
   { id: "edition-diff", who: "owner", path: () => `/p/${S.edSlug}/editions/${S.edId}/diff`, titleOk: true },
   { id: "edition-diff-step", who: "owner", path: () => `/p/${S.edSlug}/editions/${S.edId}/diff?chapter=${encodeURIComponent(S.diffKey)}`, titleOk: true },
@@ -1101,7 +1154,7 @@ const DIALOGS = {
   palette: { prep: (pg) => pg.locator("main").focus(), open: (pg) => pg.keyboard.press("Control+k"), root: "#palette", kind: "dialog" },
   newproject: { prep: (pg) => pg.locator('a[href="/ui/projects/new"], button:has-text("New project")').first().focus(), open: (pg) => pg.keyboard.press("Enter"), root: "#dialog", kind: "dialog" },
   // the inspector remembers whether it was open, so start from shut
-  inspector: { prep: async (pg) => { if (await pg.locator("#itab-details").isVisible()) { await pg.locator("#insp-close").click(); await pg.waitForTimeout(300); } await pg.locator("#ver-open, .insp-open").first().focus(); }, open: (pg) => pg.keyboard.press("Enter"), root: "#inspector", kind: "panel" },
+  inspector: { prep: async (pg) => { if (await pg.locator("#itab-details").isVisible()) { await pg.locator("#insp-close").click(); await pg.waitForTimeout(300); } await pg.locator("#ver-open:visible, .insp-open:visible").first().focus(); }, open: (pg) => pg.keyboard.press("Enter"), root: "#inspector", kind: "panel" },
   jump: { prep: (pg) => pg.locator("#jump-open").focus(), open: (pg) => pg.keyboard.press("Enter"), root: "dialog[open]", kind: "dialog" },
   aimenu: { prep: async (pg) => { await pg.locator(".scriobh-prose").first().click(); }, open: (pg) => pg.keyboard.press("Alt+Shift+KeyI"), root: "dialog.ai-menu", kind: "dialog" },
 };
@@ -1163,6 +1216,16 @@ async function inspectorTabs(entry, pg, tag) {
       // start the walk at the tab, reached by keyboard (Shift+Tab out and Tab back), so it is judged as a keyboard focus and what follows it is in order
       await pg.locator("#" + id).focus(); await pg.keyboard.press("Shift+Tab"); await pg.keyboard.press("Tab");
       await walk(entry, pg, `inspector ${id.replace("itab-", "")} ${mq.forced ? "forced colors" : mq.scheme}`, { root: "#inspector", forced: !!mq.forced, max: 40 });
+      // The Comments tab with the composer for selected words open (a person who can edit; the quote, the box, the choice of who can see it).
+      if (id === "itab-comments" && (await pg.locator(".scriobh-prose").count())) {
+        const opened = await pg.evaluate(() => { const S = window.scriobh, ed = S && S.write && S.write.editor; if (!ed || !S.inspector || !S.inspector.want) return false; let p = -1; ed.view.state.doc.descendants((n, pos) => { if (p < 0 && n.isText && n.text.trim().length > 6) p = pos; }); if (p < 0) return false; ed.alts.select(p, p + 5); S.inspector.want("comments"); return true; });
+        await pg.waitForTimeout(700);
+        if (opened && (await pg.locator("#cw-sel").count())) {
+          if (!mq.forced && mq.scheme === "light") await structure(entry, pg, "inspector comments composer", false);
+          await pg.locator("#" + id).focus(); await pg.keyboard.press("Shift+Tab"); await pg.keyboard.press("Tab");
+          await walk(entry, pg, `inspector comments composer ${mq.forced ? "forced colors" : mq.scheme}`, { root: "#inspector", forced: !!mq.forced, max: 40 });
+        }
+      }
     }
   }
 }

@@ -46,7 +46,7 @@ func TestEveryKeyTheScreensUseIsInTheCatalogue(t *testing.T) {
 	if len(used) < 40 {
 		t.Errorf("only %d keys found in the templates: is the pattern stale?", len(used))
 	}
-	prefix := map[string]string{"review.js": "review.js.", "suggest.js": "review.js.", "share.js": "share.js.", "gate.js": "gate.js.", "compile.js": "cmp.js.", "compile-print.js": "cmp.js.", "import-books.js": "imp.js."}
+	prefix := map[string]string{"review.js": "review.js.", "suggest.js": "review.js.", "share.js": "share.js.", "gate.js": "gate.js.", "compile.js": "cmp.js.", "compile-print.js": "cmp.js.", "split.js": "split.js.", "lookup.js": "lk.js.", "cwrite.js": "cw.js.", "lock.js": "lock.js."}
 	for file, pre := range prefix {
 		b, err := fs.ReadFile(web.FS, "static/js/"+file)
 		if err != nil {
@@ -60,7 +60,11 @@ func TestEveryKeyTheScreensUseIsInTheCatalogue(t *testing.T) {
 				t.Errorf("%s: T(%q) says %q, the catalogue says %q", file, m[1], want, got)
 			}
 		}
-		if found < 10 {
+		min := 10
+		if file == "lock.js" { // the locked page has five messages; the others have ten or more
+			min = 5
+		}
+		if found < min {
 			t.Errorf("%s: only %d messages found", file, found)
 		}
 	}

@@ -17,7 +17,7 @@ type Revision struct {
 	ID          string `json:"id"`
 	DocumentID  string `json:"document_id"`
 	Revision    int    `json:"revision" desc:"The document revision number this text had."`
-	Reason      string `json:"reason" enum:"autosave,manual,snapshot,restore,import,ai-accepted,alternative,suggestion-accepted"`
+	Reason      string `json:"reason" enum:"autosave,manual,snapshot,restore,import,ai-accepted,alternative,suggestion-accepted,cut,split,join"`
 	Label       string `json:"label"`
 	Note        string `json:"note"`
 	WordCount   int    `json:"word_count"`

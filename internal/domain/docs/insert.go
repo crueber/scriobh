@@ -42,13 +42,14 @@ func PrepareWith(content string, lim alts.Limits) Prepared {
 			plan, content = p, p.Content
 		}
 	}
+	words, search := text.Derive(content) // one parse: the count and the search text
 	return Prepared{
 		Plan:    plan,
 		Content: content,
 		Hash:    hashContent(content),
-		Words:   text.WordCount(content),
+		Words:   words,
 		Chars:   text.CharCount(content),
-		Search:  text.SearchBody(content),
+		Search:  search,
 		Links:   text.WikiLinks(content),
 	}
 }

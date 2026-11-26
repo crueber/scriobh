@@ -4,13 +4,14 @@
 //
 // Grammar (nothing else is a date, and anything else sorts as undated):
 //
-//	[-]YYYY                year (exactly four digits: "98" is not a year)
+//	[-]YYYY                year (one to four digits: a year under a thousand may
+//	                       be written without its zeros, so 687 is 0687)
 //	[-]YYYY-MM             month
 //	[-]YYYY-MM-DD          day
 //	[-]YYYY-MM-DDTHH:MM    minute (a space may stand for the T)
 //
-// The year has exactly four digits (so a stray "98" or "1998-4" is never
-// guessed at) and is the astronomical year: a leading minus is before year 0,
+// The month and the day always take two digits, so "1998-4" is never guessed
+// at. The year is the astronomical year: a leading minus is before year 0,
 // year 0 is written 0000 and "-0000" is refused. There is no calendar of eras
 // here: a world with its own calendar numbers its years in this range and shows
 // its own words in the event's label. The calendar is proleptic Gregorian, so month lengths and
@@ -88,7 +89,7 @@ func Parse(s string) (Date, bool) {
 		return n, err == nil && n >= min && n <= max
 	}
 	y, ok := num(parts[0], 0, 9999, 4)
-	if !ok || len(parts[0]) != 4 || (neg && y == 0) {
+	if !ok || (neg && y == 0) {
 		return Date{}, false
 	}
 	d.Year, d.Prec = y, Year

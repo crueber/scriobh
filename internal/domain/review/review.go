@@ -37,6 +37,17 @@ const (
 	EditWindow                  = 15 * time.Minute // how long the author of a comment may reword it
 	DefaultPage                 = 50
 	MaxPage                     = 200
+	// A private ("Only me") comment harms no one, so it has no hourly limit; it has caps of its own, counted over its author's
+	// private rows only, so one person's notes can never block someone else or show how many exist.
+	MaxPrivatePerAuthor         = 5000 // live private comments (replies included) one person has on one project
+	MaxPrivateAnchoredPerAuthor = 100  // open anchored private threads one person has on one document
+)
+
+// Visibility of a comment: shared is what every comment was before there was a choice (everyone who can read the project's
+// comments); private is "Only me", the author alone.
+const (
+	VisShared  = "shared"
+	VisPrivate = "private"
 )
 
 // Comment kinds.

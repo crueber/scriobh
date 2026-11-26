@@ -83,7 +83,7 @@ type CreateIn struct {
 	Name          string `json:"name" desc:"What the key is for, up to 80 characters, for example the agent's name."`
 	Label         string `json:"label,omitempty" desc:"A longer note, up to 200 characters."`
 	Scope         string `json:"scope,omitempty" enum:"read,write,admin" desc:"read to look, write to build (default), admin only when needed. A key can never exceed the scope of whoever creates it."`
-	ProjectID     string `json:"project_id,omitempty" ref:"project" desc:"Restrict the key to this one project and to that project's primary compendium: one key can then fill a book's bible and draft its chapters. A project key can create and attach that compendium with project.compendium.create."`
+	ProjectID     string `json:"project_id,omitempty" ref:"project" desc:"Restrict the key to this one project and to that project's primary compendium: one key can then fill a book's Compendium and draft its chapters. A project key can create and attach that compendium with project.compendium.create."`
 	CompendiumID  string `json:"compendium_id,omitempty" ref:"compendium" desc:"Restrict the key to this one compendium and no project. You must be able to read it, and the key can never do more there than you can."`
 	ExpiresInDays *int   `json:"expires_in_days,omitempty" desc:"Days until the key stops working. Default 90; 0 for a key that never expires; at most 3650."`
 	Agent         *bool  `json:"agent,omitempty" desc:"Mark the key as an agent's, so the audit log and the UI can tell it from a person. Default true."`

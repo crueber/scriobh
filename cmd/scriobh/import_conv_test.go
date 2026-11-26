@@ -118,7 +118,8 @@ func TestImportCommandScrivenerWordPressGhost(t *testing.T) {
 	}
 
 	// Refusals: an unknown layout, an unknown option, a file of no known kind, a broken export.
-	txt := filepath.Join(t.TempDir(), "x.txt")
+	// (a .txt used to be the file of no known kind; it is plain text now, and has its own test)
+	txt := filepath.Join(t.TempDir(), "x.bin")
 	os.WriteFile(txt, []byte("hello"), 0o644)
 	for _, c := range []struct {
 		args []string

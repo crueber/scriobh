@@ -276,7 +276,8 @@ func (s *Server) uiRoute(pattern string, h http.HandlerFunc) {
 			return
 		}
 		if !s.checkCSRF(r) {
-			s.fail(w, r, ops.Forbidden("This form expired. Reload the page and try again."))
+			// The reason is in the data, so that a script can tell a token that went stale (ask for a new one) from a person who may not.
+			s.fail(w, r, &ops.Error{Code: ops.CodeForbidden, Message: "This form expired. Reload the page and try again.", Data: map[string]any{"reason": "csrf"}})
 			return
 		}
 		h(w, r)
@@ -395,7 +396,9 @@ func (o *bodyOwner) release(user string) {
 //  5. the body's pace (pacedBody): a read deadline that moves with the bytes, in place of the absolute ReadTimeout;
 //  6. the CSRF token when it is the form's first field, which must be _csrf (a small field, read with a limit);
 //  7. only then the body: h reads it a part at a time from the multipart reader (nil for a form that is not multipart,
-//     whose fields are already in r.PostForm). Nothing of a multipart body is parsed whole, and no part goes to a file.
+//     whose fields are already in r.PostForm). Nothing of a multipart body is parsed whole. The handler decides what a part goes to: the cover form holds one picture at a time; the import form
+//     writes a part it must read before the rest of the form to a file of its own, which it removes on every way out (and data/tmp is swept of
+//     the ones a dead request left, imports.SweepTmp).
 //
 // A route that does not carry pictures uses uiRoute.
 func (s *Server) uiRouteStream(pattern string, authorize func(http.ResponseWriter, *http.Request) (*http.Request, bool),

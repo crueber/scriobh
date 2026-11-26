@@ -320,10 +320,19 @@ var notProject = map[string]routeClass{
 	"GET /search":   {"search across projects: per-project results come from search.query, gated by the registry", ""},
 	"GET /settings": {"the person's own", ""}, "GET /settings/ai": {"the person's own", ""}, "GET /settings/mcp": {"the person's own", ""},
 	"GET /import": {"an import form: no project", ""}, "GET /import/git": {"an import form: no project", ""},
-	"GET /compendiums": {"the library of Compendiums", ""}, "GET /ui/compendiums/new": {"a Compendium form", ""},
+	// The staged import: a draft is the person's own, found by owner and id (another person's is not found); one that adds to a project is
+	// found only while its owner can still edit that project, by the gate-aware role (imports.access), so a locked project's draft is not found.
+	"GET /import/d/{id}":        {"a draft of the person's own; one for a project is found only while the gate lets them edit it (imports.access)", ""},
+	"GET /ui/import/d/{id}/row": {"a row of the person's own draft", ""}, "GET /ui/import/d/{id}/look": {"a list inside a chapter of the person's own draft", ""}, "GET /ui/import/d/{id}/more": {"rows of the person's own draft", ""},
+	"GET /ui/import/d/{id}/progress": {"the person's own draft", ""}, "POST /ui/import/stage": {"sends a file to import.stage; a project it names (?into=) is read through project.get and the role, and the op checks it again", ""},
+	"POST /ui/import/d/{id}/update": {"import.draft.update on the person's own draft", ""}, "POST /ui/import/d/{id}/apply": {"import.apply or import.append on the person's own draft", ""},
+	"POST /ui/import/d/{id}/discard": {"import.draft.discard on the person's own draft", ""}, "POST /ui/import/git": {"import.git_preview: the person's own job", ""},
+	"POST /ui/import/git/{job}/open": {"the person's own Git import job and its draft", ""},
+	"GET /compendiums":               {"the library of Compendiums", ""}, "GET /ui/compendiums/new": {"a Compendium form", ""},
 	"GET /timeline/events/{id}": {"redirects to the Compendium's event page", ""},
 	"GET /ui/csrf":              {"a token", ""}, "GET /ui/projects/new": {"a form for a new project", ""},
-	"GET /api/v1/_ops": {"the op schema", ""}, "GET /api/v1/_whoami": {"the caller; names a pinned project only while the role function lets the caller open it", ""},
+	"GET /ui/shortcuts": {"a static list made from the shortcut registry: names no project and reads none", ""},
+	"GET /api/v1/_ops":  {"the op schema", ""}, "GET /api/v1/_whoami": {"the caller; names a pinned project only while the role function lets the caller open it", ""},
 	"GET /api/v1/events": {"authorizes through project.get, rechecked at every heartbeat and on every event (TestGateStreamEndsOnRelock)", ""},
 	"GET /healthz":       {"operations", ""}, "GET /readyz": {"operations", ""}, "GET /static/": {"assets", ""}, "GET /manifest.webmanifest": {"assets", ""}, "GET /sw.js": {"assets", ""},
 	"GET /pwa/{name}": {"assets", ""}, "GET /auth/login": {"sign-in", ""}, "GET /auth/oidc/callback": {"sign-in", ""}, "GET /auth/claim-admin": {"sign-in", ""},
@@ -601,7 +610,9 @@ func TestGateCoversOpsThatCheckTheRoleByHand(t *testing.T) {
 	known := map[string]bool{"ai.budget.get": true, "compendium.create": true, "key.create": true, "notification.list": true,
 		"notification.read_all": true, "timeline.event.list": true, "compendium.purge": true,
 		"studio.goal.create": true, "studio.compare": true,
-		"studio.card.create": true} // a flag (show_projects), not a project's id
+		"studio.card.create": true, // a flag (show_projects), not a project's id
+		// the staged import: the project a draft adds to is checked by imports.access with the gate-aware role, in the op, at every call
+		"import.stage": true, "import.draft.update": true}
 	for _, e := range s.Reg.Entries() {
 		if e.Op.Auth.Kind == ops.AuthProject {
 			continue

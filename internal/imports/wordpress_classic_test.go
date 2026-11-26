@@ -17,7 +17,7 @@ func TestWordPressClassicWithBlockTags(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "Intro line one\\\nline two\n\n## A heading\n\nPara after the heading\\\nwith a break\n\n> Quoted text\n\n- one still one\n- two\n\n*\\[image: pic\\]*\n\nEnd with *emphasis*\\\nand more.\n"
+	want := "Intro line one\\\nline two\n\n## A heading\n\nPara after the heading\\\nwith a break\n\n> Quoted text\n\n- one still one\n- two\n\n\\[image: pic\\]\n\nEnd with *emphasis*\\\nand more.\n"
 	if got := res.docs[0].body; got != want {
 		t.Errorf("got:\n%q\nwant:\n%q", got, want)
 	}

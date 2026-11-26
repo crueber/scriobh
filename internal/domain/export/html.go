@@ -388,7 +388,8 @@ func singleHTML(p projectRow, manuscript, notes []*doc, private bool) string {
 		if it.notes {
 			level = 3
 		}
-		b.WriteString(section(it, level, level, private, wiki))
+		// The text sits below the chapter's heading: its H2 is one level under the chapter's, as the paged HTML has it.
+		b.WriteString(section(it, level, level-1, private, wiki))
 	}
 	b.WriteString("</article>\n")
 	return page(p, strings.Join(strings.Fields(p.Title), " "), b.String())

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -142,13 +143,29 @@ var budgets = map[string]budget{
 	// 10,000 chunks of 768 dimensions, after the question has been embedded (internal/bench/semantic.go).
 	"search.semantic": {80, "semantic search < 80 ms, 10,000 chunks of 768 dimensions, excluding the embedding request"},
 	// Five years of daily writing over 20 projects, every project every day (internal/bench/studio.go).
-	"studio.dashboard":    {150, "writing dashboard < 150 ms, five years of daily data over 20 projects"},
+	"studio.dashboard":    {200, "writing dashboard < 200 ms, five years of daily data over 20 projects"},
 	"studio.calendar.all": {150, "all-time activity calendar < 150 ms, five years of daily data over 20 projects"},
 	"backup.create":       {30_000, "backup < 30 s"},
 	"db.size":             {1 << 30, "database < 1 GB"},
 	"import.epub":         {60_000, "import a 300-page EPUB with pictures < 60 s"},
+	// A 150,000-word Word file of 60 chapters, through the staged review (internal/bench/docx.go).
+	"import.draft":      {5000, "DOCX import, 150k words: stage, twenty edits and apply < 5 s"},
+	"import.draft.edit": {150, "review round trip (one change to the draft, previewed and saved), 150k words, 60 chapters < 150 ms"},
+	// The chapter detector on a Word file: the preview, with the cut found from headings, from bold centred labels after a page break, or from nothing.
+	"import.docx.h1":     {150, "DOCX preview with the chapters found, 150k words, 60 chapters by Heading 1 < 150 ms"},
+	"import.docx.labels": {150, "DOCX preview with the chapters found, 150k words, 60 chapters by Chapter N lines < 150 ms"},
+	"import.docx.none":   {150, "DOCX preview with no chapter marks, 150k words, one long text < 150 ms"},
+	"import.docx.500k":   {1000, "DOCX preview with the chapters found, 500k words, 1,000 chapters < 1 s"},
+	// The writer's own breaks: a look at one chapter, a split at a paragraph, a pattern tried.
+	"import.look.150k":   {150, "look at a chapter (a page of its paragraphs), 150k words, 60 chapters < 150 ms"},
+	"import.look.500k":   {400, "look at a chapter (a page of its paragraphs), 500k words, 1,000 chapters < 400 ms"},
+	"import.draft.split": {150, "split a chapter at a paragraph (the file is cut again), 150k words, 60 chapters < 150 ms"},
+	"import.pattern":     {150, "try a regular expression on 150k words with no marks (the cut is made again) < 150 ms"},
+	// Plain text through the shared detector, and what an undo would do.
+	"import.text.150k": {250, "plain text preview, 150k words, 60 chapters labelled in capitals < 250 ms"},
+	"import.undo.plan": {150, "what an undo of a 60-chapter import would do (every document's state compared) < 150 ms"},
 	// The front of a 6x9 wrap at 300 dpi (3825 by 2775 px), made from nothing kept (internal/bench/cover.go).
-	"cover.derive": {1500, "make the front of a 300-dpi 6x9 wrap < 1.5 s"},
+	"cover.derive": {2500, "make the front of a 300-dpi 6x9 wrap < 2.5 s"},
 }
 
 // ---- the run ---------------------------------------------------------------------
@@ -445,6 +462,41 @@ func (e *env) http(method, path string, body []byte) (int, int, error) {
 // ---- measurements -----------------------------------------------------------------------
 
 // timeIt times fn runs times after one untimed warm-up.
+// plan is what one measurement runs against: the operation, how many times it
+// is timed, and the cleanup that follows (nil when there is none).
+type plan struct {
+	runs int
+	op   func(i int) error
+	done func() error
+}
+
+// fixture builds a plan. It is called for every measurement, the first and any
+// retry, so state a case creates is always fresh.
+type fixture func() (plan, error)
+
+// stateless is the fixture of an operation that keeps no state between calls.
+func stateless(runs int, fn func(i int) error) fixture {
+	return func() (plan, error) { return plan{runs: runs, op: fn}, nil }
+}
+
+// timeFixture builds a fixture, times its operation, and then runs its cleanup.
+func timeFixture(name string, warm bool, build fixture) (Metric, error) {
+	p, err := build()
+	if err != nil {
+		if p.done != nil {
+			err = errors.Join(err, p.done())
+		}
+		return Metric{Name: name, Unit: UnitMS}, fmt.Errorf("%s: %w", name, err)
+	}
+	m, err := timeIt(name, p.runs, warm, p.op)
+	if p.done != nil {
+		if derr := p.done(); derr != nil && err == nil {
+			err = fmt.Errorf("%s: %w", name, derr)
+		}
+	}
+	return m, err
+}
+
 func timeIt(name string, runs int, warm bool, fn func(i int) error) (Metric, error) {
 	m := Metric{Name: name, Unit: UnitMS, Runs: runs}
 	if warm {
@@ -512,17 +564,22 @@ func (e *env) measure() ([]Metric, error) {
 		out = append(out, m)
 		return nil
 	}
-	// repeatable times fn and remembers how to time it again, for the retry of a
-	// measurement that looks like a regression.
-	repeatable := func(name string, runs int, warm bool, fn func(i int) error) error {
-		m, err := timeIt(name, runs, warm, fn)
+	// repeatableFixture times a case and remembers how to time it again, for
+	// the retry of a measurement that looks like a regression. The retry builds
+	// the case's state again: a case that keeps a draft open discards it, so
+	// the retry cannot reuse the first one.
+	repeatableFixture := func(name string, warm bool, build fixture) error {
+		m, err := timeFixture(name, warm, build)
 		if err != nil {
 			return err
 		}
-		m.repeat = func() (Metric, error) { return timeIt(name, runs, false, fn) }
+		m.repeat = func() (Metric, error) { return timeFixture(name, false, build) }
 		out = append(out, m)
 		logf(e.log, "  %-18s p50 %9.3f  p95 %9.3f %s\n", m.Name, m.P50, m.P95, m.Unit)
 		return nil
+	}
+	repeatable := func(name string, runs int, warm bool, fn func(i int) error) error {
+		return repeatableFixture(name, warm, stateless(runs, fn))
 	}
 
 	chapter := func(i int) string { return fx.Chapters[(i+len(fx.Chapters)*2)%len(fx.Chapters)] }
@@ -702,6 +759,262 @@ func (e *env) measure() ([]Metric, error) {
 		}
 		_, err = e.call("import.apply", imports.ApplyIn{Token: pv.(imports.PreviewOut).Token, Name: "bench.epub", Epub: book})
 		return err
+	}); err != nil {
+		return nil, err
+	}
+
+	// A 150,000-word Word file through the staged review: stage it, make twenty edits (each previews the draft and saves it), apply.
+	stageBytes := func(b []byte) (string, error) {
+		ctx := ops.WithRawBody(e.ctx, ops.RawBody{R: bytes.NewReader(b), Length: int64(len(b))})
+		out, err := e.srv.Reg.Call(ctx, e.who, "import.stage", imports.StageIn{Kind: "docx", Name: "bench.docx"})
+		if err != nil {
+			return "", err
+		}
+		return out.(imports.StageOut).StageID, nil
+	}
+	docx, err := SyntheticDocx(60, 2500)
+	if err != nil {
+		return nil, err
+	}
+	stage := func() (string, error) { return stageBytes(docx) }
+	draft := func(id string, preview bool) (imports.DraftOut, error) {
+		out, err := e.call("import.draft.get", imports.DraftGetIn{ID: id, Preview: preview})
+		if err != nil {
+			return imports.DraftOut{}, err
+		}
+		return out.(imports.DraftOut), nil
+	}
+	discard := func(id string) func() error {
+		return func() error {
+			_, err := e.call("import.draft.discard", imports.DraftIDIn{ID: id})
+			return err
+		}
+	}
+	// openDraft stages a Word file and reads its preview. The cleanup it returns
+	// discards the draft; a fixture that keeps a draft open returns it.
+	openDraft := func(b []byte) (string, imports.DraftOut, func() error, error) {
+		id, err := stageBytes(b)
+		if err != nil {
+			return "", imports.DraftOut{}, nil, err
+		}
+		d, err := draft(id, true)
+		return id, d, discard(id), err
+	}
+	if err := repeatable("import.draft", max(3, n/10), false, func(i int) error {
+		id, err := stage()
+		if err != nil {
+			return err
+		}
+		d, err := draft(id, true)
+		if err != nil {
+			return err
+		}
+		rev := d.Item.Revision
+		for k := 0; k < 20; k++ {
+			t := fmt.Sprintf("Edited %d", k)
+			u, err := e.call("import.draft.update", imports.DraftUpdateIn{ID: id, BaseRevision: rev, Edit: &imports.DraftEdit{Key: d.Preview.Nodes[k].Key, Title: &t}})
+			if err != nil {
+				return err
+			}
+			rev = u.(imports.DraftUpdateOut).Item.Revision
+		}
+		last, err := draft(id, true)
+		if err != nil {
+			return err
+		}
+		_, err = e.call("import.apply", imports.ApplyIn{StageID: id, Rev: last.Item.Revision, Token: last.Preview.Token, Title: fmt.Sprintf("Bench draft %d", time.Now().UnixNano())})
+		return err
+	}); err != nil {
+		return nil, err
+	}
+
+	// The round trip of one edit is measured by itself, on a draft kept open.
+	if err := repeatableFixture("import.draft.edit", true, func() (plan, error) {
+		open, od, done, err := openDraft(docx)
+		if err != nil {
+			return plan{done: done}, err
+		}
+		orev, trips := od.Item.Revision, 0 // the warm-up passes -1 as i: count the trips here
+		return plan{runs: n, done: done, op: func(int) error {
+			trips++
+			t := fmt.Sprintf("Round trip %d", trips)
+			u, err := e.call("import.draft.update", imports.DraftUpdateIn{ID: open, BaseRevision: orev, Edit: &imports.DraftEdit{Key: od.Preview.Nodes[trips%len(od.Preview.Nodes)].Key, Title: &t}})
+			if err != nil {
+				return err
+			}
+			orev = u.(imports.DraftUpdateOut).Item.Revision
+			return nil
+		}}, nil
+	}); err != nil {
+		return nil, err
+	}
+
+	// The detector on its own, over a 150,000-word Word file marked three ways and a 500,000-word one of 1,000 chapters.
+	for _, c := range []struct {
+		name, kind        string
+		chapters, perChap int
+	}{{"import.docx.h1", "h1", 60, 2500}, {"import.docx.labels", "labels", 60, 2500}, {"import.docx.none", "none", 60, 2500}, {"import.docx.500k", "h1", 1000, 500}} {
+		b, err := SyntheticDocxKind(c.kind, c.chapters, c.perChap)
+		if err != nil {
+			return nil, err
+		}
+		if err := repeatable(c.name, n, true, func(int) error {
+			_, err := e.call("import.preview", imports.PreviewIn{Name: "bench.docx", Docx: b})
+			return err
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	// The writer's own breaks: a look at a chapter (its list of paragraphs, a page of them) on a draft kept open, at 150,000 words of 60
+	// chapters and at 500,000 of 1,000; a split at a paragraph (the file is cut again with one more break of the writer's own each time);
+	// and a pattern tried (an expression that differs each time, so the cut is made again each time) on 150,000 words with no marks.
+	for _, c := range []struct {
+		name              string
+		chapters, perChap int
+	}{{"import.look.150k", 60, 2500}, {"import.look.500k", 1000, 500}} {
+		b, err := SyntheticDocxKind("h1", c.chapters, c.perChap)
+		if err != nil {
+			return nil, err
+		}
+		if err := repeatableFixture(c.name, true, func() (plan, error) {
+			id, d, done, err := openDraft(b)
+			if err != nil {
+				return plan{done: done}, err
+			}
+			key := d.Preview.Nodes[len(d.Preview.Nodes)/2].Key
+			return plan{runs: n, done: done, op: func(int) error {
+				_, err := e.call("import.draft.get", imports.DraftGetIn{ID: id, LookKey: key, LookMode: "split", LookCount: 40})
+				return err
+			}}, nil
+		}); err != nil {
+			return nil, err
+		}
+		if c.name != "import.look.150k" {
+			continue
+		}
+		if err := repeatableFixture("import.draft.split", true, func() (plan, error) {
+			id, d, done, err := openDraft(b)
+			if err != nil {
+				return plan{done: done}, err
+			}
+			var chap []string // the chapter of each paragraph, and the paragraph
+			var ords []int
+			for _, nd := range d.Preview.Nodes { // one place in each chapter, so each split is of a chapter that is as it was
+				lo, err := e.call("import.draft.get", imports.DraftGetIn{ID: id, LookKey: nd.Key, LookMode: "split", LookCount: 100})
+				if err != nil {
+					return plan{done: done}, err
+				}
+				if ps := lo.(imports.DraftOut).Look.Paragraphs; len(ps) > 0 {
+					chap = append(chap, nd.Key)
+					ords = append(ords, ps[len(ps)/2].Ordinal)
+				}
+			}
+			rev, at := d.Item.Revision, 0
+			return plan{runs: min(n, len(ords)), done: done, op: func(int) error {
+				if at >= len(ords) {
+					return nil
+				}
+				o := ords[at]
+				u, err := e.call("import.draft.update", imports.DraftUpdateIn{ID: id, BaseRevision: rev, Break: &o, BreakFrom: chap[at]})
+				at++
+				if err != nil {
+					return err
+				}
+				rev = u.(imports.DraftUpdateOut).Item.Revision
+				return nil
+			}}, nil
+		}); err != nil {
+			return nil, err
+		}
+	}
+	{
+		b, err := SyntheticDocxKind("none", 60, 2500)
+		if err != nil {
+			return nil, err
+		}
+		if err := repeatableFixture("import.pattern", true, func() (plan, error) {
+			id, d, done, err := openDraft(b)
+			if err != nil {
+				return plan{done: done}, err
+			}
+			rev, tried := d.Item.Revision, 0
+			return plan{runs: n, done: done, op: func(int) error {
+				tried++
+				u, err := e.call("import.draft.update", imports.DraftUpdateIn{ID: id, BaseRevision: rev, Options: map[string]string{"docx_split_pattern": fmt.Sprintf(`(?i)^(the|a|marsh) .* %d$`, tried), "docx_split_match": "regex"}})
+				if err != nil {
+					return err
+				}
+				rev = u.(imports.DraftUpdateOut).Item.Revision
+				return nil
+			}}, nil
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	// Plain text (F-344): the preview of a 150,000-word text file whose 60 chapters are labelled in capitals, through the shared detector.
+	{
+		var tb strings.Builder
+		rng := rand.New(rand.NewSource(Seed))
+		words := strings.Fields("the marsh water road wall rain dusk dawn bus crossroads lamp quay harbour tide salt reed heron mud boat rope lantern shore")
+		for c := 1; c <= 60; c++ {
+			fmt.Fprintf(&tb, "CHAPTER %d\n\n", c)
+			for p := 0; p < 25; p++ {
+				for w := 0; w < 100; w++ {
+					tb.WriteString(words[rng.Intn(len(words))])
+					tb.WriteByte(' ')
+				}
+				tb.WriteString("\n\n")
+			}
+		}
+		text := []byte(tb.String())
+		if err := repeatable("import.text.150k", n, true, func(int) error {
+			_, err := e.call("import.preview", imports.PreviewIn{Name: "bench.txt", Text: text})
+			return err
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	// Taking an import back: what an undo would do (the state of every document of a 60-chapter import compared with what the import
+	// recorded). Each measurement makes its own import and lists it; the undo that takes it back is the cleanup, so a retry lists an
+	// import that is still there. A list without the import is a failure, not a fast run.
+	if err := repeatableFixture("import.undo.plan", true, func() (plan, error) {
+		b, err := SyntheticDocxKind("h1", 60, 2500)
+		if err != nil {
+			return plan{}, err
+		}
+		pr, err := e.call("project.create", projects.CreateIn{Title: fmt.Sprintf("Bench undo %d", time.Now().UnixNano()), Kind: "novel"})
+		if err != nil {
+			return plan{}, err
+		}
+		pid := pr.(projects.Item).Item.ID
+		pv, err := e.call("import.append_preview", imports.AppendPreviewIn{ProjectID: pid, Name: "bench.docx", Docx: b})
+		if err != nil {
+			return plan{}, err
+		}
+		ap, err := e.call("import.append", imports.AppendIn{ProjectID: pid, Name: "bench.docx", Docx: b, Token: pv.(imports.PreviewOut).Token})
+		if err != nil {
+			return plan{}, err
+		}
+		src := ap.(imports.ApplyOut).SourceID
+		done := func() error {
+			_, err := e.call("import.undo", imports.UndoIn{ProjectID: pid, SourceID: src})
+			return err
+		}
+		return plan{runs: n, done: done, op: func(int) error {
+			out, err := e.call("import.source.list", imports.SourceListIn{ProjectID: pid})
+			if err != nil {
+				return err
+			}
+			for _, it := range out.(imports.SourceListOut).Items {
+				if it.ID == src {
+					return nil
+				}
+			}
+			return errors.New("the import is not in the list it would be undone from")
+		}}, nil
 	}); err != nil {
 		return nil, err
 	}

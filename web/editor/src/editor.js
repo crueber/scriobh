@@ -12,14 +12,16 @@
 
 import {EditorState, Selection, TextSelection} from "prosemirror-state"
 import {EditorView} from "prosemirror-view"
-import {history} from "prosemirror-history"
+import {history, closeHistory} from "prosemirror-history"
 import {gapCursor} from "prosemirror-gapcursor"
 import {schema} from "./schema.js"
 import {parseDetailed, serialize, parse} from "./markdown.js"
 import {countWords} from "./count.js"
-import {buildInputRules, buildKeymaps, commandTable} from "./rules.js"
+import {buildInputRules, buildKeymaps, commandTable, historyState} from "./rules.js"
+import {sourceExitStep} from "./sourcestep.js"
 import {pasteProps, insertMarkdown, cleanText} from "./paste.js"
 import {makeAlts} from "./alts.js"
+import {splitAt} from "./split.js"
 
 export const limits = {warnWords: 15000, readOnlyWords: 25000, debounceMs: 700}
 
@@ -193,12 +195,27 @@ export function mount(el, options = {}) {
       if (tr.docChanged && !quiet) changed()
     },
     handleDOMEvents: {
-      blur() { if (mode === "rich") flush(); return false }
+      blur() { if (mode === "rich") flush(); return false },
+      // A native Undo or Redo that did not come through the keymap (the operating system's Edit menu, a context menu, a shake or
+      // a swipe on a tablet) asks the page for it as a beforeinput of this type. The surface's own history answers it, never the
+      // browser's, whose undo stack knows nothing of what the editor did.
+      beforeinput(v, e) {
+        const name = e.inputType === "historyUndo" ? "undo" : e.inputType === "historyRedo" ? "redo" : ""
+        if (!name) return false
+        e.preventDefault()
+        commandTable[name](v.state, v.dispatch, v)
+        return true
+      }
     },
     ...paste
   })
 
   // ------------------------------------------------------------------ changes
+
+  // A transaction that changes nothing (not the text, the selection or the pending marks), for a host that follows the editor
+  // through its dispatch: a stored mark (a bold waiting to be typed) is carried over, which a selection step would clear.
+  let poking = false
+  function poke() { view.dispatch(view.state.tr.setStoredMarks(view.state.storedMarks)) }
 
   function changed() {
     version++
@@ -274,10 +291,10 @@ export function mount(el, options = {}) {
       if (text !== sourceLoaded) {
         const parsed = parseDetailed(text)
         if (parsed.fallback && opts.onWarning) opts.onWarning({kind: "unparsed", error: parsed.error})
-        // One undoable step. The edit was already counted by the textarea's input
-        // events, so it does not bump the version again.
+        // One undoable step, never merged into the typing before it (an Undo takes back the Source edits and nothing else). The
+        // edit was already counted by the textarea's input events, so it does not bump the version again.
         quiet = true
-        view.dispatch(view.state.tr.replaceWith(0, view.state.doc.content.size, parsed.doc.content))
+        view.dispatch(sourceExitStep(view.state, parsed.doc))
         quiet = false
         baseline = {doc: view.state.doc, markdown: text}
       }
@@ -289,7 +306,7 @@ export function mount(el, options = {}) {
         if (pa >= 0 && ph >= 0) tr = tr.setSelection(TextSelection.create(d, pa, ph))
       }
       quiet = true
-      view.dispatch(tr.scrollIntoView())
+      view.dispatch(closeHistory(tr.scrollIntoView())) // typing right after Source is left is a step of its own
       quiet = false
       focusSurface()
     }
@@ -326,6 +343,8 @@ export function mount(el, options = {}) {
       readOnly = !!opts.readOnly || words >= lim.readOnlyWords
       checkLimits(words)
       view.setProps({})
+      // The history began again: a transaction that changes nothing lets the host's own dispatch hook (the format bar) see it.
+      poke()
       return true
     },
 
@@ -338,6 +357,9 @@ export function mount(el, options = {}) {
     mode: () => mode,
     setReadOnly(value) { readOnly = !!value; source.readOnly = readOnly; view.setProps({}) },
     pasteMarkdown(text) { insertMarkdown(view, text) },
+    // What Undo and Redo can do now, for the format bar's buttons. Only the rich surface's own history is counted: the Source
+    // textarea keeps its own, which the page cannot read, so in Source (and when the text is read-only or held) both are false.
+    history: () => (mode === "rich" && !readOnly && !locked ? historyState(view.state) : {undo: false, redo: false}),
     exec(name) {
       const cmd = commandTable[name]
       if (!cmd || mode !== "rich" || readOnly) return false
@@ -349,6 +371,9 @@ export function mount(el, options = {}) {
     // `fn(state)` returns a DecorationSet. The schema is untouched.
     setDecorations(fn) { view.setProps({decorations: fn || undefined}) },
     wordCount: () => countWords(view.state.doc),
+    // Where a chapter is cut for the selection (the current one, or the one given): see split.js. `stored` is the saved text, for a
+    // chapter that cannot be written again (too long to edit).
+    splitAt: (sel, stored) => splitAt(view.state, sel, stored),
     // The map between Markdown source offsets and positions, and the quiet edits alternatives need (alts.js).
     alts: makeAlts(view, {
       silently(fn) { const was = quiet; quiet = true; try { fn() } finally { quiet = was } },
@@ -361,7 +386,14 @@ export function mount(el, options = {}) {
         if (upto !== version) timer = win.setTimeout(flush, lim.debounceMs)
       },
       version: () => version,
-      lock(on) { locked = !!on; source.readOnly = locked || readOnly }
+      lock(on) {
+        if (destroyed) return
+        const was = locked
+        locked = !!on; source.readOnly = locked || readOnly
+        // The host's hook (the format bar) sees the hold begin and end. A release and a hold in the same breath (the stash's own
+        // edit) are one poke, after both.
+        if (was !== locked && !poking) { poking = true; Promise.resolve().then(() => { poking = false; if (!destroyed) poke() }) }
+      }
     }),
     destroy() {
       if (destroyed) return

@@ -12,7 +12,7 @@
 {{end}}
 {{define "tab-write"}}{{end}}
 {{define "ptabs"}}{{end}}
-{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "read" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" (inLang $.Lang (ptabs .Data.Slug "" "read" .Data.Project.Role))}}{{end}}
 
 {{define "content"}}
 {{with .Data}}
@@ -63,8 +63,8 @@
     <div class="rv-sugg" id="rv-sugg" hidden></div>
   </aside>
   <div class="rv-pop" id="rv-pop" hidden role="group" aria-label="{{$.T "review.selection"}}">
-    <button type="button" class="btn solid small rv-pop-c" aria-keyshortcuts="c">{{$.T "review.comment"}}</button>
-    <button type="button" class="btn small rv-pop-s" aria-keyshortcuts="s" hidden>{{$.T "review.suggest_change"}}</button>
+    <button type="button" class="btn solid small rv-pop-c" aria-keyshortcuts="{{keys "review_comment"}}">{{$.T "review.comment"}}</button>
+    <button type="button" class="btn small rv-pop-s" aria-keyshortcuts="{{keys "review_suggest"}}" hidden>{{$.T "review.suggest_change"}}</button>
   </div>
   <div id="rv-live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
   <div id="rv-msg" hidden data-msg="{{json ($.Msgs "review.js.")}}"></div>

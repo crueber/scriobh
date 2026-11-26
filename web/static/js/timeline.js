@@ -72,7 +72,7 @@
     var t = 0, run = function () { dateHint(inp); var p = inp.dataset.pair && doc.getElementById(inp.dataset.pair); if (p && p.value) dateHint(p); };
     inp.addEventListener("input", function () { win.clearTimeout(t); t = win.setTimeout(run, 250); });
     inp.addEventListener("blur", function () { win.clearTimeout(t); run(); });
-    if (inp.value) dateHint(inp);
+    if (inp.value && !inp.hasAttribute("aria-invalid")) dateHint(inp); // a date the server refused keeps its message until the writer types
   });
 
   // ---- the entity picker: a combobox over the Compendium's own entity list ---------------------------------------

@@ -120,7 +120,7 @@ for (const [size, opts] of Object.entries(sizes)) {
       await page.getByRole("link", { name: "Actions for The Salt Road" }).click();
       await page.locator("dialog#dialog[open]").waitFor();
       await sleep(300); // htmx settles the dialog's content
-      await page.getByRole("link", { name: /Export as Markdown/ }).click();
+      await page.getByRole("link", { name: "Export…", exact: true }).click();
       await page.locator("#project-export-form").waitFor();
       await sleep(300);
       await shot(page, `export-dialog-${tag}`);
@@ -128,8 +128,7 @@ for (const [size, opts] of Object.entries(sizes)) {
       // The read-only chapter and the way out of it.
       await go(`/p/${salt.slug}/d/${long.id}`);
       await page.waitForSelector(".scriobh-prose");
-      await page.locator("#nb-guard").getByRole("button", { name: "Split at cursor" }).click();
-      await page.locator(".scriobh-source").evaluate((t) => { const n = Math.floor(t.value.length / 2); t.focus(); t.setSelectionRange(n, n); });
+      await page.evaluate(() => { const ed = window.scriobh.write.editor; const mid = Math.floor(ed.view.state.doc.content.size / 2); ed.alts.select(mid, mid); });
       await sleep(300);
       await shot(page, `split-guard-${tag}`);
     }

@@ -1,0 +1,18 @@
+{{/* The keyboard shortcuts window (F-1250), the body of the page's own #dialog: made from internal/shortcuts, the only place a key
+   is written down. The caps are drawn for a computer that is not a Mac; js/palette.js swaps the modifiers for a Mac's signs and
+   shows the keys that exist on a Mac only. */}}
+{{define "shortcuts-dialog"}}<div class="kb">
+  <div class="dialog-head">
+    <h2 id="dialog-title">{{.T "kb.title"}}</h2>
+    <button type="button" class="icon-btn dialog-close" data-dialog-close aria-label="{{.T "kb.close"}}">{{template "icon" "close"}}</button>
+  </div>
+  <p class="kb-lede">{{.T "kb.lede"}}</p>
+  <div class="kb-groups">{{range .Sections}}
+    <section class="kb-group{{if .Here}} is-here{{end}}" aria-labelledby="kb-g-{{.ID}}">
+      <h3 id="kb-g-{{.ID}}">{{.Name}}{{if .Here}} <span class="kb-here">{{$.T "kb.here"}}</span>{{end}}</h3>
+      <dl>{{range .Rows}}
+        <div class="kb-row" data-row="{{.ID}}"><dt>{{.Words}}</dt><dd>{{range $i, $a := .Alts}}<span class="kb-alt"{{if $a.Mac}} data-os="mac" hidden{{end}}>{{if $i}}<span class="kb-or">{{$.T "kb.or"}}</span> {{end}}{{range $a.Caps}}<kbd{{with .Key}} data-k="{{.}}"{{end}}{{with .Code}} data-code="{{.}}"{{end}}>{{if .Label}}<span aria-hidden="true">{{.Text}}</span><span class="sr-only">{{.Label}}</span>{{else}}{{.Text}}{{end}}</kbd>{{end}}</span> {{end}}</dd></div>{{end}}
+      </dl>
+    </section>{{end}}
+  </div>
+</div>{{end}}

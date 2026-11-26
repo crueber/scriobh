@@ -38,6 +38,15 @@ type tileData struct {
 	Mirror *mirrorView // the project menu's line about the Markdown copy; nil when there is none to show
 	// LockWord is the menu's "Lock now", for a project that has a passphrase this session has open (F-252).
 	LockWord string
+	// Words are the menu's own items that the catalogue holds (Compile, and the export item named for what it offers).
+	Words menuWords
+}
+
+// menuWords are the project menu's items in the language of the person asking.
+type menuWords struct{ Compile, Export string }
+
+func (s *Server) menuWordsFor(r *http.Request) menuWords {
+	return menuWords{Compile: s.tr(r, "compile.menu"), Export: s.tr(r, "export.menu")}
 }
 
 func libraryState(r *http.Request) string {
@@ -135,7 +144,7 @@ func (s *Server) uiProjectMenu(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	td := tileData{P: pr, State: libraryState(r), CSRF: authFrom(r.Context()).CSRF}
+	td := tileData{P: pr, State: libraryState(r), CSRF: authFrom(r.Context()).CSRF, Words: s.menuWordsFor(r)}
 	if pr.Protected && !pr.Locked {
 		td.LockWord = s.tr(r, "project.gate.lock_now")
 	}

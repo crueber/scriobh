@@ -3,15 +3,16 @@
   <a href="/p/{{.Slug}}/outline"{{if eq .Active "outline"}} aria-current="page"{{end}}>Outline</a>
   <a href="/p/{{.Slug}}/cards"{{if eq .Active "cards"}} aria-current="page"{{end}}>Cards</a>
   <a href="/p/{{.Slug}}/research"{{if eq .Active "research"}} aria-current="page"{{end}}>Research</a>
-  <a href="/p/{{.Slug}}/compendium"{{if eq .Active "compendium"}} aria-current="page"{{end}}>Compendium</a>
+  <a href="/p/{{.Slug}}/compendium/open"{{if eq .Active "compendium"}} aria-current="page"{{end}}>Compendium</a>
   <a href="/p/{{.Slug}}/goals"{{if eq .Active "goals"}} aria-current="page"{{end}}>Goals</a>
   <a href="/p/{{.Slug}}/search"{{if eq .Active "search"}} aria-current="page"{{end}}>Search</a>
+  {{if or (not .Role) (eq .Role "owner") (eq .Role "editor")}}<a href="/p/{{.Slug}}/compile"{{if eq .Active "compile"}} aria-current="page"{{end}}>Compile</a>{{end}}
   {{if ne .Role "reviewer"}}<a href="/p/{{.Slug}}/ai"{{if eq .Active "ai"}} aria-current="page"{{end}}>AI</a>{{end}}
 </nav>{{end}}
 {{define "ptab-phone"}}<a class="tab" href="{{.Write}}"{{if eq .Active "write"}} aria-current="page"{{end}}>{{template "icon" "write"}}<span>Write</span></a>
 <a class="tab" href="/p/{{.Slug}}/outline"{{if eq .Active "outline"}} aria-current="page"{{end}}>{{template "icon" "outline"}}<span>Outline</span></a>
 <a class="tab" href="/p/{{.Slug}}/research"{{if eq .Active "research"}} aria-current="page"{{end}}>{{template "icon" "research"}}<span>Research</span></a>
-<a class="tab" href="/p/{{.Slug}}/compendium"{{if eq .Active "compendium"}} aria-current="page"{{end}}>{{template "icon" "compendium"}}<span>Bible</span></a>{{end}}
+<a class="tab" href="/p/{{.Slug}}/compendium/open"{{if eq .Active "compendium"}} aria-current="page"{{end}}>{{template "icon" "compendium"}}<span>Compendium</span></a>{{end}}
 {{define "project-more"}}<p class="menu-label" id="menu-project">This project</p>
 <ul class="menu-list" aria-labelledby="menu-project">
   <li><a class="menu-item" href="/p/{{.Slug}}/cards"{{if eq .Active "cards"}} aria-current="page"{{end}}>{{template "icon" "cards"}}<span>Corkboard</span></a></li>
@@ -30,6 +31,7 @@
   {{if or (not .Role) (eq .Role "owner")}}<li><a class="menu-item" href="/p/{{.Slug}}/passphrase"{{if eq .Active "passphrase"}} aria-current="page"{{end}}>{{template "icon" "lock"}}<span>Passphrase</span></a></li>{{end}}
   {{if or (not .Role) (eq .Role "owner")}}<li><a class="menu-item" href="/p/{{.Slug}}/semantic"{{if eq .Active "semantic"}} aria-current="page"{{end}}>{{template "icon" "search"}}<span>Search by meaning</span></a></li>{{end}}
   {{if or (not .Role) (eq .Role "owner")}}<li><a class="menu-item" href="/p/{{.Slug}}/webhooks"{{if eq .Active "webhooks"}} aria-current="page"{{end}}>{{template "icon" "code"}}<span>Webhooks</span></a></li>{{end}}
+  <li><a class="menu-item" href="/p/{{.Slug}}/compendium"{{if eq .Active "compendium"}} aria-current="page"{{end}}>{{template "icon" "compendium"}}<span>{{.T "nav.comp_settings"}}</span></a></li>
   <li><a class="menu-item" href="/p/{{.Slug}}/people"{{if eq .Active "people"}} aria-current="page"{{end}}>{{template "icon" "people"}}<span>People</span></a></li>
   <li><a class="menu-item" href="/p/{{.Slug}}/editions"{{if eq .Active "editions"}} aria-current="page"{{end}}>{{template "icon" "attach"}}<span>Editions</span></a></li>
   <li><a class="menu-item" href="/p/{{.Slug}}/git"{{if eq .Active "git"}} aria-current="page"{{end}}>{{template "icon" "history"}}<span>Git sync</span></a></li>

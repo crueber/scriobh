@@ -239,6 +239,70 @@ bt("Mod+E swaps to a textarea over the exact Markdown and back without losing te
   await context.close()
 })
 
+// What the Undo button (and Mod+Z) takes back after the Source view: the Source edits as one step of their own, even when the
+// round trip comes within the history's 500 ms grouping window of typing before it or after it (so a step that is not closed
+// to its neighbours fails this test), and nothing a later quiet step (an alternative's wording, the stored line) wrote.
+bt("leaving Source is one step of its own: never merged with typing before or after it, never over a quiet edit elsewhere", async () => {
+  const {page, context} = await fresh("One line.\n\nTwo words here.\n")
+  await page.evaluate(() => { const at = h.ed.view.state.doc.content.size - 1; h.ed.alts.select(at, at) })
+  await page.keyboard.type(" Typed.")
+  // At once, well inside 500 ms: Source, an edit there, and back.
+  await page.keyboard.press("ControlOrMeta+e")
+  await page.evaluate(() => {
+    const t = document.querySelector(".scriobh-source")
+    t.value = t.value.replace("Typed.", "Typed. Src.") // next to where the typing ended: a step not closed to it would join it
+    t.dispatchEvent(new Event("input", {bubbles: true}))
+  })
+  await page.keyboard.press("ControlOrMeta+e")
+  assert.equal(await md(page), "One line.\n\nTwo words here. Typed. Src.\n")
+  // Typing straight after leaving Source, in the same window.
+  await page.keyboard.type("!")
+  assert.equal(await md(page), "One line.\n\nTwo words here. Typed. Src.!\n")
+  // A quiet step elsewhere, as an alternative's wording is written.
+  await page.evaluate(() => {
+    let at = -1
+    h.ed.view.state.doc.descendants((n, pos) => { if (at < 0 && n.isText && n.text.includes("words")) at = pos + n.text.indexOf("words") })
+    h.ed.alts.replace(at, at + 5, "ALTWORD")
+  })
+  assert.match(await md(page), /Two ALTWORD here\. Typed\. Src\.!/)
+  const hist = () => page.evaluate(() => h.ed.history())
+  await page.evaluate(() => h.ed.exec("undo"))
+  assert.equal(await md(page), "One line.\n\nTwo ALTWORD here. Typed. Src.\n", "the first Undo takes back the typing after Source, alone")
+  await page.evaluate(() => h.ed.exec("undo"))
+  assert.equal(await md(page), "One line.\n\nTwo ALTWORD here. Typed.\n", "the second takes back what Source did, alone; the quiet wording stays")
+  await page.evaluate(() => h.ed.exec("undo"))
+  assert.equal(await md(page), "One line.\n\nTwo ALTWORD here.\n", "the third takes back the typing before Source")
+  assert.deepEqual(await hist(), {undo: false, redo: true})
+  await context.close()
+})
+
+// A hold (the alternatives' operations) and its end poke the host's dispatch hook with a transaction that changes nothing; a bold
+// waiting to be typed (a stored mark) must survive it, and a lock after destroy must do nothing.
+bt("a hold begins and ends without losing a pending bold, and without a transaction that changes anything", async () => {
+  const {page, context} = await fresh("Hello world.\n")
+  await page.evaluate(() => { h.ed.alts.select(6, 6); h.ed.view.focus() })
+  await page.keyboard.press("ControlOrMeta+b") // nothing selected: bold is pending for the next letters
+  const marks = () => page.evaluate(() => (h.ed.view.state.storedMarks || []).map(m => m.type.name).join(","))
+  assert.equal(await marks(), "strong")
+  const seen = await page.evaluate(async () => {
+    const out = {docChanged: false, count: 0}
+    const dispatch = h.ed.view.dispatch
+    h.ed.view.dispatch = tr => { out.count++; if (tr.docChanged) out.docChanged = true; dispatch.call(h.ed.view, tr) }
+    h.ed.alts.lock(true); h.ed.alts.lock(false); h.ed.alts.lock(true) // a release and a hold in the same breath: one poke
+    await Promise.resolve(); await Promise.resolve()
+    h.ed.alts.lock(false)
+    await Promise.resolve(); await Promise.resolve()
+    return out
+  })
+  assert.equal(seen.docChanged, false)
+  assert.equal(seen.count, 2, "one poke for the hold that began and ended in one breath, one for the release after")
+  assert.equal(await marks(), "strong", "the pending bold is still there")
+  await page.keyboard.type("X")
+  assert.match(await md(page), /Hello\*\*X\*\* world/)
+  await page.evaluate(() => { h.ed.destroy(); h.ed.alts.lock(true) }) // no error after destroy
+  await context.close()
+})
+
 bt("the selection survives the Source round trip", async () => {
   const {page, context} = await fresh("# Heading\n\nThe quick brown fox jumps over the lazy dog.\n\nSecond paragraph here.\n")
   // Select "brown fox" by walking the DOM.

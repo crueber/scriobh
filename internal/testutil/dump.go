@@ -88,3 +88,61 @@ func TreeDigest(t testing.TB, dir string) string {
 	sum := sha256.Sum256([]byte(strings.Join(lines, "\n")))
 	return hex.EncodeToString(sum[:])
 }
+
+// TablesHolding names every table (virtual-table shadow tables included, the tables in skip left out) that has a cell holding needle,
+// as text or as a blob. A test that must prove a secret is nowhere but where it belongs uses it as one assertion over events, audit,
+// outbox, notifications, search and mail at once, including the tables that do not exist yet.
+func TablesHolding(t testing.TB, d *db.DB, needle string, skip ...string) []string {
+	t.Helper()
+	rows, err := d.Read().Query(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tables []string
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		tables = append(tables, n)
+	}
+	rows.Close()
+	var out []string
+tables:
+	for _, tb := range tables {
+		for _, s := range skip {
+			if s == tb {
+				continue tables
+			}
+		}
+		r, err := d.Read().Query(`SELECT * FROM "` + tb + `"`)
+		if err != nil {
+			continue // a virtual table that cannot be read whole
+		}
+		cols, _ := r.Columns()
+		found := false
+		for r.Next() && !found {
+			vals := make([]any, len(cols))
+			ptrs := make([]any, len(cols))
+			for i := range vals {
+				ptrs[i] = &vals[i]
+			}
+			if err := r.Scan(ptrs...); err != nil {
+				break
+			}
+			for _, v := range vals {
+				switch x := v.(type) {
+				case string:
+					found = found || strings.Contains(x, needle)
+				case []byte:
+					found = found || strings.Contains(string(x), needle)
+				}
+			}
+		}
+		r.Close()
+		if found {
+			out = append(out, tb)
+		}
+	}
+	return out
+}

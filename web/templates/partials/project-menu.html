@@ -8,7 +8,8 @@
     <li><a class="action-item" href="/p/{{.P.Slug}}">Open</a></li>
     <li><a class="action-item" href="/p/{{.P.Slug}}/search">Search this project</a></li>
     <li><a class="action-item" href="/p/{{.P.Slug}}/cover">Cover&hellip;</a></li>
-    {{if or (eq .P.Role "owner") (eq .P.Role "editor")}}<li><a class="action-item" href="/ui/projects/{{.P.ID}}/export" hx-get="/ui/projects/{{.P.ID}}/export" hx-target="#dialog-body" hx-swap="innerHTML">Export as Markdown&hellip;</a></li>
+    {{if or (eq .P.Role "owner") (eq .P.Role "editor")}}<li><a class="action-item" href="/p/{{.P.Slug}}/compile">{{.Words.Compile}}</a></li>
+    <li><a class="action-item" href="/ui/projects/{{.P.ID}}/export" hx-get="/ui/projects/{{.P.ID}}/export" hx-target="#dialog-body" hx-swap="innerHTML">{{.Words.Export}}</a></li>
     <li><a class="action-item" href="/p/{{.P.Slug}}/import">Add files from a folder or zip&hellip;</a></li>
     <li><a class="action-item" href="/p/{{.P.Slug}}/git">Git sync&hellip;</a></li>{{end}}
     <li><a class="action-item" href="/p/{{.P.Slug}}/editions">Editions&hellip;</a></li>

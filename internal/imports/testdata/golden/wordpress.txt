@@ -15,7 +15,7 @@ layout: wordpress
    | >
    | > *Anon*
    | 
-   | *\[image: A map of the road\]*
+   | \[image: A map of the road\]
    | 
    | The road
    | 

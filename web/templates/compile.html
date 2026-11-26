@@ -3,11 +3,11 @@
 <nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{$.T "cmp.title"}}</span></nav>
 {{end}}
 {{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "compile" .Data.Project.Role}}{{end}}
-{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "compile" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" (inLang $.Lang (ptabs .Data.Slug "" "compile" .Data.Project.Role))}}{{end}}
 {{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "compile" .Data.Project.Role}}{{end}}
 {{define "content"}}
 {{with .Data}}
-<div class="settings cmp" id="cmp" data-project="{{.ProjectID}}" data-presets="{{.Presets}}" data-options="{{.Options}}" data-dir="{{.Dir}}" data-lang="{{.Lang}}" data-csrf="{{.CSRF}}" data-pandoc="{{.Pandoc}}">
+<div class="settings cmp" id="cmp" data-project="{{.ProjectID}}" data-presets="{{.Presets}}" data-options="{{.Options}}" data-dir="{{.Dir}}" data-lang="{{.Lang}}" data-csrf="{{.CSRF}}" data-pandoc="{{.Pandoc}}" data-pick="{{.Pick}}" data-chapters="{{.Chapters}}">
   <h1>{{$.T "cmp.title"}}</h1>
   <p class="sub">{{.Project.Title}}. {{$.T "cmp.intro"}}</p>
   {{if .Flash}}<p class="saved" role="status">{{.Flash}}</p>{{end}}
@@ -30,11 +30,7 @@
         <div class="form-actions"><button type="button" class="btn quiet small" id="cmp-name-cancel">{{$.T "cmp.cancel"}}</button><button type="submit" class="btn solid small">{{$.T "cmp.save"}}</button></div>
       </form>
     </section>
-    <section aria-labelledby="cmp-o-h">
-      <h2 id="cmp-o-h">{{$.T "cmp.options"}}</h2>
-      <p class="fine">{{$.T "cmp.options_note"}}</p>
-      <div id="cmp-opts"></div>
-    </section>
+    <p class="cmp-what" id="cmp-what"></p>
     <div class="cmp-actions">
       <div class="field"><label for="cmp-show">{{$.T "cmp.show"}}</label><select id="cmp-show"><option value="3">3</option><option value="6">6</option><option value="12">12</option></select></div>
       <button type="button" class="btn solid" id="cmp-preview">{{$.T "cmp.preview"}}</button>
@@ -48,6 +44,11 @@
       <h2 id="cmp-m-h">{{$.T "cmp.manifest"}}</h2>
       <dl class="cmp-facts" id="cmp-mfacts"></dl>
     </section>
+    <details class="cmp-fold cmp-all" id="cmp-all"{{if .OptionsChanged}} open{{end}}>
+      <summary><h2 class="cmp-all-h" id="cmp-o-h">{{$.T "cmp.options"}}</h2></summary>
+      <p class="fine">{{$.T "cmp.options_note"}}</p>
+      <div id="cmp-opts"></div>
+    </details>
 
     <section class="cmp-coverpage" id="cmp-coverpage" aria-labelledby="cmp-cp-h">
       <h2 id="cmp-cp-h">{{$.T "cover.cmp_h"}}</h2>

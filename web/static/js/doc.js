@@ -214,8 +214,10 @@
     if (restA.length) keep("local", ld, JSON.stringify(restA[0])); else keep("local", ld, null);
     if (restB.length) keep("local", lh, JSON.stringify(restB)); else keep("local", lh, null);
   })();
+  // A title-only change is a draft too.
   function writeDraft() {
-    if (locked || !want) return;
+    if (locked || !(want || titlePending())) return;
+    if (!want) want = { md: localMd(), version: null };
     if (!heldMoved) { heldMoved = true; holdOnLoad(); } // an earlier session's draft goes aside before this one's first write
     if (keep("local", draftKey, JSON.stringify({ md: want.md, title: titleNow(), rev: st.rev, t: Date.now() }))) { unbar("quota"); return; }
     // The store is full or blocked: never leave an older draft that looks current, and say so.
@@ -407,7 +409,7 @@
   function wake() { if (state !== "saved" && state !== "locked" && state !== "conflict" && !inflight) { clearTimeout(retryTimer); pump(); } }
   win.addEventListener("online", wake);
   win.addEventListener("focus", function () { wake(); renew(); });
-  doc.addEventListener("visibilitychange", function () { if (doc.visibilityState === "visible") { wake(); renew(); } });
+  doc.addEventListener("visibilitychange", function () { if (doc.visibilityState === "visible") { wake(); renew(); } else flushAll(); }); // hidden: what is typed goes out now
 
   // ---- conflicts -------------------------------------------------------------------------
   function ensureCopy(md) {
@@ -522,6 +524,7 @@
 
   // ---- the tab lease ---------------------------------------------------------------------------
   var leaseTimer = 0;
+  // js/lock.js (the locked page) is fetched when the page locks.
   function lockUI() {
     // Text typed before the lease answer arrived is never stranded behind a lock: the save
     // meets the lease conflict and the three choices appear.
@@ -529,28 +532,13 @@
     if (needs() || inflight) { pump(); return; }
     locked = true;
     if (ed) ed.setReadOnly(true);
+    titleEl.readOnly = true; // at once: lock.js arrives later
     setState("locked", "Open in another tab. This tab can read but not edit.");
-    bar("lock", "warn", "Open in another tab. This tab can read, but not edit. Take over to write here.", [{ label: "Take over", fn: takeOver }]);
-    tl("update");
+    lazy(D.lockSrc, "lock", function () { S.lock.show(); });
   }
-  function takeOver() {
-    takeLease(true).then(function (held) {
-      if (!held) return toast("Could not take over. Try again.");
-      return fetchDoc().then(function (cur) {
-        ed.flush();
-        if ((cur.revision !== st.rev || !sameText(cur.content, st.serverMd)) && !needs()) adopt(cur, 1);
-        else { st.rev = cur.revision; ed.alts.setComment(altLine(cur.content)); }
-        locked = false; unbar("lock");
-        if (writable) ed.setReadOnly(false);
-        setState("saved");
-        tl("update");
-        ed.focus();
-        startRenewal();
-        doc.dispatchEvent(new win.CustomEvent("scriobh:lease")); // held.js sends again the fields the lease had kept from saving
-        offerDraft(); // text kept by a tab that could not save before it closed
-      });
-    }, function () { toast("Could not reach the server. Try again."); });
-  }
+  // What js/lock.js needs (the rest is S.write).
+  S.lockHost = { st: st, takeLease: takeLease, fetchDoc: fetchDoc, bar: bar, unbar: unbar, toast: toast, setState: setState,
+    needs: needs, sameText: sameText, altLine: altLine, startRenewal: startRenewal, offerDraft: offerDraft, setLocked: function (v) { locked = v; } };
   function renew() {
     if (!writable || locked || halted || !ed || doc.visibilityState !== "visible") return;
     takeLease(false, true).then(function (held) {
@@ -596,7 +584,8 @@
       ? "This chapter is " + fmt(n) + " words, over the 25,000-word limit for one document. It opens read-only. Split it at a scene break into shorter chapters."
       : "This chapter is " + fmt(n) + " words. Long chapters slow editing down. Consider splitting it at a scene break.";
     var acts = [];
-    if (cfg.canEdit && S.split) acts.push({ label: "Split at cursor", fn: function () { S.split(); } });
+    var sb = $('[data-cmd="split"]', fmtbar); // js/split.js, labelled as the toolbar button is
+    if (cfg.canEdit) acts.push({ label: (sb && sb.dataset.tip) || "Split chapter here", fn: function () { if (S.split) S.split(); else toast("Still loading. Try again in a moment."); } });
     if (!ro) acts.push({ label: "Dismiss", quiet: true, fn: function () { guardDismissed = true; unbar("guard"); } });
     bar("guard", "warn", msg, acts);
   }
@@ -634,18 +623,15 @@
       titleError.hidden = true;
       skipTitle = false;
       mirrorTitle(titleNow());
+      writeDraft(); // kept in this browser at once, as the text is
       clearTimeout(titleTimer);
-      titleTimer = setTimeout(function () { if (titlePending()) { writeDraftTitle(); pump(); } }, saveDelay);
+      titleTimer = setTimeout(function () { if (titlePending()) pump(); }, saveDelay);
     });
-    titleEl.addEventListener("blur", function () { clearTimeout(titleTimer); if (titlePending()) { writeDraftTitle(); pump(); } });
+    titleEl.addEventListener("blur", function () { clearTimeout(titleTimer); if (titlePending()) pump(); });
     titleEl.addEventListener("keydown", function (e) {
       if (e.key === "Enter") { e.preventDefault(); ed.focus(); }
       else if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === "s") { e.preventDefault(); flushAll(); }
     });
-  }
-  function writeDraftTitle() {
-    if (!want) want = { md: ed.getMarkdown(), version: null };
-    writeDraft();
   }
 
   // ---- navigation, shortcuts, unload ---------------------------------------------------------------------------

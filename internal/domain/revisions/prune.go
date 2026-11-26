@@ -15,9 +15,11 @@ import (
 //     forever. These are the pinned versions.
 //   - The newest revision of every document is always kept, so the autosave
 //     throttle and "is the head recorded" keep reading a real row.
-//   - Every other revision (autosave, restore, snapshot, import, and the rest,
-//     alternative) is kept in full for AutosaveDays, then thinned to the newest
-//     one of each UTC day when KeepDaily is set, or dropped when it is not.
+//   - Every other revision (autosave, restore, snapshot, import, split, and the
+//     rest, alternative) is kept in full for AutosaveDays, then thinned to the
+//     newest one of each UTC day when KeepDaily is set, or dropped when it is not.
+//   - Before the rule above, the unlabelled cut versions of a document are capped
+//     at MaxCutVersions, the newest kept (see CaptureBefore).
 type Policy struct {
 	AutosaveDays int  `json:"autosave_days"`
 	KeepDaily    bool `json:"keep_daily"`
@@ -159,10 +161,21 @@ func pruneDoc(tx *sql.Tx, docID string, p Policy, cutoff string, dry bool) (Prun
 	if err := tx.QueryRow(`SELECT id FROM document_revisions WHERE document_id = ? ORDER BY recorded_at DESC, id DESC LIMIT 1`, docID).Scan(&newest); err != nil {
 		return res, err
 	}
+	over, err := cutOverflow(tx, docID)
+	if err != nil {
+		return res, err
+	}
+	overCap := map[string]bool{}
+	for _, id := range over {
+		overCap[id] = true
+	}
 	var drop []string
 	seenDay := map[string]bool{}
 	for _, r := range all { // newest shown first
 		switch {
+		case overCap[r.id]:
+			drop = append(drop, r.id) // an unlabelled cut version beyond MaxCutVersions
+			continue
 		case r.id == newest:
 			seenDay[r.at[:10]] = true // kept, so its day already has a survivor
 			continue
@@ -177,7 +190,47 @@ func pruneDoc(tx *sql.Tx, docID string, p Policy, cutoff string, dry bool) (Prun
 	if len(drop) == 0 {
 		return res, nil
 	}
-	res.Removed = len(drop)
+	return dropRevisions(tx, docID, drop, dry)
+}
+
+// cutOverflow lists the unlabelled cut versions of a document beyond
+// MaxCutVersions, the most recently written ones kept. A labelled version is
+// never listed.
+func cutOverflow(tx *sql.Tx, docID string) ([]string, error) {
+	rows, err := tx.Query(`SELECT id FROM document_revisions WHERE document_id = ? AND reason = 'cut' AND label = ''
+		ORDER BY recorded_at DESC, id DESC LIMIT -1 OFFSET ?`, docID, MaxCutVersions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// trimCuts drops the unlabelled cut versions beyond MaxCutVersions of a document,
+// inside the save that has just written one, so a burst of big cuts cannot grow
+// a document's history between two prunes.
+func trimCuts(tx *sql.Tx, docID string) error {
+	ids, err := cutOverflow(tx, docID)
+	if err != nil || len(ids) == 0 {
+		return err
+	}
+	_, err = dropRevisions(tx, docID, ids, false)
+	return err
+}
+
+// dropRevisions deletes the given revisions of a document, then the stored texts
+// that only they referred to. With dry, it counts what it would free and changes
+// nothing.
+func dropRevisions(tx *sql.Tx, docID string, drop []string, dry bool) (PruneResult, error) {
+	res := PruneResult{DryRun: dry, Removed: len(drop)}
 	// Freed blobs: stored texts only the dropped revisions refer to.
 	dropped := map[string]bool{}
 	for _, id := range drop {

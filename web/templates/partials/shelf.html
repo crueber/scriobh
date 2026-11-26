@@ -6,7 +6,7 @@
     <a href="/compendiums">Compendiums</a>
   </nav>
   {{with .Continue}}
-  <a class="continue" href="/p/{{.Slug}}{{if .LastDocumentID}}/d/{{.LastDocumentID}}{{end}}">
+  <a class="continue" href="/p/{{.Slug}}{{if .LastDocumentID}}/d/{{.LastDocumentID}}#resume{{end}}">
     {{if .CoverLayout}}<span class="cover cover-mini cover-image {{coverClass .CoverColor}}"><img src="{{.CoverThumb}}" alt="{{.CoverAlt}}" loading="lazy" decoding="async"></span>{{else}}<span class="cover cover-mini {{coverClass .CoverColor}}" aria-hidden="true"><span class="cover-rule"></span></span>{{end}}
     <span class="continue-text">
       <span class="eyebrow">Continue where you left off</span>

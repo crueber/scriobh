@@ -27,6 +27,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -274,38 +275,79 @@ func AfterWriteKeepingLost(tx *sql.Tx, docID, oldContent, newContent string, rev
 	return afterWrite(tx, docID, oldContent, newContent, revision, now, true)
 }
 
-// maxProcessed bounds the threads one save re-anchors: the open ones are capped at creation
-// (MaxAnchoredPerDocument) and so are the resolved ones; anything beyond is made orphaned, so no
-// comment ever claims a place it was not checked at.
-const maxProcessed = 2 * MaxAnchoredPerDocument
+// maxProcessed bounds the shared threads one save re-anchors: the open ones are capped at creation (MaxAnchoredPerDocument), the resolved
+// ones are not, so the bound is the one that keeps a save cheap; anything beyond is made orphaned, so no comment ever claims a place it was
+// not checked at. maxProcessedPrivate is the same bound for the private ("Only me") threads of ONE AUTHOR on the document, resolved ones
+// included: they are counted per author and never together, so one person's notes, however many they resolve and keep, can orphan no one
+// else's anchors and none of the shared ones.
+const (
+	maxProcessed        = 2 * MaxAnchoredPerDocument
+	maxProcessedPrivate = MaxAnchoredPerDocument
+)
 
 func afterWrite(tx *sql.Tx, docID, oldContent, newContent string, revision int, now string, keepLost bool) (Stat, error) {
 	var st Stat
-	rows, err := tx.Query(`SELECT id, anchor_start, anchor_end, anchor_quote, anchor_original, anchor_prefix, anchor_suffix, anchor_hash, anchor_state, anchor_revision
-		FROM comments WHERE document_id = ? AND parent_id IS NULL AND anchor_state IN ('active','orphaned') AND deleted_at IS NULL
-		ORDER BY anchor_start, id LIMIT ?`, docID, maxProcessed+1)
+	// Every row of the document is re-anchored, private ones included: this is maintenance of where the words went, not a read for anyone
+	// (nothing here leaves the transaction but the anchors themselves).
+	var cur []row
+	authors, err := tx.Query(`SELECT DISTINCT author_id FROM comments WHERE document_id = ? AND visibility = 'private' AND author_id IS NOT NULL AND parent_id IS NULL
+		AND anchor_state IN ('active','orphaned') AND deleted_at IS NULL`, docID)
 	if err != nil {
 		return st, err
 	}
-	var cur []row
-	for rows.Next() {
-		var r row
-		if err := rows.Scan(&r.id, &r.start, &r.end, &r.quote, &r.original, &r.prefix, &r.suffix, &r.hash, &r.st, &r.revision); err != nil {
-			rows.Close()
+	parts := []struct {
+		vis, author string
+		max         int
+	}{{"shared", "", maxProcessed}}
+	for authors.Next() {
+		var a string
+		if err := authors.Scan(&a); err != nil {
+			authors.Close()
 			return st, err
 		}
-		cur = append(cur, r)
+		parts = append(parts, struct {
+			vis, author string
+			max         int
+		}{"private", a, maxProcessedPrivate})
 	}
-	if err := rows.Close(); err != nil {
+	if err := authors.Close(); err != nil {
 		return st, err
 	}
-	if len(cur) > maxProcessed {
-		cur = cur[:maxProcessed]
-		if _, err := tx.Exec(`UPDATE comments SET anchor_state = 'orphaned', updated_at = ? WHERE id IN (SELECT id FROM comments WHERE document_id = ? AND parent_id IS NULL AND anchor_state IN ('active','orphaned') AND deleted_at IS NULL
-			ORDER BY anchor_start, id LIMIT -1 OFFSET ?) AND anchor_state = 'active'`, now, docID, maxProcessed); err != nil {
+	for _, part := range parts {
+		// "AND (? = '' OR author_id = ?)": a shared part names no author
+		rows, err := tx.Query(`SELECT id, anchor_start, anchor_end, anchor_quote, anchor_original, anchor_prefix, anchor_suffix, anchor_hash, anchor_state, anchor_revision
+			FROM comments WHERE document_id = ? AND visibility = ? AND (? = '' OR author_id = ?) AND parent_id IS NULL AND anchor_state IN ('active','orphaned') AND deleted_at IS NULL
+			ORDER BY anchor_start, id LIMIT ?`, docID, part.vis, part.author, part.author, part.max+1)
+		if err != nil {
 			return st, err
 		}
+		var got []row
+		for rows.Next() {
+			var r row
+			if err := rows.Scan(&r.id, &r.start, &r.end, &r.quote, &r.original, &r.prefix, &r.suffix, &r.hash, &r.st, &r.revision); err != nil {
+				rows.Close()
+				return st, err
+			}
+			got = append(got, r)
+		}
+		if err := rows.Close(); err != nil {
+			return st, err
+		}
+		if len(got) > part.max {
+			got = got[:part.max]
+			if _, err := tx.Exec(`UPDATE comments SET anchor_state = 'orphaned', updated_at = ? WHERE id IN (SELECT id FROM comments WHERE document_id = ? AND visibility = ? AND (? = '' OR author_id = ?) AND parent_id IS NULL AND anchor_state IN ('active','orphaned') AND deleted_at IS NULL
+				ORDER BY anchor_start, id LIMIT -1 OFFSET ?) AND anchor_state = 'active'`, now, docID, part.vis, part.author, part.author, part.max); err != nil {
+				return st, err
+			}
+		}
+		cur = append(cur, got...)
 	}
+	sort.SliceStable(cur, func(i, j int) bool {
+		if cur[i].start != cur[j].start {
+			return cur[i].start < cur[j].start
+		}
+		return cur[i].id < cur[j].id
+	})
 	if keepLost {
 		kept := cur[:0]
 		for _, r := range cur {

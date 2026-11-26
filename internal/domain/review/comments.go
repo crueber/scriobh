@@ -18,20 +18,22 @@ func registerComments(r *ops.Registry) {
 	ops.Register(r, ops.Op{Name: "comment.create", Method: "POST", Path: base, Status: 201, Auth: reviewer,
 		Desc: "Write a comment: a new thread anchored to a range of a document (give document_id and a quote with the words around it, or offsets with the base_revision you hold), a comment on a document as a whole (document_id only), a comment on the project (neither), or a reply (parent_id: the first comment of a thread). " +
 			"Needs the reviewer role. The anchor is a range of the document's Markdown source: it follows the text as it is edited and goes orphaned, never guessed onto a lookalike, when the text is gone. A range may not touch a private note or ghosted text. " +
-			"mentions are user ids from comment.people; @name in the body is resolved to the same people. Mentioned people, the author of the thread you reply to and the project's owner get an in-app notification (nothing is emailed or pushed). Comments are not part of the manuscript: they never reach an export, the mirror, Git or the search index."},
+			"mentions are user ids from comment.people; @name in the body is resolved to the same people. Mentioned people, the author of the thread you reply to and the project's owner get an in-app notification (nothing is emailed or pushed). Comments are not part of the manuscript: they never reach an export, the mirror, Git or the search index. " +
+			"visibility is shared (default: the people on the project who can read comments) or private (\"Only me\": the author alone, not the owner, not an editor, not an instance administrator). A private comment has no mentions and tells no one: no notification, no event, no webhook. A reply has its thread's visibility. Your own agent keys see your private comments, as you do."},
 		func(c *ops.Ctx, in CreateIn) (ThreadItem, error) { return create(c, in) })
 	ops.Register(r, ops.Op{Name: "comment.list", Method: "GET", Path: base, Auth: reviewer,
 		Desc: "List comment threads (each root with its replies), newest last, for the whole project or one document (in document order, anchored ones first, then those that lost their place). Filter by status (open, resolved, all), anchor state, kind, author (a user id, or me), mentions_me and q (a word in the text). " +
-			"Needs the reviewer role: a reader cannot see comments. total and the open/resolved counts are for the same filters without the status."},
+			"Needs the reviewer role: a reader cannot see comments. total and the open/resolved counts are for the same filters without the status. " +
+			"Only the threads you can see are listed or counted: shared ones, and your own private (\"Only me\") ones, which no one else's call, an owner's or an administrator's included, can list, count or find with q. visibility narrows to shared, private or all (default all: everything you can see). A private comment of someone who is taken off the project is kept, and no one can read it; it is theirs again if they are added back. Backups and the database file hold private comments as they hold everything else: \"Only me\" is kept by the application, not against someone who has the server's files."},
 		func(c *ops.Ctx, in ListIn) (ListOut, error) { return list(c, in) })
 	ops.Register(r, ops.Op{Name: "comment.people", Method: "GET", Path: "/api/v1/projects/{id}/comment-people", Auth: reviewer,
 		Desc: "The people on this project who can read comments (owner, editors, reviewers), with the display names to mention. Only names and ids: no emails, and not the readers. This is the mention picker's list; the full member list stays the owner's."},
 		func(c *ops.Ctx, in PeopleIn) (PeopleOut, error) { return people(c, in) })
 	ops.Register(r, ops.Op{Name: "comment.get", Method: "GET", Path: base + "/{comment_id}", Auth: reviewer,
-		Desc: "One thread: the comment you name (or the thread a reply belongs to), with its replies."},
+		Desc: "One thread: the comment you name (or the thread a reply belongs to), with its replies. A private thread of someone else is answered exactly as an id that does not exist (404)."},
 		func(c *ops.Ctx, in GetIn) (ThreadItem, error) { return get(c, in) })
 	ops.Register(r, ops.Op{Name: "comment.update", Method: "PATCH", Path: base + "/{comment_id}", Auth: reviewer,
-		Desc: "Reword a comment. Only its author, and only within 15 minutes of writing it; after that, reply instead. Mentions are worked out again; a person newly mentioned is notified."},
+		Desc: "Reword a comment. Only its author, and only within 15 minutes of writing it (of sharing it, for one that was written as private); after that, reply instead. A private comment has no time limit: nobody else has read it. Mentions are worked out again; a person newly mentioned is notified (never for a private comment)."},
 		func(c *ops.Ctx, in UpdateIn) (ThreadItem, error) { return update(c, in) })
 	ops.Register(r, ops.Op{Name: "comment.delete", Permanent: true, Method: "DELETE", Path: base + "/{comment_id}", Auth: reviewer,
 		Desc: "Delete a comment: its author or the project's owner. The row stays as a tombstone with no text so a thread keeps its shape (a thread with no live comment is not listed). Its notifications go with it."},
@@ -81,6 +83,7 @@ type CommentOut struct {
 	Author     AuthorOut  `json:"author"`
 	Body       string     `json:"body" desc:"Plain text, as written. Show it as text, never as HTML. Empty when deleted."`
 	Deleted    bool       `json:"deleted,omitempty" desc:"A tombstone: the thread keeps its shape, the text is gone."`
+	Visibility string     `json:"visibility" enum:"shared,private" desc:"shared: the people on the project who can read comments. private: only its author (\"Only me\"); nobody else is told it exists."`
 	Status     string     `json:"status,omitempty" enum:"open,resolved" desc:"Of the thread; set on its first comment."`
 	ResolvedBy *AuthorOut `json:"resolved_by,omitempty"`
 	ResolvedAt string     `json:"resolved_at,omitempty"`
@@ -88,7 +91,7 @@ type CommentOut struct {
 	Mentions   []Person   `json:"mentions,omitempty"`
 	CreatedAt  string     `json:"created_at"`
 	EditedAt   string     `json:"edited_at,omitempty"`
-	CanEdit    bool       `json:"can_edit" desc:"For you now: you wrote it and the 15 minutes are not over."`
+	CanEdit    bool       `json:"can_edit" desc:"For you now: you wrote it and the 15 minutes are not over (no limit for a private comment)."`
 	CanDelete  bool       `json:"can_delete"`
 	CanResolve bool       `json:"can_resolve" desc:"On the first comment of a thread."`
 	Replies    []ReplyOut `json:"replies,omitempty" desc:"Oldest first; on the first comment of a thread."`
@@ -116,6 +119,15 @@ type ThreadItem struct {
 	Item CommentOut `json:"item"`
 }
 
+// ReplayRef is what an Idempotency-Key's record holds in place of the answer when the answer is a private comment: its id. Repeating the
+// request reads the thread again, as the person who repeats it (the words are stored in one place).
+func (t ThreadItem) ReplayRef() string {
+	if t.Item.Visibility == VisPrivate {
+		return t.Item.ID
+	}
+	return ""
+}
+
 // CreateIn writes a comment.
 type CreateIn struct {
 	ProjectID    string   `path:"id" json:"-" desc:"Project id."`
@@ -131,11 +143,16 @@ type CreateIn struct {
 	After        string   `json:"after,omitempty" desc:"With quote: some source after it."`
 	Occurrence   *int     `json:"occurrence,omitempty" desc:"With quote: which occurrence, counting from 0, when context cannot tell."`
 	Plain        bool     `json:"plain,omitempty" desc:"quote, before and after are the text as a reader sees it rendered (a selection in the reading view), not Markdown source. It is looked for in the text a reader can see (not front matter, private notes, link targets or footnotes), and placed in the source, formatting inside it included."`
-	Mentions     []string `json:"mentions,omitempty" desc:"User ids to mention (from comment.people)."`
+	Mentions     []string `json:"mentions,omitempty" desc:"User ids to mention (from comment.people). Not for a private comment."`
+	Visibility   string   `json:"visibility,omitempty" enum:"shared,private" desc:"Default shared. private: only you can see it (\"Only me\"); it has no mentions and tells no one. A reply takes its thread's."`
 }
 
 // ProjectRef lets the registry authorize by membership.
 func (in CreateIn) ProjectRef() string { return in.ProjectID }
+
+// KeepBodyOutOfFingerprint says the request's body is left out of what an Idempotency-Key remembers of it: a hash of a private note's words
+// would be a guessing oracle.
+func (in CreateIn) KeepBodyOutOfFingerprint() bool { return in.Visibility == VisPrivate }
 
 func (in CreateIn) anchor() *comanchor.Range {
 	if in.Start == nil && in.End == nil && in.Quote == "" {
@@ -148,7 +165,7 @@ func create(c *ops.Ctx, in CreateIn) (ThreadItem, error) {
 	var created Created
 	err := c.DB().WithTx(c, func(tx *sql.Tx) error {
 		cr, evs, err := InsertComment(c, tx, NewComment{ProjectID: in.ProjectID, DocumentID: in.DocumentID, ParentID: in.ParentID, Kind: in.Kind, Body: in.Body,
-			Anchor: in.anchor(), BaseRevision: in.BaseRevision, Mentions: in.Mentions, Actor: Actor{UserID: c.P.UserID}})
+			Anchor: in.anchor(), BaseRevision: in.BaseRevision, Mentions: in.Mentions, Visibility: in.Visibility, Actor: Actor{UserID: c.P.UserID}})
 		if err != nil {
 			return err
 		}
@@ -177,6 +194,8 @@ func viewerOf(c *ops.Ctx, projectID string) viewer {
 
 type row struct {
 	ID, ProjectID, Kind, GuestName, Body, Status string
+	Visibility                                   string
+	SharedAt                                     sql.NullString
 	DocumentID, ParentID, AuthorID, ShareID      sql.NullString
 	ResolvedBy, ResolvedAt                       sql.NullString
 	AuthorName                                   string
@@ -190,7 +209,7 @@ type row struct {
 
 const commentCols = `c.id, c.project_id, c.document_id, c.parent_id, c.kind, c.author_id, c.share_id, c.guest_name, c.body, c.status, c.resolved_by, c.resolved_at,
 	c.anchor_state, c.anchor_start, c.anchor_end, c.anchor_quote, c.anchor_original, c.anchor_prefix, c.anchor_suffix, c.anchor_revision, c.created_at, c.updated_at, c.edited_at, c.deleted_at,
-	COALESCE(NULLIF(u.display_name, ''), 'Member'), COALESCE(u.deleted_at IS NOT NULL, 0), COALESCE(NULLIF(ru.display_name, ''), 'Member')`
+	COALESCE(NULLIF(u.display_name, ''), 'Member'), COALESCE(u.deleted_at IS NOT NULL, 0), COALESCE(NULLIF(ru.display_name, ''), 'Member'), c.visibility, c.shared_at`
 
 const commentFrom = ` FROM comments c LEFT JOIN users u ON u.id = c.author_id LEFT JOIN users ru ON ru.id = c.resolved_by`
 
@@ -198,7 +217,7 @@ func scanRow(s interface{ Scan(...any) error }) (row, error) {
 	var r row
 	err := s.Scan(&r.ID, &r.ProjectID, &r.DocumentID, &r.ParentID, &r.Kind, &r.AuthorID, &r.ShareID, &r.GuestName, &r.Body, &r.Status, &r.ResolvedBy, &r.ResolvedAt,
 		&r.State, &r.AStart, &r.AEnd, &r.AQuote, &r.AOriginal, &r.APrefix, &r.ASuffix, &r.ARev, &r.CreatedAt, &r.UpdatedAt, &r.EditedAt, &r.DeletedAt,
-		&r.AuthorName, &r.AuthorGone, &r.ResolverName)
+		&r.AuthorName, &r.AuthorGone, &r.ResolverName, &r.Visibility, &r.SharedAt)
 	return r, err
 }
 
@@ -214,9 +233,34 @@ func authorOf(r row) AuthorOut {
 	return AuthorOut{Kind: "removed", Name: "Removed user"}
 }
 
-// query runs a SELECT of commentCols and scans every row.
-func fetch(ctx context.Context, q querier, where string, args ...any) ([]row, error) {
-	rows, err := q.QueryContext(ctx, `SELECT `+commentCols+commentFrom+` `+where, args...)
+// visible is the one rule of who may see a comment: it is shared, or the viewer wrote it. Nothing else grants access: not the
+// owner, not an editor, not an instance administrator. Every read of the comments table goes through it (fetch, threadFilter and
+// the few statements that count), and TestEveryCommentReadFiltersVisibility fails on a read that does not.
+func visible(alias, viewerID string) (string, []any) {
+	return "(" + alias + ".visibility = 'shared' OR " + alias + ".author_id = ?)", []any{viewerID}
+}
+
+// audience is visible narrowed to what a list asks for: "shared" the threads everyone shares, "private" only the viewer's own
+// private ones, anything else (all) every thread the viewer can see.
+func audience(alias, viewerID, mode string) (string, []any) {
+	vis, args := visible(alias, viewerID)
+	switch mode {
+	case VisShared:
+		vis += " AND " + alias + ".visibility = 'shared'"
+	case VisPrivate:
+		vis += " AND " + alias + ".visibility = 'private'"
+	}
+	return vis, args
+}
+
+// fetch runs a SELECT of commentCols and scans every row the viewer may see. where starts with WHERE and has no OR outside
+// parentheses (the visibility is put in front of it with AND). Callers must pass the viewer, so a read without one does not compile.
+func fetch(ctx context.Context, q querier, viewerID, where string, args ...any) ([]row, error) {
+	if !strings.HasPrefix(where, "WHERE ") {
+		panic("review.fetch: a WHERE clause is required")
+	}
+	vis, vargs := visible("c", viewerID)
+	rows, err := q.QueryContext(ctx, `SELECT `+commentCols+commentFrom+` WHERE `+vis+` AND `+strings.TrimPrefix(where, "WHERE "), append(vargs, args...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -270,11 +314,11 @@ func mentionsOf(ctx context.Context, q querier, ids []string) (map[string][]Pers
 }
 
 // repliesOf loads the live and deleted replies of a set of threads, oldest first.
-func repliesOf(ctx context.Context, q querier, roots []string) (map[string][]row, error) {
+func repliesOf(ctx context.Context, q querier, viewerID string, roots []string) (map[string][]row, error) {
 	out := map[string][]row{}
 	for i := 0; i < len(roots); i += 400 {
 		part := roots[i:min(i+400, len(roots))]
-		rs, err := fetch(ctx, q, `WHERE c.parent_id IN (`+placeholders(len(part))+`) ORDER BY c.created_at, c.id`, idArgs(part)...)
+		rs, err := fetch(ctx, q, viewerID, `WHERE c.parent_id IN (`+placeholders(len(part))+`) ORDER BY c.created_at, c.id`, idArgs(part)...)
 		if err != nil {
 			return nil, err
 		}
@@ -299,12 +343,11 @@ func liveReplies(rs []row) int {
 func build(roots []row, replies map[string][]row, mentions map[string][]Person, v viewer) []CommentOut {
 	one := func(r row, thread string) CommentOut {
 		o := CommentOut{ID: r.ID, ThreadID: thread, DocumentID: r.DocumentID.String, Kind: r.Kind, Author: authorOf(r), Body: r.Body, Deleted: r.DeletedAt.Valid,
-			Mentions: mentions[r.ID], CreatedAt: r.CreatedAt, EditedAt: r.EditedAt.String}
+			Mentions: mentions[r.ID], CreatedAt: r.CreatedAt, EditedAt: r.EditedAt.String, Visibility: r.Visibility}
 		mine := v.UserID != "" && r.AuthorID.Valid && r.AuthorID.String == v.UserID
 		if !o.Deleted {
-			created, _ := db.Parse(r.CreatedAt)
-			o.CanEdit = mine && db.NowTime().Sub(created) <= EditWindow
-			o.CanDelete = mine || v.Role == ops.ProjectOwner
+			o.CanEdit = mine && editable(r)
+			o.CanDelete = mine || (v.Role == ops.ProjectOwner && r.Visibility != VisPrivate)
 		}
 		return o
 	}
@@ -339,9 +382,23 @@ func build(roots []row, replies map[string][]row, mentions map[string][]Person, 
 	return out
 }
 
+// editable says whether the author may still reword a comment: a private one at any time (nobody else has read it); a shared one for
+// 15 minutes from when it became visible to others (from when it was written, for every comment that was shared from the start).
+func editable(r row) bool {
+	if r.Visibility == VisPrivate {
+		return true
+	}
+	at := r.SharedAt.String
+	if at == "" {
+		at = r.CreatedAt
+	}
+	t, _ := db.Parse(at)
+	return db.NowTime().Sub(t) <= EditWindow
+}
+
 // thread loads one thread for a viewer.
 func thread(ctx context.Context, q querier, projectID, anyID string, v viewer) (ThreadItem, error) {
-	roots, err := fetch(ctx, q, `WHERE c.id = ? AND c.project_id = ?`, anyID, projectID)
+	roots, err := fetch(ctx, q, v.UserID, `WHERE c.id = ? AND c.project_id = ?`, anyID, projectID)
 	if err != nil {
 		return ThreadItem{}, err
 	}
@@ -349,14 +406,14 @@ func thread(ctx context.Context, q querier, projectID, anyID string, v viewer) (
 		return ThreadItem{}, ops.NotFound("comment")
 	}
 	if roots[0].ParentID.Valid {
-		if roots, err = fetch(ctx, q, `WHERE c.id = ? AND c.project_id = ?`, roots[0].ParentID.String, projectID); err != nil {
+		if roots, err = fetch(ctx, q, v.UserID, `WHERE c.id = ? AND c.project_id = ?`, roots[0].ParentID.String, projectID); err != nil {
 			return ThreadItem{}, err
 		}
 		if len(roots) == 0 {
 			return ThreadItem{}, ops.NotFound("comment")
 		}
 	}
-	reps, err := repliesOf(ctx, q, []string{roots[0].ID})
+	reps, err := repliesOf(ctx, q, v.UserID, []string{roots[0].ID})
 	if err != nil {
 		return ThreadItem{}, err
 	}
@@ -381,6 +438,7 @@ type ListIn struct {
 	Author     string `query:"author" desc:"Only threads started by this user id, or me."`
 	MentionsMe bool   `query:"mentions_me" desc:"Only threads in which someone mentioned you."`
 	Q          string `query:"q" desc:"Only threads with this word or phrase in a comment (case-insensitive for plain letters)."`
+	Visibility string `query:"visibility" enum:"shared,private,all" desc:"shared: only threads the people on the project can read. private: only your own \"Only me\" threads. Default all: every thread you can see."`
 	Plain      bool   `query:"plain" desc:"With document_id: also give each anchor as the reader sees it rendered (quote_plain, before_plain, after_plain), for a reading view that does not parse Markdown."`
 	Limit      int    `query:"limit" desc:"Threads per page (default 50, at most 200)."`
 	Offset     int    `query:"offset"`
@@ -399,10 +457,21 @@ type ListOut struct {
 
 // threadFilter builds the WHERE of a thread listing. statusToo says whether the
 // status filter is applied (the counts leave it out).
+// It always holds the visibility rule (visible), so a count or a search term can never confirm what the viewer may not see;
+// in.Visibility only narrows what that leaves.
 func threadFilter(projectID, me string, in ListIn, statusToo bool) (string, []any, *ops.Error) {
-	where := `WHERE c.project_id = ? AND c.parent_id IS NULL AND (c.deleted_at IS NULL OR EXISTS (SELECT 1 FROM comments r WHERE r.parent_id = c.id AND r.deleted_at IS NULL))
+	vis, vargs := visible("c", me)
+	where := `WHERE ` + vis + ` AND c.project_id = ? AND c.parent_id IS NULL AND (c.deleted_at IS NULL OR EXISTS (SELECT 1 FROM comments r WHERE r.parent_id = c.id AND r.visibility = c.visibility AND r.deleted_at IS NULL))
 		AND (c.document_id IS NULL OR EXISTS (SELECT 1 FROM documents d WHERE d.id = c.document_id AND d.deleted_at IS NULL))`
-	args := []any{projectID}
+	args := append(vargs, projectID)
+	switch in.Visibility {
+	case "", "all":
+	case VisShared, VisPrivate:
+		where += ` AND c.visibility = ?`
+		args = append(args, in.Visibility)
+	default:
+		return "", nil, ops.Invalid("visibility", "Use shared, private or all.")
+	}
 	switch in.DocumentID {
 	case "":
 	case "project":
@@ -441,12 +510,12 @@ func threadFilter(projectID, me string, in ListIn, statusToo bool) (string, []an
 		args = append(args, a)
 	}
 	if in.MentionsMe {
-		where += ` AND EXISTS (SELECT 1 FROM comment_mentions m JOIN comments mc ON mc.id = m.comment_id WHERE m.user_id = ? AND (mc.id = c.id OR mc.parent_id = c.id) AND mc.deleted_at IS NULL)`
+		where += ` AND EXISTS (SELECT 1 FROM comment_mentions m JOIN comments mc ON mc.id = m.comment_id WHERE m.user_id = ? AND (mc.id = c.id OR mc.parent_id = c.id) AND mc.visibility = c.visibility AND mc.deleted_at IS NULL)`
 		args = append(args, me)
 	}
 	if q := strings.TrimSpace(in.Q); q != "" {
 		like := "%" + strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(q) + "%"
-		where += ` AND EXISTS (SELECT 1 FROM comments sc WHERE (sc.id = c.id OR sc.parent_id = c.id) AND sc.deleted_at IS NULL AND sc.body LIKE ? ESCAPE '\')`
+		where += ` AND EXISTS (SELECT 1 FROM comments sc WHERE (sc.id = c.id OR sc.parent_id = c.id) AND sc.visibility = c.visibility AND sc.deleted_at IS NULL AND sc.body LIKE ? ESCAPE '\')`
 		args = append(args, like)
 	}
 	return where, args, nil
@@ -465,6 +534,37 @@ func pageOf(limit, offset int) (int, int) {
 	return limit, offset
 }
 
+// threadCounts is the number of threads a filter matches, and of those how many are open and resolved (the filters without the
+// status), over the threads the viewer may see and no others.
+func threadCounts(ctx context.Context, q querier, projectID, me string, in ListIn) (total, open, resolved int, err error) {
+	where, args, ierr := threadFilter(projectID, me, in, true)
+	if ierr != nil {
+		return 0, 0, 0, ierr
+	}
+	if err = q.QueryRowContext(ctx, `SELECT count(*) FROM comments c `+where, args...).Scan(&total); err != nil {
+		return
+	}
+	cw, cargs, _ := threadFilter(projectID, me, in, false)
+	crow, err := q.QueryContext(ctx, `SELECT c.status, count(*) FROM comments c `+cw+` GROUP BY c.status`, cargs...)
+	if err != nil {
+		return
+	}
+	defer crow.Close()
+	for crow.Next() {
+		var st string
+		var n int
+		if err = crow.Scan(&st, &n); err != nil {
+			return
+		}
+		if st == StatusOpen {
+			open = n
+		} else {
+			resolved = n
+		}
+	}
+	return total, open, resolved, crow.Err()
+}
+
 func list(c *ops.Ctx, in ListIn) (ListOut, error) {
 	q := c.DB().Read()
 	where, args, ierr := threadFilter(in.ProjectID, c.P.UserID, in, true)
@@ -473,33 +573,15 @@ func list(c *ops.Ctx, in ListIn) (ListOut, error) {
 	}
 	limit, offset := pageOf(in.Limit, in.Offset)
 	var out ListOut
-	if err := q.QueryRowContext(c, `SELECT count(*) FROM comments c `+where, args...).Scan(&out.Total); err != nil {
+	var err error
+	if out.Total, out.Open, out.Resolved, err = threadCounts(c, q, in.ProjectID, c.P.UserID, in); err != nil {
 		return out, err
 	}
-	cw, cargs, _ := threadFilter(in.ProjectID, c.P.UserID, in, false)
-	crow, err := q.QueryContext(c, `SELECT c.status, count(*) FROM comments c `+cw+` GROUP BY c.status`, cargs...)
-	if err != nil {
-		return out, err
-	}
-	for crow.Next() {
-		var st string
-		var n int
-		if err := crow.Scan(&st, &n); err != nil {
-			crow.Close()
-			return out, err
-		}
-		if st == StatusOpen {
-			out.Open = n
-		} else {
-			out.Resolved = n
-		}
-	}
-	crow.Close()
 	order := `ORDER BY c.id`
 	if in.DocumentID != "" && in.DocumentID != "project" {
 		order = `ORDER BY (c.anchor_state = 'orphaned'), (c.anchor_state = 'none') DESC, c.anchor_start, c.id`
 	}
-	roots, err := fetch(c, q, where+` `+order+` LIMIT ? OFFSET ?`, append(args, limit, offset)...)
+	roots, err := fetch(c, q, c.P.UserID, where+` `+order+` LIMIT ? OFFSET ?`, append(args, limit, offset)...)
 	if err != nil {
 		return out, err
 	}
@@ -507,7 +589,7 @@ func list(c *ops.Ctx, in ListIn) (ListOut, error) {
 	for i, r := range roots {
 		ids[i] = r.ID
 	}
-	reps, err := repliesOf(c, q, ids)
+	reps, err := repliesOf(c, q, c.P.UserID, ids)
 	if err != nil {
 		return out, err
 	}
@@ -599,8 +681,9 @@ type UpdateIn struct {
 func (in UpdateIn) ProjectRef() string { return in.ProjectID }
 
 // loadOne reads one comment of the project inside a transaction.
-func loadOne(ctx context.Context, tx *sql.Tx, projectID, id string) (row, error) {
-	rs, err := fetch(ctx, tx, `WHERE c.id = ? AND c.project_id = ?`, id, projectID)
+// A private comment of someone else is not found: the same 404 as an id that does not exist.
+func loadOne(ctx context.Context, tx *sql.Tx, viewerID, projectID, id string) (row, error) {
+	rs, err := fetch(ctx, tx, viewerID, `WHERE c.id = ? AND c.project_id = ?`, id, projectID)
 	if err != nil {
 		return row{}, err
 	}
@@ -613,7 +696,7 @@ func loadOne(ctx context.Context, tx *sql.Tx, projectID, id string) (row, error)
 func update(c *ops.Ctx, in UpdateIn) (ThreadItem, error) {
 	var threadID string
 	err := c.DB().WithTx(c, func(tx *sql.Tx) error {
-		r, err := loadOne(c, tx, in.ProjectID, in.CommentID)
+		r, err := loadOne(c, tx, c.P.UserID, in.ProjectID, in.CommentID)
 		if err != nil {
 			return err
 		}
@@ -624,13 +707,23 @@ func update(c *ops.Ctx, in UpdateIn) (ThreadItem, error) {
 		if !r.AuthorID.Valid || r.AuthorID.String != c.P.UserID || r.DeletedAt.Valid {
 			return ops.Forbidden("only the author can reword a comment")
 		}
-		created, _ := db.Parse(r.CreatedAt)
-		if db.NowTime().Sub(created) > EditWindow {
+		if !editable(r) {
 			return ops.Forbidden("a comment can be reworded for 15 minutes after it is written; reply instead")
 		}
 		body, e := CleanBody(in.Body, MaxBody)
 		if e != nil {
 			return e
+		}
+		if r.Visibility == VisPrivate {
+			// Nobody else has read it: no window, no mentions, nobody told.
+			if len(in.Mentions) > 0 {
+				return ops.Invalid("mentions", "A comment only you can see mentions no one.")
+			}
+			now := db.Now()
+			if _, err := tx.ExecContext(c, `UPDATE comments SET body = ?, edited_at = ?, updated_at = ? WHERE id = ?`, body, now, now, r.ID); err != nil {
+				return err
+			}
+			return c.FlushTo(tx)
 		}
 		ppl, err := commenters(c, tx, in.ProjectID)
 		if err != nil {
@@ -705,7 +798,7 @@ type DeleteOut struct {
 
 func remove(c *ops.Ctx, in GetIn) (DeleteOut, error) {
 	err := c.DB().WithTx(c, func(tx *sql.Tx) error {
-		r, err := loadOne(c, tx, in.ProjectID, in.CommentID)
+		r, err := loadOne(c, tx, c.P.UserID, in.ProjectID, in.CommentID)
 		if err != nil {
 			return err
 		}
@@ -730,7 +823,9 @@ func remove(c *ops.Ctx, in GetIn) (DeleteOut, error) {
 		if r.ParentID.Valid {
 			thread = r.ParentID.String
 		}
-		c.Emit(ops.Event{Type: "comment.deleted", ProjectID: in.ProjectID, DocumentID: r.DocumentID.String, Payload: map[string]any{"comment_id": r.ID, "thread_id": thread}})
+		if r.Visibility == VisShared { // a private comment tells no one, in either direction
+			c.Emit(ops.Event{Type: "comment.deleted", ProjectID: in.ProjectID, DocumentID: r.DocumentID.String, Payload: map[string]any{"comment_id": r.ID, "thread_id": thread}})
+		}
 		return c.FlushTo(tx)
 	})
 	return DeleteOut{Deleted: err == nil, ID: in.CommentID}, err
@@ -747,12 +842,12 @@ func canResolve(role, userID string, r row) bool {
 func setStatus(c *ops.Ctx, in GetIn, status string) (ThreadItem, error) {
 	var threadID string
 	err := c.DB().WithTx(c, func(tx *sql.Tx) error {
-		r, err := loadOne(c, tx, in.ProjectID, in.CommentID)
+		r, err := loadOne(c, tx, c.P.UserID, in.ProjectID, in.CommentID)
 		if err != nil {
 			return err
 		}
 		if r.ParentID.Valid { // a reply stands for its thread
-			if r, err = loadOne(c, tx, in.ProjectID, r.ParentID.String); err != nil {
+			if r, err = loadOne(c, tx, c.P.UserID, in.ProjectID, r.ParentID.String); err != nil {
 				return err
 			}
 		}
@@ -771,6 +866,9 @@ func setStatus(c *ops.Ctx, in GetIn, status string) (ThreadItem, error) {
 		}
 		if err != nil {
 			return err
+		}
+		if r.Visibility == VisPrivate {
+			return c.FlushTo(tx) // no notification, no event
 		}
 		if status == StatusResolved && r.AuthorID.Valid {
 			if err := notify(tx, r.AuthorID.String, in.ProjectID, "resolved", r.ID, "", r.DocumentID.String, c.P.UserID, now); err != nil {
@@ -811,7 +909,7 @@ func (in ReanchorIn) ProjectRef() string { return in.ProjectID }
 
 func reanchor(c *ops.Ctx, in ReanchorIn) (ThreadItem, error) {
 	err := c.DB().WithTx(c, func(tx *sql.Tx) error {
-		r, err := loadOne(c, tx, in.ProjectID, in.CommentID)
+		r, err := loadOne(c, tx, c.P.UserID, in.ProjectID, in.CommentID)
 		if err != nil {
 			return err
 		}
@@ -844,12 +942,22 @@ func reanchor(c *ops.Ctx, in ReanchorIn) (ThreadItem, error) {
 			return ops.Conflict("That document is in the trash.")
 		}
 		if docID != r.DocumentID.String && !in.Detach {
+			// counted by audience: a private thread by its author's own private threads, a shared one by the shared threads
 			var anchored int
-			if err := tx.QueryRowContext(c, `SELECT count(*) FROM comments WHERE document_id = ? AND parent_id IS NULL AND anchor_state <> 'none'`, docID).Scan(&anchored); err != nil {
-				return err
-			}
-			if anchored >= comanchor.MaxAnchoredPerDocument {
-				return ops.Conflict("That document holds the most anchored comments it can; resolve or delete some first.")
+			if r.Visibility == VisPrivate {
+				if err := tx.QueryRowContext(c, `SELECT count(*) FROM comments WHERE document_id = ? AND visibility = 'private' AND author_id = ? AND parent_id IS NULL AND anchor_state <> 'none'`, docID, c.P.UserID).Scan(&anchored); err != nil {
+					return err
+				}
+				if anchored >= MaxPrivateAnchoredPerAuthor {
+					return ops.Conflict("That document holds the most anchored comments only you can see that it can for one person; resolve or delete some first.")
+				}
+			} else {
+				if err := tx.QueryRowContext(c, `SELECT count(*) FROM comments WHERE document_id = ? AND visibility = 'shared' AND parent_id IS NULL AND anchor_state <> 'none'`, docID).Scan(&anchored); err != nil {
+					return err
+				}
+				if anchored >= comanchor.MaxAnchoredPerDocument {
+					return ops.Conflict("That document holds the most anchored comments it can; resolve or delete some first.")
+				}
 			}
 		}
 		now := db.Now()
@@ -891,7 +999,9 @@ func reanchor(c *ops.Ctx, in ReanchorIn) (ThreadItem, error) {
 		if _, err := tx.ExecContext(c, `UPDATE comments SET document_id = ? WHERE parent_id = ?`, docID, r.ID); err != nil {
 			return err
 		}
-		c.Emit(ops.Event{Type: "comment.reanchored", ProjectID: in.ProjectID, DocumentID: docID, Payload: map[string]any{"comment_id": r.ID, "thread_id": r.ID}})
+		if r.Visibility == VisShared {
+			c.Emit(ops.Event{Type: "comment.reanchored", ProjectID: in.ProjectID, DocumentID: docID, Payload: map[string]any{"comment_id": r.ID, "thread_id": r.ID}})
+		}
 		return c.FlushTo(tx)
 	})
 	if err != nil {

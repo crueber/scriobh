@@ -15,6 +15,10 @@ func Register(r *ops.Registry) {
 		Desc: "Change the caller's display name, time zone or locale. Send only the fields to change.", Auth: me,
 	}, profileUpdate)
 	ops.Register(r, ops.Op{
+		Name: "profile.zone_default", Method: "POST", Path: "/api/v1/me/zone-default",
+		Desc: "Store the browser's time zone for the caller, only if they have never chosen one. A zone already stored, chosen or from an earlier browser, is not changed. Returns the profile as it now is.", Auth: me,
+	}, profileZoneDefault)
+	ops.Register(r, ops.Op{
 		Name: "prefs.get", Method: "GET", Path: "/api/v1/me/prefs",
 		Desc: "Get the caller's preferences (theme, editor font, size, measure and line height, motion, autosave, density) with defaults filled in. Every value is a string.", Auth: me,
 	}, prefsGet)

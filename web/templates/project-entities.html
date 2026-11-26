@@ -1,7 +1,7 @@
-{{define "head"}}<link rel="stylesheet" href="{{asset "css/entities.css"}}"><script src="{{asset "js/entity.js"}}" defer></script>{{end}}
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/entities.css"}}"><link rel="stylesheet" href="{{asset "css/entry.css"}}"><script src="{{asset "js/entity.js"}}" defer></script>{{end}}
 {{define "crumb"}}<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">Entities</span></nav>{{end}}
 {{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "compendium" .Data.Project.Role}}{{end}}
-{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "compendium" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" (inLang $.Lang (ptabs .Data.Slug "" "compendium" .Data.Project.Role))}}{{end}}
 {{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "compendium" .Data.Project.Role}}{{end}}
 {{define "content"}}
 {{with .Data}}
@@ -11,7 +11,7 @@
   <p class="sub">{{.Project.Title}}. The characters, places and other entries this book draws on, as this book reads them: its own changes to an entry show here, and the Compendium&rsquo;s record stays as it is.</p>
   <p class="sr-only" id="ent-announce" role="status" aria-live="polite"></p>
   <form class="ent-search" role="search" aria-label="Find an entity" method="get" action="/p/{{.Slug}}/entities">
-    <div class="field"><label for="ent-q">Find an entity</label><input id="ent-q" type="search" name="q" value="{{.Q}}" placeholder="A name or an alias" autocomplete="off" spellcheck="false"></div>
+    <div class="field"><label class="sr-only" for="ent-q">Find an entity</label><input id="ent-q" type="search" name="q" value="{{.Q}}" placeholder="A name or an alias" autocomplete="off" spellcheck="false"></div>
     {{if .Kind}}<input type="hidden" name="kind" value="{{.Kind}}">{{end}}
     <button class="btn" type="submit">Search</button>
     {{if .Q}}<a class="btn quiet" href="/p/{{.Slug}}/entities{{if .Kind}}?kind={{.Kind}}{{end}}">Clear</a>{{end}}

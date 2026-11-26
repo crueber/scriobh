@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/crueber/scriobh/internal/domain/compile"
+	"github.com/crueber/scriobh/internal/domain/docs"
 	"github.com/crueber/scriobh/internal/domain/projects"
 	"github.com/crueber/scriobh/internal/ops"
 	"github.com/crueber/scriobh/internal/publish"
@@ -132,6 +133,9 @@ type compileData struct {
 	Flash, Error    string
 	Pandoc          bool // the bridge is on and usable: the Pandoc formats are offered
 	Profiles        []coverProfileView
+	Pick            string // the preset the page opens on: the one its link names, when it is one of the project's; "" for the default
+	OptionsChanged  bool   // All options is open: the page opens on a custom preset whose options differ from its built-in
+	Chapters        int    // the chapters the file will hold (the outline's, marked to compile); the script takes the preview's count after a preview
 }
 
 // coverProfileView is a printer's profile as the cover form's one line about it needs the figures: the table the PDF is drawn from.
@@ -173,6 +177,20 @@ func (s *Server) compilePage(w http.ResponseWriter, r *http.Request) {
 	pj, _ := json.Marshal(po)
 	oj, _ := json.Marshal(s.compileOptionDescs())
 	d := compileData{Project: proj, Slug: proj.Slug, ProjectID: proj.ID, CSRF: authFrom(ctx).CSRF, Dir: textDir(proj.Language), Lang: proj.Language, Presets: string(pj), Options: string(oj), Pandoc: s.pandocUsable(ctx), Profiles: coverProfileViews()}
+	if pl, ok := po.(compile.PresetListOut); ok {
+		for _, x := range pl.Presets {
+			if x.ID == r.URL.Query().Get("preset") {
+				d.Pick, d.OptionsChanged = x.ID, compile.Changed(x)
+			}
+		}
+	}
+	if ov, err := s.Reg.Call(ctx, p, "outline.get", docs.OutlineIn{ProjectID: proj.ID}); err == nil {
+		for _, it := range ov.(docs.OutlineOut).Items {
+			if it.Kind == "chapter" && it.IncludeInCompile {
+				d.Chapters++
+			}
+		}
+	}
 	d.Kindle = s.kindleCompileState(r)
 	if co, err := s.Reg.Call(ctx, p, "compile.contact.get", compile.ContactIn{ProjectID: proj.ID}); err == nil {
 		d.Contact = co.(compile.ContactOut)

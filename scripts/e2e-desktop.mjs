@@ -371,7 +371,9 @@ await kit.test("xx-rtl: the profile page mirrors on a development build in deskt
   const dev = await startServer(devBin, join(kit.tmp, "data-rtl"), desktopEnv(t2));
   kit.origins.push(new URL(dev.base).origin);
   try {
-    const rctx = await kit.newContext({ viewport: { width: 390, height: 844 }, locale: "xx-rtl" });
+    // The pseudo-locale goes in as the browser's Accept-Language, which is how the profile page picks its language (sharePageLang).
+    // The context's locale option is not used: this Chromium refuses "xx-rtl" as a locale override (Emulation.setLocaleOverride).
+    const rctx = await kit.newContext({ viewport: { width: 390, height: 844 }, extraHTTPHeaders: { "Accept-Language": "xx-rtl" } });
     const rp = await rctx.newPage();
     kit.watch(rp, "rtl");
     await rp.goto(`${dev.base}/desktop/start?t=${t2}`, { waitUntil: "load" });

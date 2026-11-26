@@ -114,7 +114,7 @@ await kit.test("a name that could mean two entities is wavy and the card says so
 await kit.test("the palette turns the marks off and on, and the choice is remembered", async () => {
   await page.keyboard.press(`${MOD}+K`);
   await page.locator("#palette-input").fill("underline");
-  await page.getByRole("option", { name: /underlined names from the bible/ }).click();
+  await page.getByRole("option", { name: /underlined names from the Compendium/ }).click();
   await waitFor(async () => (await marks().count()) === 0, "the marks to go");
   await page.reload();
   await ready();
@@ -122,11 +122,11 @@ await kit.test("the palette turns the marks off and on, and the choice is rememb
   eq(await marks().count(), 0, "still off after a reload");
   await page.keyboard.press(`${MOD}+K`);
   await page.locator("#palette-input").fill("underline");
-  await page.getByRole("option", { name: /underlined names from the bible/ }).click();
+  await page.getByRole("option", { name: /underlined names from the Compendium/ }).click();
   await waitFor(async () => (await marks().count()) > 0, "the marks to return", 15000);
 });
 
-await kit.test("the caret at rest inside a name shows the card; Ctrl or Command with a click goes to the sheet", async () => {
+await kit.test("the caret at rest inside a name shows the card; Ctrl or Command with a click opens the entry in the Compendium tab", async () => {
   await page.goto(`${base()}/p/${book.slug}/d/${doc}`);
   await ready();
   await page.waitForSelector(".scriobh-prose .mention", { timeout: 20000 });
@@ -141,8 +141,13 @@ await kit.test("the caret at rest inside a name shows the card; Ctrl or Command 
   ok(/Marta Quill/.test(await page.locator("#men-card").innerText()), "the card shows for the name under the caret");
   await page.keyboard.press("Escape");
   await page.locator("#men-card").waitFor({ state: "hidden" });
+  const here = page.url();
   await marks().first().click({ modifiers: [process.platform === "darwin" ? "Meta" : "Control"] });
-  await page.waitForURL(/\/p\/.+\/e\/ent_/, { timeout: 10000 });
+  await page.locator("#lk-entry").waitFor({ timeout: 10000 }); // the entry opens in the inspector's Compendium tab
+  eq(await page.locator("#lk-h").innerText(), "Marta Quill", "the entry for the name that was clicked");
+  eq(page.url(), here, "the page did not navigate");
+  // the card's own link is still the way to the sheet
+  ok((await page.locator('#lk-entry a:has-text("This book\'s sheet")').getAttribute("href")).includes("/e/ent_"), "the sheet is one link away");
 });
 
 await kit.test("the whole path through the screens: add an entity, see where it appears, open the chapter and see every mention, in under a minute", async () => {

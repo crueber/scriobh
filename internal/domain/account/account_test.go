@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -532,5 +533,96 @@ func TestAccountOpsNeedASignedInPrincipal(t *testing.T) {
 		if _, err := f.call(pinned, tc.op, tc.in); code(err) != ops.CodeForbidden {
 			t.Errorf("%s pinned key: %v", tc.op, err)
 		}
+	}
+}
+
+// The browser's zone is stored for a person who has never chosen one, and never over a choice (U5). An explicit UTC is a choice.
+func TestZoneDefaultFillsOnlyAZoneNobodyChose(t *testing.T) {
+	f := newFx(t)
+	if p := f.must(f.a, "profile.get", account.EmptyIn{}).(account.ProfileItem).Item; p.Timezone != "UTC" {
+		t.Fatalf("a new person's zone is %q before anything is chosen, want UTC", p.Timezone)
+	}
+	out := f.must(f.a, "profile.zone_default", account.ZoneDefaultIn{Timezone: "Europe/Dublin"}).(account.ProfileItem).Item
+	if out.Timezone != "Europe/Dublin" {
+		t.Fatalf("an unset zone took the browser's zone: got %q, want Europe/Dublin", out.Timezone)
+	}
+	// Stored now: the next browser's zone is not written over it.
+	out = f.must(f.a, "profile.zone_default", account.ZoneDefaultIn{Timezone: "America/New_York"}).(account.ProfileItem).Item
+	if out.Timezone != "Europe/Dublin" {
+		t.Fatalf("a stored zone was overwritten by a browser's: got %q", out.Timezone)
+	}
+}
+
+func TestZoneDefaultNeverOverwritesAChoice(t *testing.T) {
+	f := newFx(t)
+	f.must(f.a, "profile.update", account.UpdateIn{Timezone: sp("Europe/Paris")})
+	out := f.must(f.a, "profile.zone_default", account.ZoneDefaultIn{Timezone: "Europe/Dublin"}).(account.ProfileItem).Item
+	if out.Timezone != "Europe/Paris" {
+		t.Fatalf("a chosen zone was overwritten: got %q, want Europe/Paris", out.Timezone)
+	}
+	// UTC chosen on purpose is a choice, not the default the column starts with.
+	f.must(f.b, "profile.update", account.UpdateIn{Timezone: sp("UTC")})
+	out = f.must(f.b, "profile.zone_default", account.ZoneDefaultIn{Timezone: "Europe/Dublin"}).(account.ProfileItem).Item
+	if out.Timezone != "UTC" {
+		t.Fatalf("an explicit UTC was overwritten: got %q", out.Timezone)
+	}
+}
+
+func TestZoneDefaultRefusesZonesThatAreNotNames(t *testing.T) {
+	f := newFx(t)
+	for _, z := range []string{"", "Local", "Mars/Olympus", "../../etc/passwd"} {
+		_, err := f.call(f.a, "profile.zone_default", account.ZoneDefaultIn{Timezone: z})
+		if code(err) != ops.CodeInvalid || field(err) != "timezone" {
+			t.Errorf("zone %q: err %v, want an invalid timezone", z, err)
+		}
+	}
+	if p := f.must(f.a, "profile.get", account.EmptyIn{}).(account.ProfileItem).Item; p.Timezone != "UTC" {
+		t.Fatalf("a refused zone was stored: %q", p.Timezone)
+	}
+}
+
+// Existing accounts (U5, migration 0111): a zone other than the default is a choice and is kept; the default UTC, or an empty
+// zone, is not, so the browser's zone is stored for it. The test runs the migration's own backfill statement on rows that were
+// written before the column existed.
+func TestExistingAccountsKeepTheirZoneOnlyWhenItIsNotTheDefault(t *testing.T) {
+	f := newFx(t)
+	// Rows as they were before 0111: no timezone_set, so their zones are whatever they were.
+	f.d.WithTx(f.ctx, func(tx *sql.Tx) error {
+		_, err := tx.Exec(`UPDATE users SET timezone = 'UTC' WHERE id = ?`, f.a.UserID)
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec(`UPDATE users SET timezone = 'Europe/Paris' WHERE id = ?`, f.b.UserID)
+		return err
+	})
+	// The migration's backfill, read from the file so the test cannot drift from it.
+	src, err := os.ReadFile("../../db/migrations/0111_user_zone_set.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var backfill string
+	for _, line := range strings.Split(string(src), "\n") {
+		if strings.HasPrefix(line, "UPDATE users SET timezone_set") {
+			backfill = line
+		}
+	}
+	if backfill == "" {
+		t.Fatal("migration 0111 has no backfill statement")
+	}
+	if _, err := f.d.Writer().Exec(`UPDATE users SET timezone_set = 0`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.d.Writer().Exec(backfill); err != nil {
+		t.Fatal(err)
+	}
+	// The default zone is not a choice: the browser's zone is stored.
+	out := f.must(f.a, "profile.zone_default", account.ZoneDefaultIn{Timezone: "Europe/Dublin"}).(account.ProfileItem).Item
+	if out.Timezone != "Europe/Dublin" {
+		t.Fatalf("an existing account on the default UTC did not get the browser's zone: %q", out.Timezone)
+	}
+	// A zone that is not the default is kept.
+	out = f.must(f.b, "profile.zone_default", account.ZoneDefaultIn{Timezone: "Europe/Dublin"}).(account.ProfileItem).Item
+	if out.Timezone != "Europe/Paris" {
+		t.Fatalf("an existing account's chosen zone was overwritten: %q", out.Timezone)
 	}
 }

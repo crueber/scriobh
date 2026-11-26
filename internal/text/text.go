@@ -97,6 +97,37 @@ func SearchBody(md string) string {
 	return stripMarkers(b.String())
 }
 
+// Derive is WordCount and SearchBody of one text, from one parse. A save needs both of the same text, and each of the two parses it
+// otherwise: on a 2 MB text of link reference definitions that was 400 ms of parsing twice over.
+func Derive(md string) (int, string) {
+	n := 0
+	var b strings.Builder
+	walkBlocks(sanitize(body(normalize(md))), func(toks []tok) {
+		words(blockText(toks, true), func(w string) {
+			if isWord(w) {
+				n++
+			}
+		})
+		first := true
+		var line strings.Builder
+		words(blockText(toks, false), func(w string) {
+			if !first {
+				line.WriteByte(' ')
+			}
+			first = false
+			line.WriteString(w)
+		})
+		if line.Len() == 0 {
+			return
+		}
+		if b.Len() > 0 {
+			b.WriteByte('\n')
+		}
+		b.WriteString(line.String())
+	})
+	return n, stripMarkers(b.String())
+}
+
 // Plain is SearchBody: the readable text of Markdown.
 func Plain(md string) string { return SearchBody(md) }
 

@@ -3,11 +3,24 @@ package server
 import (
 	"strconv"
 	"strings"
+
+	"github.com/crueber/scriobh/internal/i18n"
 )
 
 // projectTabs is what the project's tab strip needs: the project, the document a
 // "Write" tab returns to, and which tab is the current page.
-type projectTabs struct{ Slug, Write, Active, Role string }
+type projectTabs struct{ Slug, Write, Active, Role, Lang string }
+
+// T is a message for the project menu, in the page's language (English when the page did not say).
+func (t projectTabs) T(key string) string {
+	if t.Lang == "" {
+		return i18n.Default.T("en", key)
+	}
+	return i18n.Default.T(t.Lang, key)
+}
+
+// inLang gives the menu the page's language.
+func inLang(lang string, t projectTabs) projectTabs { t.Lang = lang; return t }
 
 // ptabs is the data of the project tabs and menu. A page that knows the caller's role passes it, and the menu then offers
 // only what that role can use (Review to a reviewer and up, Compile to an editor and up, Share links to the owner); without

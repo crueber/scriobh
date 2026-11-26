@@ -253,7 +253,7 @@ func TestQuotasShowUseAgainstTheLimits(t *testing.T) {
 	if q.Editable || !strings.Contains(q.Note, "configuration") {
 		t.Errorf("quotas are read only: %+v", q)
 	}
-	if q.Instance[0].Used != 5<<20 || q.Instance[0].Limit != 0 || q.Instance[2].Limit != 25<<20 {
+	if q.Instance[0].Used != 5<<20 || q.Instance[0].Limit != 0 || q.Instance[2].Limit != 25<<20 || q.Instance[3].Name != "Imports in progress (files held for review)" {
 		t.Errorf("instance lines: %+v", q.Instance)
 	}
 	if q.Users[0].Name != "Wren" || q.Users[0].StorageBytes != 3<<20 || q.Users[0].StorageLimit != 2<<30 || q.Users[0].Keys != 1 || q.Users[0].KeyLimit != 20 {
@@ -269,6 +269,9 @@ func TestDiagnosticsHoldNoneOfWhatIsPrivate(t *testing.T) {
 	proj := w.must(w.wren, "project.create", projects.CreateIn{Title: "CANARYTITLE The Salt Road"}).(projects.Item).Item
 	doc := w.must(w.wren, "doc.create", docs.CreateIn{ProjectID: proj.ID, Title: "CANARYCHAPTER", Kind: "chapter", Content: "CANARYTEXT the tide came in. %%CANARYNOTE%%\n"}).(docs.Item).Item
 	w.must(w.wren, "comment.create", review.CreateIn{ProjectID: proj.ID, DocumentID: doc.ID, Quote: "the tide", Body: "CANARYCOMMENT please cut"})
+	// two private ("Only me") notes: the diagnostics bundle must not show that they exist (the comments row count stays that of the shared ones)
+	w.must(w.wren, "comment.create", review.CreateIn{ProjectID: proj.ID, DocumentID: doc.ID, Body: "CANARYPRIVATE a note to myself", Visibility: "private"})
+	w.must(w.wren, "comment.create", review.CreateIn{ProjectID: proj.ID, DocumentID: doc.ID, Body: "CANARYPRIVATE another", Visibility: "private"})
 	sh := w.must(w.wren, "share.create", share.CreateIn{ProjectID: proj.ID, Label: "CANARYLABEL", Passphrase: "CANARYPASSPHRASE12"}).(share.CreateOut)
 	k := w.must(w.wren, "key.create", keys.CreateIn{Name: "CANARYKEYNAME"}).(keys.CreateOut)
 	if _, err := w.d.Writer().Exec(`INSERT INTO file_usage(scope, bytes, files) VALUES ('instance', 1000, 1)`); err != nil {
@@ -279,6 +282,14 @@ func TestDiagnosticsHoldNoneOfWhatIsPrivate(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(canaryDir, "CANARYFILE.png"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// a staged import (a file held while its review goes on): its name and its words are not in the bundle either
+	stageDir := filepath.Join(w.dir, "imports", "stage", "imd_CANARYSTAGE")
+	if err := os.MkdirAll(stageDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(stageDir, "source"), []byte("CANARYSTAGEDTEXT"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(w.dir, "CANARYTOPLEVEL.txt"), []byte("x"), 0o644); err != nil {

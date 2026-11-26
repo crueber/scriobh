@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/crueber/scriobh/internal/domain/review"
 	"github.com/crueber/scriobh/internal/idempotency"
 	"github.com/crueber/scriobh/internal/ops"
 )
@@ -183,8 +184,8 @@ func (s *Server) restHandler(e *ops.Entry) http.HandlerFunc {
 		// conflict, so a retry cannot make a second link, but its fingerprint leaves the body out: a stored hash of a body
 		// that holds a passphrase would be a guessing oracle.
 		fpBody := raw
-		if e.Op.SecretInput {
-			fpBody = nil
+		if k, ok := in.(interface{ KeepBodyOutOfFingerprint() bool }); e.Op.SecretInput || (ok && k.KeepBodyOutOfFingerprint()) {
+			fpBody = nil // a hash of a private note's words would be a guessing oracle, as a hash of a passphrase would
 		}
 		fp := idempotency.Fingerprint(e.Op.Name, r.Method, r.URL.Path, r.URL.Query(), fpBody)
 		resp, replay, err := s.Idem.Do(r.Context(), s.idemPrincipal(r), key, e.Op.Name, fp, func() (idempotency.Result, error) {
@@ -192,18 +193,63 @@ func (s *Server) restHandler(e *ops.Entry) http.HandlerFunc {
 			if err != nil {
 				return idempotency.Result{}, err
 			}
-			return idempotency.Result{
+			// What only one person may see (a private comment) is not written down in the answer: the record holds a reference, and a
+			// repeated key answers by reading the thread again as whoever repeats it. The words are stored in one place, `comments`.
+			res := idempotency.Result{
 				Response:  idempotency.Response{Status: e.Op.Status, Body: encodeJSON(out)},
 				Store:     !e.Op.SecretOutput,
 				Tombstone: e.Op.SecretOutput,
-			}, nil
+			}
+			if rf, ok := out.(interface{ ReplayRef() string }); ok && rf.ReplayRef() != "" && !e.Op.SecretOutput {
+				res.Kept = encodeJSON(map[string]string{replayMarker: rf.ReplayRef()})
+			}
+			return res, nil
 		})
 		if err != nil {
 			writeJSONError(w, ops.AsError(err))
 			return
 		}
+		if replay {
+			if id := replayRefIn(resp.Body); id != "" {
+				// the answer is the thread as it is now, as the person repeating the request sees it (it may have been changed or deleted since)
+				pid := ""
+				if pr, ok := in.(interface{ ProjectRef() string }); ok {
+					pid = pr.ProjectRef()
+				}
+				out, err := s.Reg.Call(r.Context(), p, "comment.get", review.GetIn{ProjectID: pid, CommentID: id})
+				if err != nil {
+					if ops.AsError(err).Code == ops.CodeNotFound {
+						writeJSONError(w, ops.Conflict("This request already ran and wrote the comment, which has been deleted since. Do not repeat it."))
+						return
+					}
+					writeJSONError(w, ops.AsError(err))
+					return
+				}
+				if t, ok := out.(review.ThreadItem); ok && t.Item.Deleted {
+					writeJSONError(w, ops.Conflict("This request already ran and wrote the comment, which has been deleted since. Do not repeat it."))
+					return
+				}
+				writeJSONBody(w, resp.Status, encodeJSON(out), true)
+				return
+			}
+		}
 		writeJSONBody(w, resp.Status, resp.Body, replay)
 	}
+}
+
+// replayMarker names the one field of a stored record that is a reference rather than an answer.
+const replayMarker = "replay_comment"
+
+// replayRefIn is the comment id a stored record refers to, or "".
+func replayRefIn(body []byte) string {
+	if !bytes.Contains(body, []byte(replayMarker)) {
+		return ""
+	}
+	var m map[string]string
+	if json.Unmarshal(body, &m) != nil {
+		return ""
+	}
+	return m[replayMarker]
 }
 
 // idemPrincipal scopes an idempotency key to whoever sent it: one API key, or

@@ -22,16 +22,16 @@
   <form class="form tl-form" id="tl-form" method="post" action="{{if .New}}/ui/compendiums/{{.C.ID}}/timeline/events{{else}}/ui/timeline/events/{{.E.ID}}{{end}}">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
     {{if not .New}}<input type="hidden" name="base_revision" value="{{.V.Revision}}">{{end}}
-    {{if .Error}}<p class="field-error" role="alert" id="tl-err">{{.Error}}</p>{{end}}
+    {{if and .Error (not (eq .Field "story_date")) (not (eq .Field "story_date_end"))}}<p class="field-error" role="alert" id="tl-err">{{.Error}}</p>{{end}}
     <div class="field"><label for="ev-title">Title</label>
       <input id="ev-title" name="title" type="text" maxlength="200" required value="{{.V.Title}}" autocomplete="off"{{if eq .Field "title"}} aria-invalid="true" aria-describedby="tl-err"{{end}}></div>
     <div class="field-row tl-dates">
       <div class="field"><label for="ev-start">Starts</label>
         <input id="ev-start" name="story_date" type="text" autocomplete="off" spellcheck="false" placeholder="1998-04-12" value="{{.V.Date}}" data-date data-pair="ev-end" aria-describedby="ev-start-h"{{if eq .Field "story_date"}} aria-invalid="true"{{end}}>
-        <p class="hint tl-hint" id="ev-start-h" role="status" data-hint>Leave empty if the date is not known. Use 1998, 1998-04, 1998-04-12 or 1998-04-12T19:30. A year can be negative, such as -0044.</p></div>
+        {{if eq .Field "story_date"}}<p class="hint tl-hint is-bad" id="ev-start-h" role="status" data-hint data-def="Leave empty if the date is not known. Use 1998, 1998-04, 1998-04-12 or 1998-04-12T19:30. A year can be negative, such as -0044.">{{.Error}}</p>{{else}}<p class="hint tl-hint" id="ev-start-h" role="status" data-hint>Leave empty if the date is not known. Use 1998, 1998-04, 1998-04-12 or 1998-04-12T19:30. A year can be negative, such as -0044.</p>{{end}}</div>
       <div class="field"><label for="ev-end">Ends</label>
         <input id="ev-end" name="story_date_end" type="text" autocomplete="off" spellcheck="false" placeholder="1998-04-14" value="{{.V.End}}" data-date data-pair="ev-start" aria-describedby="ev-end-h"{{if eq .Field "story_date_end"}} aria-invalid="true"{{end}}>
-        <p class="hint tl-hint" id="ev-end-h" role="status" data-hint>Only for an event that lasts. Not before the start.</p></div>
+        {{if eq .Field "story_date_end"}}<p class="hint tl-hint is-bad" id="ev-end-h" role="status" data-hint data-def="Only for an event that lasts. Not before the start.">{{.Error}}</p>{{else}}<p class="hint tl-hint" id="ev-end-h" role="status" data-hint>Only for an event that lasts. Not before the start.</p>{{end}}</div>
     </div>
     <div class="field"><label for="ev-label">Story label</label>
       <input id="ev-label" name="story_label" type="text" maxlength="120" autocomplete="off" placeholder="Midsummer, Year 312" value="{{.V.Label}}">

@@ -57,15 +57,27 @@ const (
 	ReasonAlternative = "alternative"
 	// ReasonSuggestionAccepted is a collaborator's suggestion an editor accepted.
 	ReasonSuggestionAccepted = "suggestion-accepted"
+	// ReasonCut is the text before a save that removed a big part of the chapter (see IsBigCut).
+	ReasonCut = "cut"
+	// ReasonSplit is the whole text before a split (doc.split).
+	ReasonSplit = "split"
+	// ReasonJoin is the text before two documents are joined.
+	ReasonJoin = "join"
 )
 
-var reasons = []string{ReasonAutosave, ReasonManual, ReasonSnapshot, ReasonRestore, ReasonImport, "ai-accepted", ReasonAlternative, ReasonSuggestionAccepted}
+var reasons = []string{ReasonAutosave, ReasonManual, ReasonSnapshot, ReasonRestore, ReasonImport, "ai-accepted", ReasonAlternative, ReasonSuggestionAccepted,
+	ReasonCut, ReasonSplit, ReasonJoin}
 
 // Tunables.
 const (
 	// AutosaveInterval is the least time between two automatic revisions of one
 	// document, measured between the times the rows were written.
 	AutosaveInterval = 5 * time.Minute
+	// MaxCutVersions caps the unlabelled cut versions one document keeps. A big
+	// cut is not limited by AutosaveInterval, so a burst of them is bounded here:
+	// the oldest beyond the cap go, at each cut and at each prune. A labelled
+	// version is kept forever like any other and is not counted.
+	MaxCutVersions = 10
 	// CompressAbove is the content size above which a blob is gzip-compressed.
 	CompressAbove = 8 << 10
 	// MaxContent bounds what a blob may decompress to (the document body cap).
@@ -312,6 +324,56 @@ func EnsureRecorded(tx *sql.Tx, h HeadState, reason, note, now string) (bool, er
 		Reason: reason, Note: note, At: h.stamp(), Now: now})
 	return err == nil, err
 }
+
+// CaptureBefore keeps the head as one version with the given reason, whatever
+// the autosave interval says. It is for a moment that is worth its own labelled
+// version: a split, a join, or a save that is a big cut (IsBigCut). It reports
+// whether it wrote one. Nothing is written when the head is empty, or when the
+// newest version already holds exactly the head's text (a snapshot taken in the
+// same save, say): one version per moment, never two of the same text. A cut
+// also trims the unlabelled cut versions to MaxCutVersions.
+func CaptureBefore(tx *sql.Tx, h HeadState, reason, now string) (bool, error) {
+	hash := h.hash()
+	if hash == emptyHash {
+		return false, nil
+	}
+	lastHash, _, have, err := latest(tx, h.DocumentID)
+	if err != nil {
+		return false, err
+	}
+	if have && lastHash == hash {
+		return false, nil
+	}
+	if _, err := Record(tx, RecordIn{DocumentID: h.DocumentID, Revision: h.Revision, Content: h.Content, Words: h.Words, AuthorID: h.By,
+		Reason: reason, At: h.stamp(), Now: now}); err != nil {
+		return false, err
+	}
+	if reason == ReasonCut {
+		if err := trimCuts(tx, h.DocumentID); err != nil {
+			return true, err
+		}
+	}
+	return true, nil
+}
+
+// IsBigCut says whether a save that takes a chapter from before words to after
+// words is a big cut: it removes more than CutWords words, or more than a fifth
+// of the words the chapter had. Growth is never a cut. The counts are the app's
+// word count (text.WordCount), which does not count ghosted text, so a ghosted
+// passage counts as removed, as it does on the page.
+func IsBigCut(before, after int) bool {
+	removed := before - after
+	if removed <= 0 {
+		return false
+	}
+	return removed > CutWords || removed*cutFifth > before
+}
+
+// The thresholds IsBigCut applies.
+const (
+	CutWords = 200
+	cutFifth = 5
+)
 
 func oneOf(xs []string, s string) bool {
 	for _, x := range xs {

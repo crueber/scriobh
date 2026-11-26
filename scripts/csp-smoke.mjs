@@ -28,6 +28,8 @@ import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline";
+import { writeFileSync } from "node:fs";
+import { crc32 } from "node:zlib";
 import { flatPng } from "./covers-pictures.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -292,7 +294,12 @@ async function main() {
       problem(`console ${m.type()}: ${m.text()}${loc?.url ? ` (${loc.url}:${loc.lineNumber})` : ""}`);
     }
   });
-  page.on("pageerror", (e) => problem(`uncaught page error: ${e.message}`));
+  page.on("pageerror", (e) => {
+    // Chromium 159's built-in PDF viewer, inside the sandboxed attachment frame, reads navigator.serviceWorker from
+    // its own injected script and is refused. None of the app's files appears in that stack, so it is not ours.
+    if (/Access to service workers is denied/.test(e.message) && !/\/(static|assets?)\//.test(e.stack || "")) return;
+    problem(`uncaught page error: ${e.message}`);
+  });
   page.on("request", (r) => {
     if (/^(https?|wss?|ftp):/.test(r.url()) && new URL(r.url()).origin !== origin) {
       problem(`outbound request to ${r.url()}`);
@@ -394,6 +401,45 @@ async function main() {
   await visit(page, origin, "/import", 200);
   await visit(page, origin, "/import/git", 200);
   if (m) await visit(page, origin, `/p/${m[1]}/import`, 200);
+  // 5a2. The staged import: a Word file chosen on the chooser, the review page drawn from its draft, and a change made on it (a form
+  // that swaps the review body): no inline script, no style attribute, no violation, nothing off-origin.
+  {
+    begin("import review: choose a file, review it, move a chapter", 200);
+    const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
+    const chapters = ["One", "Two"].map((c) => `<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>${c}</w:t></w:r></w:p><w:p><w:r><w:t>${(c + " tide came in. ").repeat(20)}</w:t></w:r></w:p>`).join("");
+    const files = { "[Content_Types].xml": '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/></Types>',
+      "word/document.xml": `<?xml version="1.0"?><w:document ${W}><w:body>${chapters}</w:body></w:document>`,
+      "word/styles.xml": `<?xml version="1.0"?><w:styles ${W}><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:pPr><w:outlineLvl w:val="0"/></w:pPr></w:style></w:styles>` };
+    const parts = [], central = [];
+    let off = 0;
+    for (const [name, text] of Object.entries(files)) {
+      const nb = Buffer.from(name), d = Buffer.from(text), c = crc32(d);
+      const lh = Buffer.alloc(30); lh.writeUInt32LE(0x04034b50, 0); lh.writeUInt16LE(20, 4); lh.writeUInt32LE(c, 14); lh.writeUInt32LE(d.length, 18); lh.writeUInt32LE(d.length, 22); lh.writeUInt16LE(nb.length, 26);
+      parts.push(lh, nb, d);
+      const ch = Buffer.alloc(46); ch.writeUInt32LE(0x02014b50, 0); ch.writeUInt16LE(20, 4); ch.writeUInt16LE(20, 6); ch.writeUInt32LE(c, 16); ch.writeUInt32LE(d.length, 20); ch.writeUInt32LE(d.length, 24); ch.writeUInt16LE(nb.length, 28); ch.writeUInt32LE(off, 42);
+      central.push(ch, nb);
+      off += 30 + nb.length + d.length;
+    }
+    const cd = Buffer.concat(central), end = Buffer.alloc(22);
+    end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(central.length / 2, 8); end.writeUInt16LE(central.length / 2, 10); end.writeUInt32LE(cd.length, 12); end.writeUInt32LE(off, 16);
+    const docx = join(tmp, "smoke.docx");
+    writeFileSync(docx, Buffer.concat([...parts, cd, end]));
+    await page.goto(origin + "/import", { waitUntil: "networkidle" });
+    await page.check("#imp-f-docx");
+    await page.locator("#imp-docx").setInputFiles(docx);
+    await page.waitForURL(/\/import\/d\/imd_/, { timeout: 15000 }).catch(() => problem("the file was not staged: " + page.url()));
+    await page.waitForLoadState("networkidle");
+    await settle(page, null);
+    await page.locator('#imp-review summary[aria-label="Edit One"]').click();
+    await page.locator('#imp-review button[data-act="down"]').first().waitFor({ timeout: 10000 }).catch(() => problem("the edit panel did not open"));
+    await page.waitForFunction(() => !document.querySelector(".htmx-request, .htmx-swapping, .htmx-settling, .htmx-added"), null, { timeout: 5000 });
+    await page.locator('#imp-review button[data-act="down"]').first().click();
+    await page.waitForFunction(() => document.querySelector("#imp-review .imp-title")?.textContent === "Two", null, { timeout: 10000 }).catch(() => problem("the change was not swapped in"));
+    await page.waitForLoadState("networkidle");
+    await settle(page, null);
+    await page.getByRole("button", { name: "Discard this import" }).click();
+    await page.waitForURL(/\/import$/, { timeout: 10000 }).catch(() => problem("discard did not go back to the chooser"));
+  }
   await visit(page, origin, "/settings", 200);
   if (m) await visit(page, origin, `/p/${m[1]}`, 200, "project page again, for the writing view");
 

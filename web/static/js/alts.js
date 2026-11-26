@@ -195,7 +195,7 @@
   // `edit(answer)`, when given, runs once `fn` has answered with ok, while nothing else can run: the one place the held editor
   // is let take an edit of its own (the text a stash took out of the chapter).
   function exclusive(fn, edit) {
-    if (ed.mode() === "source") { note("Switch back to the text view (Ctrl or Command with E) first: the Source view is a plain text box, and this change is made in the text."); return Promise.resolve({ ok: false }); }
+    if (ed.mode() === "source") { note("Switch back to the text view (the Source button) first: the Source view is a plain text box, and this change is made in the text."); return Promise.resolve({ ok: false }); }
     hold();
     var go = function () {
       return composed().then(function () { engage(); return fn(); }).then(function (r) {
@@ -501,7 +501,7 @@
   var api = {
     get items() { return items; }, get ghosts() { return ghosts; }, get ghostInfo() { return ghostInfo; }, get can() { return can; },
     on: function (f) { listeners.push(f); }, refresh: function () { return Promise.all([refresh(), refreshGhosts()]); },
-    hint: hint, placed: placed, ensurePlaced: ensurePlaced, notPlaced: NOT_PLACED, cycle: cycle, add: addPrompt, run: run, exclusive: exclusive, get busy() { return busy; }, offsetOf: function (pos) { return A.offsetOf(pos); }, say: say, note: note,
+    hint: hint, placed: placed, ensurePlaced: ensurePlaced, notPlaced: NOT_PLACED, cycle: cycle, add: addPrompt, run: run, exclusive: exclusive, get busy() { return busy; }, offsetOf: function (pos) { return A.offsetOf(pos); }, sync: syncSelection, say: say, note: note,
     marksOf: function () { return marks; },
     show: function (aid) { var m = marks.filter(function (x) { return x.id === aid; })[0]; if (m) { A.select(m.from, m.to); view.focus(); } },
     choose: function (aid, vid) {
@@ -563,6 +563,7 @@
       return api.revive(function () { return ensurePlaced().then(function (ok) { if (!ok) { note(NOT_PLACED); return null; } return rangeOf(lo, hi); }); });
     },
     cmd: function (name) {
+      if (name === "undo" || name === "redo") { if (busy) refused(); return busy; } // the format bar's buttons: refused while the editor is held, as the keys are
       if (name === "alt") { addPrompt(); return true; }
       if (name === "ghost") { var s = view.state.selection; if (touchesGhost(s)) api.reviveSelection(); else api.ghostSelection(); return true; }
       if (name === "next") { cycle("next"); return true; }
@@ -633,6 +634,19 @@
     b.focus();
   }
   doc.addEventListener("pointerdown", function (e) { if (pop && !pop.contains(e.target)) closePop(); if (cyc && !cyc.hidden && !cyc.contains(e.target) && !(e.target.closest && e.target.closest(".scriobh-alt"))) hideCycler(); }, true);
+  // The selection bar (js/selbar.js) is fetched at the first selection the person finishes (a pointer release, or a Shift+arrow
+  // release), never on load, and never on a phone. Its three items lead this menu and run through it.
+  var sbM = {}, sbSrc = doc.getElementById("write").dataset.selbarSrc, sbAsk = false;
+  try { sbM = JSON.parse(doc.getElementById("write").dataset.selbarMsgs || "{}"); } catch (x) { sbM = {}; }
+  function selbarRun(k) { if (S.selbar) S.selbar.run(k); else W.lazy(sbSrc, "selbar", function () { S.selbar.run(k); }); }
+  function selbarAsk() {
+    var s = win.getSelection();
+    if (sbAsk || S.selbar || !sbSrc || !s || s.isCollapsed || !view.dom.contains(s.anchorNode) || win.matchMedia("(pointer: coarse)").matches) return;
+    sbAsk = true;
+    W.lazy(sbSrc, "selbar", function () { S.selbar.show(); });
+  }
+  doc.addEventListener("pointerup", selbarAsk, true);
+  doc.addEventListener("keyup", function (e) { if (/^(Shift|Arrow)/.test(e.key) && Date.now() - lastNav < 1000) selbarAsk(); }, true); // only after an arrow: a Shift chord is not a selection
   // The context menu: only where it has something to offer (a selection, an alternative, ghosted text); elsewhere the browser's own.
   var menu = null;
   function closeMenu() { if (menu) { menu.remove(); menu = null; } }
@@ -658,12 +672,12 @@
     e.preventDefault(); closeMenu();
     menu = el("ul", "alt-menu"); menu.id = "alt-menu"; menu.setAttribute("role", "menu"); menu.setAttribute("aria-label", "Alternatives");
     var list = [];
-    if (sel) list.push(["Add an alternative…", "alt"], ["Ghost this text", "ghost"], ["Send to the stash", "stash"]);
+    if (sel) list.push([sbM.add, "sb:add"], [sbM.look, "sb:look"], [sbM.comment, "sb:comment"], ["Add an alternative…", "alt"], ["Ghost this text", "ghost"], ["Send to the stash", "stash"]);
     if (onAlt) list.push(["Next wording", "next"], ["Previous wording", "previous"], ["Show the original", "original"]);
     if (onGhost) list.push(["Revive this text", "revive"]);
     list.forEach(function (x) {
       var li = el("li"), b = el("button", "alt-mi", x[0]); b.type = "button"; b.setAttribute("role", "menuitem"); b.tabIndex = -1;
-      b.addEventListener("click", function () { closeMenu(); view.focus(); api.cmd(x[1]); }); li.append(b); menu.append(li);
+      b.addEventListener("click", function () { closeMenu(); view.focus(); if (x[1].slice(0, 3) === "sb:") selbarRun(x[1].slice(3)); else api.cmd(x[1]); }); li.append(b); menu.append(li);
     });
     doc.body.appendChild(menu);
     place(menu, { left: e.clientX, top: e.clientY - 6, bottom: e.clientY - 6 });

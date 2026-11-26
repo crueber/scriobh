@@ -1022,9 +1022,8 @@ func (w *hwalk) image(attrs map[string]string) {
 	if w.heading > 0 {
 		return
 	}
-	f := w.fmtNow()
-	f.i = true
-	w.inl.addText(label, f, false)
+	// plain, not italic: an italic mark beside a word would leave asterisks in the Markdown (the emphasis does not close)
+	w.inl.addText(label, w.fmtNow(), false)
 }
 
 func atoiClamp(s string) int {

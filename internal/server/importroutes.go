@@ -6,6 +6,7 @@ import "net/http"
 func (s *Server) registerImportMirrorBackup(m *http.ServeMux) {
 	m.HandleFunc("GET /import", s.importPage)
 	m.HandleFunc("GET /p/{slug}/import", s.importIntoPage)
+	s.registerImportShell(m)
 	s.uiRoute("POST /ui/projects/{id}/mirror/rebuild", s.uiMirrorRebuild)
 	s.uiRoute("POST /ui/settings/backups", s.uiBackupCreate)
 }

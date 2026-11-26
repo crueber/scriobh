@@ -30,11 +30,13 @@
       bullet: inNode(state, "bullet_list") && !inNode(state, "list_item", function (n) { return n.attrs.checked != null; }),
       ordered: inNode(state, "ordered_list"), task: inNode(state, "list_item", function (n) { return n.attrs.checked != null; }), source: src
     };
-    var dead = src || W.locked || !wr;
+    var dead = src || W.locked || !wr, h = ed.history();
     tools.forEach(function (b) {
-      var c = b.dataset.cmd;
+      var c = b.dataset.cmd, t = src ? b.dataset.off : b.dataset.on;
       if (b.hasAttribute("aria-pressed")) { var v = String(!!on[c]); if (b.getAttribute("aria-pressed") !== v) b.setAttribute("aria-pressed", v); }
-      b.disabled = c !== "source" && dead;
+      var d = c === "comment" ? false : c === "split" ? W.locked : c === "revise" ? W.locked || !W.cfg.canEdit : c !== "source" && (dead || (c in h && !h[c])); // the chapter break works in Source and in a chapter too long to edit, which is how one is cut down; so does a comment (the tab says how it goes there)
+      if (b.disabled !== d) b.disabled = d;
+      if (c in h && b.title !== t) b.title = t;
     });
     var rov = tools.filter(function (b) { return b.tabIndex === 0; })[0];
     if (!rov || rov.disabled) { tools.forEach(function (b) { b.tabIndex = -1; }); $('[data-cmd="source"]', fmtbar).tabIndex = 0; }
@@ -56,6 +58,7 @@
   function run(name) {
     if (S.alts && S.alts.cmd(name)) return; // alternatives, ghosts and the stash are js/alts.js
     if (name === "source") { ed.toggleSource(); update(); W.counts(); return; }
+    if (name === "split" || name === "comment") { var go = name === "split" ? S.split : S.inspector && function () { S.inspector.want("comments"); }; if (go) go(); else if (S.toast) S.toast($('[data-cmd="' + name + '"]').dataset.wait); return; } // js/split.js and js/inspector.js, which may not have arrived yet
     if (name === "link") {
       // Mod+K is the editor's own link command (set, or remove when already linked).
       ed.view.focus();
@@ -74,8 +77,8 @@
   }
   if (fmtbar) {
     tools.forEach(function (b) {
-      var keys = (b.dataset.keys || "").replace("Mod", isMac ? "⌘" : "Ctrl");
-      b.title = b.dataset.tip + (keys ? " (" + keys + ")" : "");
+      var keys = S.keys ? S.keys.text(b.dataset.keys) : ""; // the registry's tokens, drawn by js/palette.js
+      b.dataset.on = b.title = b.dataset.tip + (keys ? " (" + keys + ")" : "");
     });
     // The editor keeps focus (and the on-screen keyboard) while a button is pressed.
     fmtbar.addEventListener("pointerdown", function (e) { if (e.target.closest(".tb")) e.preventDefault(); });
@@ -100,27 +103,27 @@
     });
   }
   // More buttons than the bar is wide (a phone, or a narrow column with the inspector open): a button at its end says so, and
-  // scrolls the bar a page at a time (and back).
+  // scrolls the track of buttons a page at a time (and back). The button is beside the track, never over it (U10).
   if (fmtbar) {
-    var more = doc.createElement("button"), still = win.matchMedia && win.matchMedia("(prefers-reduced-motion: reduce)");
+    var track = $(".fmt-track", fmtbar) || fmtbar, more = doc.createElement("button"), still = win.matchMedia && win.matchMedia("(prefers-reduced-motion: reduce)");
     more.type = "button"; more.className = "fmt-more"; more.hidden = true; more.tabIndex = -1;
     more.addEventListener("pointerdown", function (e) { e.preventDefault(); });
-    var atEnd = function () { return fmtbar.scrollLeft + fmtbar.clientWidth >= fmtbar.scrollWidth - 2; };
+    var atEnd = function () { return track.scrollLeft + track.clientWidth >= track.scrollWidth - 2; };
     var fit = function () {
-      var over = fmtbar.scrollWidth - (more.hidden ? 0 : more.offsetWidth) > fmtbar.clientWidth + 2;
+      var over = track.scrollWidth > track.clientWidth + 2;
       more.hidden = !over;
       if (over) { var e = atEnd(); more.textContent = e ? "\u2039" : "\u203a"; more.setAttribute("aria-label", e ? "Earlier formatting buttons" : "More formatting buttons"); }
     };
-    more.addEventListener("click", function () { fmtbar.scrollBy({ left: atEnd() ? -fmtbar.scrollWidth : Math.round(fmtbar.clientWidth * 0.7), behavior: still && still.matches ? "auto" : "smooth" }); });
+    more.addEventListener("click", function () { track.scrollBy({ left: atEnd() ? -track.scrollWidth : Math.round(track.clientWidth * 0.7), behavior: still && still.matches ? "auto" : "smooth" }); });
     fmtbar.append(more);
-    fmtbar.addEventListener("scroll", fit, { passive: true });
+    track.addEventListener("scroll", fit, { passive: true });
     win.addEventListener("resize", fit);
-    if (win.ResizeObserver) new win.ResizeObserver(fit).observe(fmtbar);
+    if (win.ResizeObserver) new win.ResizeObserver(fit).observe(track);
     win.requestAnimationFrame(fit);
   }
   doc.addEventListener("selectionchange", selection);
   var ss = $("#st-source");
-  if (ss) { ss.hidden = false; ss.addEventListener("click", function () { run("source"); }); var k = $("kbd", ss); if (k) k.textContent = (isMac ? "⌘" : "Ctrl") + " E"; }
+  if (ss) { ss.hidden = false; ss.addEventListener("click", function () { run("source"); }); var k = $("kbd", ss); if (k && S.keys) k.textContent = S.keys.text(k.dataset.keys); }
   S.tools = { update: update, selection: selection, run: run };
   update();
 })();

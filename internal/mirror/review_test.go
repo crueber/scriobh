@@ -26,6 +26,8 @@ func TestReviewDataIsNeverMirrored(t *testing.T) {
 	call := func(op string, in any) any { return e.call(e.owner, op, in) }
 	th := call("comment.create", review.CreateIn{ProjectID: pid, DocumentID: d.ID, Quote: "quiet house", Body: "REVIEWSECRET comment text"}).(review.ThreadItem).Item
 	call("comment.create", review.CreateIn{ProjectID: pid, DocumentID: d.ID, ParentID: th.ID, Body: "REVIEWSECRET reply"})
+	// a private ("Only me") comment is review data too: it wakes nothing and is in no file, so it cannot reach a push either
+	call("comment.create", review.CreateIn{ProjectID: pid, DocumentID: d.ID, Quote: "stood alone", Body: "REVIEWSECRET only me", Visibility: "private"})
 	call("comment.resolve", review.GetIn{ProjectID: pid, CommentID: th.ID})
 	call("comment.reopen", review.GetIn{ProjectID: pid, CommentID: th.ID})
 	call("review.resolve_all", review.ResolveAllIn{ProjectID: pid})

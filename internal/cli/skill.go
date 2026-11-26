@@ -24,7 +24,7 @@ var RecipeNames = []string{"quickstart", "drafting", "compendium", "import", "ex
 var recipeTitles = map[string]string{
 	"quickstart": "Look around: sign in, list, read, search",
 	"drafting":   "Draft: create a project and a chapter, write, save safely",
-	"compendium": "Compendium: build and use the story bible",
+	"compendium": "Compendium: build and use the story's reference",
 	"import":     "Import: bring in existing Markdown",
 	"export":     "Export: take the manuscript out",
 }
@@ -211,7 +211,7 @@ func IsCompendiumOp(o Op) bool {
 
 func recipeCompendium(ix *Index) string {
 	var b strings.Builder
-	b.WriteString("# Recipe: compendium\n\nA Compendium holds the story bible: entities (characters, places, items, organisations, concepts), research, a timeline. It can exist without a project and be shared by several. The commands below are what this server offers, taken from its schema.\n\n")
+	b.WriteString("# Recipe: compendium\n\nA Compendium holds the story's reference: entities (characters, places, items, organisations, concepts), research, a timeline. It can exist without a project and be shared by several. The commands below are what this server offers, taken from its schema.\n\n")
 	var selected []Op
 	for _, o := range ix.SortedOps() {
 		if IsCompendiumOp(o) {
@@ -222,7 +222,7 @@ func recipeCompendium(ix *Index) string {
 		fmt.Fprintf(&b, "This server offers no Compendium commands (schema `%s`). Run `scriobh-cli ops` to see what it does offer, and `scriobh-cli skill check` to see whether this skill is out of date.\n", ix.Schema.Hash)
 		return b.String()
 	}
-	b.WriteString("Ground rules for building a bible:\n\n")
+	b.WriteString("Ground rules for building a Compendium:\n\n")
 	b.WriteString("- Work in small batches and read back: add a handful of entities, list them, then continue. Preview each write with `--dry-run`.\n")
 	b.WriteString("- Refer to things by name; the CLI resolves them. An entity is looked up inside one Compendium, so say which with `--compendium NAME` (a key restricted to a project or a Compendium works in its own, and needs no flag). Entities match by name or alias, and a name or alias another entity already uses is refused, so keep them distinct.\n")
 	b.WriteString("- Define a custom field before using it (`entity field set`), then give values as JSON: `--fields '{\"age\": 34}'`; repeat `--aliases` for each alias. A new Compendium starts with the usual character fields (role, age, appearance, voice, wants, fears, secrets, arc).\n")

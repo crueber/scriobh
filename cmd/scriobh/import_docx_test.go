@@ -6,6 +6,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -89,5 +90,56 @@ func TestImportCommandWordAndObsidian(t *testing.T) {
 	errb.Reset()
 	if code := run([]string{"import", vault, "--layout", "hugo"}, &out, &errb); code != 2 {
 		t.Errorf("an unknown layout: exit %d", code)
+	}
+}
+
+// `scriobh import book.txt`: a plain text file is read, its plain "Chapter" lines are offered and not cut, and a second import of the same
+// file into the project it made is flagged.
+func TestImportCommandPlainTextAndTheRepeatWarning(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("SCRIOBH_DATA_DIR", dir)
+	t.Setenv("SCRIOBH_LISTEN", "127.0.0.1:0")
+	d, err := db.Open(filepath.Join(dir, "scriobh.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.Migrate(context.Background(), ""); err != nil {
+		t.Fatal(err)
+	}
+	testutil.User(t, d, "writer", "w@t.local")
+	d.Close()
+	txt := filepath.Join(t.TempDir(), "the-salt-road.txt")
+	body := "Chapter 1\n\nThey came at dusk and the gulls wheeled over the grey water.\n\nChapter 2\n\nShe waited by the window until the light had gone.\n"
+	if err := os.WriteFile(txt, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out, errb bytes.Buffer
+	if code := run([]string{"import", txt}, &out, &errb); code != 0 {
+		t.Fatalf("exit %d: %s", code, errb.String())
+	}
+	for _, want := range []string{"plain text file", "No chapter breaks were found", "--docx-break", "Nothing was written"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("preview lacks %q:\n%s", want, out.String())
+		}
+	}
+	out.Reset()
+	errb.Reset()
+	if code := run([]string{"import", txt, "--docx-split", "label", "--apply"}, &out, &errb); code != 0 {
+		t.Fatalf("apply: exit %d: %s%s", code, errb.String(), out.String())
+	}
+	if !strings.Contains(out.String(), "2 documents") {
+		t.Errorf("cut at the labels the writer chose:\n%s", out.String())
+	}
+	m := regexp.MustCompile(`\((prj_[0-9A-Za-z]+)\)`).FindStringSubmatch(out.String())
+	if m == nil {
+		t.Fatalf("no project id in %s", out.String())
+	}
+	out.Reset()
+	errb.Reset()
+	if code := run([]string{"import", txt, "--into", m[1]}, &out, &errb); code != 0 {
+		t.Fatalf("into: exit %d: %s%s", code, errb.String(), out.String())
+	}
+	if !strings.Contains(out.String(), "Already imported") || !strings.Contains(out.String(), "import undo") {
+		t.Errorf("the repeat is not flagged:\n%s", out.String())
 	}
 }

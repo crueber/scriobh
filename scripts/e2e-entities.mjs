@@ -67,7 +67,8 @@ await kit.test("entities: custom fields are defined on their own page and appear
   eq(await pg.locator("#nf-key").inputValue(), "fare", "the typed key is kept");
   // On the sheet.
   await pg.goto(cu("/e/" + maire));
-  await pg.getByText("Fields with nothing in them yet").click();
+  // an empty field is a quiet slot in its place and takes the words as it is; with more than eight empty the rest wait behind one row
+  if (!(await pg.locator("#ef-fare").isVisible())) await pg.getByText(/Show \d+ more fields/).click();
   await pg.locator("#ef-fare").fill("34");
   await pg.getByRole("button", { name: "Save", exact: true }).click();
   await pg.getByText("Saved.", { exact: true }).waitFor();
@@ -106,11 +107,11 @@ await kit.test("entities: an alias, and the message when another entity already 
   quay = (await mk("place", "Salt Quay", { summary: "Where the road meets the water." })).id;
   await pg.goto(cu("/e/" + maire));
   await pg.locator("#ea-alias").fill("Mam");
-  await pg.getByRole("button", { name: "Add the alias" }).click();
-  await pg.getByText("Alias added.").waitFor();
+  await pg.getByRole("button", { name: "Add the name" }).click();
+  await pg.getByText("Another name added.").waitFor();
   ok((await pg.locator("#aliases").innerText()).includes("Mam"), "the alias is not listed");
   await pg.locator("#ea-alias").fill("salt  quay");
-  await pg.getByRole("button", { name: "Add the alias" }).click();
+  await pg.getByRole("button", { name: "Add the name" }).click();
   const box = pg.locator("#ent-error");
   await box.waitFor();
   const t = await box.innerText();
@@ -124,6 +125,7 @@ await kit.test("entities: an alias, and the message when another entity already 
 await kit.test("entities: a relationship reads from each side", async () => {
   kit.allowed.push(/status of 422/); // the refusals this step provokes are answered 422
   await pg.goto(cu("/e/" + maire));
+  await pg.getByText("Add a relationship", { exact: true }).click();
   await pg.locator("#er-other").fill("Salt Quay");
   await pg.locator("#er-label").fill("keeps the ferry at");
   await pg.locator("#er-inv").fill("ferry kept by");
@@ -136,6 +138,7 @@ await kit.test("entities: a relationship reads from each side", async () => {
   ok(t2.includes("ferry kept by") && t2.includes("Máire Nolan") && t2.includes("from the other"), "the other side: " + t2);
   // A name that is not here is explained.
   await pg.goto(cu("/e/" + maire));
+  await pg.getByText("Add a relationship", { exact: true }).click();
   await pg.locator("#er-other").fill("Nobody at all");
   await pg.getByRole("button", { name: "Add the relationship" }).click();
   ok((await pg.locator("#ent-error").innerText()).includes("No entity in this Compendium has that name"), "no explanation for an unknown name");

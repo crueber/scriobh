@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -260,6 +261,46 @@ func TestTheCoverIsDownloadedFromThePage(t *testing.T) {
 	} {
 		if rec := w.s.postForm(t, w.editor, base, c.form); rec.Code != 422 {
 			t.Errorf("%s: %d %s", c.name, rec.Code, rec.Body)
+		}
+	}
+}
+
+// The options sit under "All options", which is open only when the page is reached with a custom preset whose options
+// differ from the built-in it starts from (the server keeps no record of unsaved edits, so a saved preset is what it can
+// judge). The page opens on the preset its link names, and on shunn-us otherwise.
+func TestCompilePageOpensAllOptionsOnlyWhenThePresetCarriesChanges(t *testing.T) {
+	w := newShareWorld(t, nil)
+	mine := "/api/v1/projects/" + w.pid + "/compile/presets"
+	changed := idOf(t, w.s.do(w.owner, "POST", mine, `{"name":"Bigger","base":"shunn-us","options":{"font_size":14}}`).Body.Bytes())
+	same := idOf(t, w.s.do(w.owner, "POST", mine, `{"name":"Same","base":"shunn-us","options":{"font_size":12}}`).Body.Bytes())
+	details := regexp.MustCompile(`<details class="cmp-fold cmp-all" id="cmp-all"( open)?>`)
+	pick := regexp.MustCompile(` data-pick="([^"]*)"`)
+	for _, c := range []struct {
+		path     string
+		wantOpen bool
+		wantPick string
+	}{
+		{"/p/shared-book/compile", false, ""},
+		{"/p/shared-book/compile?preset=" + changed, true, changed},
+		{"/p/shared-book/compile?preset=" + same, false, same},
+		{"/p/shared-book/compile?preset=shunn-us", false, "shunn-us"},
+		{"/p/shared-book/compile?preset=cpr_nobody", false, ""},
+		{"/p/shared-book/compile?preset=" + changed + "%27", false, ""},
+	} {
+		rec := w.s.do(w.owner, "GET", c.path, "")
+		if rec.Code != 200 {
+			t.Fatalf("%s: %d", c.path, rec.Code)
+		}
+		body := rec.Body.String()
+		m := details.FindStringSubmatch(body)
+		if m == nil {
+			t.Fatalf("%s: the page has no All options details", c.path)
+		}
+		if got := m[1] == " open"; got != c.wantOpen {
+			t.Errorf("%s: All options open = %v, want %v", c.path, got, c.wantOpen)
+		}
+		if m := pick.FindStringSubmatch(body); m == nil || m[1] != c.wantPick {
+			t.Errorf("%s: the page hands the script preset %q, want %q", c.path, m, c.wantPick)
 		}
 	}
 }

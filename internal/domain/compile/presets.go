@@ -19,6 +19,8 @@
 package compile
 
 import (
+	"encoding/json"
+
 	"github.com/crueber/scriobh/internal/publish"
 )
 
@@ -144,6 +146,22 @@ func init() {
 	for i := range builtins {
 		builtins[i].Format = builtins[i].Options.Format
 	}
+}
+
+// Changed reports whether a custom preset's options differ from the built-in it starts from. The server keeps no record
+// of unsaved edits on the Compile page, so a saved preset is the state it can judge: the page opens All options when the
+// preset it is reached with carries a change. A built-in is never changed; a base that is not built in is not judged.
+func Changed(p Preset) bool {
+	if p.Builtin {
+		return false
+	}
+	b, ok := Builtin(p.Base)
+	if !ok {
+		return false
+	}
+	bj, err1 := json.Marshal(b.Options)
+	pj, err2 := json.Marshal(p.Options)
+	return err1 == nil && err2 == nil && string(bj) != string(pj)
 }
 
 // Builtins returns the built-in presets, copied.

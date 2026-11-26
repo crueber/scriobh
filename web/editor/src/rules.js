@@ -6,7 +6,7 @@ import {InputRule, inputRules, undoInputRule, wrappingInputRule, textblockTypeIn
 import {keymap} from "prosemirror-keymap"
 import {baseKeymap, chainCommands, toggleMark, setBlockType, wrapIn} from "prosemirror-commands"
 import {splitListItem, liftListItem, sinkListItem, wrapInList} from "prosemirror-schema-list"
-import {undo, redo} from "prosemirror-history"
+import {undo, redo, undoDepth, redoDepth} from "prosemirror-history"
 import {schema} from "./schema.js"
 
 const {nodes, marks} = schema
@@ -280,6 +280,12 @@ export const commandTable = {
   },
   scene_break: insertSceneBreak,
   undo, redo
+}
+
+// What the Undo and Redo buttons can do now: the history's own depths, as two booleans. Steps made with addToHistory:false
+// (alternatives, the stored line) are not in the history, so they are never counted here.
+export function historyState(state) {
+  return {undo: undoDepth(state) > 0, redo: redoDepth(state) > 0}
 }
 
 // --------------------------------------------------------------------- keymap

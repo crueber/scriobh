@@ -36,8 +36,10 @@ type Service struct {
 	AdminFromIdP bool
 	Version      string
 	DataDir      string
-	Config       func() map[string]any
-	Log          func() []LogLine
+	// ImportStageBytes is what staged imports may hold in all (SCRIOBH_IMPORT_STAGE_TOTAL_MB); the quota page shows what they hold now.
+	ImportStageBytes int64
+	Config           func() map[string]any
+	Log              func() []LogLine
 }
 
 func svc(c *ops.Ctx) *Service {
@@ -379,10 +381,13 @@ func quotas(c *ops.Ctx, _ QuotaIn) (QuotaOut, error) {
 	var biggest int64
 	_ = q.QueryRowContext(c, `SELECT COALESCE(max(bytes),0) FROM file_usage WHERE scope LIKE 'owner:%'`).Scan(&biggest)
 	out := QuotaOut{Users: []UserQuota{}, Note: "These limits come from the server's configuration (SCRIOBH_QUOTA_USER_MB, SCRIOBH_QUOTA_PROJECT_MB, SCRIOBH_QUOTA_INSTANCE_MB, SCRIOBH_UPLOAD_MAX_MB, SCRIOBH_MAX_KEYS_PER_USER) and apply to everyone alike; changing one means changing the configuration and restarting. There is no limit on the number of projects. AI budgets are set on the AI administration pages."}
+	var staged int64
+	_ = q.QueryRowContext(c, `SELECT COALESCE(SUM(bytes), 0) FROM import_drafts WHERE status IN ('open','applying') AND source_kind = 'upload'`).Scan(&staged)
 	out.Instance = []QuotaLine{
 		{Name: "Attachment storage, whole instance", Used: used("instance"), Limit: s.Limits.InstanceBytes, Unit: "bytes"},
 		{Name: "Attachment storage, the fullest project or Compendium", Used: biggest, Limit: s.Limits.OwnerBytes, Unit: "bytes"},
 		{Name: "Largest single file allowed", Used: 0, Limit: s.Limits.MaxBytes, Unit: "bytes"},
+		{Name: "Imports in progress (files held for review)", Used: staged, Limit: s.ImportStageBytes, Unit: "bytes"},
 		{Name: "People", Used: users, Unit: "count"},
 		{Name: "Projects", Used: projects, Unit: "count"},
 		{Name: "Live API keys", Used: keys, Unit: "count"},

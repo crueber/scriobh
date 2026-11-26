@@ -167,9 +167,22 @@ func (s source) pandocIntake() (in *intake, err error) {
 	}
 	// Pictures are extracted only when the person asked for them (pictures: import). Extraction is the one write
 	// Pandoc makes besides standard output, and a document's pictures are rarely why it is imported.
-	res, err := s.pandocSvc.ToMarkdown(ctx, s.pandocFmt, s.pandoc, pandoc.ImportOptions{ExtractMedia: s.conv.pictures == "import"})
-	if err != nil {
-		return nil, pandocError(err)
+	// What Pandoc made of a staged file is kept for a few minutes, so a change of how it is cut does not run the program again.
+	key := ""
+	if s.sum != "" {
+		key = "pandoc|" + s.sum + "|" + s.pandocFmt + "|" + s.pandocVersion() + "|" + s.conv.pictures
+	}
+	var res *pandoc.Imported
+	if v, ok := rawGet(key); ok && key != "" {
+		res = v.(*pandoc.Imported)
+	} else {
+		var err error
+		if res, err = s.pandocSvc.ToMarkdown(ctx, s.pandocFmt, s.pandoc, pandoc.ImportOptions{ExtractMedia: s.conv.pictures == "import"}); err != nil {
+			return nil, pandocError(err)
+		}
+		if key != "" {
+			rawPut(key, res)
+		}
 	}
 	o := s.conv
 	o.ctx = s.ctx
@@ -242,9 +255,10 @@ func convertPandoc(res *pandoc.Imported, original []byte, name, headings string,
 	if sk.overflow() {
 		return nil, ops.Invalid("pandoc", "The converted text is larger than the import limit.")
 	}
-	files, parts, err := sk.c.files(name, headings)
+	pi := &ProjectInfo{}
+	files, parts, brk, notes, err := sk.c.cutBlocks(name, headings, o.cutOpts(), pi)
 	if err != nil {
-		return nil, ops.Invalid("pandoc", err.Error())
+		return nil, cutErrorIn("pandoc", err)
 	}
 	if len(files) == 0 {
 		return nil, ops.Invalid("pandoc", "Pandoc returned no text from that file.")
@@ -274,7 +288,7 @@ func convertPandoc(res *pandoc.Imported, original []byte, name, headings string,
 	if parts {
 		rep.warn("Text under a part heading, before its first chapter, became a chapter of its own.")
 	}
-	in.apply(&prepass{layout: LayoutPandoc, srcKind: "markdown", srcHash: hex.EncodeToString(sum[:]), project: &ProjectInfo{}, warnings: rep.warnings, meta: rep.meta, extras: newExtras(nil, pics)})
+	in.apply(&prepass{layout: LayoutPandoc, srcKind: "markdown", srcHash: hex.EncodeToString(sum[:]), project: pi, warnings: rep.warnings, meta: rep.meta, extras: newExtras(nil, pics), notes: notes, breaks: brk})
 	return in, nil
 }
 

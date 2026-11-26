@@ -11,6 +11,9 @@
 .cmp-actions .field { margin: 0; min-inline-size: 6rem; }
 .cmp-status { min-block-size: 1.5em; margin: var(--s-2) 0; color: var(--fg-2); }
 .cmp-status.is-bad { color: var(--danger); }
+.cmp-what { margin: var(--s-1) 0 var(--s-3); color: var(--fg-2); font-size: var(--text-sm); }
+.cmp-all > summary { cursor: pointer; }
+.cmp-all-h { display: inline; margin: 0; }
 .cmp-manifest { margin: 0 0 var(--s-4); padding: var(--s-3); border: 1px solid var(--accent); border-radius: var(--r-2); background: var(--accent-soft); }
 .cmp-manifest h2 { margin-block-start: 0; }
 .cmp-facts { margin: 0; display: grid; gap: var(--s-1); font-size: var(--text-sm); }

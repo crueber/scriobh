@@ -1,4 +1,4 @@
-{{define "head"}}<link rel="stylesheet" href="{{asset "css/entities.css"}}">{{end}}
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/entities.css"}}"><link rel="stylesheet" href="{{asset "css/entry.css"}}">{{end}}
 {{define "crumb"}}{{template "ccrumb" (dict "C" .Data.Compendium "Here" "Custom fields")}}{{end}}
 {{define "tab-write"}}{{template "ctab-phone" ctabs .Data.Slug "entities"}}{{end}}
 {{define "ptabs"}}{{template "ctab-desktop" ctabs .Data.Slug "entities"}}{{end}}

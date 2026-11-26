@@ -67,6 +67,8 @@ type Options struct {
 	// Pandoc is the optional Pandoc bridge's runner settings (zero value: the defaults,
 	// no resource-limit helper).
 	Pandoc pandoc.Options
+	// ImportStage is the limits of staged imports (zero value: the defaults).
+	ImportStage imports.StageLimits
 }
 
 // Build returns the full registry. d and sink may be nil when only the
@@ -141,7 +143,7 @@ func BuildWith(d *db.DB, sink ops.Sink, dataDir string, o Options) *ops.Registry
 	research.Register(r)
 	stash.Register(r)
 	keys.Register(r)
-	imports.Register(r)
+	imports.Register(r, o.ImportStage)
 	editions.Register(r)
 	mirror.Register(r)
 	backup.Register(r)

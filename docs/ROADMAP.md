@@ -251,7 +251,7 @@ Phase 10 v2.3.0 Updates     desktop auto-update from GitHub, after you say yes
 - U2, the shell: the first-run question, a daily check, a background download, Restart to Update, macOS and Windows and the AppImage in place, a notice for the `.deb`; tested from one release to the next on all three systems.
 - U3, signing: macOS Developer ID and notarisation (so the keychain item survives an update), and Windows code signing. U4, the bridge release: the first release that carries the key, installed by hand once. U5 and U6 are optional: an in-page notice, and a signed apt repository for the `.deb`.
 
-**Status:** v2.3.0 is released with print covers and desktop auto-update. The updater has run against no real release yet, and v2.3.0 is the first real run; people on v2.2.x or earlier install it by hand, once. The desktop builds are unsigned.
+**Status:** v2.3.0 is released with print covers and desktop auto-update, and v2.4.0 follows it with the import, the sidebar Compendium, writer comments, undo and redo. The updater has run against no real release yet, and v2.3.0 is the first real run; people on v2.2.x or earlier install it by hand, once. The desktop builds are unsigned.
 
 **Exit criteria:** as listed under "Phases" in [UPDATES.md](UPDATES.md): a clean machine of each system updates from one release to the next through the real menu, the refusals refuse, and what was not seen (Windows, the macOS keychain without a Developer ID, anything on Intel) is said plainly.
 

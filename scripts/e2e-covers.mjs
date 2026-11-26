@@ -544,6 +544,8 @@ await kit.test("a trim the layout was not made for: said in words, with what to 
   // switch the layout off: the generated cover is drawn for the 5 x 8 page
   await pg.selectOption("#cmp-preset", "print-6x9");
   await measured();
+  // the option is inside All options on the Compile page: open it first (a click on its summary)
+  if (!(await pg.locator("#cmp-all").evaluate((d) => d.open))) await pg.locator("#cmp-all > summary").click();
   await pg.locator("#o-own_cover").uncheck();
   await waitFor(async () => (await pg.locator("#cv-art svg image").count()) === 0 && (await pg.locator("#cv-art svg text").count()) > 0, "the generated cover", 20000);
   ok(/The generated cover/.test(await pg.locator("#cv-facts").innerText()), "the facts say so");

@@ -143,7 +143,7 @@ func newDecoder(b []byte) *xml.Decoder {
 }
 
 func nodeOf(t xml.StartElement) *dnode {
-	n := &dnode{attrs: map[string]string{}}
+	n := &dnode{} // attrs is made when there is one: most elements of a paragraph have none, and a million paragraphs are a few million elements
 	if t.Name.Space == nsWord {
 		n.name = t.Name.Local
 	} else {
@@ -152,8 +152,14 @@ func nodeOf(t xml.StartElement) *dnode {
 	for _, a := range t.Attr {
 		switch a.Name.Space {
 		case nsWord, "":
+			if n.attrs == nil {
+				n.attrs = make(map[string]string, len(t.Attr))
+			}
 			n.attrs[a.Name.Local] = a.Value
 		case nsRel:
+			if n.attrs == nil {
+				n.attrs = make(map[string]string, len(t.Attr))
+			}
 			n.attrs["r:"+a.Name.Local] = a.Value
 		}
 	}
@@ -219,6 +225,15 @@ type styleInfo struct {
 	numID     string
 	numLevel  int
 	monospace bool
+	// What the chapter detector reads of a style (docxbreaks.go). A pointer or a "has" says the style states it; a style that
+	// does not leaves it to the style it is based on.
+	pageBreak, hasPageBreak bool
+	jc                      string
+	bold, hasBold           bool
+	caps, hasCaps           bool
+	size                    int // half-points; 0 when the style does not state one
+	before                  int // space before, in twentieths of a point; -1 when not stated
+	hasBefore               bool
 }
 
 type styleTable map[string]*styleInfo
@@ -254,8 +269,7 @@ func parseStyles(b []byte) (styleTable, string) {
 				}
 				if np := p.child("numPr"); np != nil {
 					si.numID = np.child("numId").val()
-					si.numLevel, _ = strconv.Atoi(np.child("ilvl").val())
-					si.numLevel = max(0, si.numLevel)
+					si.numLevel = clampLvl(np.child("ilvl").val())
 				}
 			}
 			if r := n.child("rPr"); r != nil {
@@ -296,6 +310,44 @@ func (t styleTable) resolve(id string) (name string, outline int, numID string, 
 	return
 }
 
+// styleProps is what a paragraph style, with the styles it is based on, says of how its paragraphs look.
+type styleProps struct {
+	pageBreak, bold, caps bool
+	jc                    string
+	size, before          int
+}
+
+// props follows basedOn for the look of a style's paragraphs and runs: the first style in the chain that states a thing wins.
+func (t styleTable) props(id string) (p styleProps) {
+	var gotPB, gotB, gotC, gotBefore bool
+	for depth := 0; id != "" && depth < 12; depth++ {
+		s, ok := t[id]
+		if !ok {
+			break
+		}
+		if !gotPB && s.hasPageBreak {
+			p.pageBreak, gotPB = s.pageBreak, true
+		}
+		if !gotB && s.hasBold {
+			p.bold, gotB = s.bold, true
+		}
+		if !gotC && s.hasCaps {
+			p.caps, gotC = s.caps, true
+		}
+		if !gotBefore && s.hasBefore {
+			p.before, gotBefore = s.before, true
+		}
+		if p.jc == "" {
+			p.jc = s.jc
+		}
+		if p.size == 0 {
+			p.size = s.size
+		}
+		id = s.basedOn
+	}
+	return
+}
+
 // numbering maps a numId and level to bullet or ordered, and the start.
 type numTable struct {
 	abstract map[string]map[int]numLevel // abstractNumId -> level
@@ -306,6 +358,8 @@ type numTable struct {
 type numLevel struct {
 	bullet bool
 	start  int
+	format string // numFmt: decimal, upperRoman, lowerLetter ...
+	text   string // lvlText: "Chapter %1"
 }
 
 func parseNumbering(b []byte) *numTable {
@@ -335,14 +389,14 @@ func parseNumbering(b []byte) *numTable {
 				if l.name != "lvl" {
 					continue
 				}
-				i, _ := strconv.Atoi(l.attr("ilvl"))
+				i := clampLvl(l.attr("ilvl"))
 				start := 1
 				if s := l.child("start"); s != nil {
 					if v, err := strconv.Atoi(s.val()); err == nil {
 						start = v
 					}
 				}
-				lv[i] = numLevel{bullet: l.child("numFmt").val() == "bullet" || l.child("numFmt").val() == "none", start: start}
+				lv[i] = numLevel{bullet: l.child("numFmt").val() == "bullet" || l.child("numFmt").val() == "none", start: start, format: l.child("numFmt").val(), text: l.child("lvlText").val()}
 			}
 			nt.abstract[n.attr("abstractNumId")] = lv
 		case "num":
@@ -357,7 +411,7 @@ func parseNumbering(b []byte) *numTable {
 				if o.name != "lvlOverride" {
 					continue
 				}
-				i, _ := strconv.Atoi(o.attr("ilvl"))
+				i := clampLvl(o.attr("ilvl"))
 				if s := o.child("startOverride"); s != nil {
 					if v, err := strconv.Atoi(s.val()); err == nil {
 						if nt.override[id] == nil {
@@ -454,4 +508,20 @@ func parseCore(b []byte) (title, creator, lang string) {
 	}
 	title, creator, lang = ti.String(), cr.String(), la.String()
 	return
+}
+
+// parseCoreTitle is the title of the file's properties, or "".
+func parseCoreTitle(b []byte) string {
+	t, _, _ := parseCore(b)
+	return t
+}
+
+// clampLvl reads a list level (w:ilvl) and keeps it to 0 to 8, the levels Word has: a document's own number is never trusted to size
+// anything.
+func clampLvl(v string) int {
+	n, err := strconv.Atoi(strings.TrimSpace(v))
+	if err != nil {
+		return 0
+	}
+	return min(max(n, 0), 8)
 }

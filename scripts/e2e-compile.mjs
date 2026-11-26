@@ -50,6 +50,63 @@ await kit.test("anyone who cannot compile finds no page: a reviewer, a stranger"
   eq(r.status(), 404, "a reviewer");
 });
 
+// The options sit under "All options", which a test opens before it sets one (the page keeps them out of the way until asked).
+const allOptions = async (page) => { if (!(await page.locator("#cmp-all").evaluate((d) => d.open))) await page.locator("#cmp-all > summary").click(); };
+const what = (page) => text(page, "#cmp-what");
+const fmtName = (page) => page.evaluate(() => document.querySelector("#o-format option:checked").textContent);
+const presetName = (page) => page.evaluate(() => document.querySelector("#cmp-preset option:checked").textContent);
+
+await kit.test("above the fold: the preset, the summary, Preview and Download are in the window on load at 1280 by 800 and 390 by 844; All options is closed on a fresh page", async () => {
+  // the owner's page is resized, not signed in again (the sign-in is rate limited)
+  const page = owner.page; kit.main = page;
+  for (const [width, height] of [[1280, 800], [390, 844]]) {
+    await page.setViewportSize({ width, height });
+    await page.goto(URL_, { waitUntil: "load" });
+    await page.waitForSelector("#cmp-preset option", { state: "attached" });
+    for (const sel of ["#cmp-preset", "#cmp-what", "#cmp-preview", "#cmp-download"]) {
+      const r = await page.locator(sel).evaluate((e) => { const b = e.getBoundingClientRect(); return { top: b.top, bottom: b.bottom, left: b.left, right: b.right, h: b.height, vh: innerHeight, vw: innerWidth }; });
+      ok(r.h > 0 && r.top >= 0 && r.bottom <= r.vh && r.left >= 0 && r.right <= r.vw, `${sel} is in the ${width} by ${height} window: ${JSON.stringify(r)}`);
+    }
+    eq(await page.locator("#cmp-all").evaluate((d) => d.open), false, `All options is closed on a fresh page at ${width}`);
+    eq(await what(page), "Word (.docx) · US Standard Manuscript (Shunn) · 3 chapters", `the summary at ${width}`);
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+});
+
+await kit.test("the summary says what the file will be (the kind of file, the preset, the chapters) and follows the preset and the kind of file", async () => {
+  const page = owner.page; kit.main = page;
+  await page.goto(URL_, { waitUntil: "load" });
+  await page.waitForSelector("#cmp-preset option", { state: "attached" });
+  for (const id of ["plain-markdown", "print-6x9", "shunn-us"]) {
+    await page.selectOption("#cmp-preset", id);
+    eq(await what(page), `${await fmtName(page)} · ${await presetName(page)} · 3 chapters`, "for " + id);
+  }
+  await page.selectOption("#cmp-preset", "plain-markdown");
+  await page.getByRole("button", { name: "Preview", exact: true }).click();
+  await kit.waitFor(async () => /The preview is ready/.test(await text(page, "#cmp-status")), "the preview", 30000);
+  eq(await what(page), `Markdown · ${await presetName(page)} · 3 chapters`, "after a preview the chapters are the preview's count");
+  await page.selectOption("#cmp-preset", "shunn-us");
+});
+
+await kit.test("All options opens when the page is reached with a custom preset that differs from the built-in it starts from, and stays closed for one that does not", async () => {
+  const page = owner.page; kit.main = page;
+  const bigger = (await api(owner.ctx, "POST", `/api/v1/projects/${pid}/compile/presets`, { name: "Bigger type", base: "shunn-us", options: { font_size: 14 } })).json.item.id;
+  const same = (await api(owner.ctx, "POST", `/api/v1/projects/${pid}/compile/presets`, { name: "Same type", base: "shunn-us", options: { font_size: 12 } })).json.item.id;
+  await page.goto(`${URL_}?preset=${bigger}`, { waitUntil: "load" });
+  await page.waitForSelector("#cmp-preset option", { state: "attached" });
+  eq(await page.locator("#cmp-preset").inputValue(), bigger, "the page opens on the preset its link names");
+  eq(await page.locator("#cmp-all").evaluate((d) => d.open), true, "All options is open: the preset has a changed option");
+  eq(await page.locator("#o-font_size").inputValue(), "14", "and the changed option shows");
+  eq(await what(page), "Word (.docx) · Bigger type · 3 chapters", "the summary names it");
+  await page.goto(`${URL_}?preset=${same}`, { waitUntil: "load" });
+  await page.waitForSelector("#cmp-preset option", { state: "attached" });
+  eq(await page.locator("#cmp-all").evaluate((d) => d.open), false, "closed: the preset's options are the built-in's");
+  await page.goto(URL_, { waitUntil: "load" });
+  await page.waitForSelector("#cmp-preset option", { state: "attached" });
+  eq(await page.locator("#cmp-all").evaluate((d) => d.open), false, "closed on a fresh page");
+  for (const id of [bigger, same]) await api(owner.ctx, "DELETE", `/api/v1/projects/${pid}/compile/presets/${id}`);
+});
+
 await kit.test("the options form is built from the ops: presets, groups, enums, and the preview shows the title page, outline and what was left out", async () => {
   const page = owner.page; kit.main = page;
   await page.goto(URL_, { waitUntil: "load" });
@@ -79,6 +136,7 @@ await kit.test("a select with a hint has its chevron inside its own box; a chapt
   await api(owner.ctx, "POST", `/api/v1/projects/${pid}/docs`, { title: "Chapter 4", kind: "chapter", content: `${words(80, "wave")}\n` });
   await page.goto(URL_, { waitUntil: "load" });
   await page.waitForSelector("#o-notes", { state: "attached" });
+  await allOptions(page);
   // the field with a hint under its select: no shared chevron hanging below the box, one drawn on the select itself
   const g = await page.evaluate(() => { const f = document.querySelector("#o-notes").closest(".field"), a = getComputedStyle(f, "::after"), sel = getComputedStyle(document.querySelector("#o-notes")); return { content: a.content, bg: sel.backgroundImage.slice(0, 20), hint: !!f.querySelector(".hint") }; });
   ok(g.hint && (g.content === "none" || g.content === "normal") && g.bg.startsWith("url("), "the chevron is on the select itself: " + JSON.stringify(g));
@@ -115,6 +173,7 @@ await kit.test("pages are turned by keyboard, one at a time", async () => {
 
 await kit.test("a custom preset is saved, comes back after a reload with its options, is updated and deleted", async () => {
   const page = owner.page; kit.main = page;
+  await allOptions(page);
   await page.fill("#o-font_size", "13");
   await page.getByRole("button", { name: /Save these options as a preset/ }).click();
   await page.fill("#cmp-name", "My proof");
@@ -125,6 +184,7 @@ await kit.test("a custom preset is saved, comes back after a reload with its opt
   await page.selectOption("#cmp-preset", { label: "My proof" });
   eq(await page.locator("#o-font_size").inputValue(), "13", "its options are back");
   ok(await page.locator("#cmp-delete").isVisible(), "a custom preset can be deleted");
+  await allOptions(page);
   await page.fill("#o-font_size", "14");
   await page.getByRole("button", { name: "Update this preset" }).click();
   await kit.waitFor(async () => /updated/i.test(await text(page, "#cmp-status")), "updated");
@@ -132,6 +192,7 @@ await kit.test("a custom preset is saved, comes back after a reload with its opt
   eq(list.length, 1, "one custom preset"); eq(list[0].options.font_size, 14, "stored with the change");
   // emptying a text box takes the text away (the clear list)
   await page.selectOption("#cmp-preset", "shunn-us");
+  await allOptions(page);
   await page.fill("#o-header_title", "");
   await page.getByRole("button", { name: "Preview", exact: true }).click();
   await page.waitForSelector("#cmp-paper .cmp-page");

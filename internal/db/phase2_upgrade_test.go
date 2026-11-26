@@ -23,9 +23,10 @@ func TestPhase1DatabaseTakesThePhase2Migrations(t *testing.T) {
 		t.Fatal(err)
 	}
 	// 0420 to 0460 (review: the revision reason, comments, suggestions, share links,
-	// notifications) build on 0400 and so belong to the same later batch; so does 1820
+	// notifications) build on 0400 and so belong to the same later batch, and so does
+	// 0421 (the reasons cut, split and join, which rebuild the revision table); 1820
 	// (the label of a suggestion that came from a Word file), which alters 0440's table.
-	phase2 := []string{"0310", "0320", "0330", "0400", "0410", "0420", "0430", "0440", "0450", "0460", "0470", "1820"}
+	phase2 := []string{"0310", "0320", "0330", "0400", "0410", "0420", "0421", "0430", "0440", "0450", "0460", "0470", "0480", "1820"}
 	var phase1 []Migration
 	for _, m := range all {
 		if !slices.Contains(phase2, m.Version) {

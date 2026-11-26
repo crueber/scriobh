@@ -6,6 +6,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/crueber/scriobh/internal/domain/docs"
 )
 
 // Front and back matter are recognised by file or folder name, after the
@@ -23,7 +25,7 @@ var (
 	}
 )
 
-var reNumbered = regexp.MustCompile(`^(\d{1,6})(?:[-_. ]+(.*))?$`)
+var reNumbered = regexp.MustCompile(`^(\d{1,7})(?:[-_. ]+(.*))?$`)
 
 // splitName separates a leading number from the rest of a name that has had
 // its extension removed: "03-the-salt-road" is (3, true, "the-salt-road").
@@ -253,13 +255,21 @@ func leadingH1(s string, from int) (title string, start, end int, ok bool) {
 type h2 struct {
 	title      string
 	start, end int // the heading line, newline included
+	idx        int // its place among every line that looked like one, those left as text included: a scene's key follows it
 }
 
 // secondLevelHeadings lists the H2 lines of s, skipping front matter and
-// fenced code. It stops after limit headings: a file of nothing but headings
-// must not become a million of them.
+// fenced code, and any that a cut may not be made at: a line inside an HTML
+// comment, or inside a block the editor keeps as source (docs.SafeCut, the
+// cut-safety of doc.split, asked once for the whole text). A line that is
+// left as text still counts in idx, so the scenes after it keep the keys they
+// had before the rule was applied, and an edit of the writer's cannot land on
+// another scene. It stops after limit headings: a file of nothing but
+// headings must not become a million of them.
 func secondLevelHeadings(s string, limit int) []h2 {
 	var out []h2
+	var safe func(int) bool
+	seen := 0
 	fence := ""
 	i := frontMatterEnd(s)
 	for i < len(s) {
@@ -277,9 +287,16 @@ func secondLevelHeadings(s string, limit int) []h2 {
 			}
 		} else if fence == "" {
 			if m := reH2.FindStringSubmatch(line); m != nil {
-				out = append(out, h2{title: m[1], start: i, end: next})
-				if len(out) >= limit {
-					return out
+				idx := seen
+				seen++
+				if safe == nil {
+					safe = docs.SafeCut(s)
+				}
+				if safe(i) {
+					out = append(out, h2{title: m[1], start: i, end: next, idx: idx})
+					if len(out) >= limit {
+						return out
+					}
 				}
 			}
 		}

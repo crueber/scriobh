@@ -91,8 +91,8 @@ func notificationList(c *ops.Ctx, in NotificationListIn) (NotificationListOut, e
 		COALESCE(m.role, '')
 		FROM notifications n JOIN projects p ON p.id = n.project_id
 		LEFT JOIN documents d ON d.id = n.document_id
-		LEFT JOIN comments cm ON cm.id = n.comment_id AND cm.deleted_at IS NULL
-		LEFT JOIN comments root ON root.id = COALESCE(cm.parent_id, cm.id)
+		LEFT JOIN comments cm ON cm.id = n.comment_id AND cm.deleted_at IS NULL AND (cm.visibility = 'shared' OR cm.author_id = n.user_id)
+		LEFT JOIN comments root ON root.id = COALESCE(cm.parent_id, cm.id) AND (root.visibility = 'shared' OR root.author_id = n.user_id)
 		LEFT JOIN users au ON au.id = n.actor_id AND au.deleted_at IS NULL
 		LEFT JOIN project_members m ON m.project_id = n.project_id AND m.user_id = n.user_id
 		`+where+` ORDER BY n.created_at DESC, n.id DESC LIMIT ? OFFSET ?`, append(args, limit, offset)...)
@@ -276,6 +276,14 @@ func Sweep(ctx context.Context, d *db.DB) (int, error) {
 		}
 		k, _ := res.RowsAffected()
 		n = int(k)
+		// Private comments whose author's account is gone (soft-deleted, or removed so that author_id is NULL) are removed: no one
+		// else could ever read them. A Word import's comments have a NULL author too, and are shared, so they are not touched.
+		res, err = tx.ExecContext(ctx, `DELETE FROM comments WHERE visibility = 'private' AND (author_id IS NULL OR author_id IN (SELECT id FROM users WHERE deleted_at IS NOT NULL))`)
+		if err != nil {
+			return err
+		}
+		k, _ = res.RowsAffected()
+		n += int(k)
 		// the old tombstones: replies first (they are leaves), then threads with nothing live left in them
 		gone := db.Format(now.AddDate(0, 0, -tombstoneDays))
 		for _, q := range []string{

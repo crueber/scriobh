@@ -4,8 +4,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"golang.org/x/text/cases"
-	"golang.org/x/text/unicode/norm"
+	"github.com/crueber/scriobh/internal/fold"
 )
 
 // WikiLink is one distinct `[[Target]]` or `[[Target|alias]]` in a document.
@@ -135,18 +134,5 @@ func snippetAround(block []rune, at, size int) string {
 // Changing this changes every stored key: bump links.IndexVersion so the
 // start-up rebuild recomputes them.
 func FoldTitle(s string) string {
-	s = strings.Join(strings.Fields(s), " ")
-	ascii := true
-	for i := 0; i < len(s); i++ {
-		if s[i] >= utf8.RuneSelf {
-			ascii = false
-			break
-		}
-	}
-	if ascii {
-		return strings.ToLower(s)
-	}
-	// A caser keeps state, so each call makes its own: this runs in parallel
-	// workers during an import.
-	return norm.NFC.String(cases.Fold().String(norm.NFC.String(s)))
+	return fold.Title(s)
 }

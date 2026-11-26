@@ -39,6 +39,8 @@ async function tabTo(page, id, max = 80, back = false) {
   }
   throw new Error(`Tab never reached #${id} (at ${await active(page)})`);
 }
+// The options sit under "All options": open it before a test sets one.
+async function allOptions(page) { if (!(await page.locator("#cmp-all").evaluate((d) => d.open))) await page.locator("#cmp-all > summary").click(); }
 async function open(page) {
   await page.goto(URL_, { waitUntil: "load" });
   await page.waitForSelector("#cmp-preset option", { state: "attached" });
@@ -58,6 +60,7 @@ await kit.test("the print presets are offered, and every print option has a labe
   // a Word preset shows no print option, and no cover
   ok((await page.locator("#o-gutter_inches").count()) === 0 && await page.locator("#cmp-cover").isHidden(), "a Word manuscript has no gutter and no cover");
   await page.selectOption("#cmp-preset", "print-6x9");
+  await allOptions(page);
   const legends = await page.locator("#cmp-opts legend").allInnerTexts();
   ok(legends.includes("Margins") && legends.includes("Copyright and contents pages") && !legends.includes("More"), "the groups: " + legends.join(" | "));
   for (const k of ["margin_top", "margin_bottom", "margin_inside", "margin_outside", "gutter_inches", "footnotes", "running_heads", "drop_cap", "chapter_ornament", "toc", "crop_marks", "copyright_page", "imprint", "hyphenate"]) ok((await page.locator("#o-" + k).count()) === 1, "the option " + k + " is on the form");

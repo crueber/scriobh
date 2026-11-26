@@ -37,6 +37,15 @@ func LeasesOf(env *ops.Env) *Leases {
 	return l
 }
 
+// Held says a tab holds a live lease on the document: it is open for writing now. A caller that would change or trash a document the
+// writer may be typing in asks first.
+func (l *leases) Held(doc string) bool {
+	if l == nil {
+		return false
+	}
+	return l.heldByOther(doc, "")
+}
+
 // ReasonAIAccepted is the history reason of an accepted suggestion.
 const ReasonAIAccepted = "ai-accepted"
 

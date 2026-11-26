@@ -78,6 +78,7 @@ type ImportJob struct {
 	Summary    *ImportSummary `json:"summary,omitempty"`
 	CreatedAt  string         `json:"created_at"`
 	FinishedAt string         `json:"finished_at,omitempty"`
+	DraftID    string         `json:"draft_id,omitempty" desc:"The import draft of this job (import.draft.get)."`
 }
 
 type jobRow struct {
@@ -128,6 +129,7 @@ type GitPreviewIn struct {
 // GitPreviewOut is a job and, for a ready job, its preview.
 type GitPreviewOut struct {
 	Job     ImportJob           `json:"job"`
+	DraftID string              `json:"draft_id,omitempty" desc:"The import draft for this job: review it with import.draft.get and import.draft.update, and apply it with import.apply and this stage_id."`
 	Preview *imports.PreviewOut `json:"preview,omitempty" desc:"Present when the job is ready and job_id was sent."`
 }
 
@@ -210,6 +212,12 @@ func gitPreview(c *ops.Ctx, in GitPreviewIn) (GitPreviewOut, error) {
 			return GitPreviewOut{}, err
 		}
 		out := GitPreviewOut{Job: j.view()}
+		if !c.DryRun() {
+			if out.DraftID, err = imports.EnsureGitDraft(c, s.o.DB, c.P.UserID, j.ID, repoName(j.SourceURL), in.SplitScenes); err != nil {
+				return GitPreviewOut{}, ops.Internal(err)
+			}
+			out.Job.DraftID = out.DraftID
+		}
 		switch j.Status {
 		case "failed":
 			return out, ops.Conflict("This import failed: " + j.Error)
@@ -228,7 +236,7 @@ func gitPreview(c *ops.Ctx, in GitPreviewIn) (GitPreviewOut, error) {
 		return out, nil
 	}
 	if in.URL == "" && in.RemoteID == "" {
-		return GitPreviewOut{}, ops.Invalid("url", "Send the repository's https address, or remote_id of a project remote.")
+		return GitPreviewOut{}, ops.Invalid("url", "Send the repository's https address, or choose one of your projects' remotes.")
 	}
 	url, dial, branch, auth, scrub, err := s.importSource(c, in)
 	if err != nil {
@@ -249,6 +257,7 @@ func gitPreview(c *ops.Ctx, in GitPreviewIn) (GitPreviewOut, error) {
 	// on the single writer, so two requests cannot both pass a check that only
 	// one of them fits. A clone still being made is counted at the full cap: it
 	// has not yet grown to what it will take.
+	var draftID string
 	userDisk := s.userImportUsage(c, c.P.UserID)
 	totalDisk := s.totalUsed()
 	err = s.o.DB.WithTx(c, func(tx *sql.Tx) error {
@@ -266,9 +275,14 @@ func gitPreview(c *ops.Ctx, in GitPreviewIn) (GitPreviewOut, error) {
 		if q := s.o.TotalQuotaBytes; q > 0 && totalDisk+int64(running+1)*s.o.MaxRepoBytes > q {
 			return ops.Conflict(fmt.Sprintf("The space this server keeps for Git copies is full (%d MB, SCRIOBH_GIT_TOTAL_QUOTA_MB). Nothing was started.", q>>20))
 		}
-		_, err := tx.ExecContext(c, `INSERT INTO import_jobs(id, owner_id, kind, source_url, branch, status, clone_path, report_json, created_at) VALUES (?,?,?,?,?,?,?,?,?)`,
-			j.ID, j.OwnerID, "git", j.SourceURL, j.Branch, j.Status, j.ClonePath, j.Report, j.CreatedAt)
-		return err
+		if _, err := tx.ExecContext(c, `INSERT INTO import_jobs(id, owner_id, kind, source_url, branch, status, clone_path, report_json, created_at) VALUES (?,?,?,?,?,?,?,?,?)`,
+			j.ID, j.OwnerID, "git", j.SourceURL, j.Branch, j.Status, j.ClonePath, j.Report, j.CreatedAt); err != nil {
+			return err
+		}
+		// the review of this import is a draft like any other: a page the writer can come back to
+		var derr error
+		draftID, derr = imports.GitDraftTx(tx, j.OwnerID, j.ID, repoName(j.SourceURL), in.SplitScenes)
+		return derr
 	})
 	if err != nil {
 		if ae, ok := err.(*ops.Error); ok {
@@ -282,7 +296,9 @@ func gitPreview(c *ops.Ctx, in GitPreviewIn) (GitPreviewOut, error) {
 		s.runClone(*j, dial, auth, scrub, sub, strings.TrimSpace(in.Name))
 	}()
 	c.Audit(ops.AuditEntry{Action: "import.git_preview", TargetType: "import", TargetID: j.ID, Detail: map[string]any{"url": url, "remote": in.RemoteID != ""}})
-	return GitPreviewOut{Job: j.view()}, nil
+	jv := j.view()
+	jv.DraftID = draftID
+	return GitPreviewOut{Job: jv, DraftID: draftID}, nil
 }
 
 func (s *Service) ctxOrNil() context.Context {
@@ -568,7 +584,9 @@ func gitJob(c *ops.Ctx, in GitJobIn) (GitJobOut, error) {
 	if err != nil {
 		return GitJobOut{}, err
 	}
-	return GitJobOut{Item: j.view()}, nil
+	v := j.view()
+	v.DraftID = imports.GitDraftIDs(c, s.o.DB, c.P.UserID)[j.ID]
+	return GitJobOut{Item: v}, nil
 }
 
 func gitJobs(c *ops.Ctx, _ struct{}) (GitJobsOut, error) {
@@ -588,6 +606,13 @@ func gitJobs(c *ops.Ctx, _ struct{}) (GitJobsOut, error) {
 			return GitJobsOut{}, ops.Internal(err)
 		}
 		out.Items = append(out.Items, j.view())
+	}
+	if err := rows.Err(); err != nil {
+		return GitJobsOut{}, ops.Internal(err)
+	}
+	drafts := imports.GitDraftIDs(c, s.o.DB, c.P.UserID)
+	for i := range out.Items {
+		out.Items[i].DraftID = drafts[out.Items[i].ID]
 	}
 	return out, nil
 }
@@ -763,4 +788,54 @@ func pick(vals ...string) string {
 		}
 	}
 	return ""
+}
+
+// remoteDraft is what a draft of a Git import asks of this service: the preview of the clone with the writer's edits, the apply, and
+// the discard. The clone and the job stay this service's; the draft keeps the edits.
+func remoteDraft() imports.RemoteDraft {
+	return imports.RemoteDraft{
+		Preview: func(c *ops.Ctx, jobID, split string, edits []imports.Edit, reorders []imports.Reorder) (*imports.PreviewOut, string, string, error) {
+			s, err := service(c)
+			if err != nil {
+				return nil, "", "", err
+			}
+			j, err := s.loadJob(c, c.P.UserID, jobID)
+			if err != nil {
+				var oe *ops.Error
+				if errors.As(err, &oe) && oe.Code == ops.CodeNotFound {
+					return nil, "failed", "This import is gone: a fetched repository that is not applied is removed after a day.", nil
+				}
+				return nil, "", "", err
+			}
+			switch j.Status {
+			case "failed":
+				return nil, "failed", j.Error, nil
+			case "running":
+				return nil, "running", "", nil
+			case "done":
+				return nil, "failed", "This import already created a project.", nil
+			}
+			files, rep, err := s.jobFiles(j)
+			if err != nil {
+				return nil, "", "", err
+			}
+			pv, err := imports.PreviewFiles(files, rep.Name, split, edits, reorders)
+			if err != nil {
+				return nil, "", "", err
+			}
+			return &pv, j.Status, "", nil
+		},
+		Apply: func(c *ops.Ctx, jobID string, in imports.ApplyIn) (imports.ApplyOut, error) {
+			return gitApply(c, GitApplyIn{JobID: jobID, Token: in.Token, SplitScenes: in.SplitScenes, Title: in.Title, Kind: in.Kind, Author: in.Author, Language: in.Language,
+				Edits: in.Edits, Reorder: in.Reorder})
+		},
+		Discard: func(c *ops.Ctx, jobID string) error {
+			_, err := gitDiscard(c, GitJobIn{JobID: jobID})
+			var oe *ops.Error
+			if errors.As(err, &oe) && oe.Code == ops.CodeNotFound {
+				return nil
+			}
+			return err
+		},
+	}
 }

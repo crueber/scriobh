@@ -258,6 +258,7 @@ func (m *Matcher) longest(ws []word) (best []Candidate, last, start, end int) {
 // possessive or particle form at the same length.
 func (m *Matcher) walk(ws []word, key, alt string, stemEnd int, first rune) (best []Candidate, bestEnd, endByte int) {
 	bestEnd = -1
+	refused := -1 // the last word of a longer name the text spells, which a guard refuses
 	at := int32(0)
 	edge := ws[0].prevWord || ws[0].nextWord
 	for j := 0; j < len(ws); j++ {
@@ -272,6 +273,8 @@ func (m *Matcher) walk(ws []word, key, alt string, stemEnd int, first rune) (bes
 			if nx, ok := m.nodes[at].next[a]; ok {
 				if c := m.guard(m.nodes[nx].cands, first, j == 0 && edge); c != nil {
 					best, bestEnd, endByte = c, j, se
+				} else if len(m.nodes[nx].cands) > 0 {
+					refused = j
 				}
 			}
 		}
@@ -282,7 +285,15 @@ func (m *Matcher) walk(ws []word, key, alt string, stemEnd int, first rune) (bes
 		at = nx
 		if c := m.guard(m.nodes[at].cands, first, j == 0 && edge); c != nil {
 			best, bestEnd, endByte = c, j, ws[j].end
+		} else if len(m.nodes[at].cands) > 0 {
+			refused = j
 		}
+	}
+	// A longer name the text spells out, refused by the capital or lone-character rule, takes its words with it: a shorter
+	// name inside those words is not linked either ("the Guild" is not found in "the Guild of Lamplighters" when that name is
+	// capitalised and the text is not). The longest name wins, and a refused longest name is no name at all for this text.
+	if refused > bestEnd {
+		return nil, -1, 0
 	}
 	return best, bestEnd, endByte
 }

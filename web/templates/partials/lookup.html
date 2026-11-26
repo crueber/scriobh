@@ -1,0 +1,254 @@
+{{/* The Compendium tab of the writing view's inspector (F-1253 to F-1261): fragments of one panel, drawn by internal/server/lookupui.go.
+   The entry itself is the shared component of partials/entry.html. Nothing here carries a script or a style attribute; every
+   word is the catalogue's. */}}
+
+{{define "lk-main"}}{{if eq .Mode "none"}}{{template "lk-none" .}}{{else if eq .Mode "closed"}}{{template "lk-closed" .}}{{else if eq .Mode "entry"}}{{template "lk-entry" .}}{{else if eq .Mode "new"}}{{template "lk-new" .}}{{else if eq .Mode "events"}}{{template "lk-events" .}}{{else if eq .Mode "notes"}}{{template "lk-notes" .}}{{else if eq .Mode "note"}}{{template "lk-note" .}}{{else if eq .Mode "newnote"}}{{template "lk-newnote" .}}{{else}}{{template "lk-list" .}}{{end}}{{end}}
+
+{{define "lk-none"}}{{template "lk-views" .}}<div class="lk-state" id="lk-none"><p class="lk-h" tabindex="-1">{{.T "lk.none"}}</p>
+  {{if .Owner}}<p class="fine">{{.T "lk.none_owner"}}</p><form hx-post="{{.Base}}/make" hx-target="#lk-main" hx-swap="innerHTML"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn solid" type="submit">{{.T "lk.make"}}</button></form>
+  {{else}}<p class="fine">{{.T "lk.none_other"}}</p>{{end}}</div>{{end}}
+
+{{define "lk-closed"}}{{template "lk-views" .}}<div class="lk-state" id="lk-closed"><p class="lk-h" tabindex="-1">{{.T "lk.closed"}}</p><p class="fine">{{.T "lk.closed_why"}}</p></div>{{end}}
+
+{{define "lk-list"}}<div class="lk-list">
+  {{if not .Sel}}{{template "lk-views" .}}{{end}}
+  {{if .Notice}}<p class="lk-why" id="lk-notice">{{.Notice}}</p>{{end}}
+  <form class="lk-search" role="search" aria-label="{{.T "lk.search"}}" hx-get="{{.Base}}" hx-target="#lk-rows" hx-swap="innerHTML" hx-trigger="input changed delay:200ms from:#lk-q, search from:#lk-q, change from:#lk-kind, submit">
+    <input type="hidden" name="part" value="rows">{{if .Alias}}<input type="hidden" name="alias" value="{{.Sel}}">{{else if .Sel}}<input type="hidden" name="sel" value="{{.Sel}}">{{end}}
+    <label class="sr-only" for="lk-q">{{.T "lk.search"}}</label><input id="lk-q" type="search" name="q" value="{{.Q}}" placeholder="{{.T "lk.search"}}" autocomplete="off" spellcheck="false">
+    <label class="sr-only" for="lk-kind">{{.T "lk.kind_label"}}</label><select id="lk-kind" name="kind"><option value="">{{.T "lk.kind_all"}}</option>{{$k := .Kind}}{{range .Kinds}}<option value="{{.ID}}"{{if eq .ID $k}} selected{{end}}>{{.Plural}}</option>{{end}}</select>
+  </form>
+  <p id="lk-status" class="lk-status" role="status" aria-live="polite">{{.Status}}</p>
+  {{if .Sel}}<section class="lk-sel" aria-labelledby="lk-sel-h">
+    <h3 id="lk-sel-h" class="lk-h">{{.T "lk.sel_h"}}</h3><p class="lk-quote">&ldquo;{{.Sel}}&rdquo;</p>
+    {{if .Exact}}<p class="lk-already">{{.T "lk.sel_already" "name" .Exact.Name}} <button type="button" class="btn quiet small" hx-get="{{.Base}}?entity={{.Exact.ID}}" hx-target="#lk-main" hx-swap="innerHTML" data-open>{{.T "lk.open_it"}}</button></p>{{end}}
+    <div class="lk-acts">
+      {{if .Alias}}<button type="button" class="btn small" hx-get="{{.Base}}?sel={{urlquery .Sel}}" hx-target="#lk-main" hx-swap="innerHTML">{{.T "lk.sel_back"}}</button>
+      {{else}}<button type="button" class="btn small" id="lk-first" hx-get="{{.Base}}?alias={{urlquery .Sel}}" hx-target="#lk-main" hx-swap="innerHTML">{{.T "lk.sel_alias"}}</button>
+      <button type="button" class="btn small" hx-get="{{.Base}}?new={{urlquery .Sel}}" hx-target="#lk-main" hx-swap="innerHTML" data-open>{{.T "lk.sel_new"}}</button>{{end}}
+    </div>
+    {{if .Alias}}<p class="fine">{{.T "lk.sel_pick"}}</p>{{end}}
+  </section>{{end}}
+  <div id="lk-rows">{{template "lk-rows" .}}</div>
+  {{if not .Sel}}<p class="lk-newline"><button type="button" class="btn quiet small" hx-get="{{.Base}}?new=" hx-target="#lk-main" hx-swap="innerHTML" data-open>{{.T "lk.new_entry"}}</button></p>{{end}}
+</div>{{end}}
+
+{{define "lk-rows"}}{{if .Error}}<p class="field-error" role="alert">{{.Error}}</p>{{end}}
+  <p class="lk-count fine" role="status">{{if .Q}}{{.N "lk.count_q" .Total}}{{else}}{{.N "lk.count" .Total}}{{end}}</p>
+  {{if .Rows}}<ul class="ent-rows lk-rows" id="lk-ul">{{template "lk-items" .}}</ul>
+  <div id="lk-more">{{template "lk-morebtn" .}}</div>
+  {{else if not .Error}}<p class="lk-empty">{{if .Q}}{{.T "lk.nothing" "q" .Q}}{{else}}{{.T "lk.no_entries"}}{{end}}</p>{{end}}
+  {{if .Hidden}}<p class="fine">{{.T "lk.hidden"}}</p>{{end}}{{end}}
+
+{{define "lk-items"}}{{$v := .}}{{range .Rows}}<li class="ent-row lk-row">
+    {{template "entity-swatch" .Color}}
+    <div class="ent-main">
+      <button type="button" class="lk-pick" id="lr-{{.ID}}" hx-get="{{$v.Base}}?entity={{.ID}}" hx-target="#lk-main" hx-swap="innerHTML" data-open><span class="ent-line"><span class="ent-link">{{.Name}}</span><span class="ent-kind">{{.KindLabel}}</span>{{if .Overridden}}<span class="ent-kind">{{$v.T "lk.book_version"}}</span>{{end}}{{if .Summary}}<span class="ent-sum">{{.Summary}}</span>{{end}}</span>{{if .ViaLabel}}<span class="ent-via">{{.ViaLabel}}</span>{{end}}</button>
+      {{if $v.Alias}}{{if .CanTarget}}<form class="lk-target" hx-post="{{$v.Base}}/alias" hx-target="#lk-main" hx-swap="innerHTML"><input type="hidden" name="_csrf" value="{{$v.CSRF}}"><input type="hidden" name="entity_id" value="{{.ID}}"><input type="hidden" name="alias" value="{{$v.Sel}}"><input type="hidden" name="then" value="entry"><button class="btn small" type="submit" aria-label="{{$v.T "lk.sel_target_for" "name" .Name}}">{{$v.T "lk.sel_target"}}</button></form>
+      {{else}}<p class="fine lk-why">{{.Why}}</p>{{end}}{{end}}
+    </div>
+  </li>{{end}}{{end}}
+
+{{define "lk-morebtn"}}{{if .NextOffset}}<button type="button" class="btn small" hx-get="{{.Base}}?part=more&amp;offset={{.NextOffset}}&amp;q={{urlquery .Q}}&amp;kind={{.Kind}}" hx-target="#lk-ul" hx-swap="beforeend">{{.T "lk.more"}}</button>{{end}}{{end}}
+
+{{define "lk-more"}}{{template "lk-items" .}}<div id="lk-more" hx-swap-oob="true">{{template "lk-morebtn" .}}</div>{{end}}
+
+{{define "lk-new"}}<div class="lk-new">
+  <div class="lk-bar"><button type="button" class="btn small quiet" hx-get="{{.Base}}" hx-target="#lk-main" hx-swap="innerHTML">{{.T "lk.back"}}</button></div>
+  <h3 class="lk-h" id="lk-new-h" tabindex="-1">{{.T "lk.new_h"}}</h3>
+  {{if not .CanCreate}}<p class="fine" id="lk-new-why">{{.CreateWhy}}</p>
+  {{else}}
+  <p class="fine">{{.T "lk.new_where" "name" .CompName}}</p>
+  {{if .Error}}<p class="field-error" role="alert" id="lk-new-err">{{.Error}}</p>{{end}}
+  {{with .Existing}}<p class="lk-already"><button type="button" class="btn small" hx-get="{{$.Base}}?entity={{.ID}}" hx-target="#lk-main" hx-swap="innerHTML" data-open>{{$.T "lk.open_named" "name" .Name}}</button></p>{{end}}
+  <form class="lk-newform" hx-post="{{.Base}}/new" hx-target="#lk-main" hx-swap="innerHTML">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div class="field"><label for="lkn-name">{{.T "lk.new_name"}}</label><input id="lkn-name" type="text" name="name" value="{{.NewName}}" maxlength="200" required autocomplete="off"></div>
+    <fieldset class="choice"><legend>{{.T "lk.new_kind"}}</legend>{{$nk := .NewKind}}{{range .Kinds}}<label class="radio"><input type="radio" name="kind" value="{{.ID}}"{{if eq .ID $nk}} checked{{end}}><span>{{.Singular}}</span></label>{{end}}</fieldset>
+    <div class="field"><label for="lkn-sum">{{.T "lk.new_summary"}} <span class="optional">{{.T "lk.optional"}}</span></label><input id="lkn-sum" type="text" name="summary" value="{{.NewSummary}}" maxlength="1000" autocomplete="off"></div>
+    <div class="form-actions"><button class="btn solid" type="submit">{{.T "lk.new_create"}}</button></div>
+  </form>{{end}}
+</div>{{end}}
+
+{{define "lk-aka"}}{{$e := .E}}<div class="en-aka" id="lk-aka">
+  <span class="en-akal" id="lk-aka-l">{{.T "lk.aka"}}</span>
+  {{if $e.Aliases}}<ul class="en-chips" aria-labelledby="lk-aka-l">{{range $e.Aliases}}<li class="en-chip"><span{{if .Notes}} title="{{.Notes}}"{{end}}>{{.Alias}}</span>
+    {{if $e.CanAlias}}<form hx-post="{{$.Base}}/unalias" hx-target="#lk-aka" hx-swap="outerHTML"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="entity_id" value="{{$e.ID}}"><input type="hidden" name="scope" value="{{$e.Scope}}"><input type="hidden" name="alias_id" value="{{.ID}}"><button class="en-x" type="submit" aria-label="{{$.T "lk.aka_remove" "name" .Alias}}">&times;</button></form>{{end}}</li>{{end}}</ul>
+  {{else}}<span class="fine">{{.T "lk.aka_none"}}</span>{{end}}
+  {{if and $e.CanAlias $e.FirstName}}<form class="en-offer" hx-post="{{.Base}}/alias" hx-target="#lk-aka" hx-swap="outerHTML"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="entity_id" value="{{$e.ID}}"><input type="hidden" name="scope" value="{{$e.Scope}}"><input type="hidden" name="alias" value="{{$e.FirstName}}"><p class="fine">{{.T "lk.aka_offer" "name" $e.FirstName}} <button class="btn small" type="submit">{{.T "lk.add"}}</button></p></form>{{end}}
+  {{if $e.CanAlias}}<form class="en-addname" id="lk-addname" hx-post="{{.Base}}/alias" hx-target="#lk-aka" hx-swap="outerHTML">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="entity_id" value="{{$e.ID}}"><input type="hidden" name="scope" value="{{$e.Scope}}">
+    <label class="sr-only" for="lk-aka-in">{{.T "lk.aka_add"}}</label><input id="lk-aka-in" type="text" name="alias" maxlength="200" placeholder="{{.T "lk.aka_add"}}" autocomplete="off">
+    <button class="btn small" type="submit" aria-label="{{.T "lk.aka_add_btn"}}">{{.T "lk.add"}}</button>
+    <button class="btn small quiet" type="button" id="lk-selname">{{.T "lk.aka_selected"}}</button>
+  </form>{{end}}
+  <p id="lk-aka-status" class="lk-status lk-akastatus" role="status" aria-live="polite">{{.AkaStatus}}</p>
+</div>{{end}}
+
+{{define "lk-aka-box"}}{{template "lk-aka" .}}{{end}}
+
+{{define "lk-status"}}<span class="{{if .StatusBad}}lk-bad{{else}}lk-ok{{end}}">{{.Status}}</span>
+  {{with .Conflict}}<div class="lk-conflict" role="group" aria-label="{{$.T "lk.conflict_h"}}">
+    {{if .Rows}}<p class="fine">{{$.T "lk.conflict_saved"}}</p>{{range .Rows}}<p class="lk-theirs-h"><strong>{{.Label}}</strong></p><pre class="theirs lk-theirs">{{.Theirs}}</pre>{{end}}{{else}}<p class="fine">{{$.T "lk.conflict_other"}}</p>{{end}}
+    <div class="lk-acts"><button type="button" class="btn small solid" data-lk-keep="{{.Revision}}">{{$.T "lk.keep_mine"}}</button><button type="button" class="btn small" data-lk-theirs>{{$.T "lk.use_theirs"}}</button></div>
+  </div>{{end}}
+  {{with .Collision}}<button type="button" class="btn small" hx-get="{{$.Base}}?entity={{.ID}}" hx-target="#lk-main" hx-swap="innerHTML" data-open>{{$.T "lk.open_named" "name" .Name}}</button>{{end}}{{end}}
+
+{{define "lk-saved"}}<span class="lk-ok" data-saved="1">{{.Status}}</span><input type="hidden" id="lk-rev" name="base_revision" value="{{.E.Revision}}" hx-swap-oob="true">{{range $k, $h := .Hashes}}<input type="hidden" id="o-{{$k}}" name="o.{{$k}}" value="{{$h}}" hx-swap-oob="true">{{end}}{{with .Count}}<h2 id="h-fields" class="en-h" hx-swap-oob="true">{{$.T "entry.fields_h" "filled" .Filled "total" .Total}}</h2>{{end}}{{end}}
+
+{{define "lk-bfield"}}{{$f := .F}}{{$p := .P}}<div class="en-row{{if and (not $f.Value) (not $f.Base)}} en-empty{{end}}">
+  <label class="en-label" for="ef-{{$f.Key}}">{{$f.Label}}</label>
+  <div class="en-val">
+    <input id="ef-{{$f.Key}}" type="text" name="f.{{$f.Key}}" value="{{$f.Value}}" placeholder="{{if $f.Base}}{{$f.Base}}{{else}}{{$p.T "entry.add"}}{{end}}" autocomplete="off">
+    {{if $f.Base}}<p class="en-base">{{$p.T "lk.base_says" "value" $f.Base}}</p>{{end}}
+    <label class="check en-blank"><input type="checkbox" name="blank.{{$f.Key}}" value="1"{{if $f.Blanked}} checked{{end}}><span>{{$p.T "lk.blank_book"}}</span></label>
+  </div>
+</div>{{end}}
+
+{{define "lk-entry"}}{{$e := .E}}<div class="entry lk-entry" id="lk-entry" data-entity="{{$e.ID}}" data-scope="{{$e.Scope}}" data-kind="{{$e.Kind}}">
+  <div class="lk-bar"><button type="button" class="btn small quiet" id="lk-back" hx-get="{{.Base}}{{if .Q}}?q={{urlquery .Q}}{{end}}" hx-target="#lk-main" hx-swap="innerHTML">{{.T "lk.back"}}</button></div>
+  <header class="en-head">
+    <div class="en-title"><h2 id="lk-h" tabindex="-1">{{template "entity-swatch" $e.Color}} {{$e.Name}}</h2><span class="ent-kind">{{$e.KindLabel}}</span><span class="ent-kind">{{$e.ViaLabel}}</span>{{if $e.BookSet}}<span class="ent-kind">{{.T "lk.book_version"}}</span>{{end}}</div>
+    {{template "lk-aka" .}}
+    {{if $e.Why}}<p class="lk-why" id="lk-why">{{$e.Why}}</p>{{end}}
+    {{if eq $e.Scope "record"}}<label class="sr-only" for="es-summary">{{.T "lk.summary"}}</label><textarea id="es-summary" name="summary" form="lk-form" class="en-summary" rows="2" maxlength="1000" placeholder="{{.T "lk.summary_ph"}}"{{if and .Fresh (not $e.Summary)}} autofocus{{end}}>{{$e.Summary}}</textarea>
+    {{else if eq $e.Scope "book"}}<label class="sr-only" for="ov-summary">{{.T "lk.summary"}}</label><textarea id="ov-summary" name="summary" form="lk-form" class="en-summary" rows="2" maxlength="1000" placeholder="{{if $e.BaseSummary}}{{$e.BaseSummary}}{{else}}{{.T "lk.summary_ph"}}{{end}}">{{$e.OvSummary}}</textarea>
+    {{else if $e.Summary}}<p class="en-lede">{{$e.Summary}}</p>{{end}}
+  </header>
+  {{if and $e.CanRecord $e.CanBook}}<div class="lk-scope" role="group" aria-label="{{.T "lk.scope_h"}}">
+    <button type="button" class="btn small" aria-pressed="{{if eq $e.Scope "record"}}true{{else}}false{{end}}" hx-get="{{.Base}}?entity={{$e.ID}}&amp;scope=record" hx-target="#lk-main" hx-swap="innerHTML" data-open>{{.T "lk.scope_all"}}</button>
+    <button type="button" class="btn small" aria-pressed="{{if eq $e.Scope "book"}}true{{else}}false{{end}}" hx-get="{{.Base}}?entity={{$e.ID}}&amp;scope=book" hx-target="#lk-main" hx-swap="innerHTML" data-open>{{.T "lk.scope_book"}}</button>
+  </div>
+  <p class="fine lk-scopehelp">{{if eq $e.Scope "record"}}{{.T "lk.scope_all_help"}}{{else}}{{.T "lk.scope_book_help"}}{{end}}</p>{{end}}
+
+  {{if eq $e.Scope "record"}}
+  <form id="lk-form" class="lk-form" hx-post="{{.Base}}/save" hx-target="#lk-status" hx-swap="innerHTML" hx-trigger="lk-save, submit" data-save="1">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="entity_id" value="{{$e.ID}}"><input type="hidden" id="lk-rev" name="base_revision" value="{{$e.Revision}}">
+    {{range $k, $h := $e.Hashes}}<input type="hidden" id="o-{{$k}}" name="o.{{$k}}" value="{{$h}}">{{end}}
+    {{template "entry-desc" (dict "P" .Page "Body" $e.Body "Words" $e.Words "CSRF" .CSRF "RO" false "Focus" (and .Fresh $e.Summary (not $e.Body)))}}
+    {{if $e.Grid.Total}}{{template "entry-fields" (dict "G" $e.Grid "P" .Page "RO" false)}}{{end}}
+    <div class="lk-savebar"><button class="btn small" type="submit">{{.T "lk.save_now"}}</button><p id="lk-status" class="lk-status" role="status" aria-live="polite">{{.Status}}</p></div>
+  </form>
+  {{else if eq $e.Scope "book"}}
+  <form id="lk-form" class="lk-form" hx-post="{{.Base}}/override" hx-target="#lk-status" hx-swap="innerHTML" hx-trigger="lk-save, submit" data-save="1">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="entity_id" value="{{$e.ID}}">
+    <section class="en-sec" id="description" aria-labelledby="h-notes"><h2 id="h-notes" class="en-h">{{.T "lk.notes"}}</h2>
+      <textarea id="ov-notes" name="notes" class="en-body lk-notes" rows="4" aria-label="{{.T "lk.notes"}}">{{$e.OvNotes}}</textarea><p class="fine">{{.T "lk.book_lww"}}</p></section>
+    <section class="en-sec" id="fields" aria-labelledby="h-fields"><h2 id="h-fields" class="en-h">{{.T "lk.book_fields"}}</h2>
+      <div class="en-row"><label class="en-label" for="ov-name">{{.T "lk.book_name"}}</label><div class="en-val"><input id="ov-name" type="text" name="name" value="{{$e.OvName}}" maxlength="200" placeholder="{{$e.BaseName}}" autocomplete="off"></div></div>
+      <div class="en-grid">{{$p := .Page}}{{range $e.Book}}{{template "lk-bfield" (dict "F" . "P" $p)}}{{end}}</div>
+    </section>
+    <div class="lk-savebar"><button class="btn small" type="submit">{{.T "lk.save_now"}}</button>
+      <button class="btn small quiet" type="button" hx-post="{{.Base}}/override-clear" hx-target="#lk-main" hx-swap="innerHTML" hx-include="#lk-form [name=_csrf], #lk-form [name=entity_id]">{{.T "lk.clear_book"}}</button>
+      <p id="lk-status" class="lk-status" role="status" aria-live="polite">{{.Status}}</p></div>
+  </form>
+  {{else}}
+  <p id="lk-status" class="lk-status" role="status" aria-live="polite">{{.Status}}</p>
+  <div class="lk-ro">
+    {{template "entry-desc" (dict "P" .Page "HTML" $e.HTML "Words" $e.Words "RO" true)}}
+    {{if $e.GridRO.Total}}{{template "entry-fields" (dict "G" $e.GridRO "P" .Page "RO" true)}}{{end}}
+  </div>
+  {{end}}
+
+  {{if and (eq $e.Scope "record") $e.CanBook}}<details class="en-sec" id="lk-sec-book"><summary class="en-sum"><span class="en-h">{{.T "lk.book_row"}} ({{if $e.BookSet}}{{.T "lk.set"}}{{else}}{{.T "lk.none_set"}}{{end}})</span></summary>
+    <p class="fine">{{.T "lk.scope_book_help"}}</p><button type="button" class="btn small" hx-get="{{.Base}}?entity={{$e.ID}}&amp;scope=book" hx-target="#lk-main" hx-swap="innerHTML" data-open>{{.T "lk.edit_book"}}</button></details>{{end}}
+  <details class="en-sec" id="lk-sec-rel"><summary class="en-sum"><span class="en-h">{{.T "lk.rel_h"}} ({{len $e.Relations}})</span></summary>
+    {{if $e.Relations}}<ul class="ent-list">{{range $e.Relations}}<li><span><strong>{{.Label}}</strong> {{.OtherName}}{{if .Notes}} <span class="fine">{{.Notes}}</span>{{end}}</span></li>{{end}}</ul>
+    {{else}}<p class="fine">{{.T "lk.rel_none"}}</p>{{end}}
+    <p class="fine"><a href="{{$e.CompHref}}">{{.T "lk.rel_edit"}}</a></p></details>
+  <p class="lk-links"><a href="{{$e.CompHref}}">{{.T "lk.open_comp"}}</a> <a href="{{$e.Sheet}}">{{.T "lk.open_sheet"}}</a> <a href="{{$e.WhereHref}}">{{.T "lk.open_where"}}</a></p>
+  {{if or $e.CanPOV $e.CanLoc}}<p class="lk-scene">{{if $e.CanPOV}}<button type="button" class="btn small" data-lk-scene="pov" data-entity="{{$e.ID}}">{{.T "lk.use_pov"}}</button>{{end}}{{if $e.CanLoc}}<button type="button" class="btn small" data-lk-scene="location" data-entity="{{$e.ID}}">{{.T "lk.use_loc"}}</button>{{end}}</p>{{end}}
+</div>{{end}}
+
+
+{{/* The other views of the panel (F-1262, F-1263): the events this scene tells, and the book's notes. */}}
+{{define "lk-views"}}<div class="lk-views" role="group" aria-label="{{.T "lk.views"}}">
+  <button type="button" class="btn small" aria-pressed="{{eq .View "entries"}}" hx-get="{{.Base}}" hx-target="#lk-main" hx-swap="innerHTML" data-open>{{.T "lk.view_entries"}}</button>
+  <button type="button" class="btn small" aria-pressed="{{eq .View "events"}}" hx-get="{{.Base}}?view=events" hx-target="#lk-main" hx-swap="innerHTML" data-open>{{.T "lk.view_scene"}}</button>
+  <button type="button" class="btn small" aria-pressed="{{eq .View "notes"}}" hx-get="{{.Base}}?view=notes" hx-target="#lk-main" hx-swap="innerHTML" data-open>{{.T "lk.view_notes"}}</button>
+</div>{{end}}
+
+{{define "lk-events"}}{{$sc := .Scene}}<div class="lk-view lk-events" id="lk-view" data-view="events">
+  {{template "lk-views" .}}
+  <h3 class="lk-h" id="lk-h" tabindex="-1">{{.T "lk.ev_h"}}</h3>
+  <p class="fine lk-scenename">{{.T "lk.ev_scene" "title" $sc.DocTitle}}</p>
+  <p id="lk-status" class="lk-status" role="status" aria-live="polite">{{.Status}}</p>
+  {{if $sc.Events}}<ul class="lk-evs">{{range $sc.Events}}<li class="lk-ev">
+    <div class="lk-ev-main"><span class="lk-ev-title">{{.Title}}</span><span class="fine">{{.When}}</span></div>
+    <div class="lk-ev-acts"><a href="{{.Href}}">{{$.T "lk.ev_open"}}<span class="sr-only"> {{.Title}}</span></a>
+    {{if $sc.CanLink}}<form hx-post="{{$.Base}}/event-unlink" hx-sync="this:drop" hx-disabled-elt="find button[type=submit]" hx-target="#lk-main" hx-swap="innerHTML"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="doc" value="{{$sc.DocID}}"><input type="hidden" name="event_id" value="{{.ID}}"><button class="btn small quiet" type="submit" data-open aria-label="{{$.T "lk.ev_unlink" "title" .Title}}">{{$.T "lk.ev_unlink_btn"}}</button></form>{{end}}</div>
+  </li>{{end}}</ul>
+  {{else}}<p class="lk-empty">{{.T "lk.ev_none"}}</p>{{end}}
+  {{if $sc.Why}}<p class="lk-why" id="lk-ev-why">{{$sc.Why}}</p>{{end}}
+  {{if $sc.CanLink}}<section class="lk-evlink" aria-labelledby="lk-evlink-h">
+    <h4 class="lk-h" id="lk-evlink-h">{{.T "lk.ev_link"}}</h4>
+    <form class="lk-search" role="search" aria-label="{{.T "lk.ev_find"}}" hx-get="{{.Base}}" hx-target="#lk-ev-hits" hx-swap="innerHTML" hx-trigger="input changed delay:300ms from:#lk-eq, search from:#lk-eq, submit">
+      <input type="hidden" name="view" value="events"><input type="hidden" name="part" value="hits"><input type="hidden" name="doc" value="{{$sc.DocID}}">
+      <label class="sr-only" for="lk-eq">{{.T "lk.ev_find"}}</label><input id="lk-eq" type="search" name="eq" value="{{$sc.Q}}" placeholder="{{.T "lk.ev_find"}}" autocomplete="off" spellcheck="false">
+    </form>
+    <div id="lk-ev-hits" aria-live="polite">{{template "lk-ev-hits" .}}</div>
+  </section>{{end}}
+  {{if $sc.CanNew}}<details class="lk-evnew"><summary>{{.T "lk.ev_new"}}</summary>
+    <p class="fine">{{.T "lk.new_where" "name" $sc.CompName}}</p>
+    <form class="lk-newform" hx-post="{{.Base}}/event-new" hx-sync="this:drop" hx-disabled-elt="find button[type=submit]" hx-target="#lk-main" hx-swap="innerHTML">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="doc" value="{{$sc.DocID}}">
+      <div class="field"><label for="lkev-title">{{.T "lk.ev_title"}}</label><input id="lkev-title" type="text" name="title" maxlength="200" required autocomplete="off"></div>
+      <div class="field"><label for="lkev-date">{{.T "lk.ev_date"}} <span class="optional">{{.T "lk.optional"}}</span></label><input id="lkev-date" type="text" name="date" maxlength="20" autocomplete="off" aria-describedby="lkev-date-h lkev-date-err"><p class="fine" id="lkev-date-h">{{.T "lk.ev_date_hint"}}</p><div id="lkev-date-err" aria-live="assertive"></div></div>
+      <div class="form-actions"><button class="btn solid" type="submit" data-open>{{.T "lk.ev_create"}}</button></div>
+    </form>
+  </details>{{end}}
+</div>{{end}}
+
+{{define "lk-evdate-status"}}<span class="field-error">{{.Status}}</span>{{end}}
+
+{{define "lk-ev-hits"}}{{$sc := .Scene}}{{if $sc.Q}}{{if $sc.Hits}}<ul class="lk-evs">{{range $sc.Hits}}<li class="lk-ev">
+    <div class="lk-ev-main"><span class="lk-ev-title">{{.Title}}</span><span class="fine">{{.When}}</span></div>
+    <form hx-post="{{$.Base}}/event-link" hx-sync="this:drop" hx-disabled-elt="find button[type=submit]" hx-target="#lk-main" hx-swap="innerHTML"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="doc" value="{{$sc.DocID}}"><input type="hidden" name="event_id" value="{{.ID}}"><button class="btn small" type="submit" data-open aria-label="{{$.T "lk.ev_link_aria" "title" .Title}}">{{$.T "lk.ev_link_btn"}}</button></form>
+  </li>{{end}}</ul>{{else}}<p class="lk-empty">{{.T "lk.ev_hits_none"}}</p>{{end}}{{end}}{{end}}
+
+{{define "lk-notes"}}{{$n := .Notes}}<div class="lk-view lk-notesview" id="lk-view" data-view="notes">
+  {{template "lk-views" .}}
+  <h3 class="lk-h" id="lk-h" tabindex="-1">{{.T "lk.nt_h"}}</h3>
+  <form class="lk-search" role="search" aria-label="{{.T "lk.nt_find"}}" hx-get="{{.Base}}" hx-target="#lk-nrows" hx-swap="innerHTML" hx-trigger="input changed delay:200ms from:#lk-nq, search from:#lk-nq, submit">
+    <input type="hidden" name="view" value="notes"><input type="hidden" name="part" value="nrows">
+    <label class="sr-only" for="lk-nq">{{.T "lk.nt_find"}}</label><input id="lk-nq" type="search" name="nq" value="{{$n.Q}}" placeholder="{{.T "lk.nt_find"}}" autocomplete="off" spellcheck="false">
+  </form>
+  <p id="lk-status" class="lk-status" role="status" aria-live="polite">{{.Status}}</p>
+  <div id="lk-nrows">{{template "lk-nrows" .}}</div>
+  <p class="lk-acts">{{if $n.CanEdit}}<button type="button" class="btn small" id="lk-nnew" hx-get="{{.Base}}?view=notes&amp;new=1" hx-target="#lk-main" hx-swap="innerHTML" data-open>{{.T "lk.nt_new"}}</button>{{end}}<a class="btn small quiet" href="{{$n.All}}">{{.T "lk.nt_all"}}</a></p>
+  {{if $n.Why}}<p class="lk-why" id="lk-nt-why">{{$n.Why}}</p>{{end}}
+</div>{{end}}
+
+{{define "lk-nrows"}}{{$n := .Notes}}{{if $n.Rows}}<ul class="lk-nl">{{range $n.Rows}}<li><button type="button" class="lk-pick" hx-get="{{$.Base}}?view=notes&amp;note={{.ID}}" hx-target="#lk-main" hx-swap="innerHTML" data-open><span class="ent-name">{{.Title}}</span><span class="fine">{{.Updated}} &middot; {{$.N "lk.nt_words" .Words}}</span></button></li>{{end}}</ul>
+  {{else}}<p class="lk-empty">{{if $n.Q}}{{.T "lk.nt_nothing" "q" $n.Q}}{{else}}{{.T "lk.nt_none"}}{{end}}</p>{{end}}{{end}}
+
+{{define "lk-note"}}{{$n := .Notes}}{{$t := $n.Note}}<div class="lk-view lk-noteview" id="lk-view" data-view="notes">
+  <div class="lk-bar"><button type="button" class="btn small quiet" id="lk-nback" hx-get="{{.Base}}?view=notes" hx-target="#lk-main" hx-swap="innerHTML" data-open>{{.T "lk.nt_back"}}</button></div>
+  <h3 class="lk-h" id="lk-h" tabindex="-1">{{if $t.Title}}{{$t.Title}}{{else}}{{.T "lk.nt_untitled"}}{{end}}</h3>
+  {{if $n.CanEdit}}<form class="lk-newform" id="lk-nform" hx-post="{{.Base}}/note-save" hx-sync="this:drop" hx-target="#lk-status" hx-swap="innerHTML">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="note_id" value="{{$t.ID}}"><input type="hidden" id="lk-nrev" name="base_revision" value="{{$t.Revision}}">
+    <div class="field"><label for="lkn-title">{{.T "lk.nt_title"}}</label><input id="lkn-title" type="text" name="title" value="{{$t.Title}}" maxlength="200" autocomplete="off"></div>
+    <div class="field"><label for="lkn-body">{{.T "lk.nt_body"}}</label><textarea id="lkn-body" class="lk-ntext" name="body" rows="10">{{$t.Body}}</textarea></div>
+    <div class="lk-savebar"><button class="btn solid" type="submit">{{.T "lk.nt_save"}}</button><p id="lk-status" class="lk-status" role="status" aria-live="polite">{{.Status}}</p></div>
+  </form>
+  {{else}}<p class="lk-why">{{$n.Why}}</p><div class="md en-md">{{$t.HTML}}</div>{{end}}
+  <p class="lk-links"><a href="{{$t.Href}}">{{.T "lk.nt_page"}}</a></p>
+</div>{{end}}
+
+{{define "lk-newnote"}}<div class="lk-view lk-noteview" id="lk-view" data-view="notes">
+  <div class="lk-bar"><button type="button" class="btn small quiet" id="lk-nback" hx-get="{{.Base}}?view=notes" hx-target="#lk-main" hx-swap="innerHTML" data-open>{{.T "lk.nt_back"}}</button></div>
+  <h3 class="lk-h" id="lk-h" tabindex="-1">{{.T "lk.nt_new"}}</h3>
+  <form class="lk-newform" id="lk-nform" hx-post="{{.Base}}/note-new" hx-sync="this:drop" hx-disabled-elt="find button[type=submit]" hx-target="#lk-main" hx-swap="innerHTML">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div class="field"><label for="lkn-title">{{.T "lk.nt_title"}} <span class="optional">{{.T "lk.optional"}}</span></label><input id="lkn-title" type="text" name="title" maxlength="200" autocomplete="off"></div>
+    <div class="field"><label for="lkn-body">{{.T "lk.nt_body"}}</label><textarea id="lkn-body" class="lk-ntext" name="body" rows="10"></textarea></div>
+    <div class="lk-savebar"><button class="btn solid" type="submit" data-open>{{.T "lk.nt_create"}}</button><p id="lk-status" class="lk-status" role="status" aria-live="polite">{{.Status}}</p></div>
+  </form>
+</div>{{end}}
+
+{{define "lk-note-saved"}}<span class="lk-ok" data-nsaved="1">{{.Status}}</span><input type="hidden" id="lk-nrev" name="base_revision" value="{{.Notes.Note.Revision}}" hx-swap-oob="true">{{end}}
+
+{{define "lk-note-status"}}<span class="lk-bad">{{.Status}}</span>
+  <div class="lk-conflict" role="group" aria-label="{{.T "lk.nt_conflict_h"}}">
+    <div class="lk-acts"><button type="button" class="btn small solid" hx-post="{{.Base}}/note-save" hx-sync="this:drop" hx-include="#lk-nform" hx-vals='{"base_revision":"{{.Notes.ConflictRev}}"}' hx-target="#lk-status" hx-swap="innerHTML">{{.T "lk.keep_mine"}}</button><button type="button" class="btn small" hx-get="{{.Base}}?view=notes&amp;note={{.Notes.Note.ID}}" hx-target="#lk-main" hx-swap="innerHTML" data-open>{{.T "lk.use_theirs"}}</button></div>
+  </div>{{end}}

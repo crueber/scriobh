@@ -4,6 +4,7 @@
 // of the text (a document to serialise, or Markdown to parse), found again, and taken out. Nothing here changes the schema
 // or what is stored.
 
+import {closeHistory} from "prosemirror-history"
 import {TextSelection} from "prosemirror-state"
 import {Fragment} from "prosemirror-model"
 import {Mapping, StepMap} from "prosemirror-transform"
@@ -58,11 +59,14 @@ export function sourceOf(state, from, to, ctx = CONTEXT) {
 
 // Where a position falls in the Markdown source (an offset into the text the serializer writes), for putting something
 // in at the cursor. -1 when it cannot be told exactly.
-export function offsetOf(state, pos) {
+//
+// `side` says whose formatting the marker takes where two runs meet: the text after the place (1, the default: it lands
+// inside emphasis that starts there) or the text before it (-1: it lands outside emphasis that starts there).
+export function offsetOf(state, pos, side = 1) {
   const plain = plainOf(state)
   const [a] = absent(plain, 1)
   if (!a) return -1
-  const $p = state.doc.resolve(pos), n = $p.nodeAfter
+  const $p = state.doc.resolve(pos), n = side > 0 ? $p.nodeAfter : $p.nodeBefore
   const md = cleanText(serialize(state.tr.insert(pos, schema.text(a, n && n.isText ? n.marks : [])).doc))
   const i = md.indexOf(a)
   if (i < 0 || md.indexOf(a, i + 1) >= 0 || md.slice(0, i) + md.slice(i + 1) !== plain) return -1
@@ -178,7 +182,7 @@ export function makeAlts(view, hooks) {
       }
       const sel = view.state.selection
       const tr = view.state.tr.replaceWith(from, to, content)
-      tr.setMeta("addToHistory", false)
+      closeHistory(tr.setMeta("addToHistory", false)) // never in the history, and typing after it is a step of its own
       tr.setSelection(sel.map(tr.doc, tr.mapping))
       hooks.silently(() => view.dispatch(tr))
       return from + content.size
@@ -211,7 +215,7 @@ export function makeAlts(view, hooks) {
       else if (has) tr.replaceWith(at, doc.content.size, schema.nodes.source_block.create({kind: "alts"}, schema.text(line)))
       else if (line) tr.insert(doc.content.size, schema.nodes.source_block.create({kind: "alts"}, schema.text(line)))
       else return false
-      tr.setMeta("addToHistory", false)
+      closeHistory(tr.setMeta("addToHistory", false)) // never in the history, and typing after it is a step of its own
       hooks.silently(() => view.dispatch(tr))
       return true
     },

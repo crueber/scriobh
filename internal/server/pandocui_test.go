@@ -92,7 +92,7 @@ func TestThePandocPageIsTheAdministratorsAndTheFormatsFollowTheBridge(t *testing
 		t.Error("the Compile page does not say the bridge is on")
 	}
 	_, imp := w.s.getPage(t, w.owner, "/import")
-	for _, want := range []string{`id="imp-f-pandoc"`, `data-fmt="pandoc"`, `data-opt="pandoc_format"`, `value="typst"`} {
+	for _, want := range []string{`id="imp-f-pandoc"`, `data-fmt="pandoc"`, `name="opt.pandoc_format"`, `value="typst"`} {
 		if !strings.Contains(imp, want) {
 			t.Errorf("the import page lacks %q", want)
 		}
@@ -157,7 +157,7 @@ func TestThePandocPageIsTheAdministratorsAndTheFormatsFollowTheBridge(t *testing
 	}
 }
 
-var reImportPanel = regexp.MustCompile(`(?s)<div class="rg-block" data-fmt="pandoc".*?id="imp-pdp".*?</select>`)
+var reImportPanel = regexp.MustCompile(`(?s)<form class="rg-block imp-form" data-fmt="pandoc".*?id="imp-pdp".*?</select>`)
 
 // Every word on the Pandoc settings page, and on the Pandoc panel of the import page, comes from the catalogue. The
 // format names and the program's path are identifiers, and let through.

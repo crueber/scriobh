@@ -74,11 +74,83 @@
             "unit": "ms",
             "runs": 30
           },
+          "import.docx.500k": {
+            "p50": 136.8,
+            "p95": 232.9,
+            "unit": "ms",
+            "runs": 30
+          },
+          "import.docx.h1": {
+            "p50": 37.351,
+            "p95": 70.443,
+            "unit": "ms",
+            "runs": 30
+          },
+          "import.docx.labels": {
+            "p50": 37.254,
+            "p95": 70.984,
+            "unit": "ms",
+            "runs": 30
+          },
+          "import.docx.none": {
+            "p50": 35.976,
+            "p95": 69.961,
+            "unit": "ms",
+            "runs": 30
+          },
+          "import.draft": {
+            "p50": 423.6,
+            "p95": 440.4,
+            "unit": "ms",
+            "runs": 3
+          },
+          "import.draft.edit": {
+            "p50": 17.661,
+            "p95": 18.109,
+            "unit": "ms",
+            "runs": 30
+          },
+          "import.draft.split": {
+            "p50": 64.503,
+            "p95": 108.9,
+            "unit": "ms",
+            "runs": 30
+          },
           "import.epub": {
             "p50": 625.1,
             "p95": 635.3,
             "unit": "ms",
             "runs": 3
+          },
+          "import.look.150k": {
+            "p50": 1.732,
+            "p95": 1.85,
+            "unit": "ms",
+            "runs": 30
+          },
+          "import.look.500k": {
+            "p50": 7.902,
+            "p95": 21.221,
+            "unit": "ms",
+            "runs": 30
+          },
+          "import.pattern": {
+            "p50": 36.42,
+            "p95": 69.164,
+            "unit": "ms",
+            "runs": 30
+          },
+          "import.text.150k": {
+            "p50": 45.524,
+            "p95": 75.529,
+            "unit": "ms",
+            "runs": 30
+          },
+          "import.undo.plan": {
+            "p50": 1.296,
+            "p95": 1.343,
+            "unit": "ms",
+            "runs": 30
           },
           "mirror.full_write": {
             "p50": 1489.4,
@@ -402,11 +474,83 @@
             "unit": "ms",
             "runs": 30
           },
+          "import.docx.500k": {
+            "p50": 136.6,
+            "p95": 213.2,
+            "unit": "ms",
+            "runs": 30
+          },
+          "import.docx.h1": {
+            "p50": 37.459,
+            "p95": 70.248,
+            "unit": "ms",
+            "runs": 30
+          },
+          "import.docx.labels": {
+            "p50": 37.658,
+            "p95": 68.499,
+            "unit": "ms",
+            "runs": 30
+          },
+          "import.docx.none": {
+            "p50": 36.171,
+            "p95": 54.155,
+            "unit": "ms",
+            "runs": 30
+          },
+          "import.draft": {
+            "p50": 407.7,
+            "p95": 445.2,
+            "unit": "ms",
+            "runs": 3
+          },
+          "import.draft.edit": {
+            "p50": 17.286,
+            "p95": 17.738,
+            "unit": "ms",
+            "runs": 30
+          },
+          "import.draft.split": {
+            "p50": 64.392,
+            "p95": 112.5,
+            "unit": "ms",
+            "runs": 30
+          },
           "import.epub": {
             "p50": 666.5,
             "p95": 672.5,
             "unit": "ms",
             "runs": 3
+          },
+          "import.look.150k": {
+            "p50": 1.773,
+            "p95": 1.818,
+            "unit": "ms",
+            "runs": 30
+          },
+          "import.look.500k": {
+            "p50": 7.943,
+            "p95": 25.127,
+            "unit": "ms",
+            "runs": 30
+          },
+          "import.pattern": {
+            "p50": 37.134,
+            "p95": 67.332,
+            "unit": "ms",
+            "runs": 30
+          },
+          "import.text.150k": {
+            "p50": 45.787,
+            "p95": 73.923,
+            "unit": "ms",
+            "runs": 30
+          },
+          "import.undo.plan": {
+            "p50": 1.158,
+            "p95": 1.258,
+            "unit": "ms",
+            "runs": 30
           },
           "mirror.full_write": {
             "p50": 4916.8,

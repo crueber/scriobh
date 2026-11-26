@@ -27,7 +27,7 @@
   <div id="cfrag" data-live-refresh>
   <section id="projects" aria-labelledby="h-projects">
     <h2 id="h-projects">Projects that use it</h2>
-    {{if .Detail.Projects}}<ul class="plainlist">{{range .Detail.Projects}}<li><span>{{.Title}}</span> <span class="fine">{{if eq .Relation "primary"}}primary Compendium{{else}}referenced as a whole{{end}}</span></li>{{end}}</ul>
+    {{if .Detail.Projects}}<ul class="plainlist">{{range .Detail.Projects}}<li><span>{{.Title}}</span> <span class="fine">{{if eq .Relation "primary"}}primary Compendium{{else}}referenced as a whole{{end}}</span>{{with index $.Data.ProjAddr .ID}} <a href="/p/{{.}}/compendium">{{$.T "nav.comp_settings_row"}}</a>{{end}}</li>{{end}}</ul>
     {{else if not .Detail.HiddenProjects}}<p class="fine">No project uses it yet. Open a project's Compendium tab to make it the project's primary, or to reference it.</p>{{end}}
     {{if .Detail.HiddenProjects}}<p class="fine">{{.Detail.HiddenProjects}} {{plural .Detail.HiddenProjects "project that you cannot open also uses" "projects that you cannot open also use"}} it.</p>{{end}}
     <p class="fine">A project that uses a Compendium sees its entities. Being on a project is not the same as being on the Compendium: the people below decide who can open it.</p>

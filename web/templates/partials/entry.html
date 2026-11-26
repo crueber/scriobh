@@ -1,0 +1,30 @@
+{{/* The entry of a Compendium, drawn once for the sidebar and the full page (F-1261). The pieces take a dict with P (the page, for its
+   words), and what each needs; the shell around them (the autosaving form of the sidebar, the Save form of the page) is the caller's.
+   Every id the old sheet had stays: es-summary, es-body, ef-<key>, es-preview, es-prev. */}}
+
+{{define "entry-field"}}{{$f := .F}}{{$p := .P}}<div class="en-row{{if not $f.Value}} en-empty{{end}}">
+  <label class="en-label" for="ef-{{$f.Key}}">{{$f.Label}}</label>
+  <div class="en-val">
+  {{if eq $f.Type "choice"}}<select id="ef-{{$f.Key}}" name="f.{{$f.Key}}"><option value="">{{$p.T "entry.notset"}}</option>{{$v := $f.Value}}{{range $f.Choices}}<option value="{{.}}"{{if eq . $v}} selected{{end}}>{{.}}</option>{{end}}</select>
+  {{else if eq $f.Type "number"}}<input id="ef-{{$f.Key}}" type="text" inputmode="decimal" name="f.{{$f.Key}}" value="{{$f.Value}}" placeholder="{{$p.T "entry.add_number"}}" autocomplete="off">
+  {{else if eq $f.Type "date"}}<input id="ef-{{$f.Key}}" type="text" name="f.{{$f.Key}}" value="{{$f.Value}}" placeholder="{{$p.T "entry.add_date"}}" autocomplete="off">
+  {{else if $f.Multi}}<textarea id="ef-{{$f.Key}}" name="f.{{$f.Key}}" rows="{{$f.Rows}}" placeholder="{{$p.T "entry.add"}}" autocomplete="off">{{$f.Value}}</textarea>
+  {{else}}<input id="ef-{{$f.Key}}" type="text" name="f.{{$f.Key}}" value="{{$f.Value}}" placeholder="{{$p.T "entry.add"}}" autocomplete="off">{{end}}
+  </div>
+</div>{{end}}
+
+{{define "entry-fields"}}{{$g := .G}}{{$p := .P}}<section class="en-sec" id="fields" aria-labelledby="h-fields">
+  <h2 id="h-fields" class="en-h">{{$p.T "entry.fields_h" "filled" $g.Filled "total" $g.Total}}</h2>
+  {{if .RO}}{{if $g.Fields}}<dl class="en-grid">{{range $g.Fields}}<div class="en-row"><dt class="en-label">{{.Label}}</dt><dd class="en-val">{{.Value}}</dd></div>{{end}}</dl>{{else}}<p class="fine">{{$p.T "entry.no_fields"}}</p>{{end}}
+  {{else}}<div class="en-grid">{{range $g.Fields}}{{template "entry-field" (dict "F" . "P" $p)}}{{end}}</div>
+  {{if $g.More}}<details class="en-more"><summary>{{$p.N "entry.more" (len $g.More)}}</summary><div class="en-grid">{{range $g.More}}{{template "entry-field" (dict "F" . "P" $p)}}{{end}}</div></details>{{end}}
+  {{end}}
+</section>{{end}}
+
+{{define "entry-desc"}}{{$p := .P}}<section class="en-sec" id="description" aria-labelledby="h-desc">
+  <div class="en-deschead"><h2 id="h-desc" class="en-h">{{$p.T "entry.desc"}}</h2><span class="en-words" id="es-words">{{$p.N "entry.words" .Words}}</span>
+  {{if not .RO}}<button type="button" class="btn small quiet" id="es-preview" data-src="/ui/md-preview" data-csrf="{{.CSRF}}" data-show="{{$p.T "entry.preview"}}" data-hide="{{$p.T "entry.preview_hide"}}" hidden>{{$p.T "entry.preview"}}</button>{{end}}</div>
+  {{if .RO}}{{if .Words}}<div class="md en-md">{{.HTML}}</div>{{else}}<p class="fine">{{$p.T "entry.no_desc"}}</p>{{end}}
+  {{else}}<textarea id="es-body" name="body" class="en-body" rows="8" spellcheck="true" aria-label="{{$p.T "entry.desc_md"}}"{{if .Form}} form="{{.Form}}"{{end}}{{if .Focus}} autofocus{{end}}>{{.Body}}</textarea>
+  <div id="es-prev" class="md-preview" role="region" aria-label="{{$p.T "entry.preview_of"}}" aria-live="polite" hidden></div>{{end}}
+</section>{{end}}

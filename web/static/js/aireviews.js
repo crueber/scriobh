@@ -94,7 +94,7 @@
       var items = (r.json && r.json.items) || [];
       if (openNewest && items.length) { open(items[0].review_id); return; }
       box.replaceChildren();
-      box.appendChild(h("div", { class: "ai-row" }, [["Critique this chapter", "critique"], ["Check continuity", "continuity"], ["Find names not in the bible", "extract"], ["Summarise", "summary"]].map(function (x) { return A.btn(x[0], function (e) { start(x[1], e.currentTarget); }, "small"); })));
+      box.appendChild(h("div", { class: "ai-row" }, [["Critique this chapter", "critique"], ["Check continuity", "continuity"], ["Find names not in the Compendium", "extract"], ["Summarise", "summary"]].map(function (x) { return A.btn(x[0], function (e) { start(x[1], e.currentTarget); }, "small"); })));
       box.appendChild(h("p", { class: "fine", text: "Your reviews of this chapter. They are private to you and change nothing in the text." }));
       if (!items.length) { box.appendChild(h("p", { class: "fine", text: "No reviews yet." })); return; }
       var ul = h("ul", { class: "ai-list" });
@@ -155,7 +155,7 @@
       var s = (n.sheet && (n.sheet.Sheet || n.sheet)) || {};
       li.appendChild(h("p", {}, h("strong", { text: s.name || "(unnamed)" }), " (" + (s.kind || "entity") + ")"));
       if (s.summary) li.appendChild(h("p", { text: s.summary }));
-      if (n.sheet && n.sheet.exists_as) li.appendChild(h("p", { class: "ai-bad", text: "The bible already has " + n.sheet.exists_as.name + ": accepting this would clash with it." }));
+      if (n.sheet && n.sheet.exists_as) li.appendChild(h("p", { class: "ai-bad", text: "The Compendium already has " + n.sheet.exists_as.name + ": accepting this would clash with it." }));
     } else {
       if (n.quote) li.appendChild(h("blockquote", { class: "ai-quote" }, h("q", { text: n.quote })));
       li.appendChild(h("p", { text: n.note }));
@@ -167,7 +167,7 @@
     if (kind !== "extraction" && n.quote) acts.appendChild(A.btn("Show in the text", function () { show(n); }, "small"));
     if (n.status === "open") {
       if (kind === "extraction") {
-        acts.appendChild(A.btn("Add to the bible…", function () { accept(n, comp, li, out); }, "small"));
+        acts.appendChild(A.btn("Add to the Compendium…", function () { accept(n, comp, li, out); }, "small"));
         acts.appendChild(A.btn("Dismiss", function () { A.call("POST", base + "/ai/extract/dismiss", { note_id: n.id }).then(function () { open(openId); }); }, "small"));
       } else {
         acts.appendChild(A.btn("Resolve", function () { A.call("POST", base + "/ai/review/note/resolve", { note_id: n.id }).then(function (r) { if (r.ok) open(openId); else out.textContent = A.why(r); }); }, "small"));
@@ -179,15 +179,15 @@
   }
   // An extraction's entry goes into the bible only after a dry run has said what would be made.
   function accept(n, comp, li, out) {
-    if (!comp || !comp.compendium_id) { out.textContent = "This project has no bible of its own to add to. Add one in the project's Compendium page."; out.setAttribute("data-ok", "false"); return; }
+    if (!comp || !comp.compendium_id) { out.textContent = "This project has no Compendium of its own to add to. Add one on the project's Compendium page."; out.setAttribute("data-ok", "false"); return; }
     A.call("POST", base + "/ai/extract/accept", { note_id: n.id, compendium_id: comp.compendium_id }, { "X-Scriobh-Dry-Run": "1" }).then(function (r) {
       if (!r.ok) { out.textContent = A.why(r); out.setAttribute("data-ok", "false"); return; }
       var dropped = (r.json && r.json.dropped_fields) || [];
       out.setAttribute("data-ok", "true");
-      out.textContent = "Dry run: this would create it in " + comp.name + (dropped.length ? ", leaving out the fields " + dropped.join(", ") + " that the bible does not have" : "") + ". Nothing has been made yet.";
+      out.textContent = "Dry run: this would create it in " + comp.name + (dropped.length ? ", leaving out the fields " + dropped.join(", ") + " that the Compendium does not have" : "") + ". Nothing has been made yet.";
       var go = A.btn("Create it now", function () {
         go.disabled = true;
-        A.call("POST", base + "/ai/extract/accept", { note_id: n.id, compendium_id: comp.compendium_id }).then(function (r2) { go.disabled = false; if (!r2.ok) { out.textContent = A.why(r2); out.setAttribute("data-ok", "false"); return; } A.say("The entry was created in the bible."); open(openId); });
+        A.call("POST", base + "/ai/extract/accept", { note_id: n.id, compendium_id: comp.compendium_id }).then(function (r2) { go.disabled = false; if (!r2.ok) { out.textContent = A.why(r2); out.setAttribute("data-ok", "false"); return; } A.say("The entry was created in the Compendium."); open(openId); });
       }, "small solid");
       out.appendChild(doc.createTextNode(" ")); out.appendChild(go);
     });

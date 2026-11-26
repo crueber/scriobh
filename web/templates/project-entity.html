@@ -1,33 +1,35 @@
-{{define "head"}}<link rel="stylesheet" href="{{asset "css/entities.css"}}"><script src="{{asset "js/entity.js"}}" defer></script>{{end}}
+{{define "head"}}<link rel="stylesheet" href="{{asset "css/entities.css"}}"><link rel="stylesheet" href="{{asset "css/entry.css"}}"><script src="{{asset "js/entity.js"}}" defer></script>{{end}}
 {{define "crumb"}}<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}/entities">Entities</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{.Data.E.Name}}</span></nav>{{end}}
 {{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "compendium" .Data.Project.Role}}{{end}}
-{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "compendium" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" (inLang $.Lang (ptabs .Data.Slug "" "compendium" .Data.Project.Role))}}{{end}}
 {{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "compendium" .Data.Project.Role}}{{end}}
 {{define "content"}}
 {{with .Data}}{{$e := .E}}
-<div class="settings ents sheet" id="sheet" data-entity="{{$e.ID}}" data-project="{{.Project.ID}}">
+<div class="settings ents sheet entry" id="sheet" data-entity="{{$e.ID}}" data-project="{{.Project.ID}}">
   {{template "live-marker" (dict "Scope" "project" "ID" .Project.ID)}}
   <p class="sr-only" id="ent-announce" role="status" aria-live="polite"></p>
-  <h1>{{template "entity-swatch" .Color}} {{$e.Name}}</h1>
-  <p class="sub">{{.Kind}}. {{.ViaLabel}}: {{$e.CompendiumName}}. This is how {{.Project.Title}} reads it{{if $e.Overridden}}, with this book&rsquo;s own changes{{end}}.</p>
-  {{if .Saved}}<p class="saved" role="status">{{.Saved}}</p>{{end}}
-  {{if .Error}}<p class="field-error" role="alert" id="ent-error" tabindex="-1">{{.Error}}</p>{{end}}
-
-  <section class="ent-read" aria-label="The entity as this book reads it">
-    {{if $e.Summary}}<p class="lede">{{$e.Summary}}</p>{{end}}
-    {{if $e.Aliases}}<p class="fine">Also called: {{range $i, $a := $e.Aliases}}{{if $i}}, {{end}}{{$a}}{{end}}</p>{{end}}
-    {{$any := false}}{{range .Fields}}{{if .Effective}}{{$any = true}}{{end}}{{end}}
-    {{if $any}}<dl class="facts">{{range .Fields}}{{if .Effective}}<div><dt>{{.Label}}</dt><dd>{{.Effective}}</dd></div>{{end}}{{end}}</dl>{{end}}
-    {{if $e.Body}}<div class="md">{{.BodyHTML}}</div>{{end}}
-    {{if .Notes}}<h2>This book&rsquo;s notes</h2><p class="pre">{{.Notes}}</p>{{end}}
-    {{if .CompSlug}}<p class="fine"><a href="/c/{{.CompSlug}}/e/{{$e.ID}}">Open its sheet in the Compendium</a></p>{{end}}
-  </section>
+  <header class="en-head">
+    <div class="en-title"><h1>{{template "entity-swatch" .Color}} {{$e.Name}}</h1><span class="ent-kind">{{.Kind}}</span>{{if $e.Overridden}}<span class="ent-kind">This book&rsquo;s version</span>{{end}}</div>
+    <p class="en-meta">{{.ViaLabel}}: {{$e.CompendiumName}}. This is how {{.Project.Title}} reads it{{if $e.Overridden}}, with this book&rsquo;s own changes{{end}}.{{if .CompSlug}} <a href="/c/{{.CompSlug}}/e/{{$e.ID}}">Open its sheet in the Compendium</a>{{end}}</p>
+    {{if .Saved}}<p class="saved" role="status">{{.Saved}}</p>{{end}}
+    {{if .Error}}<p class="field-error" role="alert" id="ent-error" tabindex="-1">{{.Error}}</p>{{end}}
+    {{if $e.Aliases}}<div class="en-aka"><span class="en-akal" id="aka-l">Also known as</span><ul class="en-chips" aria-labelledby="aka-l">{{range $e.Aliases}}<li class="en-chip"><span>{{.}}</span></li>{{end}}</ul></div>{{end}}
+    {{if $e.Summary}}<p class="en-lede">{{$e.Summary}}</p>{{end}}
+  </header>
+  <nav class="en-index" aria-label="On this sheet">
+    <a href="#description">Description</a><a href="#fields">Fields {{.Grid.Filled}}/{{.Grid.Total}}</a>{{if .Notes}}<a href="#notes">Private notes</a>{{end}}<a href="#where">Appears in</a>{{if .CanEdit}}<a href="#override">This book&rsquo;s version</a>{{end}}
+  </nav>
+  <div class="ent-read">
+    {{template "entry-desc" (dict "P" $ "HTML" .BodyHTML "Words" .Words "RO" true)}}
+    {{if .Grid.Total}}{{template "entry-fields" (dict "G" .GridRO "P" $ "RO" true)}}{{end}}
+    {{if .Notes}}<section class="en-sec" id="notes" aria-labelledby="h-notes"><h2 id="h-notes" class="en-h">Private notes for this book</h2><p class="pre">{{.Notes}}</p></section>{{end}}
+  </div>
 
   {{template "where-project" .Where}}
 
-  {{if .CanEdit}}<section id="override" aria-labelledby="h-ov">
-    <h2 id="h-ov">This book&rsquo;s version</h2>
-    <p class="sub">Change how only this book reads the entity: a different name, a different age, a private note. The Compendium&rsquo;s own entry is never changed here, and other books are not affected. Leave a box empty to use the Compendium&rsquo;s.</p>
+  {{if .CanEdit}}<section class="en-sec" id="override" aria-labelledby="h-ov">
+    <h2 id="h-ov" class="en-h">This book&rsquo;s version</h2>
+    <p class="fine">Change how only this book reads the entity: a different name, a different age, a private note. The Compendium&rsquo;s own entry is never changed here, and other books are not affected. Leave a box empty to use the Compendium&rsquo;s.</p>
     <form class="form" method="post" action="/ui/projects/{{.Project.ID}}/entity-override/set">
       <input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="entity_id" value="{{$e.ID}}">
       <div class="field"><label for="ov-name">Name in this book</label><input id="ov-name" type="text" name="name" value="{{if .Values.name}}{{.Values.name}}{{else}}{{.OvName}}{{end}}" maxlength="200" autocomplete="off" aria-describedby="ov-name-h"><span class="hint" id="ov-name-h">The Compendium calls it {{.BaseName}}.</span></div>
@@ -35,7 +37,7 @@
       {{range .Fields}}{{if or .Base .Override .Has}}{{template "ov-field" (dict "F" . "V" $.Data.Values)}}{{end}}{{end}}
       <details class="more"><summary>Fields neither has a value for</summary>
       {{range .Fields}}{{if not (or .Base .Override .Has)}}{{template "ov-field" (dict "F" . "V" $.Data.Values)}}{{end}}{{end}}</details>
-      <div class="field"><label for="ov-notes">Notes for this book <span class="optional">private to the book</span></label><textarea id="ov-notes" name="notes" rows="4">{{if .Values.notes}}{{.Values.notes}}{{else}}{{.Notes}}{{end}}</textarea></div>
+      <div class="field"><label for="ov-notes">Private notes for this book <span class="optional">kept in this book only</span></label><textarea id="ov-notes" name="notes" rows="4">{{if .Values.notes}}{{.Values.notes}}{{else}}{{.Notes}}{{end}}</textarea></div>
       <div class="form-actions"><button class="btn solid" type="submit">Save this book&rsquo;s version</button></div>
     </form>
     {{if .OverrideSet}}<form method="post" action="/ui/projects/{{.Project.ID}}/entity-override/clear"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="entity_id" value="{{$e.ID}}"><button class="btn quiet" type="submit">Clear this book&rsquo;s version</button></form>{{end}}

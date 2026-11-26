@@ -135,6 +135,15 @@ var queueTables = []struct{ name, table, col string }{
 
 var diskAreas = map[string]bool{"scriobh.db": true, "scriobh.db-wal": true, "scriobh.db-shm": true, "files": true, "mirror": true, "backups": true, "git": true, "conflicts": true}
 
+// onlyShared is the condition a table's row count takes. A private ("Only me") comment is its author's alone, and a count that included it
+// would tell an administrator how many notes the writers keep: the comments table is counted over its shared rows only.
+func onlyShared(table string) string {
+	if table == "comments" {
+		return ` WHERE visibility = 'shared'`
+	}
+	return ""
+}
+
 func build(c *ops.Ctx) (Bundle, error) {
 	s := svc(c)
 	b := Bundle{Schema: 1, Version: Scrub(s.Version), GoVersion: runtime.Version(), OS: runtime.GOOS, Arch: runtime.GOARCH, CPUs: runtime.NumCPU(),
@@ -188,7 +197,7 @@ func build(c *ops.Ctx) (Bundle, error) {
 	rows.Close()
 	for _, n := range names {
 		var cnt int64
-		if err := q.QueryRowContext(c, `SELECT count(*) FROM "`+n+`"`).Scan(&cnt); err == nil {
+		if err := q.QueryRowContext(c, `SELECT count(*) FROM "`+n+`"`+onlyShared(n)).Scan(&cnt); err == nil {
 			b.Tables = append(b.Tables, TableCount{Name: n, Rows: cnt})
 		}
 	}

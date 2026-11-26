@@ -36,30 +36,41 @@ const maxListedSkips = 500
 
 // PreviewIn asks what importing a folder would create.
 type PreviewIn struct {
-	Name          string    `json:"name,omitempty" desc:"What the folder is called; becomes the project title when the files say nothing better."`
-	Files         []File    `json:"files,omitempty" desc:"The folder's files. Up to 10,000 entries; at most 2,000 Markdown files, 2 MiB each and 32 MiB together."`
-	Zip           []byte    `json:"zip,omitempty" desc:"Instead of files: a zip of the folder, base64."`
-	Docx          []byte    `json:"docx,omitempty" desc:"Instead of files or a zip: a Word document (.docx), base64. Headings become chapters, text before the first heading becomes front matter, scene breaks, lists, tables and footnotes are kept; comments, images and tracked changes are reported, not imported."`
-	Epub          []byte    `json:"epub,omitempty" desc:"Instead of files, a zip or a Word document: an EPUB 2 or 3 book (.epub), base64. The reading order, metadata, cover, pictures and footnotes are read and the preview proposes parts, chapters and front and back matter, which the edits can rename, merge (merge_into), move (parent), skip and reorder. A book with DRM, or with a fixed layout, is refused. The file is kept intact, with its SHA-256, as an edition of the project (edition.list)."`
-	EpubSections  string    `json:"epub_sections,omitempty" enum:"auto,toc,files,headings" desc:"With epub: how the text is cut into sections: toc (the book's table of contents), files (one for each file of its reading order), headings (at the chapter-level heading, for one long file), auto (default: toc, else files, else headings). The preview's epub.strategy says which was used."`
-	EpubPages     string    `json:"epub_pages,omitempty" enum:"skip,keep" desc:"With epub: skip (default) leaves out the cover page and the title page, which the project's own title and author replace; keep imports a title page as front matter. The contents page is always left out."`
-	Pandoc        []byte    `json:"pandoc,omitempty" desc:"Instead of files, a zip or a .docx: a document in a format this program does not read itself, base64, converted to Markdown by the Pandoc program when an administrator has switched the bridge on (pandoc.config.get). Give its format as pandoc_format. Headings become chapters as for a .docx (docx_headings applies). Pictures are taken out of the file only with pictures: import (otherwise each is marked [image]); those Pandoc extracts are checked and cleaned like any import's; raw HTML and Scríobh syntax in the converted text are neutralised; the file is never kept, its hash is recorded."`
-	PandocFormat  string    `json:"pandoc_format,omitempty" enum:"odt,rtf,latex,mediawiki,org,textile,rst,fb2,typst,docbook" desc:"With pandoc: odt, rtf, latex, mediawiki, org, textile, rst, fb2, typst or docbook."`
-	Pdf           []byte    `json:"pdf,omitempty" desc:"Instead of files, a zip or a .docx: a PDF with a text layer, base64 (up to 32 MiB). The text is read, with its chapters taken from the outline or from headings; running heads, page numbers and a table of contents are removed, footnotes are kept, and the preview says what could not be recovered (scanned pages, tables, pictures, columns, right-to-left text) with a confidence for each page. A scanned or encrypted PDF is refused; nothing in a PDF is run."`
-	Layout        string    `json:"layout,omitempty" enum:"auto,obsidian,scrivener,wordpress,ghost" desc:"obsidian reads the files as an Obsidian vault (wiki links, embeds, callouts, comments, dataview); it is never detected: say so. scrivener reads a Scrivener project (send files or a zip of the .scriv folder), wordpress a WordPress export (WXR, an .xml file) and ghost a Ghost export (.json); auto (default) recognises these three by their own markers when there is no Markdown to read, and otherwise reads a Scríobh mirror or export, or a generic folder. The preview's layout says what was read."`
-	DocxHeadings  string    `json:"docx_headings,omitempty" enum:"chapters,parts" desc:"With docx: chapters (default) makes Heading 1 a chapter; parts makes Heading 1 a part and Heading 2 a chapter."`
-	DocxChanges   string    `json:"docx_changes,omitempty" enum:"suggest,accept,reject" desc:"With docx: what tracked changes become. suggest (default) imports the text as its author left it, every change rejected, and proposes each change inside a paragraph as a pending suggestion by its Word author (a label, not an account) at the time Word recorded; accepting them all in review gives the reviewers' text. Changes that cannot be suggestions (a whole paragraph inserted or deleted, a heading, a table, a footnote, code, over the caps of 300 per document and 1,000 per import, or ones the review checks would refuse) are taken as the reviewer left them, and the preview counts each kind. accept imports the final view and reject the original, with no suggestions. Word comments are imported as comments by their Word authors in every mode."`
-	ScrivResearch string    `json:"scrivener_research,omitempty" enum:"notes,skip" desc:"With a Scrivener project: notes (default) imports the Research folder as research notes (a picture becomes a note showing it, with pictures: import; PDFs and web pages are named in a note, not imported); skip leaves Research out."`
-	ScrivNotes    string    `json:"scrivener_notes,omitempty" enum:"private,skip" desc:"With a Scrivener project: private (default) puts each document's notes after its text as private notes; skip leaves them out."`
-	WPStatus      string    `json:"wp_status,omitempty" enum:"published,all" desc:"With a WordPress export: published (default) imports published posts and pages only; all adds drafts, pending, scheduled and private ones, which are marked do not compile."`
-	WPTypes       string    `json:"wp_types,omitempty" enum:"posts,pages,both" desc:"With a WordPress export: posts (default), pages, or both (pages go in a part called Pages after the posts)."`
-	GhostStatus   string    `json:"ghost_status,omitempty" enum:"published,all" desc:"With a Ghost export: published (default) imports published posts and pages only; all adds drafts, scheduled and sent ones, which are marked do not compile."`
-	GhostTypes    string    `json:"ghost_types,omitempty" enum:"posts,pages,both" desc:"With a Ghost export: posts (default), pages, or both."`
-	Pictures      string    `json:"pictures,omitempty" enum:"import,skip" desc:"With a Scrivener project, or a WordPress or Ghost export sent as a zip with its images folder: import (default) stores the pictures that are in what was sent as attachments of the project, checked and cleaned of their location, camera and other details, and links the text to them; skip leaves them out (each is marked [image]). A picture is never fetched from an address."`
-	ScrivSheets   string    `json:"scrivener_sheets,omitempty" enum:"notes,entities" desc:"With a Scrivener project: notes (default) imports the Characters and Places folders as research notes; entities makes each character and place sheet an entity of the project's primary Compendium (a new project gets one, owned by you; adding to a project uses its primary Compendium if you may edit it). A name the Compendium already has, or a sheet with a picture, stays a research note, and the result says so."`
-	SplitScenes   string    `json:"split_scenes,omitempty" enum:"none,h2" desc:"h2 turns the second-level headings of each file into scenes. Default none."`
-	Edits         []Edit    `json:"edits,omitempty" desc:"Optional: preview with these edits applied, exactly as apply would."`
-	Reorder       []Reorder `json:"reorder,omitempty" desc:"Optional: preview with this reordering applied."`
+	Name              string    `json:"name,omitempty" desc:"What the folder is called; becomes the project title when the files say nothing better."`
+	Files             []File    `json:"files,omitempty" desc:"The folder's files. Up to 10,000 entries; at most 2,000 Markdown files, 2 MiB each and 32 MiB together."`
+	Zip               []byte    `json:"zip,omitempty" desc:"Instead of files: a zip of the folder, base64."`
+	Docx              []byte    `json:"docx,omitempty" desc:"Instead of files or a zip: a Word document (.docx), base64. Headings become chapters, text before the first heading becomes front matter, scene breaks, lists, tables and footnotes are kept; comments, images and tracked changes are reported, not imported."`
+	Epub              []byte    `json:"epub,omitempty" desc:"Instead of files, a zip or a Word document: an EPUB 2 or 3 book (.epub), base64. The reading order, metadata, cover, pictures and footnotes are read and the preview proposes parts, chapters and front and back matter, which the edits can rename, merge (merge_into), move (parent), skip and reorder. A book with DRM, or with a fixed layout, is refused. The file is kept intact, with its SHA-256, as an edition of the project (edition.list)."`
+	EpubSections      string    `json:"epub_sections,omitempty" enum:"auto,toc,files,headings" desc:"With epub: how the text is cut into sections: toc (the book's table of contents), files (one for each file of its reading order), headings (at the chapter-level heading, for one long file), auto (default: toc, else files, else headings). The preview's epub.strategy says which was used."`
+	EpubPages         string    `json:"epub_pages,omitempty" enum:"skip,keep" desc:"With epub: skip (default) leaves out the cover page and the title page, which the project's own title and author replace; keep imports a title page as front matter. The contents page is always left out."`
+	Pandoc            []byte    `json:"pandoc,omitempty" desc:"Instead of files, a zip or a .docx: a document in a format this program does not read itself, base64, converted to Markdown by the Pandoc program when an administrator has switched the bridge on (pandoc.config.get). Give its format as pandoc_format. Headings become chapters as for a .docx (docx_headings applies). Pictures are taken out of the file only with pictures: import (otherwise each is marked [image]); those Pandoc extracts are checked and cleaned like any import's; raw HTML and Scríobh syntax in the converted text are neutralised; the file is never kept, its hash is recorded."`
+	PandocFormat      string    `json:"pandoc_format,omitempty" enum:"odt,rtf,latex,mediawiki,org,textile,rst,fb2,typst,docbook" desc:"With pandoc: odt, rtf, latex, mediawiki, org, textile, rst, fb2, typst or docbook."`
+	Pdf               []byte    `json:"pdf,omitempty" desc:"Instead of files, a zip or a .docx: a PDF with a text layer, base64 (up to 32 MiB). The text is read, with its chapters taken from the outline or from headings; running heads, page numbers and a table of contents are removed, footnotes are kept, and the preview says what could not be recovered (scanned pages, tables, pictures, columns, right-to-left text) with a confidence for each page. A scanned or encrypted PDF is refused; nothing in a PDF is run."`
+	Text              []byte    `json:"text,omitempty" desc:"Instead of files, a zip or a .docx: a plain text file (.txt, UTF-8, up to 16 MiB), base64. Blank lines separate paragraphs; a line of * * * or --- is a scene break; the characters Markdown would take for markup are escaped. Chapters are found from what the words say: a heading is never assumed, a chapter label (Chapter 3) in capitals is a chapter, and a plain one is offered in the preview (breaks.suggestions) to take; docx_split, docx_split_pattern and docx_breaks cut it as they cut a Word document."`
+	Layout            string    `json:"layout,omitempty" enum:"auto,obsidian,scrivener,wordpress,ghost" desc:"obsidian reads the files as an Obsidian vault (wiki links, embeds, callouts, comments, dataview); it is never detected: say so. scrivener reads a Scrivener project (send files or a zip of the .scriv folder), wordpress a WordPress export (WXR, an .xml file) and ghost a Ghost export (.json); auto (default) recognises these three by their own markers when there is no Markdown to read, and otherwise reads a Scríobh mirror or export, or a generic folder. The preview's layout says what was read."`
+	DocxHeadings      string    `json:"docx_headings,omitempty" enum:"auto,chapters,parts" desc:"With docx: leave empty (or auto) to have the heading level and the parts chosen for you (see docx_split). chapters makes the lowest heading level the chapters, with no parts; parts makes it a part and the next level the chapters."`
+	DocxSplit         string    `json:"docx_split,omitempty" enum:"auto,heading1,heading2,style,label,page_breaks,section_breaks,numerals,size,pattern,none" desc:"With docx or text (and a pdf or pandoc source that has no headings): how the document is cut into chapters. auto (default) cuts at strong boundaries only, all used together: a heading of the chapter level (the lowest level used twice; a book title at Heading 1 over Heading 2 chapters, and Part headings over chapters, are told apart without a setting), a paragraph in a custom style named for chapters, and a 'Chapter 3' line that looks like a title (centred, bold, capitals, larger or after a page break), with an unformatted one that belongs to a numbered run. A page break, a section break, a lone numeral or a plain label alone never cuts under auto; the preview lists them as breaks.suggestions and each can be chosen: heading1 or heading2 cut at that heading level, style at docx_split_style, label at every line that begins with a chapter word and a number, page_breaks, section_breaks and numerals at those, size at pieces of docx_split_words, pattern at the paragraphs that match docx_split_pattern, none leaves one document. docx_breaks adds chapters of the writer's own under any of them."`
+	DocxSplitStyle    string    `json:"docx_split_style,omitempty" desc:"With docx_split style: the paragraph style's name (the preview's breaks.options lists those that exist)."`
+	DocxSplitPattern  string    `json:"docx_split_pattern,omitempty" desc:"With docx_split pattern: the text a chapter's first line begins with (docx_split_match starts), or an RE2 regular expression the line matches (regex). At most 200 characters. It is tried only against paragraphs of 200 characters or fewer, so a long paragraph is never a chapter start; a regular expression with a very large program, or a book with too much short text to try it on, is refused. The preview's breaks.pattern says how many paragraphs it matches, and the first five. A pattern kept with another docx_split changes nothing but that answer."`
+	DocxSplitMatch    string    `json:"docx_split_match,omitempty" enum:"starts,regex" desc:"With docx_split_pattern: starts (default) matches the beginning of a paragraph, ignoring case; regex reads the pattern as an RE2 expression, case as typed (begin it with (?i) to ignore case)."`
+	DocxSplitTry      string    `json:"docx_split_try,omitempty" desc:"With docx: a pattern to try. It changes nothing: the preview's breaks.try says how many paragraphs it matches (docx_split_try_match says how to read it, as docx_split_match does), and the first five."`
+	DocxSplitTryMatch string    `json:"docx_split_try_match,omitempty" enum:"starts,regex"`
+	DocxSplitWords    int       `json:"docx_split_words,omitempty" desc:"With docx_split size: about how many words a piece has, 500 to 20,000 (default 5,000). The cut is at the nearest scene break within a fifth, else at a paragraph's end."`
+	DocxBreaks        []int     `json:"docx_breaks,omitempty" desc:"With docx, text, pdf or pandoc: paragraphs a chapter starts at in addition to what docx_split finds, by ordinal (the preview's breaks.suggestions and each document's ordinal give them): the paragraph's index among the document's paragraphs. At most 5,000. A chapter is taken away by joining it into the one before."`
+	DocxChanges       string    `json:"docx_changes,omitempty" enum:"suggest,accept,reject" desc:"With docx: what tracked changes become. suggest (default) imports the text as its author left it, every change rejected, and proposes each change inside a paragraph as a pending suggestion by its Word author (a label, not an account) at the time Word recorded; accepting them all in review gives the reviewers' text. Changes that cannot be suggestions (a whole paragraph inserted or deleted, a heading, a table, a footnote, code, over the caps of 300 per document and 1,000 per import, or ones the review checks would refuse) are taken as the reviewer left them, and the preview counts each kind. accept imports the final view and reject the original, with no suggestions. Word comments are imported as comments by their Word authors in every mode."`
+	ScrivResearch     string    `json:"scrivener_research,omitempty" enum:"notes,skip" desc:"With a Scrivener project: notes (default) imports the Research folder as research notes (a picture becomes a note showing it, with pictures: import; PDFs and web pages are named in a note, not imported); skip leaves Research out."`
+	ScrivNotes        string    `json:"scrivener_notes,omitempty" enum:"private,skip" desc:"With a Scrivener project: private (default) puts each document's notes after its text as private notes; skip leaves them out."`
+	WPStatus          string    `json:"wp_status,omitempty" enum:"published,all" desc:"With a WordPress export: published (default) imports published posts and pages only; all adds drafts, pending, scheduled and private ones, which are marked do not compile."`
+	WPTypes           string    `json:"wp_types,omitempty" enum:"posts,pages,both" desc:"With a WordPress export: posts (default), pages, or both (pages go in a part called Pages after the posts)."`
+	GhostStatus       string    `json:"ghost_status,omitempty" enum:"published,all" desc:"With a Ghost export: published (default) imports published posts and pages only; all adds drafts, scheduled and sent ones, which are marked do not compile."`
+	GhostTypes        string    `json:"ghost_types,omitempty" enum:"posts,pages,both" desc:"With a Ghost export: posts (default), pages, or both."`
+	Pictures          string    `json:"pictures,omitempty" enum:"import,skip" desc:"With a Scrivener project, or a WordPress or Ghost export sent as a zip with its images folder: import (default) stores the pictures that are in what was sent as attachments of the project, checked and cleaned of their location, camera and other details, and links the text to them; skip leaves them out (each is marked [image]). A picture is never fetched from an address."`
+	ScrivSheets       string    `json:"scrivener_sheets,omitempty" enum:"notes,entities" desc:"With a Scrivener project: notes (default) imports the Characters and Places folders as research notes; entities makes each character and place sheet an entity of the project's primary Compendium (a new project gets one, owned by you; adding to a project uses its primary Compendium if you may edit it). A name the Compendium already has, or a sheet with a picture, stays a research note, and the result says so."`
+	SplitScenes       string    `json:"split_scenes,omitempty" enum:"none,h2" desc:"h2 turns the second-level headings of each file into scenes. Default none."`
+	Edits             []Edit    `json:"edits,omitempty" desc:"Optional: preview with these edits applied, exactly as apply would."`
+	Reorder           []Reorder `json:"reorder,omitempty" desc:"Optional: preview with this reordering applied."`
+	StageID           string    `json:"stage_id,omitempty" desc:"Instead of the files: the id import.stage returned. The staged file, the options and the edits are then the draft's (review it with import.draft.update); send nothing else of the source."`
+	sum               string    // the staged source's SHA-256, for the cache of its conversion
 }
 
 // Validate checks the options.
@@ -72,31 +83,42 @@ func (in *PreviewIn) Validate() error {
 
 // AppendPreviewIn is PreviewIn for adding to an existing project.
 type AppendPreviewIn struct {
-	ProjectID     string    `path:"id" json:"-" desc:"Project id."`
-	Name          string    `json:"name,omitempty" desc:"What the folder is called."`
-	Files         []File    `json:"files,omitempty" desc:"The folder's files, as for import.preview."`
-	Zip           []byte    `json:"zip,omitempty" desc:"Instead of files: a zip of the folder, base64."`
-	Docx          []byte    `json:"docx,omitempty" desc:"Instead of files or a zip: a Word document (.docx), base64. Headings become chapters, text before the first heading becomes front matter, scene breaks, lists, tables and footnotes are kept; comments, images and tracked changes are reported, not imported."`
-	Epub          []byte    `json:"epub,omitempty" desc:"Instead of files, a zip or a Word document: an EPUB 2 or 3 book (.epub), base64. The reading order, metadata, cover, pictures and footnotes are read and the preview proposes parts, chapters and front and back matter, which the edits can rename, merge (merge_into), move (parent), skip and reorder. A book with DRM, or with a fixed layout, is refused. The file is kept intact, with its SHA-256, as an edition of the project (edition.list)."`
-	EpubSections  string    `json:"epub_sections,omitempty" enum:"auto,toc,files,headings" desc:"With epub: how the text is cut into sections: toc (the book's table of contents), files (one for each file of its reading order), headings (at the chapter-level heading, for one long file), auto (default: toc, else files, else headings). The preview's epub.strategy says which was used."`
-	EpubPages     string    `json:"epub_pages,omitempty" enum:"skip,keep" desc:"With epub: skip (default) leaves out the cover page and the title page, which the project's own title and author replace; keep imports a title page as front matter. The contents page is always left out."`
-	Pandoc        []byte    `json:"pandoc,omitempty" desc:"Instead of files, a zip or a .docx: a document in a format this program does not read itself, base64, converted to Markdown by the Pandoc program when an administrator has switched the bridge on (pandoc.config.get). Give its format as pandoc_format. Headings become chapters as for a .docx (docx_headings applies). Pictures are taken out of the file only with pictures: import (otherwise each is marked [image]); those Pandoc extracts are checked and cleaned like any import's; raw HTML and Scríobh syntax in the converted text are neutralised; the file is never kept, its hash is recorded."`
-	PandocFormat  string    `json:"pandoc_format,omitempty" enum:"odt,rtf,latex,mediawiki,org,textile,rst,fb2,typst,docbook" desc:"With pandoc: odt, rtf, latex, mediawiki, org, textile, rst, fb2, typst or docbook."`
-	Pdf           []byte    `json:"pdf,omitempty" desc:"Instead of files, a zip or a .docx: a PDF with a text layer, base64 (up to 32 MiB). The text is read, with its chapters taken from the outline or from headings; running heads, page numbers and a table of contents are removed, footnotes are kept, and the preview says what could not be recovered (scanned pages, tables, pictures, columns, right-to-left text) with a confidence for each page. A scanned or encrypted PDF is refused; nothing in a PDF is run."`
-	Layout        string    `json:"layout,omitempty" enum:"auto,obsidian,scrivener,wordpress,ghost" desc:"obsidian reads the files as an Obsidian vault (wiki links, embeds, callouts, comments, dataview); it is never detected: say so. scrivener reads a Scrivener project (send files or a zip of the .scriv folder), wordpress a WordPress export (WXR, an .xml file) and ghost a Ghost export (.json); auto (default) recognises these three by their own markers when there is no Markdown to read, and otherwise reads a Scríobh mirror or export, or a generic folder. The preview's layout says what was read."`
-	DocxHeadings  string    `json:"docx_headings,omitempty" enum:"chapters,parts" desc:"With docx: chapters (default) makes Heading 1 a chapter; parts makes Heading 1 a part and Heading 2 a chapter."`
-	DocxChanges   string    `json:"docx_changes,omitempty" enum:"suggest,accept,reject" desc:"With docx: what tracked changes become. suggest (default) imports the text as its author left it, every change rejected, and proposes each change inside a paragraph as a pending suggestion by its Word author (a label, not an account) at the time Word recorded; accepting them all in review gives the reviewers' text. Changes that cannot be suggestions (a whole paragraph inserted or deleted, a heading, a table, a footnote, code, over the caps of 300 per document and 1,000 per import, or ones the review checks would refuse) are taken as the reviewer left them, and the preview counts each kind. accept imports the final view and reject the original, with no suggestions. Word comments are imported as comments by their Word authors in every mode."`
-	ScrivResearch string    `json:"scrivener_research,omitempty" enum:"notes,skip" desc:"With a Scrivener project: notes (default) imports the Research folder as research notes (a picture becomes a note showing it, with pictures: import; PDFs and web pages are named in a note, not imported); skip leaves Research out."`
-	ScrivNotes    string    `json:"scrivener_notes,omitempty" enum:"private,skip" desc:"With a Scrivener project: private (default) puts each document's notes after its text as private notes; skip leaves them out."`
-	WPStatus      string    `json:"wp_status,omitempty" enum:"published,all" desc:"With a WordPress export: published (default) imports published posts and pages only; all adds drafts, pending, scheduled and private ones, which are marked do not compile."`
-	WPTypes       string    `json:"wp_types,omitempty" enum:"posts,pages,both" desc:"With a WordPress export: posts (default), pages, or both (pages go in a part called Pages after the posts)."`
-	GhostStatus   string    `json:"ghost_status,omitempty" enum:"published,all" desc:"With a Ghost export: published (default) imports published posts and pages only; all adds drafts, scheduled and sent ones, which are marked do not compile."`
-	GhostTypes    string    `json:"ghost_types,omitempty" enum:"posts,pages,both" desc:"With a Ghost export: posts (default), pages, or both."`
-	Pictures      string    `json:"pictures,omitempty" enum:"import,skip" desc:"With a Scrivener project, or a WordPress or Ghost export sent as a zip with its images folder: import (default) stores the pictures that are in what was sent as attachments of the project, checked and cleaned of their location, camera and other details, and links the text to them; skip leaves them out (each is marked [image]). A picture is never fetched from an address."`
-	ScrivSheets   string    `json:"scrivener_sheets,omitempty" enum:"notes,entities" desc:"With a Scrivener project: notes (default) imports the Characters and Places folders as research notes; entities makes each character and place sheet an entity of the project's primary Compendium (a new project gets one, owned by you; adding to a project uses its primary Compendium if you may edit it). A name the Compendium already has, or a sheet with a picture, stays a research note, and the result says so."`
-	SplitScenes   string    `json:"split_scenes,omitempty" enum:"none,h2"`
-	Edits         []Edit    `json:"edits,omitempty" desc:"Optional: preview with these edits applied."`
-	Reorder       []Reorder `json:"reorder,omitempty" desc:"Optional: preview with this reordering applied."`
+	ProjectID         string    `path:"id" json:"-" desc:"Project id."`
+	Name              string    `json:"name,omitempty" desc:"What the folder is called."`
+	Files             []File    `json:"files,omitempty" desc:"The folder's files, as for import.preview."`
+	Zip               []byte    `json:"zip,omitempty" desc:"Instead of files: a zip of the folder, base64."`
+	Docx              []byte    `json:"docx,omitempty" desc:"Instead of files or a zip: a Word document (.docx), base64. Headings become chapters, text before the first heading becomes front matter, scene breaks, lists, tables and footnotes are kept; comments, images and tracked changes are reported, not imported."`
+	Epub              []byte    `json:"epub,omitempty" desc:"Instead of files, a zip or a Word document: an EPUB 2 or 3 book (.epub), base64. The reading order, metadata, cover, pictures and footnotes are read and the preview proposes parts, chapters and front and back matter, which the edits can rename, merge (merge_into), move (parent), skip and reorder. A book with DRM, or with a fixed layout, is refused. The file is kept intact, with its SHA-256, as an edition of the project (edition.list)."`
+	EpubSections      string    `json:"epub_sections,omitempty" enum:"auto,toc,files,headings" desc:"With epub: how the text is cut into sections: toc (the book's table of contents), files (one for each file of its reading order), headings (at the chapter-level heading, for one long file), auto (default: toc, else files, else headings). The preview's epub.strategy says which was used."`
+	EpubPages         string    `json:"epub_pages,omitempty" enum:"skip,keep" desc:"With epub: skip (default) leaves out the cover page and the title page, which the project's own title and author replace; keep imports a title page as front matter. The contents page is always left out."`
+	Pandoc            []byte    `json:"pandoc,omitempty" desc:"Instead of files, a zip or a .docx: a document in a format this program does not read itself, base64, converted to Markdown by the Pandoc program when an administrator has switched the bridge on (pandoc.config.get). Give its format as pandoc_format. Headings become chapters as for a .docx (docx_headings applies). Pictures are taken out of the file only with pictures: import (otherwise each is marked [image]); those Pandoc extracts are checked and cleaned like any import's; raw HTML and Scríobh syntax in the converted text are neutralised; the file is never kept, its hash is recorded."`
+	PandocFormat      string    `json:"pandoc_format,omitempty" enum:"odt,rtf,latex,mediawiki,org,textile,rst,fb2,typst,docbook" desc:"With pandoc: odt, rtf, latex, mediawiki, org, textile, rst, fb2, typst or docbook."`
+	Pdf               []byte    `json:"pdf,omitempty" desc:"Instead of files, a zip or a .docx: a PDF with a text layer, base64 (up to 32 MiB). The text is read, with its chapters taken from the outline or from headings; running heads, page numbers and a table of contents are removed, footnotes are kept, and the preview says what could not be recovered (scanned pages, tables, pictures, columns, right-to-left text) with a confidence for each page. A scanned or encrypted PDF is refused; nothing in a PDF is run."`
+	Text              []byte    `json:"text,omitempty" desc:"Instead of files, a zip or a .docx: a plain text file (.txt, UTF-8, up to 16 MiB), base64. Blank lines separate paragraphs; a line of * * * or --- is a scene break; the characters Markdown would take for markup are escaped. Chapters are found from what the words say: a heading is never assumed, a chapter label (Chapter 3) in capitals is a chapter, and a plain one is offered in the preview (breaks.suggestions) to take; docx_split, docx_split_pattern and docx_breaks cut it as they cut a Word document."`
+	Layout            string    `json:"layout,omitempty" enum:"auto,obsidian,scrivener,wordpress,ghost" desc:"obsidian reads the files as an Obsidian vault (wiki links, embeds, callouts, comments, dataview); it is never detected: say so. scrivener reads a Scrivener project (send files or a zip of the .scriv folder), wordpress a WordPress export (WXR, an .xml file) and ghost a Ghost export (.json); auto (default) recognises these three by their own markers when there is no Markdown to read, and otherwise reads a Scríobh mirror or export, or a generic folder. The preview's layout says what was read."`
+	DocxHeadings      string    `json:"docx_headings,omitempty" enum:"auto,chapters,parts" desc:"With docx: leave empty (or auto) to have the heading level and the parts chosen for you (see docx_split). chapters makes the lowest heading level the chapters, with no parts; parts makes it a part and the next level the chapters."`
+	DocxSplit         string    `json:"docx_split,omitempty" enum:"auto,heading1,heading2,style,label,page_breaks,section_breaks,numerals,size,pattern,none" desc:"With docx or text (and a pdf or pandoc source that has no headings): how the document is cut into chapters. auto (default) cuts at strong boundaries only, all used together: a heading of the chapter level (the lowest level used twice; a book title at Heading 1 over Heading 2 chapters, and Part headings over chapters, are told apart without a setting), a paragraph in a custom style named for chapters, and a 'Chapter 3' line that looks like a title (centred, bold, capitals, larger or after a page break), with an unformatted one that belongs to a numbered run. A page break, a section break, a lone numeral or a plain label alone never cuts under auto; the preview lists them as breaks.suggestions and each can be chosen: heading1 or heading2 cut at that heading level, style at docx_split_style, label at every line that begins with a chapter word and a number, page_breaks, section_breaks and numerals at those, size at pieces of docx_split_words, pattern at the paragraphs that match docx_split_pattern, none leaves one document. docx_breaks adds chapters of the writer's own under any of them."`
+	DocxSplitStyle    string    `json:"docx_split_style,omitempty" desc:"With docx_split style: the paragraph style's name (the preview's breaks.options lists those that exist)."`
+	DocxSplitPattern  string    `json:"docx_split_pattern,omitempty" desc:"With docx_split pattern: the text a chapter's first line begins with (docx_split_match starts), or an RE2 regular expression the line matches (regex). At most 200 characters. It is tried only against paragraphs of 200 characters or fewer, so a long paragraph is never a chapter start; a regular expression with a very large program, or a book with too much short text to try it on, is refused. The preview's breaks.pattern says how many paragraphs it matches, and the first five. A pattern kept with another docx_split changes nothing but that answer."`
+	DocxSplitMatch    string    `json:"docx_split_match,omitempty" enum:"starts,regex" desc:"With docx_split_pattern: starts (default) matches the beginning of a paragraph, ignoring case; regex reads the pattern as an RE2 expression, case as typed (begin it with (?i) to ignore case)."`
+	DocxSplitTry      string    `json:"docx_split_try,omitempty" desc:"With docx: a pattern to try. It changes nothing: the preview's breaks.try says how many paragraphs it matches (docx_split_try_match says how to read it, as docx_split_match does), and the first five."`
+	DocxSplitTryMatch string    `json:"docx_split_try_match,omitempty" enum:"starts,regex"`
+	DocxSplitWords    int       `json:"docx_split_words,omitempty" desc:"With docx_split size: about how many words a piece has, 500 to 20,000 (default 5,000). The cut is at the nearest scene break within a fifth, else at a paragraph's end."`
+	DocxBreaks        []int     `json:"docx_breaks,omitempty" desc:"With docx, text, pdf or pandoc: paragraphs a chapter starts at in addition to what docx_split finds, by ordinal (the preview's breaks.suggestions and each document's ordinal give them): the paragraph's index among the document's paragraphs. At most 5,000. A chapter is taken away by joining it into the one before."`
+	DocxChanges       string    `json:"docx_changes,omitempty" enum:"suggest,accept,reject" desc:"With docx: what tracked changes become. suggest (default) imports the text as its author left it, every change rejected, and proposes each change inside a paragraph as a pending suggestion by its Word author (a label, not an account) at the time Word recorded; accepting them all in review gives the reviewers' text. Changes that cannot be suggestions (a whole paragraph inserted or deleted, a heading, a table, a footnote, code, over the caps of 300 per document and 1,000 per import, or ones the review checks would refuse) are taken as the reviewer left them, and the preview counts each kind. accept imports the final view and reject the original, with no suggestions. Word comments are imported as comments by their Word authors in every mode."`
+	ScrivResearch     string    `json:"scrivener_research,omitempty" enum:"notes,skip" desc:"With a Scrivener project: notes (default) imports the Research folder as research notes (a picture becomes a note showing it, with pictures: import; PDFs and web pages are named in a note, not imported); skip leaves Research out."`
+	ScrivNotes        string    `json:"scrivener_notes,omitempty" enum:"private,skip" desc:"With a Scrivener project: private (default) puts each document's notes after its text as private notes; skip leaves them out."`
+	WPStatus          string    `json:"wp_status,omitempty" enum:"published,all" desc:"With a WordPress export: published (default) imports published posts and pages only; all adds drafts, pending, scheduled and private ones, which are marked do not compile."`
+	WPTypes           string    `json:"wp_types,omitempty" enum:"posts,pages,both" desc:"With a WordPress export: posts (default), pages, or both (pages go in a part called Pages after the posts)."`
+	GhostStatus       string    `json:"ghost_status,omitempty" enum:"published,all" desc:"With a Ghost export: published (default) imports published posts and pages only; all adds drafts, scheduled and sent ones, which are marked do not compile."`
+	GhostTypes        string    `json:"ghost_types,omitempty" enum:"posts,pages,both" desc:"With a Ghost export: posts (default), pages, or both."`
+	Pictures          string    `json:"pictures,omitempty" enum:"import,skip" desc:"With a Scrivener project, or a WordPress or Ghost export sent as a zip with its images folder: import (default) stores the pictures that are in what was sent as attachments of the project, checked and cleaned of their location, camera and other details, and links the text to them; skip leaves them out (each is marked [image]). A picture is never fetched from an address."`
+	ScrivSheets       string    `json:"scrivener_sheets,omitempty" enum:"notes,entities" desc:"With a Scrivener project: notes (default) imports the Characters and Places folders as research notes; entities makes each character and place sheet an entity of the project's primary Compendium (a new project gets one, owned by you; adding to a project uses its primary Compendium if you may edit it). A name the Compendium already has, or a sheet with a picture, stays a research note, and the result says so."`
+	SplitScenes       string    `json:"split_scenes,omitempty" enum:"none,h2"`
+	Edits             []Edit    `json:"edits,omitempty" desc:"Optional: preview with these edits applied."`
+	Reorder           []Reorder `json:"reorder,omitempty" desc:"Optional: preview with this reordering applied."`
+	StageID           string    `json:"stage_id,omitempty" desc:"Instead of the files: the id import.stage returned. The staged file, the options and the edits are then the draft's (review it with import.draft.update); send nothing else of the source."`
+	sum               string
 }
 
 func (in AppendPreviewIn) ProjectRef() string { return in.ProjectID }
@@ -111,37 +133,48 @@ func (in *AppendPreviewIn) Validate() error {
 
 // ApplyIn creates a project from a previewed folder.
 type ApplyIn struct {
-	Token         string    `json:"token" desc:"The token import.preview returned for these same files."`
-	Name          string    `json:"name,omitempty" desc:"As in the preview."`
-	Files         []File    `json:"files,omitempty" desc:"The same files that were previewed."`
-	Zip           []byte    `json:"zip,omitempty" desc:"The same zip that was previewed, base64."`
-	Docx          []byte    `json:"docx,omitempty" desc:"The same .docx that was previewed, base64."`
-	Epub          []byte    `json:"epub,omitempty" desc:"Instead of files, a zip or a Word document: an EPUB 2 or 3 book (.epub), base64. The reading order, metadata, cover, pictures and footnotes are read and the preview proposes parts, chapters and front and back matter, which the edits can rename, merge (merge_into), move (parent), skip and reorder. A book with DRM, or with a fixed layout, is refused. The file is kept intact, with its SHA-256, as an edition of the project (edition.list)."`
-	EpubSections  string    `json:"epub_sections,omitempty" enum:"auto,toc,files,headings" desc:"With epub: how the text is cut into sections: toc (the book's table of contents), files (one for each file of its reading order), headings (at the chapter-level heading, for one long file), auto (default: toc, else files, else headings). The preview's epub.strategy says which was used."`
-	EpubPages     string    `json:"epub_pages,omitempty" enum:"skip,keep" desc:"With epub: skip (default) leaves out the cover page and the title page, which the project's own title and author replace; keep imports a title page as front matter. The contents page is always left out."`
-	Pandoc        []byte    `json:"pandoc,omitempty" desc:"The same file that was previewed, base64 (with pandoc_format)."`
-	PandocFormat  string    `json:"pandoc_format,omitempty" enum:"odt,rtf,latex,mediawiki,org,textile,rst,fb2,typst,docbook" desc:"As in the preview."`
-	Pdf           []byte    `json:"pdf,omitempty" desc:"Instead of files, a zip or a .docx: a PDF with a text layer, base64 (up to 32 MiB). The text is read, with its chapters taken from the outline or from headings; running heads, page numbers and a table of contents are removed, footnotes are kept, and the preview says what could not be recovered (scanned pages, tables, pictures, columns, right-to-left text) with a confidence for each page. A scanned or encrypted PDF is refused; nothing in a PDF is run."`
-	Layout        string    `json:"layout,omitempty" enum:"auto,obsidian,scrivener,wordpress,ghost" desc:"As in the preview."`
-	DocxHeadings  string    `json:"docx_headings,omitempty" enum:"chapters,parts" desc:"As in the preview."`
-	DocxChanges   string    `json:"docx_changes,omitempty" enum:"suggest,accept,reject" desc:"With docx: what tracked changes become. suggest (default) imports the text as its author left it, every change rejected, and proposes each change inside a paragraph as a pending suggestion by its Word author (a label, not an account) at the time Word recorded; accepting them all in review gives the reviewers' text. Changes that cannot be suggestions (a whole paragraph inserted or deleted, a heading, a table, a footnote, code, over the caps of 300 per document and 1,000 per import, or ones the review checks would refuse) are taken as the reviewer left them, and the preview counts each kind. accept imports the final view and reject the original, with no suggestions. Word comments are imported as comments by their Word authors in every mode."`
-	ScrivResearch string    `json:"scrivener_research,omitempty" enum:"notes,skip" desc:"With a Scrivener project: notes (default) imports the Research folder as research notes (a picture becomes a note showing it, with pictures: import; PDFs and web pages are named in a note, not imported); skip leaves Research out."`
-	ScrivNotes    string    `json:"scrivener_notes,omitempty" enum:"private,skip" desc:"With a Scrivener project: private (default) puts each document's notes after its text as private notes; skip leaves them out."`
-	WPStatus      string    `json:"wp_status,omitempty" enum:"published,all" desc:"With a WordPress export: published (default) imports published posts and pages only; all adds drafts, pending, scheduled and private ones, which are marked do not compile."`
-	WPTypes       string    `json:"wp_types,omitempty" enum:"posts,pages,both" desc:"With a WordPress export: posts (default), pages, or both (pages go in a part called Pages after the posts)."`
-	GhostStatus   string    `json:"ghost_status,omitempty" enum:"published,all" desc:"With a Ghost export: published (default) imports published posts and pages only; all adds drafts, scheduled and sent ones, which are marked do not compile."`
-	GhostTypes    string    `json:"ghost_types,omitempty" enum:"posts,pages,both" desc:"With a Ghost export: posts (default), pages, or both."`
-	Pictures      string    `json:"pictures,omitempty" enum:"import,skip" desc:"With a Scrivener project, or a WordPress or Ghost export sent as a zip with its images folder: import (default) stores the pictures that are in what was sent as attachments of the project, checked and cleaned of their location, camera and other details, and links the text to them; skip leaves them out (each is marked [image]). A picture is never fetched from an address."`
-	ScrivSheets   string    `json:"scrivener_sheets,omitempty" enum:"notes,entities" desc:"With a Scrivener project: notes (default) imports the Characters and Places folders as research notes; entities makes each character and place sheet an entity of the project's primary Compendium (a new project gets one, owned by you; adding to a project uses its primary Compendium if you may edit it). A name the Compendium already has, or a sheet with a picture, stays a research note, and the result says so."`
-	SplitScenes   string    `json:"split_scenes,omitempty" enum:"none,h2" desc:"As in the preview."`
-	Title         string    `json:"title,omitempty" desc:"Project title; default the preview's."`
-	Kind          string    `json:"kind,omitempty" enum:"novel,novella,short,collection,nonfiction,essay,blog,report,blank" desc:"Project kind; default the preview's."`
-	Author        string    `json:"author,omitempty"`
-	Language      string    `json:"language,omitempty"`
-	Edits         []Edit    `json:"edits,omitempty" desc:"Renames, kind changes, skips, merges, moves and per-file splits, by node key."`
-	Reorder       []Reorder `json:"reorder,omitempty" desc:"New order for one parent's children."`
-	EditionLabel  string    `json:"edition_label,omitempty" desc:"With epub: what the edition is called (default: the preview's epub.label, the title and year)."`
-	UseCover      bool      `json:"use_cover,omitempty" desc:"With epub: make the book's cover picture the new project's own cover (a layout of one front image, with the book's title as its description). The preview's epub.cover.can_use_as_cover says whether it may be one; a picture that may not is left as an attachment and the result says so."`
+	Token            string    `json:"token" desc:"The token import.preview returned for these same files."`
+	Name             string    `json:"name,omitempty" desc:"As in the preview."`
+	Files            []File    `json:"files,omitempty" desc:"The same files that were previewed."`
+	Zip              []byte    `json:"zip,omitempty" desc:"The same zip that was previewed, base64."`
+	Docx             []byte    `json:"docx,omitempty" desc:"The same .docx that was previewed, base64."`
+	Epub             []byte    `json:"epub,omitempty" desc:"Instead of files, a zip or a Word document: an EPUB 2 or 3 book (.epub), base64. The reading order, metadata, cover, pictures and footnotes are read and the preview proposes parts, chapters and front and back matter, which the edits can rename, merge (merge_into), move (parent), skip and reorder. A book with DRM, or with a fixed layout, is refused. The file is kept intact, with its SHA-256, as an edition of the project (edition.list)."`
+	EpubSections     string    `json:"epub_sections,omitempty" enum:"auto,toc,files,headings" desc:"With epub: how the text is cut into sections: toc (the book's table of contents), files (one for each file of its reading order), headings (at the chapter-level heading, for one long file), auto (default: toc, else files, else headings). The preview's epub.strategy says which was used."`
+	EpubPages        string    `json:"epub_pages,omitempty" enum:"skip,keep" desc:"With epub: skip (default) leaves out the cover page and the title page, which the project's own title and author replace; keep imports a title page as front matter. The contents page is always left out."`
+	Pandoc           []byte    `json:"pandoc,omitempty" desc:"The same file that was previewed, base64 (with pandoc_format)."`
+	PandocFormat     string    `json:"pandoc_format,omitempty" enum:"odt,rtf,latex,mediawiki,org,textile,rst,fb2,typst,docbook" desc:"As in the preview."`
+	Pdf              []byte    `json:"pdf,omitempty" desc:"Instead of files, a zip or a .docx: a PDF with a text layer, base64 (up to 32 MiB). The text is read, with its chapters taken from the outline or from headings; running heads, page numbers and a table of contents are removed, footnotes are kept, and the preview says what could not be recovered (scanned pages, tables, pictures, columns, right-to-left text) with a confidence for each page. A scanned or encrypted PDF is refused; nothing in a PDF is run."`
+	Text             []byte    `json:"text,omitempty" desc:"Instead of files, a zip or a .docx: a plain text file (.txt, UTF-8, up to 16 MiB), base64. Blank lines separate paragraphs; a line of * * * or --- is a scene break; the characters Markdown would take for markup are escaped. Chapters are found from what the words say: a heading is never assumed, a chapter label (Chapter 3) in capitals is a chapter, and a plain one is offered in the preview (breaks.suggestions) to take; docx_split, docx_split_pattern and docx_breaks cut it as they cut a Word document."`
+	Layout           string    `json:"layout,omitempty" enum:"auto,obsidian,scrivener,wordpress,ghost" desc:"As in the preview."`
+	DocxHeadings     string    `json:"docx_headings,omitempty" enum:"auto,chapters,parts" desc:"As in the preview."`
+	DocxSplit        string    `json:"docx_split,omitempty" enum:"auto,heading1,heading2,style,label,page_breaks,section_breaks,numerals,size,pattern,none" desc:"With docx or text (and a pdf or pandoc source that has no headings): how the document is cut into chapters. auto (default) cuts at strong boundaries only, all used together: a heading of the chapter level (the lowest level used twice; a book title at Heading 1 over Heading 2 chapters, and Part headings over chapters, are told apart without a setting), a paragraph in a custom style named for chapters, and a 'Chapter 3' line that looks like a title (centred, bold, capitals, larger or after a page break), with an unformatted one that belongs to a numbered run. A page break, a section break, a lone numeral or a plain label alone never cuts under auto; the preview lists them as breaks.suggestions and each can be chosen: heading1 or heading2 cut at that heading level, style at docx_split_style, label at every line that begins with a chapter word and a number, page_breaks, section_breaks and numerals at those, size at pieces of docx_split_words, pattern at the paragraphs that match docx_split_pattern, none leaves one document. docx_breaks adds chapters of the writer's own under any of them."`
+	DocxSplitStyle   string    `json:"docx_split_style,omitempty" desc:"With docx_split style: the paragraph style's name (the preview's breaks.options lists those that exist)."`
+	DocxSplitPattern string    `json:"docx_split_pattern,omitempty" desc:"With docx_split pattern: the text a chapter's first line begins with (docx_split_match starts), or an RE2 regular expression the line matches (regex). At most 200 characters. It is tried only against paragraphs of 200 characters or fewer, so a long paragraph is never a chapter start; a regular expression with a very large program, or a book with too much short text to try it on, is refused. The preview's breaks.pattern says how many paragraphs it matches, and the first five. A pattern kept with another docx_split changes nothing but that answer."`
+	DocxSplitMatch   string    `json:"docx_split_match,omitempty" enum:"starts,regex" desc:"With docx_split_pattern: starts (default) matches the beginning of a paragraph, ignoring case; regex reads the pattern as an RE2 expression, case as typed (begin it with (?i) to ignore case)."`
+	DocxSplitWords   int       `json:"docx_split_words,omitempty" desc:"With docx_split size: about how many words a piece has, 500 to 20,000 (default 5,000). The cut is at the nearest scene break within a fifth, else at a paragraph's end."`
+	DocxBreaks       []int     `json:"docx_breaks,omitempty" desc:"With docx, text, pdf or pandoc: paragraphs a chapter starts at in addition to what docx_split finds, by ordinal (the preview's breaks.suggestions and each document's ordinal give them): the paragraph's index among the document's paragraphs. At most 5,000. A chapter is taken away by joining it into the one before."`
+	DocxChanges      string    `json:"docx_changes,omitempty" enum:"suggest,accept,reject" desc:"With docx: what tracked changes become. suggest (default) imports the text as its author left it, every change rejected, and proposes each change inside a paragraph as a pending suggestion by its Word author (a label, not an account) at the time Word recorded; accepting them all in review gives the reviewers' text. Changes that cannot be suggestions (a whole paragraph inserted or deleted, a heading, a table, a footnote, code, over the caps of 300 per document and 1,000 per import, or ones the review checks would refuse) are taken as the reviewer left them, and the preview counts each kind. accept imports the final view and reject the original, with no suggestions. Word comments are imported as comments by their Word authors in every mode."`
+	ScrivResearch    string    `json:"scrivener_research,omitempty" enum:"notes,skip" desc:"With a Scrivener project: notes (default) imports the Research folder as research notes (a picture becomes a note showing it, with pictures: import; PDFs and web pages are named in a note, not imported); skip leaves Research out."`
+	ScrivNotes       string    `json:"scrivener_notes,omitempty" enum:"private,skip" desc:"With a Scrivener project: private (default) puts each document's notes after its text as private notes; skip leaves them out."`
+	WPStatus         string    `json:"wp_status,omitempty" enum:"published,all" desc:"With a WordPress export: published (default) imports published posts and pages only; all adds drafts, pending, scheduled and private ones, which are marked do not compile."`
+	WPTypes          string    `json:"wp_types,omitempty" enum:"posts,pages,both" desc:"With a WordPress export: posts (default), pages, or both (pages go in a part called Pages after the posts)."`
+	GhostStatus      string    `json:"ghost_status,omitempty" enum:"published,all" desc:"With a Ghost export: published (default) imports published posts and pages only; all adds drafts, scheduled and sent ones, which are marked do not compile."`
+	GhostTypes       string    `json:"ghost_types,omitempty" enum:"posts,pages,both" desc:"With a Ghost export: posts (default), pages, or both."`
+	Pictures         string    `json:"pictures,omitempty" enum:"import,skip" desc:"With a Scrivener project, or a WordPress or Ghost export sent as a zip with its images folder: import (default) stores the pictures that are in what was sent as attachments of the project, checked and cleaned of their location, camera and other details, and links the text to them; skip leaves them out (each is marked [image]). A picture is never fetched from an address."`
+	ScrivSheets      string    `json:"scrivener_sheets,omitempty" enum:"notes,entities" desc:"With a Scrivener project: notes (default) imports the Characters and Places folders as research notes; entities makes each character and place sheet an entity of the project's primary Compendium (a new project gets one, owned by you; adding to a project uses its primary Compendium if you may edit it). A name the Compendium already has, or a sheet with a picture, stays a research note, and the result says so."`
+	SplitScenes      string    `json:"split_scenes,omitempty" enum:"none,h2" desc:"As in the preview."`
+	Title            string    `json:"title,omitempty" desc:"Project title; default the preview's."`
+	Kind             string    `json:"kind,omitempty" enum:"novel,novella,short,collection,nonfiction,essay,blog,report,blank" desc:"Project kind; default the preview's."`
+	Author           string    `json:"author,omitempty"`
+	Language         string    `json:"language,omitempty"`
+	Edits            []Edit    `json:"edits,omitempty" desc:"Renames, kind changes, skips, merges, moves and per-file splits, by node key."`
+	Reorder          []Reorder `json:"reorder,omitempty" desc:"New order for one parent's children."`
+	EditionLabel     string    `json:"edition_label,omitempty" desc:"With epub: what the edition is called (default: the preview's epub.label, the title and year)."`
+	UseCover         bool      `json:"use_cover,omitempty" desc:"With epub: make the book's cover picture the new project's own cover (a layout of one front image, with the book's title as its description). The preview's epub.cover.can_use_as_cover says whether it may be one; a picture that may not is left as an attachment and the result says so."`
+	StageID          string    `json:"stage_id,omitempty" desc:"Instead of the files: the draft import.stage made. Its file, options and edits are used; send also rev and the preview's token."`
+	Rev              int       `json:"rev,omitempty" desc:"With stage_id: the draft's revision you reviewed (import.draft.get). A draft that has moved on is refused."`
+	sum              string
+	draft            string // the staged draft this applies: recorded with the source, so a start-up can tell whether an apply committed
 }
 
 // Validate checks the options.
@@ -154,34 +187,45 @@ func (in *ApplyIn) Validate() error {
 
 // AppendIn adds a previewed folder to an existing project.
 type AppendIn struct {
-	ProjectID     string    `path:"id" json:"-" desc:"Project id."`
-	ParentID      string    `json:"parent_id,omitempty" desc:"Folder to add into; empty for the end of the top level."`
-	Token         string    `json:"token" desc:"The token import.append_preview returned for these same files."`
-	Name          string    `json:"name,omitempty"`
-	Files         []File    `json:"files,omitempty"`
-	Zip           []byte    `json:"zip,omitempty"`
-	Docx          []byte    `json:"docx,omitempty" desc:"The same .docx that was previewed, base64."`
-	Epub          []byte    `json:"epub,omitempty" desc:"Instead of files, a zip or a Word document: an EPUB 2 or 3 book (.epub), base64. The reading order, metadata, cover, pictures and footnotes are read and the preview proposes parts, chapters and front and back matter, which the edits can rename, merge (merge_into), move (parent), skip and reorder. A book with DRM, or with a fixed layout, is refused. The file is kept intact, with its SHA-256, as an edition of the project (edition.list)."`
-	EpubSections  string    `json:"epub_sections,omitempty" enum:"auto,toc,files,headings" desc:"With epub: how the text is cut into sections: toc (the book's table of contents), files (one for each file of its reading order), headings (at the chapter-level heading, for one long file), auto (default: toc, else files, else headings). The preview's epub.strategy says which was used."`
-	EpubPages     string    `json:"epub_pages,omitempty" enum:"skip,keep" desc:"With epub: skip (default) leaves out the cover page and the title page, which the project's own title and author replace; keep imports a title page as front matter. The contents page is always left out."`
-	Pandoc        []byte    `json:"pandoc,omitempty" desc:"The same file that was previewed, base64 (with pandoc_format)."`
-	PandocFormat  string    `json:"pandoc_format,omitempty" enum:"odt,rtf,latex,mediawiki,org,textile,rst,fb2,typst,docbook" desc:"As in the preview."`
-	Pdf           []byte    `json:"pdf,omitempty" desc:"Instead of files, a zip or a .docx: a PDF with a text layer, base64 (up to 32 MiB). The text is read, with its chapters taken from the outline or from headings; running heads, page numbers and a table of contents are removed, footnotes are kept, and the preview says what could not be recovered (scanned pages, tables, pictures, columns, right-to-left text) with a confidence for each page. A scanned or encrypted PDF is refused; nothing in a PDF is run."`
-	Layout        string    `json:"layout,omitempty" enum:"auto,obsidian,scrivener,wordpress,ghost"`
-	DocxHeadings  string    `json:"docx_headings,omitempty" enum:"chapters,parts"`
-	DocxChanges   string    `json:"docx_changes,omitempty" enum:"suggest,accept,reject" desc:"With docx: what tracked changes become. suggest (default) imports the text as its author left it, every change rejected, and proposes each change inside a paragraph as a pending suggestion by its Word author (a label, not an account) at the time Word recorded; accepting them all in review gives the reviewers' text. Changes that cannot be suggestions (a whole paragraph inserted or deleted, a heading, a table, a footnote, code, over the caps of 300 per document and 1,000 per import, or ones the review checks would refuse) are taken as the reviewer left them, and the preview counts each kind. accept imports the final view and reject the original, with no suggestions. Word comments are imported as comments by their Word authors in every mode."`
-	ScrivResearch string    `json:"scrivener_research,omitempty" enum:"notes,skip" desc:"With a Scrivener project: notes (default) imports the Research folder as research notes (a picture becomes a note showing it, with pictures: import; PDFs and web pages are named in a note, not imported); skip leaves Research out."`
-	ScrivNotes    string    `json:"scrivener_notes,omitempty" enum:"private,skip" desc:"With a Scrivener project: private (default) puts each document's notes after its text as private notes; skip leaves them out."`
-	WPStatus      string    `json:"wp_status,omitempty" enum:"published,all" desc:"With a WordPress export: published (default) imports published posts and pages only; all adds drafts, pending, scheduled and private ones, which are marked do not compile."`
-	WPTypes       string    `json:"wp_types,omitempty" enum:"posts,pages,both" desc:"With a WordPress export: posts (default), pages, or both (pages go in a part called Pages after the posts)."`
-	GhostStatus   string    `json:"ghost_status,omitempty" enum:"published,all" desc:"With a Ghost export: published (default) imports published posts and pages only; all adds drafts, scheduled and sent ones, which are marked do not compile."`
-	GhostTypes    string    `json:"ghost_types,omitempty" enum:"posts,pages,both" desc:"With a Ghost export: posts (default), pages, or both."`
-	Pictures      string    `json:"pictures,omitempty" enum:"import,skip" desc:"With a Scrivener project, or a WordPress or Ghost export sent as a zip with its images folder: import (default) stores the pictures that are in what was sent as attachments of the project, checked and cleaned of their location, camera and other details, and links the text to them; skip leaves them out (each is marked [image]). A picture is never fetched from an address."`
-	ScrivSheets   string    `json:"scrivener_sheets,omitempty" enum:"notes,entities" desc:"With a Scrivener project: notes (default) imports the Characters and Places folders as research notes; entities makes each character and place sheet an entity of the project's primary Compendium (a new project gets one, owned by you; adding to a project uses its primary Compendium if you may edit it). A name the Compendium already has, or a sheet with a picture, stays a research note, and the result says so."`
-	SplitScenes   string    `json:"split_scenes,omitempty" enum:"none,h2"`
-	Edits         []Edit    `json:"edits,omitempty"`
-	Reorder       []Reorder `json:"reorder,omitempty"`
-	EditionLabel  string    `json:"edition_label,omitempty" desc:"With epub: what the edition is called (default: the preview's epub.label)."`
+	ProjectID        string    `path:"id" json:"-" desc:"Project id."`
+	ParentID         string    `json:"parent_id,omitempty" desc:"Folder to add into; empty for the end of the top level."`
+	Token            string    `json:"token" desc:"The token import.append_preview returned for these same files."`
+	Name             string    `json:"name,omitempty"`
+	Files            []File    `json:"files,omitempty"`
+	Zip              []byte    `json:"zip,omitempty"`
+	Docx             []byte    `json:"docx,omitempty" desc:"The same .docx that was previewed, base64."`
+	Epub             []byte    `json:"epub,omitempty" desc:"Instead of files, a zip or a Word document: an EPUB 2 or 3 book (.epub), base64. The reading order, metadata, cover, pictures and footnotes are read and the preview proposes parts, chapters and front and back matter, which the edits can rename, merge (merge_into), move (parent), skip and reorder. A book with DRM, or with a fixed layout, is refused. The file is kept intact, with its SHA-256, as an edition of the project (edition.list)."`
+	EpubSections     string    `json:"epub_sections,omitempty" enum:"auto,toc,files,headings" desc:"With epub: how the text is cut into sections: toc (the book's table of contents), files (one for each file of its reading order), headings (at the chapter-level heading, for one long file), auto (default: toc, else files, else headings). The preview's epub.strategy says which was used."`
+	EpubPages        string    `json:"epub_pages,omitempty" enum:"skip,keep" desc:"With epub: skip (default) leaves out the cover page and the title page, which the project's own title and author replace; keep imports a title page as front matter. The contents page is always left out."`
+	Pandoc           []byte    `json:"pandoc,omitempty" desc:"The same file that was previewed, base64 (with pandoc_format)."`
+	PandocFormat     string    `json:"pandoc_format,omitempty" enum:"odt,rtf,latex,mediawiki,org,textile,rst,fb2,typst,docbook" desc:"As in the preview."`
+	Pdf              []byte    `json:"pdf,omitempty" desc:"Instead of files, a zip or a .docx: a PDF with a text layer, base64 (up to 32 MiB). The text is read, with its chapters taken from the outline or from headings; running heads, page numbers and a table of contents are removed, footnotes are kept, and the preview says what could not be recovered (scanned pages, tables, pictures, columns, right-to-left text) with a confidence for each page. A scanned or encrypted PDF is refused; nothing in a PDF is run."`
+	Text             []byte    `json:"text,omitempty" desc:"Instead of files, a zip or a .docx: a plain text file (.txt, UTF-8, up to 16 MiB), base64. Blank lines separate paragraphs; a line of * * * or --- is a scene break; the characters Markdown would take for markup are escaped. Chapters are found from what the words say: a heading is never assumed, a chapter label (Chapter 3) in capitals is a chapter, and a plain one is offered in the preview (breaks.suggestions) to take; docx_split, docx_split_pattern and docx_breaks cut it as they cut a Word document."`
+	Layout           string    `json:"layout,omitempty" enum:"auto,obsidian,scrivener,wordpress,ghost"`
+	DocxHeadings     string    `json:"docx_headings,omitempty" enum:"auto,chapters,parts"`
+	DocxSplit        string    `json:"docx_split,omitempty" enum:"auto,heading1,heading2,style,label,page_breaks,section_breaks,numerals,size,pattern,none" desc:"With docx or text (and a pdf or pandoc source that has no headings): how the document is cut into chapters. auto (default) cuts at strong boundaries only, all used together: a heading of the chapter level (the lowest level used twice; a book title at Heading 1 over Heading 2 chapters, and Part headings over chapters, are told apart without a setting), a paragraph in a custom style named for chapters, and a 'Chapter 3' line that looks like a title (centred, bold, capitals, larger or after a page break), with an unformatted one that belongs to a numbered run. A page break, a section break, a lone numeral or a plain label alone never cuts under auto; the preview lists them as breaks.suggestions and each can be chosen: heading1 or heading2 cut at that heading level, style at docx_split_style, label at every line that begins with a chapter word and a number, page_breaks, section_breaks and numerals at those, size at pieces of docx_split_words, pattern at the paragraphs that match docx_split_pattern, none leaves one document. docx_breaks adds chapters of the writer's own under any of them."`
+	DocxSplitStyle   string    `json:"docx_split_style,omitempty" desc:"With docx_split style: the paragraph style's name (the preview's breaks.options lists those that exist)."`
+	DocxSplitPattern string    `json:"docx_split_pattern,omitempty" desc:"With docx_split pattern: the text a chapter's first line begins with (docx_split_match starts), or an RE2 regular expression the line matches (regex). At most 200 characters. It is tried only against paragraphs of 200 characters or fewer, so a long paragraph is never a chapter start; a regular expression with a very large program, or a book with too much short text to try it on, is refused. The preview's breaks.pattern says how many paragraphs it matches, and the first five. A pattern kept with another docx_split changes nothing but that answer."`
+	DocxSplitMatch   string    `json:"docx_split_match,omitempty" enum:"starts,regex" desc:"With docx_split_pattern: starts (default) matches the beginning of a paragraph, ignoring case; regex reads the pattern as an RE2 expression, case as typed (begin it with (?i) to ignore case)."`
+	DocxSplitWords   int       `json:"docx_split_words,omitempty" desc:"With docx_split size: about how many words a piece has, 500 to 20,000 (default 5,000). The cut is at the nearest scene break within a fifth, else at a paragraph's end."`
+	DocxBreaks       []int     `json:"docx_breaks,omitempty" desc:"With docx, text, pdf or pandoc: paragraphs a chapter starts at in addition to what docx_split finds, by ordinal (the preview's breaks.suggestions and each document's ordinal give them): the paragraph's index among the document's paragraphs. At most 5,000. A chapter is taken away by joining it into the one before."`
+	DocxChanges      string    `json:"docx_changes,omitempty" enum:"suggest,accept,reject" desc:"With docx: what tracked changes become. suggest (default) imports the text as its author left it, every change rejected, and proposes each change inside a paragraph as a pending suggestion by its Word author (a label, not an account) at the time Word recorded; accepting them all in review gives the reviewers' text. Changes that cannot be suggestions (a whole paragraph inserted or deleted, a heading, a table, a footnote, code, over the caps of 300 per document and 1,000 per import, or ones the review checks would refuse) are taken as the reviewer left them, and the preview counts each kind. accept imports the final view and reject the original, with no suggestions. Word comments are imported as comments by their Word authors in every mode."`
+	ScrivResearch    string    `json:"scrivener_research,omitempty" enum:"notes,skip" desc:"With a Scrivener project: notes (default) imports the Research folder as research notes (a picture becomes a note showing it, with pictures: import; PDFs and web pages are named in a note, not imported); skip leaves Research out."`
+	ScrivNotes       string    `json:"scrivener_notes,omitempty" enum:"private,skip" desc:"With a Scrivener project: private (default) puts each document's notes after its text as private notes; skip leaves them out."`
+	WPStatus         string    `json:"wp_status,omitempty" enum:"published,all" desc:"With a WordPress export: published (default) imports published posts and pages only; all adds drafts, pending, scheduled and private ones, which are marked do not compile."`
+	WPTypes          string    `json:"wp_types,omitempty" enum:"posts,pages,both" desc:"With a WordPress export: posts (default), pages, or both (pages go in a part called Pages after the posts)."`
+	GhostStatus      string    `json:"ghost_status,omitempty" enum:"published,all" desc:"With a Ghost export: published (default) imports published posts and pages only; all adds drafts, scheduled and sent ones, which are marked do not compile."`
+	GhostTypes       string    `json:"ghost_types,omitempty" enum:"posts,pages,both" desc:"With a Ghost export: posts (default), pages, or both."`
+	Pictures         string    `json:"pictures,omitempty" enum:"import,skip" desc:"With a Scrivener project, or a WordPress or Ghost export sent as a zip with its images folder: import (default) stores the pictures that are in what was sent as attachments of the project, checked and cleaned of their location, camera and other details, and links the text to them; skip leaves them out (each is marked [image]). A picture is never fetched from an address."`
+	ScrivSheets      string    `json:"scrivener_sheets,omitempty" enum:"notes,entities" desc:"With a Scrivener project: notes (default) imports the Characters and Places folders as research notes; entities makes each character and place sheet an entity of the project's primary Compendium (a new project gets one, owned by you; adding to a project uses its primary Compendium if you may edit it). A name the Compendium already has, or a sheet with a picture, stays a research note, and the result says so."`
+	SplitScenes      string    `json:"split_scenes,omitempty" enum:"none,h2"`
+	Edits            []Edit    `json:"edits,omitempty"`
+	Reorder          []Reorder `json:"reorder,omitempty"`
+	EditionLabel     string    `json:"edition_label,omitempty" desc:"With epub: what the edition is called (default: the preview's epub.label)."`
+	StageID          string    `json:"stage_id,omitempty" desc:"Instead of the files: the draft import.stage made for this project. Its file, options and edits are used; send also rev and the preview's token."`
+	Rev              int       `json:"rev,omitempty" desc:"With stage_id: the draft's revision you reviewed."`
+	sum              string
+	draft            string // the staged draft this applies: recorded with the source, so a start-up can tell whether an apply committed
 }
 
 func (in AppendIn) ProjectRef() string { return in.ProjectID }
@@ -213,8 +257,11 @@ func checkSource(split, layout, headings string, o convOpts) error {
 	default:
 		return ops.Invalid("layout", "layout is auto, obsidian, scrivener, wordpress or ghost.")
 	}
-	if headings != "" && headings != DocxChapters && headings != DocxParts {
-		return ops.Invalid("docx_headings", "docx_headings is chapters or parts.")
+	if headings != "" && headings != "auto" && headings != DocxChapters && headings != DocxParts {
+		return ops.Invalid("docx_headings", "docx_headings is auto, chapters or parts.")
+	}
+	if err := checkCut(o); err != nil {
+		return err
 	}
 	for _, c := range []struct{ field, v, a, b, d string }{
 		{"scrivener_research", o.scrivResearch, ScrivResearchNotes, ScrivResearchSkip, ""},
@@ -240,16 +287,68 @@ func checkSource(split, layout, headings string, o convOpts) error {
 }
 
 func (in *PreviewIn) conv() convOpts {
-	return convOpts{scrivResearch: in.ScrivResearch, scrivNotes: in.ScrivNotes, wpStatus: in.WPStatus, wpTypes: in.WPTypes, ghostStatus: in.GhostStatus, ghostTypes: in.GhostTypes, pictures: in.Pictures, scrivSheets: in.ScrivSheets, pandocFmt: in.PandocFormat, epubSections: in.EpubSections, epubPages: in.EpubPages}
+	return convOpts{scrivResearch: in.ScrivResearch, scrivNotes: in.ScrivNotes, wpStatus: in.WPStatus, wpTypes: in.WPTypes, ghostStatus: in.GhostStatus, ghostTypes: in.GhostTypes, pictures: in.Pictures, scrivSheets: in.ScrivSheets, pandocFmt: in.PandocFormat, epubSections: in.EpubSections, epubPages: in.EpubPages, docxSplit: in.DocxSplit, docxStyle: in.DocxSplitStyle, docxWords: in.DocxSplitWords, docxBreaks: in.DocxBreaks, docxPattern: in.DocxSplitPattern, docxMatch: in.DocxSplitMatch, docxTry: in.DocxSplitTry, docxTryMatch: in.DocxSplitTryMatch}
 }
 func (in *AppendPreviewIn) conv() convOpts {
-	return convOpts{scrivResearch: in.ScrivResearch, scrivNotes: in.ScrivNotes, wpStatus: in.WPStatus, wpTypes: in.WPTypes, ghostStatus: in.GhostStatus, ghostTypes: in.GhostTypes, pictures: in.Pictures, scrivSheets: in.ScrivSheets, pandocFmt: in.PandocFormat, epubSections: in.EpubSections, epubPages: in.EpubPages}
+	return convOpts{scrivResearch: in.ScrivResearch, scrivNotes: in.ScrivNotes, wpStatus: in.WPStatus, wpTypes: in.WPTypes, ghostStatus: in.GhostStatus, ghostTypes: in.GhostTypes, pictures: in.Pictures, scrivSheets: in.ScrivSheets, pandocFmt: in.PandocFormat, epubSections: in.EpubSections, epubPages: in.EpubPages, docxSplit: in.DocxSplit, docxStyle: in.DocxSplitStyle, docxWords: in.DocxSplitWords, docxBreaks: in.DocxBreaks, docxPattern: in.DocxSplitPattern, docxMatch: in.DocxSplitMatch, docxTry: in.DocxSplitTry, docxTryMatch: in.DocxSplitTryMatch}
 }
 func (in *ApplyIn) conv() convOpts {
-	return convOpts{scrivResearch: in.ScrivResearch, scrivNotes: in.ScrivNotes, wpStatus: in.WPStatus, wpTypes: in.WPTypes, ghostStatus: in.GhostStatus, ghostTypes: in.GhostTypes, pictures: in.Pictures, scrivSheets: in.ScrivSheets, pandocFmt: in.PandocFormat, epubSections: in.EpubSections, epubPages: in.EpubPages}
+	return convOpts{scrivResearch: in.ScrivResearch, scrivNotes: in.ScrivNotes, wpStatus: in.WPStatus, wpTypes: in.WPTypes, ghostStatus: in.GhostStatus, ghostTypes: in.GhostTypes, pictures: in.Pictures, scrivSheets: in.ScrivSheets, pandocFmt: in.PandocFormat, epubSections: in.EpubSections, epubPages: in.EpubPages, docxSplit: in.DocxSplit, docxStyle: in.DocxSplitStyle, docxWords: in.DocxSplitWords, docxBreaks: in.DocxBreaks, docxPattern: in.DocxSplitPattern, docxMatch: in.DocxSplitMatch}
 }
 func (in *AppendIn) conv() convOpts {
-	return convOpts{scrivResearch: in.ScrivResearch, scrivNotes: in.ScrivNotes, wpStatus: in.WPStatus, wpTypes: in.WPTypes, ghostStatus: in.GhostStatus, ghostTypes: in.GhostTypes, pictures: in.Pictures, scrivSheets: in.ScrivSheets, pandocFmt: in.PandocFormat, epubSections: in.EpubSections, epubPages: in.EpubPages}
+	return convOpts{scrivResearch: in.ScrivResearch, scrivNotes: in.ScrivNotes, wpStatus: in.WPStatus, wpTypes: in.WPTypes, ghostStatus: in.GhostStatus, ghostTypes: in.GhostTypes, pictures: in.Pictures, scrivSheets: in.ScrivSheets, pandocFmt: in.PandocFormat, epubSections: in.EpubSections, epubPages: in.EpubPages, docxSplit: in.DocxSplit, docxStyle: in.DocxSplitStyle, docxWords: in.DocxSplitWords, docxBreaks: in.DocxBreaks, docxPattern: in.DocxSplitPattern, docxMatch: in.DocxSplitMatch}
+}
+
+// checkCut validates the options of the Word cut.
+func checkCut(o convOpts) error {
+	switch o.docxSplit {
+	case "", SplitAuto, SplitHeading1, SplitHeading2, SplitStyle, SplitLabel, SplitPageBreaks, SplitSectionBreaks, SplitNumerals, SplitSize, SplitPattern, SplitNone:
+	default:
+		return ops.Invalid("docx_split", "docx_split is auto, heading1, heading2, style, label, page_breaks, section_breaks, numerals, size, pattern or none.")
+	}
+	if len([]rune(o.docxStyle)) > maxSplitStyle {
+		return ops.Invalid("docx_split_style", "A style name is at most 200 characters.")
+	}
+	if o.docxSplit == SplitStyle && strings.TrimSpace(o.docxStyle) == "" {
+		return ops.Invalid("docx_split_style", "Name the style to cut at.")
+	}
+	if o.docxWords != 0 && (o.docxWords < MinSplitWords || o.docxWords > MaxSplitWords) {
+		return ops.Invalid("docx_split_words", fmt.Sprintf("docx_split_words is %d to %d.", MinSplitWords, MaxSplitWords))
+	}
+	switch o.docxMatch {
+	case "", MatchStarts, MatchRegex:
+	default:
+		return ops.Invalid("docx_split_match", "docx_split_match is starts or regex.")
+	}
+	if o.docxSplit == SplitPattern || o.docxPattern != "" {
+		if _, perr := compilePattern(o.docxPattern, o.docxMatch); perr != nil {
+			return perr.asOps()
+		}
+	}
+	switch o.docxTryMatch {
+	case "", MatchStarts, MatchRegex:
+	default:
+		return ops.Invalid("docx_split_try_match", "docx_split_try_match is starts or regex.")
+	}
+	if o.docxTry != "" {
+		if _, perr := compilePattern(o.docxTry, o.docxTryMatch); perr != nil {
+			return perr.asOps()
+		}
+	}
+	if len(o.docxBreaks) > MaxExplicitBrks {
+		return ops.Invalid("docx_breaks", fmt.Sprintf("At most %d breaks.", MaxExplicitBrks))
+	}
+	for _, b := range o.docxBreaks {
+		if b < 1 || b > maxParagraphs {
+			return ops.Invalid("docx_breaks", "A break is a paragraph's ordinal: 1 or more.")
+		}
+	}
+	return nil
+}
+
+// cutOpts are the options the Word cut reads.
+func (o convOpts) cutOpts() docxCutOpts {
+	return docxCutOpts{split: o.docxSplit, style: strings.TrimSpace(o.docxStyle), words: o.docxWords, add: o.docxBreaks, pattern: o.docxPattern, match: o.docxMatch, try: o.docxTry, tryMatch: o.docxTryMatch}
 }
 
 func checkSplit(s string) error {
@@ -261,26 +360,31 @@ func checkSplit(s string) error {
 
 // PreviewOut is the proposed import. Nothing has been written.
 type PreviewOut struct {
-	Token           string         `json:"token" desc:"Send this back with the same files to apply."`
-	Layout          string         `json:"layout" enum:"markdown-folder,scriobh,obsidian,docx,pdf,scrivener,wordpress,ghost,pandoc,epub"`
-	ManifestFile    string         `json:"manifest_file,omitempty" desc:"scriobh.json or project.json when the Scríobh layout was recognised."`
-	Project         ProjectInfo    `json:"project" desc:"What a new project would be called and be."`
-	Nodes           []Node         `json:"nodes" desc:"The proposed documents in reading order; nest them by parent_key."`
-	Documents       int            `json:"documents"`
-	Words           int            `json:"words"`
-	Skipped         []Skipped      `json:"skipped" desc:"Files that will not be imported, with the reason (the first 500)."`
-	SkippedTotal    int            `json:"skipped_total"`
-	SkippedByReason map[string]int `json:"skipped_by_reason"`
-	Warnings        []string       `json:"warnings"`
-	Research        []ResearchNode `json:"research" desc:"Research notes the import would write (a Scrivener project's Research folder), in order; nest them by parent_key. Edits by key can rename one or leave it (and what is inside it) out."`
-	ResearchTotal   int            `json:"research_total" desc:"How many research notes and folders."`
-	Report          map[string]any `json:"report,omitempty" desc:"What the converter read and did not keep, by count (labels, keywords, comments, images, links ...). The same counts are written to the import's record."`
-	Epub            *EpubInfo      `json:"epub,omitempty" desc:"With an EPUB: what the book says about itself, how it was cut, and the map from its files to the proposed documents."`
-	Pictures        int            `json:"pictures" desc:"Pictures that came with the source and would be stored as attachments of the project, cleaned (with pictures: import)."`
-	PictureBytes    int64          `json:"picture_bytes" desc:"Their size, cleaned, before any the project already holds are counted out."`
-	Sheets          int            `json:"sheets" desc:"Research notes marked as character or place sheets that would be made entities (with scrivener_sheets: entities), names permitting."`
-	Suggestions     int            `json:"suggestions" desc:"Pending suggestions the import would write from a Word file's tracked changes, for the documents that would be created."`
-	Comments        int            `json:"comments" desc:"Comments the import would write from a Word file's comments (by their Word authors, as labels), for the documents that would be created."`
+	Token           string           `json:"token" desc:"Send this back with the same files to apply."`
+	Layout          string           `json:"layout" enum:"markdown-folder,scriobh,obsidian,docx,pdf,scrivener,wordpress,ghost,pandoc,epub,text"`
+	ManifestFile    string           `json:"manifest_file,omitempty" desc:"scriobh.json or project.json when the Scríobh layout was recognised."`
+	Project         ProjectInfo      `json:"project" desc:"What a new project would be called and be."`
+	Nodes           []Node           `json:"nodes" desc:"The proposed documents in reading order; nest them by parent_key."`
+	Documents       int              `json:"documents"`
+	Words           int              `json:"words"`
+	Skipped         []Skipped        `json:"skipped" desc:"Files that will not be imported, with the reason (the first 500)."`
+	SkippedTotal    int              `json:"skipped_total"`
+	SkippedByReason map[string]int   `json:"skipped_by_reason"`
+	Warnings        []string         `json:"warnings"`
+	Research        []ResearchNode   `json:"research" desc:"Research notes the import would write (a Scrivener project's Research folder), in order; nest them by parent_key. Edits by key can rename one or leave it (and what is inside it) out."`
+	ResearchTotal   int              `json:"research_total" desc:"How many research notes and folders."`
+	Report          map[string]any   `json:"report,omitempty" desc:"What the converter read and did not keep, by count (labels, keywords, comments, images, links ...). The same counts are written to the import's record."`
+	Epub            *EpubInfo        `json:"epub,omitempty" desc:"With an EPUB: what the book says about itself, how it was cut, and the map from its files to the proposed documents."`
+	Pictures        int              `json:"pictures" desc:"Pictures that came with the source and would be stored as attachments of the project, cleaned (with pictures: import)."`
+	PictureBytes    int64            `json:"picture_bytes" desc:"Their size, cleaned, before any the project already holds are counted out."`
+	Sheets          int              `json:"sheets" desc:"Research notes marked as character or place sheets that would be made entities (with scrivener_sheets: entities), names permitting."`
+	Suggestions     int              `json:"suggestions" desc:"Pending suggestions the import would write from a Word file's tracked changes, for the documents that would be created."`
+	Comments        int              `json:"comments" desc:"Comments the import would write from a Word file's comments (by their Word authors, as labels), for the documents that would be created."`
+	Breaks          *BreakInfo       `json:"breaks,omitempty" desc:"With a Word document: how it was cut and why, the other ways to cut it with how many chapters each makes, and the places a chapter could start that were not taken by themselves (a page break, a section break, a lone numeral)."`
+	LeftOut         []LeftOutNode    `json:"left_out,omitempty" desc:"Documents the import left out on its own (a Word file's contents page). Put one back with the edit keep."`
+	Already         *AlreadyImported `json:"already_imported,omitempty" desc:"Only when adding to a project: the project has already had this same file (the same SHA-256; a folder: the same files) and still holds some of its documents. Importing it again adds the text a second time; import.undo takes the earlier import back."`
+	Elsewhere       *ElsewhereImport `json:"imported_elsewhere,omitempty" desc:"Only for a new project: an earlier import of this same file (the same SHA-256) into a project the caller can read, which still holds some of its documents. A project the caller cannot read is never named or counted."`
+	srcHash         string           // what apply records as the source's hash: the file's own, or a folder's token
 }
 
 // ApplyOut says what was created.
@@ -305,7 +409,13 @@ type ApplyOut struct {
 }
 
 // Register adds the import ops.
-func Register(r *ops.Registry) {
+func Register(r *ops.Registry, limits ...StageLimits) {
+	var lim StageLimits
+	if len(limits) > 0 {
+		lim = limits[0]
+	}
+	registerDrafts(r, lim)
+	registerUndo(r)
 	ops.Register(r, ops.Op{Name: "import.preview", Method: "POST", Path: "/api/v1/imports/preview", MaxBody: MaxBody,
 		Desc: "Preview importing a folder of Markdown (or a Scríobh mirror or export), a Word document, an Obsidian vault, a Scrivener project, a WordPress export, a Ghost export or an EPUB book (epub: version 2 or 3) as a new project: the proposed tree, word counts, research notes, the files that will be skipped and why, and a report of what was read and not kept, and the pictures that would be stored. For an EPUB the answer also has epub: the book's metadata, how it was cut into sections, and a map from its files to the proposed documents; the edits (rename, kind, skip, merge_into, parent, split) and reorder change the mapping, and apply refuses any that name a document the book does not have. Writes nothing. Limits: 10,000 entries (40,000 for a Scrivener zip), 2,000 Markdown files, 2 MiB per file, 32 MiB together; an EPUB of at most 32 MiB; the request body is at most 48 MiB, so send a large Scrivener project as a zip.",
 		Auth: ops.Writer()}, previewNew)
@@ -330,6 +440,7 @@ type source struct {
 	pandocFmt   string          // its format, from the allow-list
 	pandocSvc   *pandoc.Service // the bridge; nil in a build or a test without it
 	pdf         []byte
+	text        []byte // a plain text file
 	epub        []byte
 	label       string           // the edition's label, from apply
 	staged      *editions.Staged // the book's file, staged for the edition record (an EPUB)
@@ -341,6 +452,8 @@ type source struct {
 	ctx         context.Context  // the caller: a conversion stops when it goes away
 	noDetect    bool             // never read the files as a converted source (a repository)
 	prov        *Provenance      // where the files came from, when it is not a folder upload
+	draft       string           // the staged draft being applied (recorded in the source's metadata)
+	sum         string           // a staged source's SHA-256: the cache of its conversion is keyed by it, not by hashing the bytes again
 }
 
 // Provenance says where files came from when a caller other than the folder
@@ -396,10 +509,12 @@ func (s source) intake() (*intake, error) {
 		layout = LayoutPandoc
 	case len(s.pdf) > 0:
 		layout = LayoutPdf
+	case len(s.text) > 0:
+		layout = LayoutText
 	case layout == "" && s.prov == nil && !s.noDetect: // a repository is only ever Markdown
 		layout = detectConverted(s.files, s.zip)
 	}
-	converted := layout == LayoutScrivener || layout == LayoutWordPress || layout == LayoutGhost || layout == LayoutPdf || layout == LayoutPandoc || layout == LayoutEpub
+	converted := (layout == LayoutDocx || layout == LayoutText) && s.sum != "" || layout == LayoutScrivener || layout == LayoutWordPress || layout == LayoutGhost || layout == LayoutPdf || layout == LayoutPandoc || layout == LayoutEpub
 	var key string
 	if converted {
 		if key = s.cacheKey(layout); key != "" {
@@ -425,22 +540,22 @@ func (s source) intake() (*intake, error) {
 // read converts the source into the intake the plan is built from.
 func (s source) read(layout string) (*intake, error) {
 	if len(s.epub) > 0 {
-		if len(s.files) > 0 || len(s.zip) > 0 || len(s.docx) > 0 {
+		if len(s.files) > 0 || len(s.zip) > 0 || len(s.docx) > 0 || len(s.text) > 0 {
 			return nil, ops.Invalid("epub", "Send an .epub, or a .docx, or files, or a zip: one of them.")
 		}
 		return s.convertEpub()
 	}
 	if len(s.pandoc) > 0 {
-		if len(s.files) > 0 || len(s.zip) > 0 || len(s.docx) > 0 {
+		if len(s.files) > 0 || len(s.zip) > 0 || len(s.docx) > 0 || len(s.text) > 0 {
 			return nil, ops.Invalid("pandoc", "Send one document for Pandoc, or files, or a zip, or a .docx: one of them.")
 		}
 		return s.pandocIntake()
 	}
 	if len(s.pdf) > 0 {
-		if len(s.files) > 0 || len(s.zip) > 0 || len(s.docx) > 0 {
+		if len(s.files) > 0 || len(s.zip) > 0 || len(s.docx) > 0 || len(s.text) > 0 {
 			return nil, ops.Invalid("pdf", "Send a PDF, or a .docx, or files, or a zip: one of them.")
 		}
-		fs, pre, err := pdfToFiles(s.ctx, s.pdf, s.name)
+		fs, pre, err := pdfToFiles(s.ctx, s.pdf, s.name, s.conv.cutOpts(), s.sum)
 		if err != nil {
 			var oe *ops.Error
 			if errors.As(err, &oe) { // a refusal that is not about the file (busy)
@@ -455,13 +570,28 @@ func (s source) read(layout string) (*intake, error) {
 		in.apply(pre)
 		return in, nil
 	}
+	if len(s.text) > 0 {
+		if len(s.files) > 0 || len(s.zip) > 0 || len(s.docx) > 0 {
+			return nil, ops.Invalid("text", "Send a text file, or a .docx, or files, or a zip: one of them.")
+		}
+		fs, pre, err := textToFiles(s.text, s.name, strings.TrimPrefix(s.headings, "auto"), s.conv.cutOpts())
+		if err != nil {
+			return nil, cutErrorIn("text", err)
+		}
+		in, err := intakeFiles(fs, false)
+		if err != nil {
+			return nil, ops.Invalid("text", err.Error())
+		}
+		in.apply(pre)
+		return in, nil
+	}
 	if len(s.docx) > 0 {
 		if len(s.files) > 0 || len(s.zip) > 0 {
 			return nil, ops.Invalid("docx", "Send a .docx, or files, or a zip: one of them.")
 		}
-		fs, pre, err := docxToFiles(s.docx, s.name, s.headings, s.changes)
+		fs, pre, err := docxToFiles(s.docx, s.name, strings.TrimPrefix(s.headings, "auto"), s.changes, s.conv.cutOpts())
 		if err != nil {
-			return nil, ops.Invalid("docx", err.Error())
+			return nil, cutError(err)
 		}
 		in, err := intakeFiles(fs, false)
 		if err != nil {
@@ -506,10 +636,26 @@ func (s source) options(edits []Edit) Options {
 }
 
 func previewNew(c *ops.Ctx, in PreviewIn) (PreviewOut, error) {
-	return preview(source{name: in.Name, split: in.SplitScenes, files: in.Files, zip: in.Zip, docx: in.Docx, epub: in.Epub, pdf: in.Pdf, pandoc: in.Pandoc, pandocFmt: in.PandocFormat, pandocSvc: pandocOf(c), layout: layoutOf(in.Layout), headings: in.DocxHeadings, changes: in.DocxChanges, conv: in.conv(), ctx: c}, in.Edits, in.Reorder, altstore.LimitsOf(c.Env))
+	if in.StageID != "" {
+		if err := onlyStage(in); err != nil {
+			return PreviewOut{}, err
+		}
+		return stagedPreview(c, in.StageID, "")
+	}
+	out, err := preview(source{sum: in.sum, name: in.Name, split: in.SplitScenes, files: in.Files, zip: in.Zip, docx: in.Docx, epub: in.Epub, pdf: in.Pdf, text: in.Text, pandoc: in.Pandoc, pandocFmt: in.PandocFormat, pandocSvc: pandocOf(c), layout: layoutOf(in.Layout), headings: in.DocxHeadings, changes: in.DocxChanges, conv: in.conv(), ctx: c}, in.Edits, in.Reorder, altstore.LimitsOf(c.Env))
+	if err == nil {
+		out.Elsewhere = importedElsewhere(c, out.srcHash)
+	}
+	return out, err
 }
 
 func previewInto(c *ops.Ctx, in AppendPreviewIn) (PreviewOut, error) {
+	if in.StageID != "" {
+		if err := onlyStage(in); err != nil {
+			return PreviewOut{}, err
+		}
+		return stagedPreview(c, in.StageID, in.ProjectID)
+	}
 	if len(in.Epub) > 0 {
 		// The apply would refuse a project that already holds as many editions as it keeps: say so now.
 		var n int
@@ -520,7 +666,11 @@ func previewInto(c *ops.Ctx, in AppendPreviewIn) (PreviewOut, error) {
 			return PreviewOut{}, ops.Conflict(fmt.Sprintf("This project already holds %d editions, which is the most it keeps.", n))
 		}
 	}
-	return preview(source{name: in.Name, split: in.SplitScenes, files: in.Files, zip: in.Zip, docx: in.Docx, epub: in.Epub, pdf: in.Pdf, pandoc: in.Pandoc, pandocFmt: in.PandocFormat, pandocSvc: pandocOf(c), layout: layoutOf(in.Layout), headings: in.DocxHeadings, changes: in.DocxChanges, conv: in.conv(), ctx: c}, in.Edits, in.Reorder, altstore.LimitsOf(c.Env))
+	out, err := preview(source{sum: in.sum, name: in.Name, split: in.SplitScenes, files: in.Files, zip: in.Zip, docx: in.Docx, epub: in.Epub, pdf: in.Pdf, text: in.Text, pandoc: in.Pandoc, pandocFmt: in.PandocFormat, pandocSvc: pandocOf(c), layout: layoutOf(in.Layout), headings: in.DocxHeadings, changes: in.DocxChanges, conv: in.conv(), ctx: c}, in.Edits, in.Reorder, altstore.LimitsOf(c.Env))
+	if err == nil {
+		out.Already = alreadyImported(c, in.ProjectID, out.srcHash)
+	}
+	return out, err
 }
 
 // layoutOf maps the input's layout to the one the importer reads ("auto" is none).
@@ -598,6 +748,15 @@ func previewOf(in *intake, opt Options, edits []Edit, reorders []Reorder, lim al
 	for i, n := range nodes {
 		if i < MaxDocuments { // the response is bounded whatever the plan holds
 			node := n.Node
+			node.FirstLine = firstLine(n.body)
+			var firstRow string
+			node.Tables, node.Cells, firstRow = tableStats(n.body)
+			if node.FirstLine == "" { // a document of tables only: its first row is its first line
+				node.FirstLine = firstRow
+			}
+			if n.Ordinal > 0 {
+				node.LastLine = lastLine(n.body)
+			}
 			// A comment that cannot be used (with the configured limits) is said so here.
 			if msg := altstore.CheckComment(n.body, lim); msg != "" {
 				node.Warnings = append(append([]string{}, node.Warnings...), commentWarning(msg))
@@ -607,6 +766,11 @@ func previewOf(in *intake, opt Options, edits []Edit, reorders []Reorder, lim al
 		out.Words += n.Words
 	}
 	out.Documents = len(nodes)
+	out.srcHash = in.srcHashOf()
+	out.Breaks = in.breaks
+	for _, n := range p.autoLeft {
+		out.LeftOut = append(out.LeftOut, LeftOutNode{Key: n.Key, Title: n.Title, Kind: n.Kind, Words: n.Words, Why: n.leftWhy})
+	}
 	out.Suggestions, out.Comments = in.tracked.countFor(nodes)
 	out.SkippedTotal = len(p.skipped)
 	out.Skipped = p.skipped
@@ -630,10 +794,15 @@ func previewOf(in *intake, opt Options, edits []Edit, reorders []Reorder, lim al
 // failAfter lets a test fail an apply part-way, to prove nothing is kept.
 var failAfter func(inserted int) error
 
-func applyNew(c *ops.Ctx, in ApplyIn) (ApplyOut, error) { return applyNewWith(c, in, nil) }
+func applyNew(c *ops.Ctx, in ApplyIn) (ApplyOut, error) {
+	if in.StageID != "" {
+		return applyStagedNew(c, in)
+	}
+	return applyNewWith(c, in, nil)
+}
 
 func applyNewWith(c *ops.Ctx, in ApplyIn, prov *Provenance) (ApplyOut, error) {
-	s := source{name: in.Name, split: in.SplitScenes, files: in.Files, zip: in.Zip, docx: in.Docx, epub: in.Epub, pdf: in.Pdf, pandoc: in.Pandoc, pandocFmt: in.PandocFormat, pandocSvc: pandocOf(c), layout: layoutOf(in.Layout), headings: in.DocxHeadings, changes: in.DocxChanges, conv: in.conv(), prov: prov, ctx: c}
+	s := source{draft: in.draft, sum: in.sum, name: in.Name, split: in.SplitScenes, files: in.Files, zip: in.Zip, docx: in.Docx, epub: in.Epub, pdf: in.Pdf, text: in.Text, pandoc: in.Pandoc, pandocFmt: in.PandocFormat, pandocSvc: pandocOf(c), layout: layoutOf(in.Layout), headings: in.DocxHeadings, changes: in.DocxChanges, conv: in.conv(), prov: prov, ctx: c}
 	pl, nodes, intk, skip, err := s.resolve(in.Token, in.Edits, in.Reorder)
 	if err != nil {
 		return ApplyOut{}, err
@@ -697,7 +866,14 @@ func applyNewWith(c *ops.Ctx, in ApplyIn, prov *Provenance) (ApplyOut, error) {
 }
 
 func appendInto(c *ops.Ctx, in AppendIn) (ApplyOut, error) {
-	s := source{name: in.Name, split: in.SplitScenes, files: in.Files, zip: in.Zip, docx: in.Docx, epub: in.Epub, pdf: in.Pdf, pandoc: in.Pandoc, pandocFmt: in.PandocFormat, pandocSvc: pandocOf(c), layout: layoutOf(in.Layout), headings: in.DocxHeadings, changes: in.DocxChanges, conv: in.conv(), ctx: c}
+	if in.StageID != "" {
+		return applyStagedInto(c, in)
+	}
+	return appendWith(c, in)
+}
+
+func appendWith(c *ops.Ctx, in AppendIn) (ApplyOut, error) {
+	s := source{draft: in.draft, sum: in.sum, name: in.Name, split: in.SplitScenes, files: in.Files, zip: in.Zip, docx: in.Docx, epub: in.Epub, pdf: in.Pdf, text: in.Text, pandoc: in.Pandoc, pandocFmt: in.PandocFormat, pandocSvc: pandocOf(c), layout: layoutOf(in.Layout), headings: in.DocxHeadings, changes: in.DocxChanges, conv: in.conv(), ctx: c}
 	pl, nodes, intk, skip, err := s.resolve(in.Token, in.Edits, in.Reorder)
 	if err != nil {
 		return ApplyOut{}, err
@@ -924,9 +1100,9 @@ func insertAll(c *ops.Ctx, tx *sql.Tx, projectID, rootParent string, last float6
 		"documents": len(nodes), "skipped": len(pl.skipped), "caps": map[string]int{"files": MaxMarkdown, "bytes": MaxTotalBytes},
 	})
 	kind, srcURL, srcPath, commit := "markdown", "", folderName(s.name), ""
-	srcHash := in.token
+	srcHash := in.srcHashOf()
 	if in.srcKind != "" { // a .docx: the file's own hash is the provenance
-		kind, srcHash = in.srcKind, in.srcHash
+		kind = in.srcKind
 		var m map[string]any
 		_ = json.Unmarshal(meta, &m)
 		m["token"] = in.token
@@ -952,6 +1128,12 @@ func insertAll(c *ops.Ctx, tx *sql.Tx, projectID, rootParent string, last float6
 		for k, v := range p.Meta {
 			m[k] = v
 		}
+		meta, _ = json.Marshal(m)
+	}
+	if s.draft != "" { // a staged apply says which draft it was, in the transaction that commits it
+		var m map[string]any
+		_ = json.Unmarshal(meta, &m)
+		m["draft_id"] = s.draft
 		meta, _ = json.Marshal(m)
 	}
 	if _, err := tx.Exec(`INSERT INTO project_sources(id, project_id, kind, source_url, source_path, source_hash, commit_sha, metadata_json, imported_at) VALUES (?,?,?,?,?,?,?,?,?)`,
@@ -998,11 +1180,11 @@ func insertAll(c *ops.Ctx, tx *sql.Tx, projectID, rootParent string, last float6
 		if i == 0 {
 			out.FirstDocumentID = id
 		}
-		if n.SourcePath != "" {
-			if _, err := tx.Exec(`INSERT INTO document_sources(document_id, source_id, source_path, source_order, source_hash) VALUES (?,?,?,?,?)`,
-				id, sourceID, n.SourcePath, n.order, n.hash); err != nil {
-				return err
-			}
+		// Every document the import made has its row: a folder that becomes an empty part has no file (an empty source_path), and is
+		// recorded all the same, so that taking the import back can take the part with its chapters.
+		if _, err := tx.Exec(`INSERT INTO document_sources(document_id, source_id, source_path, source_order, source_hash, stored_hash) VALUES (?,?,?,?,?,?)`,
+			id, sourceID, n.SourcePath, n.order, n.hash, body[i].Hash); err != nil {
+			return err
 		}
 		c.Emit(ops.Event{Type: "doc.created", ProjectID: projectID, DocumentID: id, Payload: map[string]any{"kind": n.Kind, "words": body[i].Words}})
 		out.Words += body[i].Words
@@ -1050,6 +1232,10 @@ func insertAll(c *ops.Ctx, tx *sql.Tx, projectID, rootParent string, last float6
 			links.PendingPrefix+projectID, projectID, now); err != nil {
 			return err
 		}
+	}
+	// The state each document was left in, for import.undo, after everything the import writes to it or about it is written.
+	if err := recordStates(c, tx, sourceID); err != nil {
+		return err
 	}
 	c.Emit(ops.Event{Type: "import.applied", ProjectID: projectID, Payload: map[string]any{"documents": len(nodes), "words": out.Words, "layout": pl.layout, "research_notes": nres}})
 	c.Audit(ops.AuditEntry{Action: "import.apply", TargetType: "project", TargetID: projectID,

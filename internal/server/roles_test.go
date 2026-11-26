@@ -30,6 +30,7 @@ var roleExceptions = map[string]string{
 	"project.member.list": "owner",  // who is on the project is the owner's to know
 	"edition.download":    "editor", // the book as it was received, whole: for the people who edit it (a reader reads the edition's record, edition.get)
 	"edition.compare":     "editor", // it reads two books and shows their text, as the download does: for the people who edit them (a reader reads edition.diff's steps)
+	"import.source.list":  "editor", // the names of the files a person chose to bring in, and which of their documents have been edited since, are for the people who edit the project
 	"kindle.log":          "editor", // who mailed which edition of the book to which domain is for the people who write it
 	// writing that is not the editor's
 	"ai.policy.set": "owner", "ai.style.set": "owner",

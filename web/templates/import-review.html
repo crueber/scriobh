@@ -1,0 +1,18 @@
+{{define "head"}}
+<link rel="stylesheet" href="{{asset "css/import.css"}}">
+<script src="{{asset "js/import.js"}}" defer></script>
+{{end}}
+{{define "crumb"}}
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a>{{with .Data.Into}}<span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Slug}}">{{.Title}}</a>{{end}}<span class="crumb-sep" aria-hidden="true">/</span><a href="{{if .Data.Into}}/p/{{.Data.Into.Slug}}/import{{else if eq .Data.Kind "git"}}/import/git{{else}}/import{{end}}">{{.T "import.crumb_import"}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{.T "import.crumb_review"}}</span></nav>
+{{end}}
+{{define "content"}}
+{{with .Data}}
+<section class="import" id="import" aria-labelledby="imp-title" data-review>
+  <h1 id="imp-title" tabindex="-1">{{if .Into}}{{.T "import.title_add" "t" .Into.Title}}{{else}}{{.T "import.title_review"}}{{end}}</h1>
+  {{if ne .Status "done"}}<p class="lede">{{if .Into}}{{.T "import.lede_into"}}{{else}}{{.T "import.lede_review"}}{{end}}</p>{{end}}
+  <div id="imp-live" class="sr-only" role="status" aria-live="polite" aria-atomic="true">{{.Live}}</div>
+  <p class="imp-status" id="imp-status" role="status" aria-live="polite"></p>
+  {{template "imp-review" .}}
+</section>
+{{end}}
+{{end}}

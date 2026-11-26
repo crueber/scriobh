@@ -41,12 +41,17 @@ type prior struct {
 }
 
 // afterSave runs after doc.update has written the row. It records the previous
-// head as an automatic revision when one is due (a body change), brings the
-// document's outgoing links up to date (a body change), and re-resolves the
+// head as a version (a body change): an automatic one when one is due, or, for a
+// big cut, one labelled as such whatever the autosave interval says. It brings
+// the document's outgoing links up to date (a body change), and re-resolves the
 // links that pointed at its old title or now point at its new one (a rename).
-func afterSave(tx *sql.Tx, p prior, projectID, id, title, content string, contentChanged bool, now string) error {
+func afterSave(tx *sql.Tx, p prior, projectID, id, title, content string, contentChanged, bigCut bool, now string) error {
 	if contentChanged {
-		if _, err := revisions.CaptureHead(tx, p.HeadState, now); err != nil {
+		if bigCut {
+			if _, err := revisions.CaptureBefore(tx, p.HeadState, revisions.ReasonCut, now); err != nil {
+				return err
+			}
+		} else if _, err := revisions.CaptureHead(tx, p.HeadState, now); err != nil {
 			return err
 		}
 		if err := links.Sync(tx, links.SyncIn{ProjectID: projectID, DocumentID: id, Content: content, Now: now}); err != nil {

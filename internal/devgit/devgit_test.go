@@ -68,7 +68,8 @@ func TestDevGitServerEndToEnd(t *testing.T) {
 	pub, _ := os.ReadFile(key + ".pub")
 	known := filepath.Join(tmp, "known_hosts")
 	host, port, _ := strings.Cut(s.SSHAddr(), ":")
-	sshCmd := fmt.Sprintf("ssh -i %s -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=%s -o BatchMode=yes -o ConnectTimeout=10 -p %s", key, known, port)
+	// -F /dev/null: the test talks to its own loopback server, so the person's ~/.ssh/config (which may rewrite any host) must not apply.
+	sshCmd := fmt.Sprintf("ssh -F /dev/null -i %s -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=%s -o BatchMode=yes -o ConnectTimeout=10 -p %s", key, known, port)
 	env := []string{"GIT_SSH_COMMAND=" + sshCmd, "GIT_AUTHOR_NAME=Me", "GIT_AUTHOR_EMAIL=me@example.com", "GIT_COMMITTER_NAME=Me", "GIT_COMMITTER_EMAIL=me@example.com"}
 	url := fmt.Sprintf("ssh://git@%s:%s/book.git", host, port)
 

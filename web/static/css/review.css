@@ -111,3 +111,17 @@ ins.rv-ins.is-current, del.rv-del.is-current { outline: 2px solid var(--accent);
 ::highlight(rv-sel) { background-color: var(--comment); color: inherit; }
 del.rv-del + ins.rv-ins { margin-inline-start: .3em; }
 mark.rv-mark.is-resolved.is-current { outline: 0; }
+
+/* The writing view's Comments tab: a comment on the chapter or on selected words, "Only me" unless the person says otherwise. */
+.cw { margin-block-end: var(--s-3); padding-block: var(--s-2) var(--s-3); border-block-end: 1px solid var(--line); }
+.cw .rv-form { margin-block-start: var(--s-2); }
+.cw-vis { margin: 0 0 var(--s-2); padding: 0; border: 0; min-inline-size: 0; }
+.cw-vis legend { padding: 0; margin-block-end: var(--s-1); font-size: var(--text-sm); font-weight: 500; color: var(--fg-2); }
+.cw-vis .check { display: flex; align-items: center; gap: var(--s-2); min-block-size: var(--target); }
+.cw-vis .fine, .cw .fine { margin: 0 0 var(--s-1); }
+.cw-edit { margin-block-start: var(--s-2); }
+/* In the text: the words a comment is being written on, and the words Show in the text found. A fill and a thick line, as the reading
+   view's marks: an inline border changes neither the height of the line nor its width, so nothing moves; nothing is animated. */
+.cmt-pending { background: var(--comment); border-block-end: 2px solid var(--comment-line); }
+.cmt-flash { outline: 2px solid var(--accent); outline-offset: 1px; background: var(--comment); }
+@media print { .cmt-pending, .cmt-flash { background: none; border: 0; outline: 0; } }

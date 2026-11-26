@@ -115,4 +115,19 @@ await kit.test("the entity list, the corkboard and the research board follow ano
   await waitFor(async () => /A note from the other tab/.test(await tabB.locator("body").innerText()), "the research list to follow", 12000);
 });
 
+await kit.test("31. a chapter moved above the open one is not a change to it: no bar, and its number in the eyebrow follows", async () => {
+  await tabB.goto(`${base()}/p/${book.slug}/d/${second}`);
+  await tabB.waitForSelector(".scriobh-prose");
+  await waitFor(() => tabB.evaluate(() => !!(window.scriobh && window.scriobh.write && document.querySelector("[data-live]"))), "the page", 10000);
+  await sleep(1500);
+  const meta = () => tabB.locator("#doc-meta").innerText();
+  ok(/chapter 2\b/i.test(await meta()), "the eyebrow says chapter 2 before the move: " + (await meta()));
+  // the open chapter goes to the top of the book: it becomes chapter 1, and the move is of this chapter itself
+  eq((await api(main, "POST", `/api/v1/docs/${second}/move`, { after: "" })).status, 200, "the move");
+  await sleep(3000); // past the wait a live change takes before it is said (1500 ms) and the tree's refresh
+  eq(await tabB.locator("#nb-live").count(), 0, "a move is not a change to the chapter: no bar");
+  await waitFor(async () => /chapter 1\b/i.test(await meta()), "the eyebrow to follow the new number: " + (await meta()), 10000);
+  if (process.env.SHOTS) await tabB.locator("#doc-meta").screenshot({ path: `${process.env.SHOTS}/u3-eyebrow-1280-light.png` }); // a look, not a check
+});
+
 await kit.finish("e2e-live");

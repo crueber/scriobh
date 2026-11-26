@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/crueber/scriobh/internal/domain/projects"
 	"github.com/crueber/scriobh/internal/domain/review"
@@ -96,6 +97,7 @@ type mdBlock struct {
 	notes   []string
 	revs    []blockRev
 	cms     []blockComment
+	sig     *blockSig // a paragraph or heading: what the chapter detector reads of it (docxbreaks.go)
 }
 
 // seg is a piece of a paragraph's text with its formatting.
@@ -143,6 +145,11 @@ type docxConv struct {
 
 	underline, tracked, images, badLinks, tables, gapScenes, paragraphs, drawings int
 
+	// For the chapter detector (docxbreaks.go): a page or section break seen in an empty paragraph belongs to the next one.
+	pendBrk, pendSect bool
+	sigSlab           []blockSig
+	numCount          map[string][]int // Word's automatic numbers, by list, to say what a numbered heading would print
+
 	inNote   bool // reading a footnote: it has no notes of its own
 	total    int  // bytes of Markdown made so far
 	noteSize int  // bytes of footnote text kept
@@ -172,7 +179,7 @@ type docxConv struct {
 
 // docxToFiles converts a .docx into a folder of Markdown files, with the
 // project facts the file states and what was left out.
-func docxToFiles(data []byte, name, headings, changes string) (files []File, pre *prepass, err error) {
+func docxToFiles(data []byte, name, headings, changes string, cut docxCutOpts) (files []File, pre *prepass, err error) {
 	// The HTTP binding recovers from a panic; the command line does not. A
 	// document that breaks the reader is refused in both.
 	defer func() {
@@ -184,46 +191,27 @@ func docxToFiles(data []byte, name, headings, changes string) (files []File, pre
 	if err != nil {
 		return nil, nil, err
 	}
-	styles, styleLang := parseStyles(d.styles)
-	c := newDocxConv()
-	c.styles, c.nums, c.rels = styles, parseNumbering(d.numbering), parseRels(d.rels)
-	c.mode = changes
-	if c.mode == "" {
-		c.mode = DocxSuggest
-	}
-	c.baseView = viewFinal
-	if c.mode == DocxReject {
-		c.baseView = viewOriginal
-	}
-	c.view = c.baseView
-	c.ts = newTracked(c.mode)
-	c.wcomments = readWordComments(d.comments)
-	c.readNotes(d.footnotes)
-	comments := max(c.countComments(d.comments), len(c.wcomments))
-	if err := c.readBody(d.document); err != nil {
-		return nil, nil, err
-	}
-	title, creator, coreLang := parseCore(d.core)
-	pi := &ProjectInfo{Title: noMarks(firstText(c.title, title)), Subtitle: noMarks(c.subtitle), Author: noMarks(creator), Language: firstText(coreLang, styleLang)}
-	if pi.Title != "" {
-		pi.Title, _ = cleanLine(pi.Title, 200)
-	}
-	pi.Subtitle, _ = cleanLine(pi.Subtitle, 200)
-	pi.Author, _ = cleanLine(pi.Author, 200)
-	if l := pi.Language; l == "" || len(l) > 16 || strings.ContainsAny(l, " <>\"'") {
-		pi.Language = ""
-	}
-	files, parts, err := c.files(name, headings)
+	c, comments, styleLang, err := readConv(d, changes)
 	if err != nil {
 		return nil, nil, err
 	}
+	pi := c.prepareCut(d.core, styleLang, headings, name, &cut)
+	files, notes, info, err := c.cutDocx(cut, pi)
+	if err != nil {
+		return nil, nil, err
+	}
+	if cut.look != nil { // a look at one chapter has what it asked for
+		return nil, nil, nil
+	}
+	parts := info.intro
 	c.finishTracked(comments)
 	sum := sha256.Sum256(data)
-	docxMeta := map[string]any{"headings": headings, "paragraphs": c.paragraphs, "comments": comments, "tracked_changes": c.tracked, "images": max(c.images, d.media), "tables": c.tables}
+	docxMeta := map[string]any{"headings": headings, "paragraphs": c.paragraphs, "comments": comments, "tracked_changes": c.tracked, "images": max(c.images, d.media), "tables": c.tables,
+		"split": info.provenance(notes)}
 	for k, v := range c.trackedMeta() {
 		docxMeta[k] = v
 	}
-	pre = &prepass{layout: "docx", srcKind: "docx", srcHash: hex.EncodeToString(sum[:]), project: pi, meta: map[string]any{"docx": docxMeta}, tracked: c.ts}
+	pre = &prepass{layout: "docx", srcKind: "docx", srcHash: hex.EncodeToString(sum[:]), project: pi, meta: map[string]any{"docx": docxMeta}, tracked: c.ts, notes: notes, breaks: info}
 	if c.ts.total > 0 || c.ts.nComments > 0 {
 		c.ts.seal()
 		pre.tokenMix = c.ts.hash
@@ -248,7 +236,58 @@ func docxToFiles(data []byte, name, headings, changes string) (files []File, pre
 	if parts {
 		pre.warnings = append(pre.warnings, "Text under a part heading, before its first chapter, became a chapter of its own.")
 	}
+	if info.kept > 0 {
+		pre.warnings = append(pre.warnings, fmt.Sprintf("%d chapter title(s) carry a footnote or a comment, so the title line is also kept as the first line of the chapter and nothing is lost with it.", info.kept))
+	}
+	if info.Hint == "pages" {
+		pre.warnings = append(pre.warnings, "These chapters look like pages, not chapters: there are very many of them, or most are short. Choose another way to cut, or join them.")
+	}
 	return files, pre, nil
+}
+
+// readConv reads the parts of a Word file into a converter that holds its blocks.
+func readConv(d *docxFile, changes string) (c *docxConv, comments int, styleLang string, err error) {
+	var styles styleTable
+	styles, styleLang = parseStyles(d.styles)
+	c = newDocxConv()
+	c.styles, c.nums, c.rels = styles, parseNumbering(d.numbering), parseRels(d.rels)
+	c.mode = changes
+	if c.mode == "" {
+		c.mode = DocxSuggest
+	}
+	c.baseView = viewFinal
+	if c.mode == DocxReject {
+		c.baseView = viewOriginal
+	}
+	c.view = c.baseView
+	c.ts = newTracked(c.mode)
+	c.wcomments = readWordComments(d.comments)
+	c.readNotes(d.footnotes)
+	comments = max(c.countComments(d.comments), len(c.wcomments))
+	if err := c.readBody(d.document); err != nil {
+		return nil, 0, "", err
+	}
+	return c, comments, styleLang, nil
+}
+
+// prepareCut makes the project's facts from what the file says of itself and sets the options of the cut that depend on them.
+func (c *docxConv) prepareCut(core []byte, styleLang, headings, name string, cut *docxCutOpts) *ProjectInfo {
+	title, creator, coreLang := parseCore(core)
+	pi := &ProjectInfo{Title: noMarks(firstText(c.title, title)), Subtitle: noMarks(c.subtitle), Author: noMarks(creator), Language: firstText(coreLang, styleLang)}
+	if pi.Title != "" {
+		pi.Title, _ = cleanLine(pi.Title, 200)
+	}
+	pi.Subtitle, _ = cleanLine(pi.Subtitle, 200)
+	pi.Author, _ = cleanLine(pi.Author, 200)
+	if l := pi.Language; l == "" || len(l) > 16 || strings.ContainsAny(l, " <>\"'") {
+		pi.Language = ""
+	}
+	cut.headings, cut.name = headings, name
+	cut.projectTitle, cut.author = pi.Title, pi.Author
+	if c.title != "" || parseCoreTitle(core) != "" {
+		cut.projectTitle = noMarks(firstText(c.title, parseCoreTitle(core)))
+	}
+	return pi
 }
 
 // newDocxConv makes a converter with its tables empty. Its mode is the default
@@ -757,7 +796,47 @@ func plainOf(segs []seg) string {
 			b.WriteString(stripMarkTokens(s.text))
 		}
 	}
-	return strings.Join(strings.Fields(b.String()), " ")
+	return collapseSpace(b.String())
+}
+
+// hasRevisionMark says the text holds one of the private-use characters that mark a revision or a comment in a paragraph (U+E000 to
+// U+E007). Each is three bytes and starts with 0xEE, so a text without that byte has none and is not searched.
+func hasRevisionMark(s string) bool {
+	if strings.IndexByte(s, 0xEE) < 0 {
+		return false
+	}
+	return strings.ContainsAny(s, "\uE000\uE001\uE002\uE003\uE004\uE005\uE006\uE007")
+}
+
+// collapseSpace is strings.Join(strings.Fields(s), " ") without the two copies: each run of white space, as unicode.IsSpace counts
+// it, becomes one space, and the ends are trimmed. The words are copied byte for byte, invalid UTF-8 included.
+func collapseSpace(s string) string {
+	var out strings.Builder
+	out.Grow(len(s))
+	pending := false
+	for i := 0; i < len(s); {
+		c := s[i]
+		size := 1
+		space := false
+		if c < utf8.RuneSelf {
+			space = c == ' ' || (c >= '\t' && c <= '\r')
+		} else {
+			var r rune
+			r, size = utf8.DecodeRuneInString(s[i:])
+			space = unicode.IsSpace(r)
+		}
+		if space {
+			pending = true
+		} else {
+			if pending && out.Len() > 0 {
+				out.WriteByte(' ')
+			}
+			pending = false
+			out.WriteString(s[i : i+size])
+		}
+		i += size
+	}
+	return out.String()
 }
 
 // render writes segments as Markdown: formatting that adjoins is one span, white
@@ -799,7 +878,13 @@ func (c *docxConv) render(segs []seg) string {
 			i++
 			continue
 		case s.text == "\x00image":
-			out.WriteString("*\\[image\\]*")
+			// A picture that is the whole paragraph is set in italics. Beside a word, the emphasis would not close (a closing
+			// asterisk must touch a word on one side only), and the asterisks would print: the mark is plain text there.
+			if out.Len() == 0 && i == len(segs)-1 {
+				out.WriteString("*\\[image\\]*")
+			} else {
+				out.WriteString("\\[image\\]")
+			}
 			i++
 			continue
 		}
@@ -870,25 +955,41 @@ func escMD(s string) string { return escMDx(s, false, false) }
 // escMDx is escMD; with lead (trail) a percent sign that starts (ends) the text is
 // escaped too, because a private note touches it.
 func escMDx(s string, lead, trail bool) string {
+	if !utf8.ValidString(s) { // a []rune of invalid UTF-8 holds U+FFFD for each bad byte: the text is read that way
+		s = string([]rune(s))
+	}
+	if !strings.ContainsAny(s, "\\`*[]<>~|&_%") {
+		return s
+	}
+	// The escapes are written between the spans of text they fall in, so the text is copied as bytes, not re-encoded rune by rune.
 	var b strings.Builder
-	rs := []rune(s)
-	for i, r := range rs {
+	b.Grow(len(s) + 8)
+	last := 0
+	for i := 0; i < len(s); {
+		r, size := utf8.DecodeRuneInString(s[i:])
+		escape := false
 		switch r {
 		case '\\', '`', '*', '[', ']', '<', '>', '~', '|', '&':
-			b.WriteByte('\\')
+			escape = true
 		case '_':
-			prevAlnum := i > 0 && (unicode.IsLetter(rs[i-1]) || unicode.IsDigit(rs[i-1]))
-			nextAlnum := i+1 < len(rs) && (unicode.IsLetter(rs[i+1]) || unicode.IsDigit(rs[i+1]))
-			if !(prevAlnum && nextAlnum) {
-				b.WriteByte('\\')
-			}
+			prev, _ := utf8.DecodeLastRuneInString(s[:i])
+			next, _ := utf8.DecodeRuneInString(s[i+size:])
+			prevAlnum := i > 0 && (unicode.IsLetter(prev) || unicode.IsDigit(prev))
+			nextAlnum := i+size < len(s) && (unicode.IsLetter(next) || unicode.IsDigit(next))
+			escape = !(prevAlnum && nextAlnum)
 		case '%':
-			if (lead && i == 0) || (trail && i == len(rs)-1) || (i+1 < len(rs) && rs[i+1] == '%') || (i > 0 && rs[i-1] == '%') {
-				b.WriteByte('\\') // "%%" is a private note
-			}
+			nextPct := i+size < len(s) && s[i+size] == '%'
+			prevPct := i > 0 && s[i-1] == '%'
+			escape = (lead && i == 0) || (trail && i+size == len(s)) || nextPct || prevPct // "%%" is a private note
 		}
-		b.WriteRune(r)
+		if escape {
+			b.WriteString(s[last:i])
+			b.WriteByte('\\')
+			last = i
+		}
+		i += size
 	}
+	b.WriteString(s[last:])
 	return b.String()
 }
 
@@ -904,11 +1005,15 @@ func escLine(s string) string {
 	if s == "" {
 		return s
 	}
-	rs := []rune(s)
-	switch rs[0] {
+	r0, _ := utf8.DecodeRuneInString(s) // the first rune, as []rune would have it
+	switch r0 {
 	case '#', '+', '-', '=', ':', '~':
 		return "\\" + s
 	}
+	if !unicode.IsDigit(r0) {
+		return s
+	}
+	rs := []rune(s)
 	if unicode.IsDigit(rs[0]) {
 		j := 0
 		for j < len(rs) && unicode.IsDigit(rs[j]) {
@@ -947,8 +1052,7 @@ func (c *docxConv) paragraph(p *dnode) {
 		}
 		if np := ppr.child("numPr"); np != nil {
 			numID = np.child("numId").val()
-			numLvl, _ = strconv.Atoi(np.child("ilvl").val())
-			numLvl = max(0, numLvl)
+			numLvl = clampLvl(np.child("ilvl").val())
 		}
 		if bd := ppr.child("pBdr"); bd != nil && bd.child("bottom") != nil {
 			border = true
@@ -977,6 +1081,7 @@ func (c *docxConv) paragraph(p *dnode) {
 		}
 	}
 	isCode := lname == "code" || lname == "source code" || lname == "preformatted text" || lname == "html preformatted" || lname == "macro text"
+	look := c.lookOf(p, ppr, styleID, lname)
 
 	// Which text, and with what markers: see docxtrack.go.
 	scan := c.scanRev(p)
@@ -999,6 +1104,7 @@ func (c *docxConv) paragraph(p *dnode) {
 	inlineOK := outline == 0 && !isCode && !c.inNote
 	var segs []seg
 	var rendered, renderedFinal string
+	plainF := ""
 	var revs []blockRev
 	var cms []blockComment
 	c.noteSeen = nil
@@ -1020,6 +1126,7 @@ func (c *docxConv) paragraph(p *dnode) {
 			segsO, segsF, why := c.dualSegs(p)
 			if why == "" {
 				segs = segsO
+				plainF = plainOf(segsF)
 				rendered = c.render(segsO)
 				notes0 := c.noteSeen
 				save := c.snapshot()
@@ -1086,15 +1193,38 @@ func (c *docxConv) paragraph(p *dnode) {
 		return // a paragraph that was deleted whole: gone, not a blank line
 	}
 	if empty && !border {
+		if look.brAny || look.sect {
+			// a page or section break held in an empty paragraph is no blank line: it belongs to what comes next
+			c.pendBrk = c.pendBrk || look.brAny
+			c.pendSect = c.pendSect || look.sect
+			return
+		}
 		c.emptyRun++
 		return
 	}
 	gap := c.emptyRun
 	c.emptyRun = 0
-
+	// What the detector keeps of this paragraph; the breaks before it are taken, and those after it wait for the next.
+	mkSig := func(outl int) *blockSig {
+		sg := c.sigOf(look, plain, plainF, outl, lname, c.paragraphs)
+		sg.brBefore = c.pendBrk || look.brStart
+		sg.sectBefore = c.pendSect
+		if sg.plain == "" && (sg.brBefore || sg.sectBefore || sg.pageBefore) {
+			// a long paragraph after a break may be offered as a place a chapter could start: keep its first line to show
+			t := plain
+			if plainF != "" {
+				t = plainF
+			}
+			sg.plain = strings.Clone(headOf(t, 160))
+		}
+		return sg
+	}
+	afterBlock := func() {
+		c.pendBrk, c.pendSect = look.brEnd, look.sect
+	}
 	text := func(escape func(string) string) (string, []blockRev, []blockComment) {
 		t, rv, cm := rendered, revs, cms
-		if len(rv) == 0 && len(cm) == 0 && !strings.ContainsAny(t, "\uE000\uE001\uE002\uE003\uE004\uE005\uE006\uE007") {
+		if len(rv) == 0 && len(cm) == 0 && !hasRevisionMark(t) {
 			return escape(t), nil, nil
 		}
 		esc := escape(t)
@@ -1115,6 +1245,13 @@ func (c *docxConv) paragraph(p *dnode) {
 		}
 		return clean, rv, cm
 	}
+	// A paragraph in a style named for chapters that Word numbers ("Chapter %1") is a chapter's title, not a list item.
+	chapterNum := false
+	if numID != "" && outline == 0 && !isCode {
+		if ok, _ := isChapterStyle(lname); ok && len(strings.Fields(plain)) <= 20 && plain != "" {
+			chapterNum = true
+		}
+	}
 	switch {
 	case outline > 0 && plain != "":
 		c.headings++
@@ -1123,7 +1260,10 @@ func (c *docxConv) paragraph(p *dnode) {
 		if m := reChapterTag.FindStringSubmatch(title); m != nil {
 			title = m[1]
 		}
-		c.add(mdBlock{kind: bHeading, level: lv, text: title}, 0)
+		sg := mkSig(outline)
+		sg.numLabel = c.numLabelOf(numID, numLvl)
+		c.add(mdBlock{kind: bHeading, level: lv, text: title, sig: sg}, 0)
+		afterBlock()
 	case lname == "scene break" || border && plain == "" || reSceneText.MatchString(plain):
 		c.add(mdBlock{kind: bScene}, 0)
 	case strings.Contains(lname, "quote") || lname == "block text":
@@ -1131,7 +1271,7 @@ func (c *docxConv) paragraph(p *dnode) {
 		c.add(mdBlock{kind: bQuote, text: t, notes: notes, revs: rv, cms: cm}, gap)
 	case isCode:
 		c.add(mdBlock{kind: bCode, text: strings.ReplaceAll(plainRaw(segs), "\n", " ")}, gap)
-	case numID != "":
+	case numID != "" && !chapterNum:
 		lv := c.nums.level(numID, numLvl)
 		ordered := !lv.bullet
 		if strings.HasPrefix(numID, "-") {
@@ -1151,7 +1291,12 @@ func (c *docxConv) paragraph(p *dnode) {
 		c.add(mdBlock{kind: bList, text: t, ordered: ordered, listLvl: min(numLvl, 8), listNum: numID, start: num, notes: notes, revs: rv, cms: cm}, 0)
 	default:
 		t, rv, cm := text(escLines)
-		c.add(mdBlock{kind: bPara, text: t, notes: notes, revs: rv, cms: cm}, gap)
+		sg := mkSig(0)
+		if chapterNum {
+			sg.numLabel = c.numLabelOf(numID, numLvl) // a numbered chapter title: Word's number is not part of the title
+		}
+		c.add(mdBlock{kind: bPara, text: t, notes: notes, revs: rv, cms: cm, sig: sg}, gap)
+		afterBlock()
 	}
 }
 

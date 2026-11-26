@@ -10,6 +10,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/crueber/scriobh/internal/db"
+	"github.com/crueber/scriobh/internal/imports"
 	"github.com/crueber/scriobh/internal/ops"
 	"github.com/crueber/scriobh/internal/secrets"
 )
@@ -219,6 +220,7 @@ func (in PushGetIn) ProjectRef() string { return in.ProjectID }
 
 // Register adds the Git ops.
 func Register(r *ops.Registry) {
+	imports.SetRemoteDraft(remoteDraft())
 	ops.Register(r, ops.Op{Name: "git.presets", Method: "GET", Path: "/api/v1/git/presets",
 		Desc: "Presets that prefill the Git remote form: the address shape, default branch, where the deploy key is added, and where the host publishes its host key fingerprints. Static: reading it makes no request and holds no host key.",
 		Auth: ops.Authenticated()}, listPresets)

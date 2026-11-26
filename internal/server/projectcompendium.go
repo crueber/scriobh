@@ -84,6 +84,28 @@ func (s *Server) projCompView(r *http.Request, proj projects.Project) (projCompD
 	return d, nil
 }
 
+// projectCompendiumOpen is where the project's Compendium tab goes: to the Compendium when the book has a primary one that the caller is on,
+// and otherwise to the wiring page, which offers to make or attach one and says why when the Compendium is not shared with the caller. The
+// address is made from what the server knows; nothing of the request is put in it.
+func (s *Server) projectCompendiumOpen(w http.ResponseWriter, r *http.Request) {
+	proj, ok := s.goalsProject(w, r)
+	if !ok {
+		return
+	}
+	out, err := s.Reg.Call(r.Context(), s.principal(r), "project.compendium.get", compendiums.ProjectIn{ID: proj.ID})
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if pr := out.(compendiums.WiringItem).Item.Primary; pr != nil {
+		if a := s.compAddresses(r)[pr.CompendiumID]; a != "" {
+			http.Redirect(w, r, "/c/"+a+"/entities", http.StatusSeeOther) // the tab opens the entries, the first thing in a Compendium
+			return
+		}
+	}
+	http.Redirect(w, r, "/p/"+proj.Address+"/compendium", http.StatusSeeOther)
+}
+
 func (s *Server) projectCompendiumPage(w http.ResponseWriter, r *http.Request) {
 	proj, ok := s.goalsProject(w, r)
 	if !ok {
@@ -377,6 +399,7 @@ func (s *Server) peopleOrFail(w http.ResponseWriter, r *http.Request, proj proje
 
 func (s *Server) registerProjectCompendium(m *http.ServeMux) {
 	m.HandleFunc("GET /p/{slug}/compendium", s.projectCompendiumPage)
+	m.HandleFunc("GET /p/{slug}/compendium/open", s.projectCompendiumOpen)
 	s.uiRoute("POST /ui/projects/{id}/compendium/{action}", s.uiProjectCompendium)
 	m.HandleFunc("GET /p/{slug}/people", s.peoplePage)
 	s.uiRoute("POST /ui/projects/{id}/people/{action}", s.uiPeople)

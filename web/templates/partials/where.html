@@ -20,7 +20,7 @@
 
 {{define "where-comp"}}{{with .}}
 <section id="where" class="where" aria-labelledby="h-where"{{if or .Indexing (and (not .Books) (not .Hidden) (not .Failed))}} data-indexing="1"{{end}}>
-  <h2 id="h-where">Where this appears</h2>
+  <h2 id="h-where"{{if .Compact}} class="sr-only"{{end}}>Where this appears</h2>
   {{if .Failed}}<p class="fine">This could not be read just now. Reload the page to try again.</p>
   {{else if and (not .Books) (not .Hidden)}}<p class="fine">{{if .Indexing}}Still looking through the books for this name. This fills in within a moment.{{else}}No book names it yet. A book that uses this Compendium shows it here once a name, an alias or a [[link]] in its text matches.{{end}}</p>
   {{else}}

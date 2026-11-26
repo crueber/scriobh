@@ -59,6 +59,8 @@ RULES = [
     ("suggestion delete text", "sugg-del", "bg", 4.5, True),
     # The Lab's marks are lines and letters in the text: a graphic needs 3:1 against the page.
     ("Lab mark line on page", "lab", "bg", 3.0, True),
+    # The line under the words a comment is being written on, and under a comment's marks in the reading view: a graphic, 3:1 against the page.
+    ("comment line on page", "comment-line", "bg", 3.0, True),
 ]
 
 # The Lab's colour must be told apart from the other lines drawn in prose: the alternatives' underline (the accent) and the

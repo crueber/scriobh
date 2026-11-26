@@ -15,6 +15,10 @@
   var er = $("ent-error");
   if (er) er.focus();
 
+  // The Save bar floats over the foot of the screen, and the browser's own scroll for a focused box ignores the room it asks for
+  // (scroll-padding): a box that Tab brings in under the bar is scrolled clear of it.
+  doc.addEventListener("focusin", function (e) { if (e.target.closest && e.target.closest("#details")) e.target.scrollIntoView({ block: "nearest" }); });
+
   var pv = $("es-preview"), ta = $("es-body"), out = $("es-prev");
   if (pv && ta && out) {
     pv.hidden = false;
@@ -23,7 +27,7 @@
       if (!out.hidden) {
         out.hidden = true;
         pv.setAttribute("aria-expanded", "false");
-        pv.textContent = "Preview";
+        pv.textContent = pv.dataset.show;
         return;
       }
       var body = new win.URLSearchParams();
@@ -36,7 +40,7 @@
           out.innerHTML = h;
           out.hidden = false;
           pv.setAttribute("aria-expanded", "true");
-          pv.textContent = "Hide the preview";
+          pv.textContent = pv.dataset.hide;
         }, function () { say("The preview could not be made. Your text is untouched."); })
         .then(function () { pv.disabled = false; });
     });

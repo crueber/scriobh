@@ -408,8 +408,8 @@
     ["chat", "Chat about this chapter…", "Ask, think aloud, argue.", false],
     ["critique", "Critique this chapter", "Notes, not prose, kept as a review.", false],
     ["summary", "Summarise into the synopsis", "A proposal you accept.", false],
-    ["continuity", "Check continuity", "Against the bible, the timeline and earlier chapters.", false],
-    ["extract", "Find names not in the bible", "Proposed entries; each accepted on its own.", false],
+    ["continuity", "Check continuity", "Against the Compendium, the timeline and earlier chapters.", false],
+    ["extract", "Find names not in the Compendium", "Proposed entries; each accepted on its own.", false],
     ["reviews", "Show the reviews", "Your critiques, checks and proposed entries.", false]
   ];
   var RECIPE_OF = { rewrite: "rewrite", tighten: "tighten", expand: "expand", simplify: "simplify", tone: "tone", grammar: "grammar", alternatives: "alternatives" };

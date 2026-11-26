@@ -211,7 +211,7 @@ func (s *Server) adminQuotasPage(w http.ResponseWriter, r *http.Request) {
 		d.Note = i18n.Default.T(lang, "adm.q_note")
 	}
 	names := map[string]string{"Attachment storage, whole instance": "adm.ql_instance", "Attachment storage, the fullest project or Compendium": "adm.ql_fullest",
-		"Largest single file allowed": "adm.ql_file", "People": "adm.ql_people", "Projects": "adm.ql_projects", "Live API keys": "adm.ql_keys"}
+		"Largest single file allowed": "adm.ql_file", "Imports in progress (files held for review)": "adm.ql_imports", "People": "adm.ql_people", "Projects": "adm.ql_projects", "Live API keys": "adm.ql_keys"}
 	noLimit := i18n.Default.T(lang, "adm.no_limit")
 	for _, l := range q.Instance {
 		name := l.Name

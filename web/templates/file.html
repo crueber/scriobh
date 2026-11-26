@@ -3,7 +3,7 @@
 <nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Owner.Name}}</a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}/files">Attachments</a></nav>
 {{end}}{{end}}
 {{define "tab-write"}}{{if .Data.Owner.Compend}}{{template "ctab-phone" ctabs .Data.Slug "files"}}{{else}}{{template "ptab-phone" ptabs .Data.Slug "" "files" .Data.Project.Role}}{{end}}{{end}}
-{{define "projmore"}}{{if .Data.Owner.Compend}}{{template "cmore" ctabs .Data.Slug "files"}}{{else}}{{template "project-more" ptabs .Data.Slug "" "files" .Data.Project.Role}}{{end}}{{end}}
+{{define "projmore"}}{{if .Data.Owner.Compend}}{{template "cmore" ctabs .Data.Slug "files"}}{{else}}{{template "project-more" (inLang $.Lang (ptabs .Data.Slug "" "files" .Data.Project.Role))}}{{end}}{{end}}
 {{define "ptabs"}}{{if .Data.Owner.Compend}}{{template "ctab-desktop" ctabs .Data.Slug "files"}}{{else}}{{template "ptab-desktop" ptabs .Data.Slug "" "files" .Data.Project.Role}}{{end}}{{end}}
 {{define "content"}}
 {{with .Data}}{{$a := .Att}}

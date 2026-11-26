@@ -612,7 +612,7 @@ func TestSplitKeepsTheWholeTextFirst(t *testing.T) {
 		t.Fatal("the head was not cut")
 	}
 	rs := g.revs(g.ownA, d.ID)
-	if len(rs) != 1 || rs[0].Reason != "snapshot" || rs[0].Note != "Before split" || rs[0].Label != "" || rs[0].Pinned {
+	if len(rs) != 1 || rs[0].Reason != "split" || rs[0].Note != "" || rs[0].Label != "" || rs[0].Pinned {
 		t.Fatalf("versions %+v", rs)
 	}
 	if g.content(d.ID, rs[0].ID) != whole {

@@ -186,6 +186,11 @@ func TestProjectScopeAndMembershipSeparation(t *testing.T) {
 	if got := x.call(x.owner, "project.entity.get", entities.ProjectGetIn{ID: pid, Entity: " LUNA "}).(entities.ProjectItem).Item; got.ID != moon.ID {
 		t.Errorf("by alias: %+v", got)
 	}
+	// By id reads the entity alone, and still carries its aliases and override.
+	byID := x.call(x.owner, "project.entity.get", entities.ProjectGetIn{ID: pid, Entity: moon.ID}).(entities.ProjectItem).Item
+	if len(byID.Aliases) != 1 || byID.Aliases[0] != "Luna" || byID.Summary != "Smaller in this book." {
+		t.Errorf("by id: aliases %v, summary %q", byID.Aliases, byID.Summary)
+	}
 	if v := x.call(x.owner, "project.entity.list", entities.ProjectListIn{ID: pid, Kind: "place"}).(entities.ProjectListOut); len(v.Items) != 1 {
 		t.Errorf("kind: %+v", v)
 	}

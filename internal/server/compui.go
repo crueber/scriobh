@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/crueber/scriobh/internal/domain/compendiums"
+	"github.com/crueber/scriobh/internal/domain/docs"
+	"github.com/crueber/scriobh/internal/domain/projects"
 	"github.com/crueber/scriobh/internal/ops"
 )
 
@@ -102,28 +104,118 @@ type compBanner struct {
 	CSRF  string
 }
 
-// compBannerFor reads the Compendium of a /c/ page, quietly, for its banner.
-func (s *Server) compBannerFor(r *http.Request) *compBanner {
+// compBack is the line at the top of a Compendium page that goes back to the writing: where the person was last writing among the
+// books that use this Compendium.
+type compBack struct {
+	Href, Project, Doc string
+	HasDoc             bool // the last document is named; an untitled one has an empty Doc
+}
+
+// compNav reads the Compendium of a /c/ page, quietly, for the banner of one in the trash or on the shelf, and for the way back to the book
+// the person was last writing in. One list of the Compendiums serves both.
+func (s *Server) compNav(r *http.Request) (*compBanner, *compBack) {
 	rest := strings.TrimPrefix(r.URL.Path, "/c/")
 	if i := strings.IndexByte(rest, '/'); i >= 0 {
 		rest = rest[:i]
 	}
 	if rest == "" {
-		return nil
+		return nil, nil
 	}
 	out, err := s.Reg.Call(r.Context(), s.principal(r), "compendium.list", compendiums.ListIn{State: compendiums.StateAll})
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 	c := pickCompendium(out.(compendiums.ListOut).Items, rest)
-	if c == nil || (!c.Trashed && !c.Archived) {
-		return nil
+	if c == nil {
+		return nil, nil
+	}
+	var back *compBack
+	if r.Method == http.MethodGet && !isHTMX(r) && !isFetch(r) {
+		back = s.compBackTo(r, c.ID)
+	}
+	if !c.Trashed && !c.Archived {
+		return nil, back
 	}
 	kind := "archived"
 	if c.Trashed {
 		kind = "trashed"
 	}
-	return &compBanner{Kind: kind, ID: c.ID, Owner: c.Role == "owner", CSRF: authFrom(r.Context()).CSRF}
+	return &compBanner{Kind: kind, ID: c.ID, Owner: c.Role == "owner", CSRF: authFrom(r.Context()).CSRF}, back
+}
+
+// compBackTo is the way back to writing from a Compendium's pages: the book the caller opened most recently among the ones that use it
+// and that the caller can open, and its last document. The link is made from what the server knows alone, never from the request. A book the
+// caller cannot open is never named: compendium.get lists only the ones they can. A book with a passphrase this session has not unlocked
+// is named by its title and goes to its unlock page; nothing of its chapters is read.
+func (s *Server) compBackTo(r *http.Request, compID string) *compBack {
+	ctx, p := r.Context(), s.principal(r)
+	co, err := s.Reg.Call(ctx, p, "compendium.get", compendiums.GetIn{ID: compID})
+	if err != nil {
+		return nil
+	}
+	use := co.(compendiums.DetailItem).Item.Projects
+	if len(use) == 0 {
+		return nil
+	}
+	lo, err := s.Reg.Call(ctx, p, "project.list", projects.ListIn{State: projects.StateAll})
+	if err != nil {
+		return nil
+	}
+	mine := map[string]projects.Project{}
+	for _, pr := range lo.(projects.ListOut).Items {
+		mine[pr.ID] = pr
+	}
+	// When each of them was last opened by this person. project.list leaves that out for a locked book, so it is read here, from the
+	// caller's own state and for the books that use this Compendium only.
+	args := []any{p.UserID}
+	marks := make([]string, 0, len(use))
+	for _, u := range use {
+		if pr, ok := mine[u.ID]; ok && !pr.Trashed {
+			args = append(args, u.ID)
+			marks = append(marks, "?")
+		}
+	}
+	if len(marks) == 0 {
+		return nil
+	}
+	rows, err := s.DB.Read().QueryContext(ctx, `SELECT project_id, last_opened_at FROM user_project_state WHERE user_id = ? AND last_opened_at IS NOT NULL AND last_opened_at <> '' AND project_id IN (`+strings.Join(marks, ",")+`)`, args...)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	// The book to go back to is the most recently opened one that is not locked, when there is one: a link to a book that asks for its
+	// passphrase first is the poorer way back, and the writer was last in the unlocked one a moment before they were in it. When every
+	// one of them is locked, the most recent of those, by its title alone.
+	var bestOpen, bestLocked, atOpen, atLocked string
+	for rows.Next() {
+		var id, at string
+		if rows.Scan(&id, &at) != nil {
+			continue
+		}
+		if mine[id].Locked {
+			if at > atLocked || (at == atLocked && id > bestLocked) {
+				bestLocked, atLocked = id, at
+			}
+		} else if at > atOpen || (at == atOpen && id > bestOpen) {
+			bestOpen, atOpen = id, at
+		}
+	}
+	best := bestOpen
+	if best == "" {
+		best = bestLocked
+	}
+	pr, ok := mine[best]
+	if !ok {
+		return nil
+	}
+	if pr.Locked || pr.LastDocumentID == "" {
+		return &compBack{Href: "/p/" + pr.Address, Project: pr.Title}
+	}
+	do, err := s.Reg.Call(ctx, p, "doc.get", docs.DocIn{ID: pr.LastDocumentID})
+	if err != nil {
+		return &compBack{Href: "/p/" + pr.Address, Project: pr.Title}
+	}
+	return &compBack{Href: "/p/" + pr.Address + "/d/" + pr.LastDocumentID + "#resume", Project: pr.Title, HasDoc: true, Doc: strings.TrimSpace(do.(docs.Item).Item.Title)}
 }
 
 // compendiumBySlug finds the Compendium a /c/{address} names among the ones the caller can open, trashed and

@@ -3,7 +3,7 @@
 <nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">Goals</span></nav>
 {{end}}
 {{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "goals" .Data.Project.Role}}{{end}}
-{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "goals" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" (inLang $.Lang (ptabs .Data.Slug "" "goals" .Data.Project.Role))}}{{end}}
 {{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "goals" .Data.Project.Role}}{{end}}
 {{define "content"}}
 {{with .Data}}

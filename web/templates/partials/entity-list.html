@@ -1,7 +1,7 @@
 {{define "entity-swatch"}}{{if .}}<svg class="ent-sw" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" focusable="false"><rect width="14" height="14" rx="3" fill="{{.}}"/></svg>{{else}}<span class="ent-sw ent-sw-none" aria-hidden="true"></span>{{end}}{{end}}
 
 {{define "entity-list"}}
-{{if .SavedText}}<p class="saved" role="status">{{.SavedText}}</p>{{end}}
+{{if and .SavedText (ne .Saved "again")}}<p class="saved" role="status">{{.SavedText}}</p>{{end}}
 <p class="ent-count" id="ent-count" role="status">
   {{if .Searching}}{{num .Total}} {{plural .Total "match" "matches"}} for &ldquo;{{.Q}}&rdquo;{{if .Kind}}, shown here only for {{.Kind}} entities{{end}}.{{if .Degraded}} The search index could not be read, so a slower search answered.{{end}}
   {{else}}{{num .Total}} {{plural .Total "entity" "entities"}}{{if .Kind}} of this kind{{end}}{{if eq .State "trashed"}} in the trash{{end}}.{{end}}
@@ -11,16 +11,14 @@
   {{range .Rows}}<li class="ent-row">
     {{template "entity-swatch" .Color}}
     <div class="ent-main">
-      <p class="ent-name"><a id="en-{{.ID}}" href="/c/{{$.Slug}}/e/{{.ID}}">{{.Name}}</a> <span class="ent-kind">{{.KindLabel}}</span>{{if .Trashed}} <span class="ent-kind">In the trash</span>{{end}}</p>
-      {{if .Parts}}<p class="ent-sub"><span class="ent-via">Matched in the {{.MatchedIn}}:</span> {{range .Parts}}{{if .Mark}}<mark>{{.Text}}</mark>{{else}}{{.Text}}{{end}}{{end}}</p>
-      {{else if .Summary}}<p class="ent-sub">{{.Summary}}</p>{{end}}
-      {{if .Aliases}}<p class="ent-aka">Also: {{range $i, $a := .Aliases}}{{if $i}}, {{end}}{{$a}}{{end}}</p>{{end}}
+      <p class="ent-line"><a id="en-{{.ID}}" class="ent-link" href="/c/{{$.Slug}}/e/{{.ID}}"{{if .Summary}} title="{{.Summary}}"{{end}}>{{.Name}}</a><span class="ent-kind">{{.KindLabel}}</span>{{if .Trashed}}<span class="ent-kind">In the trash</span>{{end}}{{if .Summary}}<span class="ent-sum">{{.Summary}}</span>{{end}}{{if .Aliases}}<span class="ent-aka">Also known as: {{range $i, $a := .Aliases}}{{if $i}}, {{end}}{{$a}}{{end}}</span>{{end}}</p>
+      {{if .Parts}}<p class="ent-sub"><span class="ent-via">Matched in the {{.MatchedIn}}:</span> {{range .Parts}}{{if .Mark}}<mark>{{.Text}}</mark>{{else}}{{.Text}}{{end}}{{end}}</p>{{end}}
     </div>
   </li>{{end}}
 </ul>
 {{else}}
   <div class="ent-empty">
-  {{if .Empty}}<p><strong>No entities yet.</strong> This is the Compendium's bible: the characters, places, items, organisations and ideas of the work, kept once and shared by every book that uses it.</p>
+  {{if .Empty}}<p><strong>No entities yet.</strong> This is the Compendium: the characters, places, items, organisations and ideas of the work, kept once and shared by every book that uses it.</p>
     {{if .CanEdit}}<p>Add the first one below.</p>{{else}}<p>Whoever owns this Compendium has not added any yet.</p>{{end}}
   {{else if .Searching}}<p><strong>Nothing matches &ldquo;{{.Q}}&rdquo;.</strong> Names and aliases count, and so do words in a summary or in the notes. Try fewer words, or the start of a name.</p>
   {{else if eq .State "trashed"}}<p><strong>The trash is empty.</strong></p>
@@ -43,15 +41,13 @@
   {{range .Rows}}<li class="ent-row">
     {{template "entity-swatch" .Color}}
     <div class="ent-main">
-      <p class="ent-name"><a id="en-{{.ID}}" href="/p/{{$.Slug}}/e/{{.ID}}">{{.Name}}</a> <span class="ent-kind">{{.KindLabel}}</span>{{if .Overridden}} <span class="ent-kind">This book changes it</span>{{end}}</p>
-      {{if .Summary}}<p class="ent-sub">{{.Summary}}</p>{{end}}
-      <p class="ent-via">{{.ViaLabel}}: {{.Compendium}}</p>
+      <p class="ent-line"><a id="en-{{.ID}}" class="ent-link" href="/p/{{$.Slug}}/e/{{.ID}}"{{if .Summary}} title="{{.Summary}}"{{end}}>{{.Name}}</a><span class="ent-kind">{{.KindLabel}}</span>{{if .Overridden}}<span class="ent-kind">This book changes it</span>{{end}}{{if .Summary}}<span class="ent-sum">{{.Summary}}</span>{{end}}<span class="ent-via">{{.ViaLabel}}: {{.Compendium}}</span></p>
     </div>
   </li>{{end}}
 </ul>
 {{else}}
   <div class="ent-empty">
-  {{if .NoBible}}<p><strong>This project has no bible to show you.</strong> Give it a Compendium, or link single entities, on <a href="/p/{{.Slug}}/compendium">the Compendium page</a>.</p>
+  {{if .NoBible}}<p><strong>This project has no Compendium to show you.</strong> Give it a Compendium, or link single entities, on <a href="/p/{{.Slug}}/compendium">the Compendium page</a>.</p>
   {{else if .Hidden}}<p><strong>Nothing is shared with you.</strong> The entities this project uses are in a Compendium you are not a member of.</p>
   {{else}}<p><strong>No entity matches.</strong> Names and aliases count. Try fewer words.</p>{{end}}
   </div>

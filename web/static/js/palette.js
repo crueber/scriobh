@@ -9,7 +9,29 @@
   var pal = $("#palette"), input = $("#palette-input"), list = $("#palette-list"), empty = $("#palette-empty");
   if (!pal || !input || !list) return;
   var S = (win.scriobh = win.scriobh || {});
-  var mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent), MOD = mac ? "⌘" : "Ctrl";
+  var mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+  // Keys come from the registry (internal/shortcuts): the page puts its tokens on the dialog (data-keys), and this draws them for
+  // this computer, ⌘⇧Z on a Mac and Ctrl+Shift+Z elsewhere. Nothing here spells a key.
+  var kh = {}, KM = { Mod: "⌘", Shift: "⇧", Alt: "⌥", Ctrl: "⌃" }, layout = null;
+  try { kh = JSON.parse(pal.dataset.keys); } catch (e) { /* a command then shows no key */ }
+  // The words of the commands that the catalogue holds (internal/i18n, palette.js.*), and the words a command is also found by.
+  var M = {};
+  try { M = JSON.parse(pal.dataset.msg || "{}"); } catch (e) { /* the commands then have no words */ }
+  // The Alt+Shift chords are by position (the A, N, P, O, G, S, I, J and B keys of a US keyboard), so on another layout they sit under
+  // other letters. Where the browser can say which (Chromium), that letter is shown; elsewhere the US letter is, as js/alts.js does.
+  function letter(code, us) { var l = layout && layout.get(code); return String(l || us).toUpperCase(); }
+  function keyText(t) {
+    return String(t || "").split(" ").map(function (c) {
+      var al = /^Alt\+Shift\+([A-Z])$/.exec(c), prev = "";
+      return c.split("+").map(function (x, i, a) {
+        if (al && i === 2) x = letter("Key" + x, x);
+        var sign = mac && KM[x], out = (mac ? (prev && !sign && x.length > 1 ? " " : "") : "") + (sign || (kh.n || {})[x] || x);
+        prev = sign;
+        return out;
+      }).join(mac ? "" : "+");
+    }).filter(Boolean).join(" / ");
+  }
+  function K(id) { return keyText((kh.k || {})[id]); }
   var write = $("#write[data-doc]"), canEdit = write && write.dataset.canEdit === "true";
 
   // ---- the commands ------------------------------------------------------------
@@ -23,20 +45,32 @@
   function dialog(href) { if (write) go(href); else if (win.htmx) win.htmx.ajax("GET", href, { target: "#dialog-body", swap: "innerHTML" }); }
   if (pal.dataset.writer === "true") add({ label: "New project", run: function () { dialog("/ui/projects/new"); } });
   if (write) {
-    add({ label: "Go to chapter…", key: MOD + " O", run: function () { click("#jump-open"); } });
+    add({ label: "Go to chapter…", kid: "switcher", run: function () { click("#jump-open"); } });
     if (canEdit) {
       add({ label: "Add chapter", run: function () { click('[data-add="chapter"]'); } });
       add({ label: "Add scene", run: function () { click('[data-add="scene"]'); } });
       add({ label: "Add part", run: function () { click('[data-add="part"]'); } });
     }
     if (canEdit) {
-      add({ label: "Split at cursor", run: function () { S.split(); } });
-      add({ label: "Export as Markdown\u2026", run: function () { dialog("/ui/projects/" + write.dataset.project + "/export"); } });
+      // js/split.js, from the page: the words are the toolbar button's own, from the catalogue.
+      var sb = $('#fmtbar [data-cmd="split"]');
+      add({ label: (sb && sb.dataset.tip) || "Split chapter here", kid: "split", run: function () { if (S.split) S.split(); else if (S.toast && sb) S.toast(sb.dataset.wait); } });
+      add({ label: M.export, run: function () { dialog("/ui/projects/" + write.dataset.project + "/export"); } });
+    }
+    // The Comments tab (js/inspector.js, js/cwrite.js): a comment on the selected words, or on the chapter; "Only me" unless chosen otherwise.
+    if (canEdit) {
+      add({ label: "Comment on the selected words", kid: "comments_panel", run: function () { S.inspector.want("comments"); } });
+      add({ label: "Comment on this chapter", run: function () { S.inspector.want("comments", "chapter"); } });
+      add({ label: "Show the comments of this chapter", run: function () { S.inspector.open("comments", true); } });
     }
     add({ label: "Show or hide the details", run: function () { click("#insp-open"); } });
     add({ label: "Show or hide the versions", run: function () { click("#ver-open"); } });
-    add({ label: "Show or hide the underlined names from the bible", run: function () { if (S.mentions) S.mentions.toggle(); } });
-    add({ label: "Open the entity under the cursor", run: function () { if (S.mentions) S.mentions.open(); } });
+    add({ label: "Show or hide the underlined names from the Compendium", run: function () { if (S.mentions) S.mentions.toggle(); } });
+    add({ label: "Show the entry for the name under the cursor", run: function () { if (S.mentions) S.mentions.open(); } });
+    // The Compendium tab of the inspector: its search, the selected words, or a new entry made from them (js/inspector.js).
+    add({ label: "Look up in the Compendium", kid: "compendium_panel", run: function () { S.inspector.compendium(0); } });
+    add({ label: "Use the selected words in the Compendium", run: function () { S.inspector.compendium(1); } });
+    add({ label: "New entry from the selected words", run: function () { S.inspector.compendium("new"); } });
     // Alternatives, ghosts and the stash: each is the same command as its key (js/alts.js).
     [["Add an alternative to the selection", "alt"], ["Next wording of the alternative here", "next"], ["Previous wording of the alternative here", "previous"], ["Show the original wording", "original"],
      ["Ghost the selection", "ghost"], ["Revive the ghosted text here", "revive"], ["Send the selection to the stash", "stash"], ["Play a sound when wordings change, on or off", "sound"]].forEach(function (c) {
@@ -50,10 +84,10 @@
       add({ label: "Lab: previous mark", run: function () { if (S.lab) S.lab.step(-1); else if (S.inspector) S.inspector.open("lab", true); } });
     }
     if (canEdit && write.dataset.ai === "on") {
-      [["Ask the writing partner about the selection\u2026", "menu", "Alt Shift I"], ["Go to the proposal that is waiting", "proposal", "Alt Shift J"], ["Rewrite the selection\u2026", "rewrite"], ["Tighten the selection", "tighten"], ["Expand the selection", "expand"], ["Change the tone of the selection\u2026", "tone"],
+      [["Ask the writing partner about the selection\u2026", "menu", "ai_menu"], ["Go to the proposal that is waiting", "proposal", "ai_proposal"], ["Rewrite the selection\u2026", "rewrite"], ["Tighten the selection", "tighten"], ["Expand the selection", "expand"], ["Change the tone of the selection\u2026", "tone"],
        ["Give me alternatives for the selection", "alternatives"], ["Chat about this chapter\u2026", "chat"], ["Critique this chapter", "critique"], ["Summarise this chapter into its synopsis", "summary"],
-       ["Check this chapter for continuity", "continuity"], ["Look for names that are not in the bible yet", "extract"], ["Show the reviews", "reviews"]].forEach(function (c) {
-        add({ label: c[0], key: c[2], run: function () { doc.dispatchEvent(new win.CustomEvent("scriobh:ai", { detail: c[1] })); } });
+       ["Check this chapter for continuity", "continuity"], ["Look for names that are not in the Compendium yet", "extract"], ["Show the reviews", "reviews"]].forEach(function (c) {
+        add({ label: c[0], kid: c[2], run: function () { doc.dispatchEvent(new win.CustomEvent("scriobh:ai", { detail: c[1] })); } });
       });
     }
     add({ label: "Show the alternatives of this chapter", run: function () { if (S.inspector) S.inspector.open("alts", true); } });
@@ -61,10 +95,23 @@
     add({ label: "Show who is in this scene", run: function () { if (S.inspector) S.inspector.open("scene", true); } });
     if (canEdit) add({ label: "Add files to this project\u2026", run: function () { go("/p/" + write.dataset.slug + "/import"); } });
     add({ label: "Search this project", run: function () { go("/p/" + write.dataset.slug + "/search"); } });
-    add({ label: "Show or hide Markdown source", key: MOD + " E", run: function () { if (S.write) S.write.editor.toggleSource(); } });
+    // The format bar's own buttons (js/format.js): the same words, and nothing happens where the button is off (Source, a chapter held or read-only).
+    if (canEdit) ["undo", "redo"].forEach(function (c) {
+      var b = $('#fmtbar [data-cmd="' + c + '"]');
+      add({ label: b ? b.dataset.tip : c, kid: c, run: function () {
+        if (!b) return;
+        if (S.tools) S.tools.update(); // the bar follows the editor a moment late: ask it now
+        if (S.alts && S.alts.cmd(c)) return; // the editor is held for a change: it says so
+        if (!b.disabled) { b.click(); return; }
+        // Off: say why, in the button's own words where it has them (Source), as the tooltip does.
+        var ro = $('.scriobh-prose[aria-readonly="true"]'), src = $(".scriobh-source:not([hidden])");
+        if (S.toast) S.toast(src ? b.dataset.off : S.write && S.write.locked ? "This chapter is open for writing in another tab, so there is nothing to " + c + " here." : ro ? "This chapter cannot be edited, so there is nothing to " + c + "." : "There is nothing to " + c + " here.");
+      } });
+    });
+    add({ label: "Show or hide Markdown source", kid: "source", run: function () { if (S.write) S.write.editor.toggleSource(); } });
     if (doc.getElementById("sprint-open")) add({ label: "Start or stop a sprint\u2026", run: function () { click("#sprint-open"); } });
-    if (write.dataset.next) add({ label: "Next chapter", key: "Alt PgDn", run: function () { go(write.dataset.next); } });
-    if (write.dataset.prev) add({ label: "Previous chapter", key: "Alt PgUp", run: function () { go(write.dataset.prev); } });
+    if (write.dataset.next) add({ label: "Next chapter", kid: "chapter_next", run: function () { go(write.dataset.next); } });
+    if (write.dataset.prev) add({ label: "Previous chapter", kid: "chapter_prev", run: function () { go(write.dataset.prev); } });
   }
   // Push now, from anywhere in the writing view: the same route the Git page's button uses, answered as JSON.
   function pushNow() {
@@ -81,12 +128,14 @@
     add({ label: "Go to the goals", run: function () { go("/p/" + slug + "/goals"); } });
     // Each of a project's own pages: the label, and where it is.
     [["Go to the corkboard", "cards"], ["Go to the status board", "board"], ["Go to the entities of this project", "entities"],
-     ["Go to the Compendium of this project", "compendium"], ["Go to the people of this project", "people"],
+     ["Go to the Compendium of this project", "compendium/open"], ["Go to the people of this project", "people"],
      ["Go to the research of this project", "research"], ["Go to the research board", "research/board"], ["Go to the scratchpad of this project", "scratch"], ["Go to the attachments of this project", "files"], ["Go to the timeline of this project", "timeline"], ["Go to the AI page of this project", "ai"]].forEach(function (p) {
       add({ label: p[0], run: function () { go("/p/" + slug + "/" + p[1]); } });
     });
     add({ label: "Reading mode", run: function () { go("/p/" + slug + "/read" + (write ? "/" + write.dataset.doc : "")); } });
     add({ label: "Go to the editions (imported books) of this project", run: function () { go("/p/" + slug + "/editions"); } });
+    // Compile, on every page of the project; the words an editor would type for it are found by too (export, docx, pdf...).
+    if (M.compile) add({ label: M.compile, kw: M.compile_kw, run: function () { go("/p/" + slug + "/compile"); } });
     if (!write || canEdit) add({ label: "Git sync", run: function () { go("/p/" + slug + "/git"); } });
     if (write && canEdit) add({ label: "Push to Git now", run: function () { pushNow(); } });
     if (!write) add({ label: "Search this project", run: function () { go("/p/" + slug + "/search"); } });
@@ -108,6 +157,7 @@
   add({ label: "Search every project", run: function () { go("/search"); } });
   add({ label: "Go to the writing studio", run: function () { go("/studio"); } });
   add({ label: "Writing goals", run: function () { go("/studio/goals"); } });
+  add({ label: "Keyboard shortcuts", kid: "help", run: function () { kbOpen(); } });
   add({ label: "Settings", run: function () { go("/settings"); } });
   add({ label: "Archived projects", run: function () { go("/?state=archived"); } });
   add({ label: "Trash", run: function () { go("/?state=trashed"); } });
@@ -160,6 +210,11 @@
     for (i = 0; idx.length < q.length && i < l.length; i++) if (l[i] === q.charAt(idx.length)) idx.push(i);
     return idx.length === q.length ? { idx: idx, score: 300 + idx[idx.length - 1] - idx[0] } : null;
   }
+  // A command's keywords find it when its label does not: a match ranks after every label match, and no letter is bold.
+  function kwMatch(o, q) {
+    var k = o.kw && match(o.kw, q);
+    return k && { idx: [], score: 200 + k.score };
+  }
   function row(o, idx) {
     var li = doc.createElement("li"), lab = doc.createElement("span"), set = {}, run = "", bold = false;
     li.id = o.id; li.setAttribute("role", "option");
@@ -173,7 +228,7 @@
     for (var i = 0; i < o.label.length; i++) { if (!!set[i] !== bold) { flush(); bold = !!set[i]; } run += o.label[i]; }
     flush();
     li.appendChild(lab);
-    if (o.sub || o.key) { var k = doc.createElement("span"); k.className = "cmd-key"; k.textContent = o.sub || o.key; li.appendChild(k); }
+    if (o.sub || o.kid) { var k = doc.createElement("span"); k.className = "cmd-key"; k.textContent = o.sub || K(o.kid); li.appendChild(k); }
     return li;
   }
   function render() {
@@ -181,7 +236,7 @@
     items.forEach(function (o, n) {
       // Chapters and projects show when typing, or all of them in the switcher; commands show in the palette.
       if (mode === "switch" ? !o.grp : (o.grp && !q)) return;
-      var m = q ? match(o.label, q) : { idx: [], score: n };
+      var m = q ? (match(o.label, q) || kwMatch(o, q)) : { idx: [], score: n };
       if (m) hits.push({ o: o, m: m });
     });
     if (q) hits.sort(function (a, b) { return a.m.score - b.m.score; });
@@ -203,7 +258,7 @@
   function open(m) {
     if ($("dialog[open]:not(#palette)")) return;
     if (pal.open) { pal.close(); return; }
-    doc.querySelectorAll("[popover]:popover-open").forEach(function (p) { p.hidePopover(); });
+    shut();
     mode = m || "";
     chapters();
     returnTo = doc.activeElement;
@@ -256,36 +311,45 @@
     if (k === "k") { e.preventDefault(); open(""); }
     else if (k === "o") { e.preventDefault(); open("switch"); }
   });
-  doc.addEventListener("click", function (e) { if (e.target.closest("[data-palette-open]")) open(""); });
-  // ---- split at cursor (doc.split) ------------------------------------------------------------------
-  // From Source mode, where the caret's place in the Markdown text is exact. It also works in a
-  // read-only chapter (past 25,000 words), which is how such a chapter gets cut down to size.
-  // The tab id doc.js keeps in sessionStorage, so the server's lease also guards a split.
-  function tabId() { try { return win.sessionStorage.getItem("scriobh:tab") || undefined; } catch (e) { return undefined; } }
-  S.split = function () {
-    var W = S.write;
-    if (!W || !W.cfg.canEdit) return;
-    var ed = W.editor, say = function (m) { if (S.toast) S.toast(m); }, st = $("#save-state");
-    if (st && st.dataset.state === "locked") return say("Another tab is writing this chapter. Take over there first.");
-    if (ed.mode() !== "source") {
-      ed.toggleSource(true);
-      say("Put the cursor where the new document should begin, then choose Split at cursor again.");
-      return;
-    }
-    var at = $(".scriobh-source").selectionStart;
-    W.flushAll().then(function (ok) {
-      if (!ok) return say("Not saved yet. Staying here so nothing is lost.");
-      var md = ed.getMarkdown();
-      fetch("/api/v1/docs/" + W.cfg.id + "/split", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ base_revision: W.rev, offset: Math.min(at, md.length), tab_id: tabId() }) })
-        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }, function () { return { ok: false }; }); })
-        .then(function (x) {
-          if (x.ok) win.location.assign("/p/" + W.cfg.slug + "/d/" + x.j.tail.id + "?new=1"); // the new document takes a title first
-          else say((x.j && x.j.error && x.j.error.message) || "The split did not go through. Nothing was changed.");
-        }, function () { say("Could not reach the server. Nothing was changed."); });
-    });
-  };
-
+  doc.addEventListener("click", function (e) {
+    if (e.target.closest("[data-palette-open]")) open("");
+    else if (e.target.closest("[data-kb-open]")) { e.preventDefault(); kbOpen(); }
+  });
+  // ---- the shortcuts window (F-1250) ----------------------------------------------------------------------------------------
+  // The fragment is fetched on first use and kept for the page, so a page that never opens it pays nothing. It goes into the page's
+  // own #dialog, fetched here and not with htmx: a sign-in redirect must never replace the page or the text in it (the shell would
+  // navigate), so anything but a plain answer is a toast.
+  // The window's code is js/shortcuts.js, fetched when the window is first asked for (the header icon says where it is), so a page that
+  // never opens it does not carry it.
+  var kbLoading = false;
+  function kbOpen() {
+    var here = $("[data-kb-src]"), sc;
+    if (S.kbwin) { S.kbwin(); return; }
+    if (!here || kbLoading) return;
+    kbLoading = true;
+    sc = doc.createElement("script");
+    sc.src = here.dataset.kbSrc;
+    sc.onload = function () { kbLoading = false; if (S.kbwin) S.kbwin(); };
+    sc.onerror = function () { kbLoading = false; if (S.toast) S.toast(here.dataset.none); };
+    doc.head.appendChild(sc);
+  }
+  // :popover-open is not a selector every browser has: where it throws there is nothing to close.
+  function shut() { try { doc.querySelectorAll("[popover]:popover-open").forEach(function (p) { p.hidePopover(); }); } catch (e) { /* none open */ } }
+  if (navigator.keyboard && navigator.keyboard.getLayoutMap) navigator.keyboard.getLayoutMap().then(function (m) {
+    layout = m;
+    if (S.kbskin) S.kbskin($("#dialog-body"));
+    // the format bar's tooltips were written before the layout was known
+    Array.prototype.forEach.call(doc.querySelectorAll(".tb[data-keys]"), function (b) { if (b.title === b.dataset.on) b.title = b.dataset.on = b.dataset.tip + " (" + keyText(b.dataset.keys) + ")"; });
+  }, function () { /* the US letters */ });
+  // ? opens it from anywhere that is not typing: in the editor it is a question mark, and the way in there is the palette or the icon.
+  doc.addEventListener("keydown", function (e) {
+    var t = e.target;
+    // AltGr is Control and Alt together on Windows: a ? made with it is still a ?
+    var ag = e.getModifierState && e.getModifierState("AltGraph");
+    if (e.key !== "?" || e.defaultPrevented || e.metaKey || e.repeat || (!ag && (e.ctrlKey || e.altKey)) || !t || t.isContentEditable || (t.closest && t.closest("input, textarea, select, [role=textbox], [role=combobox]"))) return;
+    e.preventDefault();
+    kbOpen();
+  });
   // ---- the export dialog: fetch the file, so the page can say what was recorded -----------------------------
   doc.addEventListener("submit", function (e) {
     var f = e.target;
@@ -323,4 +387,5 @@
   var hint = $("[data-mod]");
   if (hint && mac) hint.textContent = "⌘";
   S.palette = { open: open };
+  S.keys = { text: keyText, mac: mac, map: KM, hints: kh, letter: letter, shut: shut, write: write };
 })();

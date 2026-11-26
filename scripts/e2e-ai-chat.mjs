@@ -252,7 +252,7 @@ await kit.test("a chat answer that fails does not take focus from the text", asy
 await kit.test("extraction: entries are proposed, a dry run says what would be made, and Create makes it through the entity ops", async () => {
   await open();
   await tab("reviews");
-  await page.getByRole("button", { name: "Find names not in the bible" }).click();
+  await page.getByRole("button", { name: "Find names not in the Compendium" }).click();
   const dlg = preview();
   await dlg.waitFor();
   await ready(dlg);
@@ -260,14 +260,14 @@ await kit.test("extraction: entries are proposed, a dry run says what would be m
   await waitFor(async () => (await page.locator('#ipanel-ai .ai-rv:has-text("Mara Voss")').count()) >= 1, "the proposed entry", 15000);
   const before = (await api(wren.ctx, "GET", `/api/v1/projects/${book.id}/entities`)).json;
   const li = page.locator('#ipanel-ai .ai-rv:has-text("Mara Voss")').first();
-  await li.getByRole("button", { name: /^Add to the bible/ }).click();
-  await waitFor(async () => /no bible of its own/.test(await li.innerText()), "the note that the project has no bible yet");
+  await li.getByRole("button", { name: /^Add to the Compendium/ }).click();
+  await waitFor(async () => /no Compendium of its own/.test(await li.innerText()), "the note that the project has no bible yet");
   eq(JSON.stringify((await api(wren.ctx, "GET", `/api/v1/projects/${book.id}/entities`)).json), JSON.stringify(before), "nothing was made without a bible");
   ok((await api(wren.ctx, "POST", `/api/v1/projects/${book.id}/compendium`, { name: "AI Chat Bible", kind: "fiction" })).status < 300, "the project gets a bible");
   await page.getByRole("button", { name: "Back" }).click();
   await page.locator("#ipanel-ai .ai-rv").getByRole("button", { name: "Open" }).first().click();
-  await li.getByRole("button", { name: /^Add to the bible/ }).waitFor();
-  await li.getByRole("button", { name: /^Add to the bible/ }).click();
+  await li.getByRole("button", { name: /^Add to the Compendium/ }).waitFor();
+  await li.getByRole("button", { name: /^Add to the Compendium/ }).click();
   await waitFor(async () => /Dry run/.test(await li.innerText()), "the dry run");
   eq(JSON.stringify((await api(wren.ctx, "GET", `/api/v1/projects/${book.id}/entities`)).json), JSON.stringify(before), "the dry run made nothing");
   await li.getByRole("button", { name: "Create it now" }).click();

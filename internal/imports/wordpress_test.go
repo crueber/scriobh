@@ -58,7 +58,7 @@ func TestWordPressPreviewAndApply(t *testing.T) {
 	body := e.docContent(ap.ProjectID, "The Salt Road")
 	for _, want := range []string{
 		"The salt road begins at the *sea*, and **ends** at the market. See [the page](https://example.org/salt).[^1]",
-		"### Second stop", "- Salt\n- Bread\n    - Rye", "> Salt is a kind of memory.", "*\\[image: A map of the road\\]*", "The road",
+		"### Second stop", "- Salt\n- Bread\n    - Rye", "> Salt is a kind of memory.", "\\[image: A map of the road\\]", "The road",
 		`100% real \%\% not a note \[\[not a link\]\] \& more`, "| Stop | Miles |", "[^1]: The road is *invented*.",
 	} {
 		if !strings.Contains(body, want) {

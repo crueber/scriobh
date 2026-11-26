@@ -197,6 +197,7 @@ type compOverview struct {
 	Error      string
 	Field      string
 	Values     map[string]string
+	ProjAddr   map[string]string // the address of each book listed under "Projects that use it", for the link to its wiring page
 }
 
 func (s *Server) compOverviewData(r *http.Request, c compendiums.Compendium) (compOverview, error) {
@@ -210,6 +211,14 @@ func (s *Server) compOverviewData(r *http.Request, c compendiums.Compendium) (co
 	det.Compendium = s.addressed(r, det.Compendium)
 	d := compOverview{Compendium: det.Compendium, Detail: det, Slug: det.Slug, CSRF: authFrom(ctx).CSRF, Values: map[string]string{},
 		IsOwner: det.Role == "owner", CanEdit: compEditable(det.Compendium), RoleWords: compRoleWords[det.Role]}
+	if len(det.Projects) > 0 {
+		if po, err := s.Reg.Call(ctx, p, "project.list", projects.ListIn{State: projects.StateAll}); err == nil {
+			d.ProjAddr = map[string]string{}
+			for _, pr := range po.(projects.ListOut).Items {
+				d.ProjAddr[pr.ID] = pr.Address
+			}
+		}
+	}
 	if d.IsOwner {
 		mo, err := s.Reg.Call(ctx, p, "compendium.member.list", compendiums.MemberListIn{ID: c.ID})
 		if err == nil {

@@ -103,7 +103,7 @@
       h("div", { class: "ai-row" }, h("div", { class: "field" }, h("label", { for: "aic-scope", text: "About" }), scope), exp, del),
       h("div", { class: "ai-checks" }, h("label", {}, keep, h("span", {}, "Keep this chat", h("small", { text: "Stored on the server for you alone, until you delete it. Only what is said after you turn this on is kept. Off: it is gone when you leave the page." })))),
       log,
-      h("div", { class: "field" }, h("label", { for: "aic-msg", text: "Message" }), msg, h("span", { class: "hint", text: "A selection in the chapter goes with it. You will see what is sent before it is. Ctrl or Command with Enter sends." })),
+      h("div", { class: "field" }, h("label", { for: "aic-msg", text: "Message" }), msg, h("span", { class: "hint", text: "A selection in the chapter goes with it. You will see what is sent before it is. " + (S && S.keys ? S.keys.text("Mod+Enter") + " sends." : "Send it with the button.") + "" })),
       h("div", { class: "ai-row" }, send1, stop));
   }
   S.aichat = { show: function (el) { if (!ui) { var node = build(); S.aichat.node = node; loadList(); } el.replaceChildren(S.aichat.node); } };

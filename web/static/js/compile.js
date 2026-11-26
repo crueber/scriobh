@@ -11,7 +11,7 @@
   "use strict";
   var doc = document, win = window, root = doc.getElementById("cmp");
   if (!root) return;
-  var project = root.dataset.project, csrf = root.dataset.csrf, M = {}, presets = [], descs = [], cur = null, vals = {}, last = null, page = 0, pages = [], printed = false, pdc = root.dataset.pandoc === "true", PFMT = ["odt", "rtf", "latex", "rst", "mediawiki"];
+  var project = root.dataset.project, csrf = root.dataset.csrf, M = {}, presets = [], descs = [], cur = null, vals = {}, last = null, page = 0, pages = [], printed = false, pdc = root.dataset.pandoc === "true", PFMT = ["odt", "rtf", "latex", "rst", "mediawiki"], chap = +root.dataset.chapters || 0;
   try { M = JSON.parse(doc.getElementById("cmp-msg").dataset.msg || "{}"); presets = (JSON.parse(root.dataset.presets).presets) || []; descs = JSON.parse(root.dataset.options) || []; } catch (e) { M = M || {}; }
   function T(k, d, v) { var s = M[k] || d; if (v) for (var n in v) s = s.split("{" + n + "}").join(v[n]); return s; }
   function $(s, r) { return (r || doc).querySelector(s); }
@@ -52,9 +52,12 @@
     buildForm(); formatChanged();
   }
   function fmtNow() { return vals.format || (cur && cur.format) || ""; }
+  // the summary line above the fold: the kind of file, the preset, the chapters (the outline's count once a preview has one)
+  function what() { var f = fmtNow(); $("#cmp-what").textContent = [f && T("v_format_" + f, f), cur && pname(cur), NN("n_chapters", "{n} chapter", "{n} chapters", chap, chap)].filter(Boolean).join(" · "); }
   // the buttons and notes that depend on the kind of file: a bundle holds a Word file; print has its proof and its cover
   function formatChanged() {
     var f = fmtNow();
+    what();
     $("#cmp-submit").disabled = f !== "docx";
     $("#cmp-subnote").hidden = f !== "docx"; $("#cmp-printnote").hidden = f !== "pdf";
     root.dispatchEvent(new CustomEvent("cmp:format", { detail: f }));
@@ -163,6 +166,7 @@
   });
   function show(p) {
     $("#cmp-empty").hidden = true; $("#cmp-out").hidden = false;
+    chap = (p.outline || []).filter(function (o) { return o.kind === "chapter"; }).length; what();
     var pr = !!(p.print && root.cmpPrint);
     $("#cmp-pfacts").hidden = $("#cmp-proofnote").hidden = $("#cmp-check-d").hidden = !pr;
     if (pr) root.cmpPrint.show(p);
@@ -257,5 +261,5 @@
   $("#cmp-download").addEventListener("click", function () { file("download"); });
   $("#cmp-submit").addEventListener("click", function () { file("submission"); });
   root.cmp = { T: T, NN: NN, el: el, api: api, say: say, why: why, fmt: fmt, request: request, file: file, format: fmtNow };
-  drawPresets();
+  drawPresets(root.dataset.pick);
 })();

@@ -567,6 +567,6 @@ func usage(c *ops.Ctx, in RefIn) (UsageOut, error) {
 	}
 	out.Locked = out.LockedBuckets > 0
 	_ = c.DB().Read().QueryRowContext(c, `SELECT COALESCE(max(last_at), '') FROM share_unlock_failures WHERE share_id = ?`, in.ShareID).Scan(&out.LastFailedAt)
-	err = c.DB().Read().QueryRowContext(c, `SELECT count(*), COALESCE(sum(status = 'open'), 0) FROM comments WHERE share_id = ? AND parent_id IS NULL AND deleted_at IS NULL`, in.ShareID).Scan(&out.Threads, &out.OpenThreads)
+	err = c.DB().Read().QueryRowContext(c, `SELECT count(*), COALESCE(sum(status = 'open'), 0) FROM comments WHERE share_id = ? AND visibility = 'shared' AND parent_id IS NULL AND deleted_at IS NULL`, in.ShareID).Scan(&out.Threads, &out.OpenThreads)
 	return out, err
 }

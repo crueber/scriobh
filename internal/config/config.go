@@ -113,6 +113,11 @@ type Config struct {
 	// behind a refused push or a force push, may hold
 	// (SCRIOBH_GIT_MAX_REPO_MB, default 512).
 	GitMaxRepoMB int
+	// Staged imports (docs/OPERATIONS.md, "Importing"): how long a draft may sit idle before it is removed
+	// (SCRIOBH_IMPORT_STAGE_HOURS, default 72), how many open drafts one person may hold
+	// (SCRIOBH_IMPORT_STAGE_MAX_OPEN, default 5), and the staged bytes one person (SCRIOBH_IMPORT_STAGE_USER_MB,
+	// default 256) and the instance (SCRIOBH_IMPORT_STAGE_TOTAL_MB, default 2048) may hold.
+	ImportStageHours, ImportStageMaxOpen, ImportStageUserMB, ImportStageTotalMB int
 	// GitAllowPrivate lets Git sync connect to loopback, private and other
 	// internal addresses (SCRIOBH_GIT_ALLOW_PRIVATE=1). Off by default.
 	GitAllowPrivate bool
@@ -330,6 +335,21 @@ func Load(lookup func(string) (string, bool)) (*Config, error) {
 	}
 	if c.GitMaxRepoMB == 0 {
 		return nil, errors.New("SCRIOBH_GIT_MAX_REPO_MB must be at least 1")
+	}
+	for _, f := range []struct {
+		env string
+		def int
+		dst *int
+	}{
+		{"SCRIOBH_IMPORT_STAGE_HOURS", 72, &c.ImportStageHours}, {"SCRIOBH_IMPORT_STAGE_MAX_OPEN", 5, &c.ImportStageMaxOpen},
+		{"SCRIOBH_IMPORT_STAGE_USER_MB", 256, &c.ImportStageUserMB}, {"SCRIOBH_IMPORT_STAGE_TOTAL_MB", 2048, &c.ImportStageTotalMB},
+	} {
+		if *f.dst, err = getInt(f.env, f.def); err != nil {
+			return nil, err
+		}
+		if *f.dst < 1 {
+			return nil, errors.New(f.env + " must be at least 1")
+		}
 	}
 	for _, f := range []struct {
 		env string

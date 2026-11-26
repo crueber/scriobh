@@ -68,7 +68,7 @@ await kit.test("off: the page says so, and Compile and import do not offer Pando
   eq(await adm.page.getByRole("button", { name: "Test", exact: true }).count(), 0, "no test button while off");
   const page = writer.page; kit.main = page;
   await page.goto(base() + `/p/${slug}/compile`, { waitUntil: "load" });
-  await page.waitForSelector("#o-format");
+  await page.waitForSelector("#o-format", { state: "attached" }); // inside All options now: attached, not visible, until it is opened
   const fmts = await formatOptions(page);
   ok(fmts.includes("docx") && fmts.includes("epub"), "the ordinary formats: " + fmts);
   for (const f of ["odt", "rtf", "latex", "rst", "mediawiki"]) ok(!fmts.includes(f), `${f} is offered while the bridge is off`);
@@ -132,7 +132,8 @@ await kit.test("the test shows both directions, only as sentences", async () => 
 await kit.test("Compile offers the Pandoc formats while it is on, says who makes the file, and downloads it", async () => {
   const page = writer.page; kit.main = page;
   await page.goto(base() + `/p/${slug}/compile`, { waitUntil: "load" });
-  await page.waitForSelector("#o-format");
+  await page.waitForSelector("#o-format", { state: "attached" }); // inside All options now: attached, not visible, until it is opened
+  await page.locator("#cmp-all > summary").click();
   const fmts = await formatOptions(page);
   for (const f of ["odt", "rtf", "latex", "rst", "mediawiki"]) ok(fmts.includes(f), `${f} is missing: ${fmts}`);
   eq(await page.locator("#o-format-h").count(), 0, "no Pandoc note for an ordinary format");
@@ -160,9 +161,10 @@ await kit.test("import offers the Pandoc panel while it is on, converts a file, 
   writeFileSync(rst, "CANARY-IMPORT Title\n===================\n\nSome words.\n");
   await page.locator("#imp-pd").setInputFiles(rst);
   await page.waitForSelector("#imp-h", { timeout: 20000 });
-  eq(await page.locator("#imp-pdf").inputValue(), "rst", "the format was read from the file's name");
+  await page.waitForLoadState("load");
+  const readAs = await page.locator("#imp-pdf").inputValue(); // asserted after the apply, so what follows is still checked
   ok((await T(page, ".imp-sum")).includes("A document converted by Pandoc"), "the preview names the source: " + (await T(page, ".imp-sum")));
-  ok((await T(page, "#imp-result")).includes("Chapter One"), "the converted chapter is listed");
+  ok((await T(page, "#imp-review")).includes("Chapter One"), "the converted chapter is listed");
   await shot(page, "pandoc-import");
   await page.locator("[data-go]").click();
   await page.waitForURL(/\/p\/[^/]+\/d\/doc_/, { timeout: 20000 });
@@ -171,6 +173,7 @@ await kit.test("import offers the Pandoc panel while it is on, converts a file, 
   const order = (await api(writer.ctx, "GET", `/api/v1/projects/${prj.id}/docs`)).json.order;
   const doc = (await api(writer.ctx, "GET", `/api/v1/docs/${order[0]}`)).json.item;
   ok(doc.content.includes("A short test paragraph.") && doc.content.includes("FROM-THE-FILE: CANARY-IMPORT"), "the converted text: " + doc.content.slice(0, 200));
+  eq(readAs, "rst", "the format was read from the file's name");
 });
 
 await kit.test("the format select follows the file; the keyboard reaches the panel", async () => {
@@ -192,7 +195,7 @@ await kit.test("the format select follows the file; the keyboard reaches the pan
 
 await kit.test("the bridge going off under an open import page is a plain sentence, and nothing typed is lost", async () => {
   const page = writer.page; kit.main = page;
-  kit.allowed.push(/409/);
+  kit.allowed.push(/409/, /status of 422/); // a refusal is a 422 the page swaps in
   await page.goto(base() + "/import", { waitUntil: "load" });
   await page.locator("#imp-f-pandoc").check();
   await page.locator("#imp-pdf").selectOption("typst");
@@ -200,13 +203,17 @@ await kit.test("the bridge going off under an open import page is a plain senten
   const odt = join(kit.tmp, "book.odt");
   writeFileSync(odt, "not really an odt");
   await page.locator("#imp-pd").setInputFiles(odt);
-  await page.waitForFunction(() => /not switched on/i.test(document.querySelector("#imp-status").textContent), null, { timeout: 15000 });
-  eq(await page.locator("#imp-status").getAttribute("data-bad") !== null, true, "the status is marked as a problem");
+  await page.waitForFunction(() => /not switched on/i.test((document.querySelector("#imp-stage-err") || {}).textContent || ""), null, { timeout: 8000 })
+    .catch(async () => { throw new Error(`the sentence "not switched on" is not the chooser's message (#imp-stage-err); the page is ${new URL(page.url()).pathname.replace(/imd_\w+/, "imd_…")}: ${(await page.locator("main").innerText()).replace(/\n+/g, " | ").slice(0, 160)}`); });
+  ok(await page.locator("#imp-stage-err").evaluate((n) => n.classList.contains("field-error")), "the sentence is marked as a problem");
   eq(await page.locator("#imp-pdf").inputValue(), "odt", "the format follows the file");
   eq(await page.locator("#imp-f-pandoc").isChecked(), true, "the choice stays");
-  // and the Compile page offers the formats no more
+});
+
+await kit.test("and with the bridge off, the Compile page offers the Pandoc formats no more", async () => {
+  const page = writer.page; kit.main = page;
   await page.goto(base() + `/p/${slug}/compile`, { waitUntil: "load" });
-  await page.waitForSelector("#o-format");
+  await page.waitForSelector("#o-format", { state: "attached" }); // inside All options now: attached, not visible, until it is opened
   ok(!(await formatOptions(page)).includes("odt"), "odt is offered while off");
 });
 
@@ -315,12 +322,13 @@ await kit.test("a lost network on the import page is said plainly and keeps the 
   await page.goto(base() + "/import", { waitUntil: "load" });
   await page.locator("#imp-f-pandoc").check();
   await page.locator("#imp-pdf").selectOption("org");
-  kit.allowed.push(/Failed to load resource|ERR_INTERNET_DISCONNECTED/);
+  kit.allowed.push(/Failed to load resource|ERR_INTERNET_DISCONNECTED/, /htmx:sendError|htmx:afterRequest/); // htmx itself logs a request that could not be sent
   await writer.ctx.setOffline(true);
   const f = join(kit.tmp, "notes.org");
   writeFileSync(f, "* A heading\n");
   await page.locator("#imp-pd").setInputFiles(f);
-  await page.waitForFunction(() => /Could not reach the server/.test(document.querySelector("#imp-status").textContent), null, { timeout: 15000 });
+  // a request that never reached the server is said by the shell's toast
+  await page.waitForFunction(() => /Could not reach the server/.test((document.querySelector("#toasts") || {}).textContent || ""), null, { timeout: 15000 });
   eq(await page.locator("#imp-pdf").inputValue(), "org", "the format choice stays");
   await writer.ctx.setOffline(false);
   await sleep(100);

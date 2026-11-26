@@ -129,7 +129,7 @@ var exposedGroups = map[string]string{
 	"alternative": "alternative wordings, annotations on a document",
 	"attachment":  "attachments; its one op (the storage figure) is excluded by name below",
 	"comment":     "comments on a document",
-	"compendium":  "the Compendium, an entity bible shared between projects",
+	"compendium":  "the Compendium, entities shared between projects",
 	"compile":     "compile presets and settings; the ops that carry the author's contact block are excluded by name below",
 	"doc":         "documents of the manuscript tree",
 	"edition":     "the editions a project was imported from: their labels, hashes and chapters; only the ops of onlyOps are offered, and the source file itself (edition.download) is excluded by name below",
@@ -217,7 +217,10 @@ var excludedOps = map[string]string{
 	"edition.download":    "the source file is a whole book as it was received (a binary container up to 32 MB); an agent reads the chapters, and a person downloads the file",
 	"edition.diff":        "with chapter it returns the edition's text (the book as it was received, including chapters left out of the project at import), which edition.get and edition.download withhold from agents; the steps without it are for a person's screen",
 	"edition.compare":     "with chapter it returns an edition's text, including chapters that were left out of the project at import, which edition.get and edition.download withhold from agents; a person compares two books",
-	"edition.take":        "puts a whole chapter back as an edition had it, replacing the document's text from a stored book; an agent makes suggestions (edition.suggest) that a person accepts, and a person takes a chapter",
+	// Taking an import back moves many documents to the trash at once, chosen by a hash. The history it reads names files a person chose.
+	"import.undo":        "takes back a whole import by moving every document of it that has not been edited to the trash, in one act; an agent trashes the documents it means one at a time (doc.trash), and a person decides to undo an import, on the page that shows what stays",
+	"import.source.list": "the history of a project's imports (what a person chose to bring in, with the names of their files) and what an undo would do; the person's page for the undo",
+	"edition.take":       "puts a whole chapter back as an edition had it, replacing the document's text from a stored book; an agent makes suggestions (edition.suggest) that a person accepts, and a person takes a chapter",
 	// A semantic search sends the question to the embedding endpoint the owner confirmed and spends that
 	// endpoint's budget. An agent brings its own model; the owner's endpoint is for the owner's people.
 	"search.semantic": "sends the question to the embedding endpoint the project's owner configured, and spends its budget",

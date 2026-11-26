@@ -1,0 +1,78 @@
+/* The Compendium tab of the writing view's inspector (F-1253 to F-1261). Loaded the first time the tab is shown, with entry.css.
+   Flat fills and hairlines, tokens only, no gradients, no animation. */
+.lk { display: flex; flex-direction: column; gap: var(--s-3); min-width: 0; }
+.lk-list, .lk-new, .lk-entry, .lk-view { display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; }
+.lk-search { display: flex; gap: var(--s-2); }
+.lk-search input[type="search"] { flex: 1 1 auto; min-width: 0; min-height: var(--target); font-size: 16px; }
+.lk-search select { flex: 0 0 7rem; width: 7rem; min-height: var(--target); }
+.lk-h { margin: 0; font: 500 var(--text-base)/var(--lh-base) var(--font-ui); }
+.lk-h:focus, #lk-h:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+.lk-state { padding: var(--s-2) 0; }
+.lk-state .btn { margin-top: var(--s-2); }
+.lk-bar { display: flex; }
+.lk-bar .btn { min-height: var(--target); }
+.lk-count, .lk-empty { margin: 0; }
+.lk-quote { margin: 0; padding: var(--s-2) var(--s-3); border: 1px solid var(--line); border-radius: var(--r-1); background: var(--surface); font: 400 var(--text-base)/var(--lh-base) var(--font-prose); overflow-wrap: anywhere; }
+.lk-sel { display: flex; flex-direction: column; gap: var(--s-2); padding: var(--s-2) 0; border-top: 1px solid var(--line-2); border-bottom: 1px solid var(--line-2); }
+.lk-sel .lk-already, .lk-already { margin: 0; font-size: var(--text-sm); }
+.lk-acts, .lk-scope, .lk-savebar, .lk-scene, .lk-views { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); margin: 0; }
+.lk-scope .btn[aria-pressed="true"], .lk-views .btn[aria-pressed="true"] { border-color: var(--accent); background: var(--surface-2); }
+.lk-rows .ent-line { flex-wrap: wrap; row-gap: 0; min-height: 0; white-space: normal; overflow: visible; padding: var(--s-1) 0; }
+.lk-rows .ent-link { display: inline-flex; max-width: 100%; }
+.lk-rows .ent-line .ent-sum, .lk-rows .ent-line .ent-aka { flex: 1 1 100%; white-space: nowrap; }
+.lk-rows .ent-row { align-items: flex-start; }
+.lk-rows .ent-sw { margin-top: 14px; }
+.lk-pick { display: block; width: 100%; min-height: var(--target); padding: 0; border: 0; border-radius: var(--r-1); background: transparent; color: var(--fg); font: inherit; text-align: left; cursor: pointer; }
+.lk-pick:hover { background: var(--surface-2); }
+.lk-pick .ent-via { display: block; }
+.lk-target { margin: 0 0 var(--s-2); }
+.lk-why { margin: var(--s-1) 0 0; padding: var(--s-2) var(--s-3); border: 1px solid var(--line); border-radius: var(--r-1); background: var(--surface); font-size: var(--text-sm); line-height: var(--lh-sm); }
+.lk-status { min-height: var(--lh-sm); margin: var(--s-1) 0 0; font-size: var(--text-sm); line-height: var(--lh-sm); color: var(--muted); }
+.lk-status .lk-bad { color: var(--danger); }
+.lk-status .lk-ok { color: var(--ok); }
+.lk-conflict { margin-top: var(--s-2); padding: var(--s-3); border: 1px solid var(--danger); border-radius: var(--r-1); background: var(--danger-soft); color: var(--fg); }
+.lk-conflict p { margin: 0 0 var(--s-2); }
+.lk-theirs { margin: 0 0 var(--s-2); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 10rem; overflow: auto; }
+.lk-form { display: flex; flex-direction: column; gap: 0; }
+.lk-savebar { position: sticky; bottom: calc(var(--s-4) * -1); z-index: 1; margin-top: var(--s-3); padding: var(--s-2) 0; background: var(--surface); border-top: 1px solid var(--line-2); }
+.lk-savebar .lk-status { flex: 1 1 10rem; max-height: 40vh; margin: 0; overflow: auto; }
+.lk-akastatus { margin: 0; }
+.lk-theirs-h { margin: var(--s-2) 0 0; }
+.lk-notes { min-height: 5lh; }
+.en-base { margin: 2px var(--s-2) 0; font-size: var(--text-xs); line-height: var(--lh-xs); color: var(--muted); }
+.en-blank { min-height: 0; padding: 0 var(--s-2); font-size: var(--text-xs); }
+.lk-links { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-3); margin: var(--s-2) 0 0; font-size: var(--text-sm); }
+.lk-links a { display: inline-flex; align-items: center; min-height: var(--target); }
+.lk-newform { display: flex; flex-direction: column; gap: var(--s-3); }
+/* The Kind choice of the New entry form. These are the entities.css rules, which the writing view does not load: a radio stays with its word. */
+.lk-newform .choice { margin: var(--s-3) 0 0; padding: var(--s-2) var(--s-3); border: 1px solid var(--line); border-radius: var(--r-1); min-width: 0; }
+.lk-newform .choice legend { padding: 0 var(--s-1); font-weight: 500; font-size: var(--text-sm); }
+.lk-newform .radio { display: inline-flex; align-items: center; gap: var(--s-2); min-height: var(--target); margin-right: var(--s-3); padding: var(--s-2) 0; overflow-wrap: anywhere; }
+.lk-newform .radio input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
+.lk .field-error { margin: 0; }
+.lk .ent-list li { padding: var(--s-1) 0; }
+.lk .en-aka { align-items: flex-start; }
+.lk-views .btn { flex: 1 1 0; min-height: var(--target); }
+.lk-scenename { margin: 0; overflow-wrap: anywhere; }
+.lk-evs, .lk-nl { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.lk-ev { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-1) var(--s-2); padding: var(--s-2) 0; border-bottom: 1px solid var(--line-2); }
+.lk-ev-main { display: flex; flex-direction: column; flex: 1 1 8rem; min-width: 0; }
+.lk-ev-title { overflow-wrap: anywhere; }
+.lk-ev-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
+.lk-ev-acts a { display: inline-flex; align-items: center; min-height: var(--target); }
+.lk-ev .btn { min-height: var(--target); }
+.lk-evlink, .lk-evnew { display: flex; flex-direction: column; gap: var(--s-2); }
+.lk-evlink .lk-h { font-size: var(--text-sm); color: var(--muted); }
+.lk-evnew summary { display: inline-flex; align-items: center; justify-content: center; align-self: flex-start; min-height: var(--target); padding: 0 var(--s-3); border: 1px solid var(--line); border-radius: var(--r-1); background: var(--surface); cursor: pointer; list-style: none; }
+.lk-evnew summary::-webkit-details-marker { display: none; }
+.lk-evnew summary:hover { border-color: var(--fg); }
+.lk-nl li { border-bottom: 1px solid var(--line-2); }
+.lk-nl .lk-pick { display: flex; flex-direction: column; justify-content: center; padding: var(--s-1) var(--s-2); }
+.lk-ntext { display: block; width: 100%; min-height: 8lh; padding: var(--s-2) var(--s-3); border: 1px solid var(--field-line); border-radius: var(--r-1); background: var(--surface); color: var(--fg); font: 400 var(--text-base)/var(--lh-base) var(--font-prose); resize: vertical; }
+@media (prefers-reduced-motion: reduce) { .lk * { transition: none !important; animation: none !important; } }
+.lk details a { display: inline-flex; align-items: center; min-height: var(--target); }
+/* In the panel the quick add is one row, so that the description is not pushed down the sheet. */
+.lk .en-addname { flex: 1 1 100%; }
+.lk .en-addname input[type="text"] { flex: 1 1 8rem; width: auto; min-width: 0; }
+.lk .en-addname .btn { flex: none; white-space: nowrap; }
+.lk .lk-scopehelp { margin: 0; }

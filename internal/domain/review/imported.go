@@ -145,7 +145,7 @@ func ImportCommentTx(ctx context.Context, tx *sql.Tx, in ImportedComment) (ancho
 		return false, e
 	}
 	var total int
-	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM comments WHERE project_id = ? AND deleted_at IS NULL`, in.ProjectID).Scan(&total); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM comments WHERE project_id = ? AND visibility = 'shared' AND deleted_at IS NULL`, in.ProjectID).Scan(&total); err != nil {
 		return false, err
 	}
 	if total >= MaxCommentsPerProject {
@@ -168,7 +168,7 @@ func ImportCommentTx(ctx context.Context, tx *sql.Tx, in ImportedComment) (ancho
 	state := comanchor.StateNone
 	if in.Quote != "" {
 		var open int
-		if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM comments WHERE document_id = ? AND parent_id IS NULL AND anchor_state <> 'none' AND status = 'open' AND deleted_at IS NULL`, in.DocumentID).Scan(&open); err != nil {
+		if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM comments WHERE document_id = ? AND visibility = 'shared' AND parent_id IS NULL AND anchor_state <> 'none' AND status = 'open' AND deleted_at IS NULL`, in.DocumentID).Scan(&open); err != nil {
 			return false, err
 		}
 		if open < comanchor.MaxAnchoredPerDocument {
@@ -188,10 +188,10 @@ func ImportCommentTx(ctx context.Context, tx *sql.Tx, in ImportedComment) (ancho
 		at = now
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO comments(id, project_id, document_id, parent_id, kind, author_id, share_id, guest_name, body, status,
-		anchor_state, anchor_start, anchor_end, anchor_quote, anchor_original, anchor_prefix, anchor_suffix, anchor_hash, anchor_revision, created_at, updated_at, client_key)
-		VALUES (?,?,?,NULL,'comment',NULL,NULL,?,?, 'open', ?,?,?,?,?,?,?,?,?,?,?,NULL)`,
+		anchor_state, anchor_start, anchor_end, anchor_quote, anchor_original, anchor_prefix, anchor_suffix, anchor_hash, anchor_revision, created_at, updated_at, client_key, visibility, shared_at)
+		VALUES (?,?,?,NULL,'comment',NULL,NULL,?,?, 'open', ?,?,?,?,?,?,?,?,?,?,?,NULL,'shared',?)`,
 		db.NewID("cmt"), in.ProjectID, in.DocumentID, CleanLabel(in.Label), body,
-		state, anchor.Start, anchor.End, anchor.Quote, anchor.Original, anchor.Prefix, anchor.Suffix, anchor.Hash, anchor.Revision, at, now)
+		state, anchor.Start, anchor.End, anchor.Quote, anchor.Original, anchor.Prefix, anchor.Suffix, anchor.Hash, anchor.Revision, at, now, now)
 	return state == comanchor.StateActive, err
 }
 

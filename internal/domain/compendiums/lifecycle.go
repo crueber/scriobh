@@ -43,7 +43,7 @@ func registerLifecycle(r *ops.Registry) {
 		Name: "compendium.purge", Permanent: true, Method: "DELETE", Path: "/api/v1/compendiums/{id}",
 		Desc: "Permanently delete a Compendium with its entities, aliases, relationships, field definitions, overrides, links, references and recorded exports. It cannot be undone. " +
 			"Owner only; it must already be in the trash. confirm_name must equal its name exactly, and detach_projects must list the id of every project that uses it (primary or by reference) " +
-			"and hidden_projects the count of those the caller cannot open, as compendium.get reports them, so nobody loses a bible by surprise. Projects keep everything else; their primary pointer is cleared.",
+			"and hidden_projects the count of those the caller cannot open, as compendium.get reports them, so nobody loses a Compendium by surprise. Projects keep everything else; their primary pointer is cleared.",
 		Auth: owner,
 	}, purge)
 }

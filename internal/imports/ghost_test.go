@@ -32,7 +32,7 @@ func TestGhost4(t *testing.T) {
 	eq(t, outline(pv.Nodes), []string{"chapter:HTML Only", "chapter:Markdown Post"})
 	ap := e.applyConv(pv, imports.ApplyIn{Name: "ghost.json", Files: files})
 	got := e.docContent(ap.ProjectID, "Markdown Post")
-	for _, want := range []string{"# Heading one", "Some *emphasis* and **strong**, with a [link](https://example.org/x) and `code`.", "- item one\n- item two", "> quoted", "```\ncode block\n```", "* * *", "*\\[image: alt text\\]*"} {
+	for _, want := range []string{"# Heading one", "Some *emphasis* and **strong**, with a [link](https://example.org/x) and `code`.", "- item one\n- item two", "> quoted", "```\ncode block\n```", "* * *", "\\[image: alt text\\]"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("markdown post lacks %q:\n%s", want, got)
 		}

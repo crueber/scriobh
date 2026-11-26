@@ -31,8 +31,8 @@
     ["chat", "Chat", "Talk about your writing with the context you choose."],
     ["critique", "Critique", "Notes on a chapter or a passage, kept as a review."],
     ["summaries", "Summaries", "A chapter summary for the synopsis, as a proposal."],
-    ["continuity", "Continuity checks", "Findings against the bible, the timeline and earlier chapters."],
-    ["extraction", "Entity extraction", "Proposed bible entries, created only when you accept each."],
+    ["continuity", "Continuity checks", "Findings against the Compendium, the timeline and earlier chapters."],
+    ["extraction", "Entity extraction", "Proposed Compendium entries, created only when you accept each."],
     ["lab", "Lab checks that use a model", "Marks on the text; the local checks never use a model."]
   ];
   // A table from a caption (for screen readers), headings [[text, numeric]] and rows of cells (text or nodes).
@@ -298,7 +298,7 @@
     var af = h("fieldset", { class: "ai-checks" }, h("legend", { text: "What it may do" }));
     ACTIONS.forEach(function (a) { var c = h("input", { type: "checkbox", name: "action", value: a[0] }); c.checked = (it.actions || []).indexOf(a[0]) >= 0; c.disabled = dis; af.appendChild(h("label", {}, c, h("span", {}, a[1], h("small", { text: a[2] })))); });
     form.appendChild(af);
-    var red = h("select", { id: "po-red", disabled: dis }); [["off", "Off: names go as they are"], ["entities", "Entities: names and aliases from the bible become placeholders"], ["names", "Names: bible names and any capitalised names found in the text"]].forEach(function (o) { var op = h("option", { value: o[0], text: o[1] }); if (it.redaction === o[0]) op.selected = true; red.appendChild(op); });
+    var red = h("select", { id: "po-red", disabled: dis }); [["off", "Off: names go as they are"], ["entities", "Entities: names and aliases from the Compendium become placeholders"], ["names", "Names: Compendium names and any capitalised names found in the text"]].forEach(function (o) { var op = h("option", { value: o[0], text: o[1] }); if (it.redaction === o[0]) op.selected = true; red.appendChild(op); });
     form.appendChild(field("po-red", "Redaction", red, "Placeholders such as {{CHAR_1}} replace the names before sending and are restored in the answer. The preview shows the mapping."));
     var ag = h("input", { type: "checkbox", id: "po-agents" }); ag.checked = !!it.agents_may_use_ai; ag.disabled = dis;
     var pe = h("input", { type: "checkbox", id: "po-personal" }); pe.checked = !!it.allow_personal_providers; pe.disabled = dis;

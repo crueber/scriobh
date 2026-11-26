@@ -147,7 +147,7 @@ func (s *Server) securityHeaders(next http.Handler) http.Handler {
 			h.Set("X-Robots-Tag", "noindex, nofollow, noarchive")
 		}
 		h.Set("X-Frame-Options", "DENY")
-		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()")
+		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()")
 		h.Set("Cross-Origin-Opener-Policy", "same-origin")
 		h.Set("Cross-Origin-Resource-Policy", "same-origin")
 		if s.Cfg.Secure() {
@@ -173,6 +173,10 @@ func (s *Server) bodyLimit(r *http.Request) int64 {
 		// the cover page's one form carries up to three pictures (front, back, wrap), each up to the upload limit; the
 		// body is read a part at a time after the caller is authorized (uiRouteStream), never held whole
 		return 3*int64(s.Cfg.UploadMaxMB)<<20 + 1<<20
+	}
+	if r.Method == http.MethodPost && isImportStage(r.URL.Path) && isMultipart(r) {
+		// the import chooser's form carries one file (or a folder's files), read a part at a time and streamed to disk
+		return importBodyLimit
 	}
 	for _, e := range s.bigBody {
 		if e.Op.Method == r.Method && pathMatches(e.Op.Path, r.URL.Path) {

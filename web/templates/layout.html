@@ -35,6 +35,7 @@
   {{if .User}}
   <div class="topbar-right">
     {{block "topbar-tools" .}}{{end}}
+    <button type="button" class="icon-btn kb-open" data-kb-open data-scope="{{kbScope .Path}}" data-kb-src="{{asset "js/shortcuts.js"}}" data-none="{{.T "kb.none"}}" aria-label="{{.T "kb.open"}}" title="{{.T "kb.open"}}" aria-keyshortcuts="Shift+/">{{template "icon" "keyboard"}}</button>
     <button type="button" class="kbd-hint" data-palette-open aria-label="Open the command palette" aria-keyshortcuts="Control+K Meta+K"><kbd data-mod>Ctrl</kbd><kbd>K</kbd></button>
     <button type="button" class="avatar-btn" popovertarget="account" aria-label="Account, {{.User.Name}}"><span class="avatar {{avatarClass .User.ID}}" aria-hidden="true">{{.User.Initials}}</span></button>
   </div>
@@ -42,7 +43,7 @@
 </header>
 <div class="shell">
   {{block "rail" .}}{{end}}
-  <main id="main" class="main" tabindex="-1">{{with .Banner}}{{template "comp-banner" .}}{{end}}{{template "content" .}}</main>
+  <main id="main" class="main" tabindex="-1">{{with .Back}}<p class="comp-back"><a href="{{.Href}}"><span aria-hidden="true">&larr;</span> {{if .HasDoc}}{{$.T "nav.back_to_book" "project" .Project "document" (or .Doc ($.T "nav.untitled"))}}{{else}}{{$.T "nav.back_to_book_locked" "project" .Project}}{{end}}</a></p>{{end}}{{with .Banner}}{{template "comp-banner" .}}{{end}}{{template "content" .}}</main>
   {{block "inspector" .}}{{end}}
 </div>
 {{if .User}}
@@ -57,6 +58,7 @@
   {{with .Gate}}<form method="post" action="/ui/projects/{{.ID}}/lock"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button class="menu-item" type="submit" data-gate-lock>{{template "icon" "lock"}}<span>{{$.T "gate.menu_lock"}}</span></button></form>{{end}}
   <a class="menu-item" href="/studio"{{if eq .Path "/studio"}} aria-current="page"{{end}}>{{template "icon" "goals"}}<span>{{.T "studio.ui.title"}}</span></a>
   <a class="menu-item" href="/settings">{{template "icon" "settings"}}<span>Settings</span></a>
+  <button type="button" class="menu-item" data-kb-open>{{template "icon" "keyboard"}}<span>{{.T "kb.open"}}</span></button>
   {{if .User.IsWriter}}<a class="menu-item" href="/settings/ai">{{template "icon" "ai"}}<span>AI providers</span></a>{{end}}
   {{if .User.IsAdmin}}<a class="menu-item" href="/admin/users">{{template "icon" "shield"}}<span>{{.T "adm.title"}}</span></a>{{end}}
   {{if and .Desktop .User.IsAdmin}}<a class="menu-item" href="/desktop/identity">{{template "icon" "lock"}}<span>{{.T "desktop.menu"}}</span></a>{{end}}
@@ -87,7 +89,7 @@
   </main>
 </dialog>{{end}}
 {{if .User}}
-<dialog id="palette" class="palette" aria-label="Command palette" data-writer="{{.User.IsWriter}}">
+<dialog id="palette" class="palette" aria-label="Command palette" data-writer="{{.User.IsWriter}}" data-keys="{{.KeyHints}}" data-msg="{{json (.Msgs "palette.js.")}}">
   <div class="palette-field">{{template "icon" "search"}}<input id="palette-input" type="text" role="combobox" aria-expanded="false" aria-controls="palette-list" aria-autocomplete="list" aria-label="Command" placeholder="Type a command" autocomplete="off" spellcheck="false"></div>
   <ul id="palette-list" role="listbox" aria-label="Commands" tabindex="-1"></ul>
   <p class="palette-empty" id="palette-empty" hidden>No command matches.</p>

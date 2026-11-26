@@ -243,7 +243,8 @@ await kit.test("the palette and the toolbar reach the same commands", async () =
   await page.keyboard.press("Escape");
   await page.locator("#alt-pop").waitFor({ state: "detached" });
   await select("harbour");
-  await page.locator('#fmtbar [data-cmd="alt"]').click();
+  await page.locator('#fmtbar [data-cmd="revise"]').click();
+  await page.locator('#revise-menu [data-cmd="alt"]').click();
   await page.locator("#alt-pop").waitFor();
   await page.keyboard.press("Escape");
   await page.locator("#alt-pop").waitFor({ state: "detached" });

@@ -70,7 +70,7 @@ await kit.test("the entity list keeps the focused row and the scroll, and catche
   await page.goto(`${base()}/c/${cmp.slug}/entities`);
   await waitFor(() => page.evaluate(() => !!document.querySelector("[data-live]")), "the page", 10000);
   await sleep(1500);
-  const row = page.locator("#ent-list .ent-name a").nth(1);
+  const row = page.locator("#ent-list .ent-row a.ent-link").nth(1);
   const id = await row.getAttribute("id");
   ok(id && id.startsWith("en-"), "rows have ids: " + id);
   await row.focus();
@@ -112,9 +112,9 @@ await kit.test("a name under the caret is announced and opened from the palette"
   await waitFor(async () => /Marta Quill, Character\. The ferry rower/.test(await page.locator("#live").innerText()), "the card to be spoken in the live region", 6000);
   await page.keyboard.press(`${MOD}+Shift+P`); // inside the editor Mod+K is the link key
   await page.locator("#palette[open]").waitFor({ timeout: 5000 });
-  await page.locator("#palette-input").fill("entity under");
-  await page.getByRole("option", { name: /Open the entity under the cursor/ }).click();
-  await page.waitForURL(/\/p\/.+\/e\/ent_/, { timeout: 10000 });
+  await page.locator("#palette-input").fill("entry for the name");
+  await page.getByRole("option", { name: /Show the entry for the name under the cursor/ }).click();
+  await page.locator("#lk-entry").waitFor({ timeout: 10000 }); // in the Compendium tab, and the page stays
   await page.close();
 });
 

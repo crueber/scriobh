@@ -28,6 +28,15 @@ let book, doc, harbour;
 const text = () => page().evaluate(() => window.scriobh.write.editor.getMarkdown());
 const stored = async (id) => (await api(main, "GET", `/api/v1/docs/${id}`)).json.item;
 const panel = async (p, name) => {
+  // Details has no toggle of its own since U5: the Sidebar toggle opens the inspector on the tab used last,
+  // so the Details tab is chosen after it.
+  if (name === "Details") {
+    const side = p.getByRole("button", { name: "Sidebar", exact: true });
+    if ((await side.getAttribute("aria-expanded")) !== "true") await side.click();
+    const tab = p.getByRole("tab", { name: "Details", exact: true });
+    if ((await tab.getAttribute("aria-selected")) !== "true") await tab.click();
+    return;
+  }
   const b = p.getByRole("button", { name, exact: true });
   if ((await b.getAttribute("aria-expanded")) !== "true") await b.click();
 };
@@ -139,6 +148,30 @@ await kit.test("versions: view, compare, name, rename and delete", async () => {
   await p.getByRole("button", { name: /^Delete the named version/ }).first().click();
   await p.getByRole("button", { name: /^Confirm/ }).first().click();
   await waitFor(async () => !(await api(main, "GET", `/api/v1/docs/${doc}/revisions?reason=manual`)).json.items.some((r) => r.label === "Before the rewrite"), "the named version to go");
+});
+
+await kit.test("versions: a big cut keeps the text before it, and a restore gets it back", async () => {
+  // Its own chapter, so the steps around it keep the text they expect.
+  const long = Array.from({ length: 40 }, (_, i) => `Paragraph ${i + 1} holds a few ordinary words about the harbour and the boats that came in at dawn.`).join("\n\n") + "\n";
+  const made = await api(main, "POST", `/api/v1/projects/${book.id}/docs`, { title: "The cut chapter", kind: "chapter", content: long });
+  ok(made.json && made.json.item, "the chapter: " + made.status);
+  const cut = made.json.item.id;
+  const p = page();
+  await p.goto(`${base()}/p/${book.slug}/d/${cut}`);
+  await p.waitForSelector(".scriobh-prose");
+  await waitFor(() => p.evaluate(() => !!(window.scriobh && window.scriobh.inspector)), "the inspector script", 10000);
+  // Delete most of the chapter in the editor: select all and type one line.
+  await p.locator(".scriobh-prose").click();
+  await p.keyboard.press(`${MOD}+a`);
+  await p.keyboard.type("A short line.");
+  await waitFor(async () => (await stored(cut)).content.startsWith("A short line"), "the cut to be saved", 10000);
+  await panel(p, "Versions");
+  const row = p.locator("li.ver-item", { hasText: "Before a large cut" });
+  await row.first().waitFor();
+  ok((await p.getByText("Before a large cut", { exact: true }).count()) > 0, "the Versions list says Before a large cut");
+  await row.getByRole("button", { name: /^Restore the version/ }).first().click();
+  await waitFor(async () => (await stored(cut)).content.includes("Paragraph 40"), "the server to hold the text back", 10000);
+  await waitFor(async () => (await p.evaluate(() => window.scriobh.write.editor.getMarkdown())).includes("Paragraph 40"), "the editor to hold the text back", 10000);
 });
 
 await kit.test("wiki links: completion, found and missing, create a note, follow", async () => {

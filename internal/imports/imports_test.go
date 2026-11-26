@@ -393,11 +393,12 @@ func TestApplyCreatesTheProjectInOneTransaction(t *testing.T) {
 	if kind != "markdown" || hash != pv.Token || path != "the-salt-road" {
 		t.Errorf("source: %s %s %s", kind, hash, path)
 	}
-	var docSources int
-	var hashes int
-	e.d.Read().QueryRow(`SELECT count(*), count(DISTINCT source_hash) FROM document_sources WHERE source_id = ?`, out.SourceID).Scan(&docSources, &hashes)
-	if docSources != 3 || hashes != 3 { // the folder has no file of its own
-		t.Errorf("document_sources %d rows, %d distinct hashes", docSources, hashes)
+	// One row for each document, the folder's too (phase 4: an undo needs to know the part is the import's); it has no file of its own,
+	// so no path and no file hash.
+	var docSources, hashes, noFile int
+	e.d.Read().QueryRow(`SELECT count(*), count(DISTINCT source_hash), sum(source_path = '' AND source_hash = '') FROM document_sources WHERE source_id = ?`, out.SourceID).Scan(&docSources, &hashes, &noFile)
+	if docSources != 4 || hashes != 4 || noFile != 1 {
+		t.Errorf("document_sources %d rows, %d distinct hashes, %d with no file", docSources, hashes, noFile)
 	}
 	// The editor can open and save an imported document like any other.
 	id := list.Order[1]

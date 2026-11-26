@@ -566,6 +566,9 @@ await test("tree: keyboard reorder, indent, outdent, rename, trash and undo", as
   await waitFor(async () => (await serverOrder(p)).join("|") === "Two|One|Three", "reorder down");
   await settleTree(pg, "One", "1", "Two|One|Three");
   eq(await pg.evaluate(() => document.activeElement.querySelector(".tree-title")?.textContent), "One", "focus stays on the moved row");
+  // The move also reaches this tab as a live event, and the tree is drawn again a moment later: the row keeps its focus through that.
+  await sleep(2500);
+  eq(await pg.evaluate(() => document.activeElement && document.activeElement.querySelector(".tree-title")?.textContent), "One", "focus stays on the moved row after the tree is drawn again");
   await pg.keyboard.press("Alt+ArrowUp");
   await waitFor(async () => (await serverOrder(p)).join("|") === "One|Two|Three", "reorder up");
   await settleTree(pg, "One", "1", "One|Two|Three");
@@ -665,6 +668,11 @@ await test("tree: add chapter, scene and part; creating focuses the title", asyn
   await waitFor(async () => (await serverOrder(p)).length === 3 && (await serverOrder(p))[2] === "", "a top-level part");
   const rows = await api(main, "GET", `/api/v1/projects/${p.id}/docs`);
   eq(rows.json.items.filter((i) => i.kind === "part").length, 1, "part created");
+  // Adding a part opens it. The page's own navigation comes after the server's answer, so the step waits for it:
+  // otherwise the next step's first navigation races it (ERR_ABORTED, or a document that never arrives).
+  const newPart = rows.json.items.find((i) => i.kind === "part");
+  await pg.waitForURL((u) => u.pathname.includes(newPart.id), { timeout: 10000 });
+  await pg.waitForLoadState("load");
 });
 
 await test("tree: word counts shown equal the server's", async () => {
@@ -926,9 +934,12 @@ await test("review: trashing the last document is undoable on the page it lands 
   await open(pg, p);
   await (await rowFor(pg, "Chapter 1")).focus();
   await pg.keyboard.press("Delete");
-  await pg.waitForURL(new RegExp(`/p/${p.slug}(\\?|$)`), { timeout: 10000 });
-  const undo = pg.getByRole("button", { name: "Undo" });
-  await undo.waitFor();
+  // The page it lands on is the project page, which is also the page the walk started on, so the URL cannot say the
+  // landing happened; the line the server renders for a trashed document can. The format bar has its own button named
+  // "Undo" (the editor's history), so the trash's Undo is found in its own line, not by name alone.
+  const undoLine = pg.locator(".undo-line");
+  await undoLine.waitFor({ timeout: 10000 });
+  const undo = undoLine.getByRole("button", { name: "Undo" });
   ok((await pg.locator("body").innerText()).includes("Moved “Chapter 1” to the trash."), "no message");
   await undo.click();
   await pg.waitForURL(new RegExp(`/d/${p.doc}`), { timeout: 10000 });
@@ -938,7 +949,7 @@ await test("review: trashing the last document is undoable on the page it lands 
   await pg.waitForSelector(".scriobh-prose");
   ok(await pg.evaluate(() => !!(window.scriobh.tree && window.scriobh.write)), "tree.js stopped on a crafted ?trashed= link");
   await pg.goto(`${base}/p/${p.slug}?trashed=doc_../../x`, { waitUntil: "load" });
-  ok(!(await pg.getByRole("button", { name: "Undo" }).count()), "an Undo for something that is not a trashed document of this project");
+  ok(!(await pg.locator(".undo-line, #toasts").getByRole("button", { name: "Undo" }).count()), "an Undo for something that is not a trashed document of this project");
 });
 
 await test("review: the palette never lets an expired session navigate the writing page away", async () => {
@@ -1106,8 +1117,12 @@ if (!noPhone) await test("phone 390x844, 4x CPU: typing latency, drawer, sheet, 
   ok(await page.locator("#fmtbar").isVisible(), "formatting bar visible on a phone");
   const box = await page.locator("#fmtbar").boundingBox();
   ok(box.height >= 44 && box.y + box.height <= 844 - 56 + 1, `formatting bar geometry ${JSON.stringify(box)}`);
-  const small = await page.locator("#fmtbar .tb").evaluateAll((bs) => bs.filter((b) => b.getBoundingClientRect().width < 43.5 || b.getBoundingClientRect().height < 43.5).length);
-  eq(small, 0, "touch targets below 44 px in the formatting bar");
+  // The buttons the bar shows (the strip is behind Aa on a phone, U11.3: closed, Undo, Redo and Aa; open, all of them), 44 px each way.
+  const smallShown = () => page.locator("#fmtbar .tb").evaluateAll((bs) => bs.filter((b) => b.getClientRects().length > 0).filter((b) => b.getBoundingClientRect().width < 43.5 || b.getBoundingClientRect().height < 43.5).length);
+  eq(await smallShown(), 0, "touch targets below 44 px in the formatting bar");
+  await page.locator("#fmt-aa").tap();
+  eq(await smallShown(), 0, "touch targets below 44 px in the formatting bar with Aa open");
+  await page.locator("#fmt-aa").tap();
   await page.locator("#tree-toggle").tap();
   await waitFor(async () => (await page.locator("#rail").evaluate((r) => r.classList.contains("is-open"))), "drawer to open");
   ok(await page.locator("#tree-filter").isVisible(), "search field at the top of the drawer");

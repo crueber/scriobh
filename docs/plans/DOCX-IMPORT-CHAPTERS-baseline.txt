@@ -1,0 +1,82 @@
+=== 01-h1-chapters
+3 documents, 288 words
+chapter       Chapter 1 (96 words)
+chapter       Chapter 2 (96 words)
+chapter       Chapter 3 (96 words)
+=== 02-parts-h1-chapters-h2
+2 documents, 164 words
+chapter       Part One (82 words)  [2 H2 headings: --split-h2 makes them scenes]
+chapter       Part Two (82 words)  [2 H2 headings: --split-h2 makes them scenes]
+=== 03-plain-bold-centred
+1 documents, 176 words
+front_matter  Front Matter (176 words)
+=== 04-caps-two-line
+1 documents, 179 words
+front_matter  Front Matter (179 words)
+=== 05-roman-numerals
+1 documents, 228 words
+front_matter  Front Matter (228 words)
+=== 06-pagebreak-run
+1 documents, 174 words
+front_matter  Front Matter (174 words)
+=== 06b-pagebreak-run-no-label
+1 documents, 168 words
+front_matter  Front Matter (168 words)
+=== 07-pagebreakbefore-para
+1 documents, 173 words
+front_matter  Front Matter (173 words)
+=== 07b-pagebreakbefore-style
+1 documents, 116 words
+front_matter  Front Matter (116 words)
+=== 08-section-breaks
+1 documents, 173 words
+front_matter  Front Matter (173 words)
+=== 08b-section-breaks-with-chapter-label
+1 documents, 162 words
+front_matter  Front Matter (162 words)
+=== 09-custom-style-no-outline
+1 documents, 126 words
+front_matter  Front Matter (126 words)
+=== 09b-custom-style-based-on-h1
+3 documents, 117 words
+chapter       The Chapter 1 (39 words)
+chapter       The Chapter 2 (39 words)
+chapter       The Chapter 3 (39 words)
+=== 09c-direct-outline-level
+3 documents, 117 words
+chapter       Some Title 1 (39 words)
+chapter       Some Title 2 (39 words)
+chapter       Some Title 3 (39 words)
+=== 10-auto-numbered-heading
+3 documents, 117 words
+chapter       The Road (39 words)
+chapter       The Mill (39 words)
+chapter       Snow (39 words)
+=== 11-front-back-matter
+5 documents, 135 words
+front_matter  Front Matter (19 words)
+chapter       Chapter 1 (39 words)
+chapter       Chapter 2 (39 words)
+back_matter   Acknowledgments (19 words)
+back_matter   About the Author (19 words)
+=== 12-no-breaks
+1 documents, 787 words
+front_matter  Front Matter (787 words)
+=== 13-scene-markers
+1 documents, 114 words
+chapter       Chapter 1 (114 words)
+warning: 1 gap(s) of two or more empty paragraphs were read as scene breaks.
+=== 14-mixed
+2 documents, 160 words
+chapter       Chapter 1 (80 words)
+chapter       Chapter 3 (80 words)
+=== 15-false-positives
+2 documents, 67 words
+chapter       Chapter 1 (28 words)
+chapter       Chapter 2 (39 words)
+=== 16-h1-title-h2-chapters
+1 documents, 123 words
+chapter       Sample Novel (123 words)  [3 H2 headings: --split-h2 makes them scenes]
+=== 17-shunn-like
+1 documents, 174 words
+front_matter  Front Matter (174 words)

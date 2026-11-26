@@ -146,11 +146,11 @@ func tlFixtureEvent(role string, mode string) tlEventData {
 // pageFixtures and fragmentFixtures are the base lists of web_test.go with the timeline's added.
 func pageFixtures() []fixture {
 	f := append(append(append(append(append(append(basePageFixtures(), tlPageFixtures()...), p5PageFixtures()...), p6PageFixtures()...), p7MailPageFixtures()...), p7PageFixtures()...), desktopPageFixtures()...)
-	return append(append(f, studioPageFixtures()...), coverPageFixtures()...)
+	return append(append(append(f, studioPageFixtures()...), coverPageFixtures()...), importPageFixtures()...)
 }
 func fragmentFixtures() []fragmentFixture {
 	f := append(append(append(baseFragmentFixtures(), tlFragmentFixtures()...), p7MailFragmentFixtures()...), p7FragmentFixtures()...)
-	return append(f, studioFragmentFixtures()...)
+	return append(append(append(f, studioFragmentFixtures()...), lookupFragmentFixtures()...), importFragmentFixtures()...)
 }
 
 func tlPageFixtures() []fixture {

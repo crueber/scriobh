@@ -69,6 +69,9 @@ type Result struct {
 	Store bool
 	// Tombstone records that the request ran without keeping its response.
 	Tombstone bool
+	// Kept, when not nil, is what is stored in place of the response's body (a reference the caller turns back into an answer when the
+	// request is repeated): the response itself goes to this caller only, once, and is not written down.
+	Kept []byte
 }
 
 // Store keeps idempotency records.
@@ -199,6 +202,9 @@ func (s *Store) Do(ctx context.Context, principal, key, op, fingerprint string, 
 		return res.Response, false, nil
 	}
 	rec := res.Response
+	if res.Kept != nil {
+		rec.Body = res.Kept
+	}
 	if res.Tombstone || len(rec.Body) > MaxBody {
 		rec = Response{}
 	}

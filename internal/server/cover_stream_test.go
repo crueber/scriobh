@@ -5,6 +5,7 @@ import (
 	"html"
 	"io"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/textproto"
@@ -25,7 +26,38 @@ type streamWorld struct {
 	srv                    *httptest.Server
 	owner, reader, outside caller
 	pid, form              string
+	read                   atomic.Int64 // bytes the server has read off its connections, all requests
 }
+
+// countingListener counts the bytes the server reads from each connection it accepts.
+type countingListener struct {
+	net.Listener
+	n *atomic.Int64
+}
+
+func (l countingListener) Accept() (net.Conn, error) {
+	c, err := l.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+	return countingConn{c, l.n}, nil
+}
+
+type countingConn struct {
+	net.Conn
+	n *atomic.Int64
+}
+
+func (c countingConn) Read(b []byte) (int, error) {
+	k, err := c.Conn.Read(b)
+	c.n.Add(int64(k))
+	return k, err
+}
+
+// refusedBodyLimit is how much of a refused body the server may have read. A body it refuses before it reads a byte is read by nobody,
+// and net/http reads at most maxPostHandlerReadBytes (256 KB) of an unread body after the answer, to keep the connection. The client's
+// side is no measure: the kernel holds several MB of what a client writes in its socket buffers before the server reads any of it.
+const refusedBodyLimit = 1 << 20
 
 func newStreamWorld(t *testing.T, env map[string]string) *streamWorld {
 	t.Helper()
@@ -43,7 +75,9 @@ func newStreamWorld(t *testing.T, env map[string]string) *streamWorld {
 	w.owner, w.reader, w.outside = s.newCaller(t, "owner", ops.RoleWriter), s.newCaller(t, "reader", ops.RoleReader), s.newCaller(t, "outsider", ops.RoleWriter)
 	w.pid = idOf(t, s.do(w.owner, "POST", "/api/v1/projects", `{"title":"The Salt Road"}`).Body.Bytes())
 	s.addMember(t, w.pid, w.reader.userID, ops.ProjectReader)
-	w.srv = httptest.NewServer(s.Handler())
+	w.srv = httptest.NewUnstartedServer(s.Handler())
+	w.srv.Listener = countingListener{w.srv.Listener, &w.read}
+	w.srv.Start()
 	t.Cleanup(w.srv.Close)
 	w.form = w.srv.URL + "/ui/projects/" + w.pid + "/cover"
 	return w
@@ -52,10 +86,10 @@ func newStreamWorld(t *testing.T, env map[string]string) *streamWorld {
 var noRedirect = &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 
 // post sends a multipart body that is made as it is sent (the client holds none of it) and reports the status, the
-// page, and how many bytes of the body the server had taken when it answered.
+// page, and how many bytes the server read off its connection while it answered (see countingListener).
 func (w *streamWorld) post(t *testing.T, c caller, header bool, fields [][2]string, file string, size int64) (int, string, int64) {
 	t.Helper()
-	var sent atomic.Int64
+	before := w.read.Load()
 	pr, pw := io.Pipe()
 	mw := multipart.NewWriter(pw)
 	tok := w.s.Sess.CSRFToken(sessionOf(t, w.s, c))
@@ -73,9 +107,7 @@ func (w *streamWorld) post(t *testing.T, c caller, header bool, fields [][2]stri
 			part, _ := mw.CreatePart(h)
 			chunk := bytes.Repeat([]byte{0xAB}, 64<<10)
 			for n := int64(0); n < size; n += int64(len(chunk)) {
-				k, err := part.Write(chunk)
-				sent.Add(int64(k))
-				if err != nil {
+				if _, err := part.Write(chunk); err != nil {
 					_ = pw.CloseWithError(err)
 					return
 				}
@@ -98,7 +130,7 @@ func (w *streamWorld) post(t *testing.T, c caller, header bool, fields [][2]stri
 	defer resp.Body.Close()
 	b, _ := io.ReadAll(resp.Body)
 	_ = pr.Close()
-	return resp.StatusCode, string(b), sent.Load()
+	return resp.StatusCode, string(b), w.read.Load() - before
 }
 
 // Nothing of a body is read for someone who may not send it: a person who is not a member, a reader, a form with a wrong
@@ -117,23 +149,21 @@ func TestCoverFormReadsNoBodyBeforeItAuthorizes(t *testing.T) {
 		{"an outsider with the token in the form", w.outside, false, 404},
 		{"a reader", w.reader, true, 403},
 	} {
-		code, _, sent := w.post(t, c.who, c.header, [][2]string{{"shape", "sides"}}, "front_file", size)
+		code, _, took := w.post(t, c.who, c.header, [][2]string{{"shape", "sides"}}, "front_file", size)
 		if code != c.want {
 			t.Errorf("%s: %d, want %d", c.name, code, c.want)
 		}
-		if sent > 8<<20 {
-			t.Errorf("%s: the server took %d MB of a %d MB body before it said no", c.name, sent>>20, size>>20)
+		if took > refusedBodyLimit {
+			t.Errorf("%s: the server read %d KB of a %d MB body before it said no", c.name, took>>10, size>>20)
 		}
 	}
 	// a wrong token in the header is refused before the body too
-	var sent atomic.Int64
+	before := w.read.Load()
 	pr, pw := io.Pipe()
 	go func() {
 		chunk := bytes.Repeat([]byte{1}, 64<<10)
 		for n := 0; n < size; n += len(chunk) {
-			k, err := pw.Write(chunk)
-			sent.Add(int64(k))
-			if err != nil {
+			if _, err := pw.Write(chunk); err != nil {
 				return
 			}
 		}
@@ -149,8 +179,8 @@ func TestCoverFormReadsNoBodyBeforeItAuthorizes(t *testing.T) {
 	}
 	resp.Body.Close()
 	_ = pr.Close()
-	if resp.StatusCode != 403 || sent.Load() > 8<<20 {
-		t.Errorf("a wrong token: %d after %d MB", resp.StatusCode, sent.Load()>>20)
+	if took := w.read.Load() - before; resp.StatusCode != 403 || took > refusedBodyLimit {
+		t.Errorf("a wrong token: %d after the server read %d KB", resp.StatusCode, took>>10)
 	}
 }
 
@@ -176,10 +206,9 @@ func TestCoverFormBodiesInFlightAreBounded(t *testing.T) {
 	for i := 0; i < bodySlotCount; i++ {
 		w.s.bodySlots <- struct{}{}
 	}
-	var sent int64
-	code, body, sent := w.post(t, w.owner, true, [][2]string{{"shape", "sides"}}, "front_file", 40<<20)
-	if code != 429 || !strings.Contains(body, i18n.Default.Raw("en", "cover.err.busy_form")) || sent > 8<<20 {
-		t.Errorf("no place: %d after %d MB\n%.300s", code, sent>>20, body)
+	code, body, took := w.post(t, w.owner, true, [][2]string{{"shape", "sides"}}, "front_file", 40<<20)
+	if code != 429 || !strings.Contains(body, i18n.Default.Raw("en", "cover.err.busy_form")) || took > refusedBodyLimit {
+		t.Errorf("no place: %d after the server read %d KB\n%.300s", code, took>>10, body)
 	}
 	for i := 0; i < bodySlotCount; i++ {
 		<-w.s.bodySlots

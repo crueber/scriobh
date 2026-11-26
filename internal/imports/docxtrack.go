@@ -115,7 +115,7 @@ type markPos struct {
 
 // extractMarks takes the markers out of s and says where each was.
 func extractMarks(s string) (string, []markPos) {
-	if !strings.ContainsAny(s, "") {
+	if !hasRevisionMark(s) {
 		return s, nil
 	}
 	var b strings.Builder

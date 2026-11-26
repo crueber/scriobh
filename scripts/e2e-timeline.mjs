@@ -97,10 +97,11 @@ await kit.test("the filter form: a bad date is explained and the examples are sh
   await pg.goto(cpage());
   await pg.getByLabel("From").fill("1998-4");
   await pg.getByRole("button", { name: "Show events" }).click();
-  await pg.waitForSelector("#tl-err");
-  ok(/Use a date such as 1998, 1998-04 or 1998-04-12/.test(await pg.locator("#tl-err").innerText()), "the plain-words refusal");
+  await pg.waitForSelector("#f-from-err");
+  ok(/Use a date such as 1998, 1998-04 or 1998-04-12/.test(await pg.locator("#f-from-err").innerText()), "the plain-words refusal, beside its field");
   eq(await pg.getByLabel("From").getAttribute("aria-invalid"), "true", "the field with the problem is marked");
-  ok(/for example 1998, 1998-04 or 1998-04-12/i.test(await pg.locator("#f-from-h").innerText()), "the examples are shown");
+  ok(/such as 1998, 1998-04 or 1998-04-12/.test(await pg.locator("#f-from-err").innerText()), "the examples are in the one message");
+  eq(await pg.locator("#f-from-h").count(), 0, "one message, not the hint and the refusal both");
   await pg.goto(cpage("?entity=" + ent.hill + "&from=1999"));
   ok(/No event matches these filters/.test(await pg.locator(".tl-empty").innerText()), "an honest empty result");
 });

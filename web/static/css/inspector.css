@@ -5,12 +5,24 @@
 @media (min-width: 1150px) { .inspector:not(.is-open) { display: none; } }
 @media (max-width: 1149px) { .inspector.pre { display: none; } }
 @media (max-width: 639px) {
-  .inspector { top: auto; left: 0; bottom: calc(var(--tabbar-h) + var(--safe-b)); width: auto; max-height: 72dvh; border-left: 0; border-top: 1px solid var(--line); border-radius: var(--r-2) var(--r-2) 0 0; transform: translateY(100%); padding-bottom: var(--s-5); }
+  .inspector { top: auto; left: 0; bottom: calc(var(--tabbar-h) + var(--safe-b)); width: auto; max-height: 50dvh; border-left: 0; border-top: 1px solid var(--line); border-radius: var(--r-2) var(--r-2) 0 0; transform: translateY(100%); padding-bottom: var(--s-5); }
   .inspector.is-open { transform: none; }
-  html.kb .inspector { bottom: var(--kb, 0px); max-height: calc(100dvh - var(--kb, 0px) - var(--header-h) - var(--s-4)); }
+  /* The sheet is half the screen, so the text above it keeps about a third of it. The page can be scrolled until its last line is above
+     the sheet (the foot of the page is as long as the sheet), so a caret on the last line can be lifted clear of it (js/phone.js). The room
+     is there whether the sheet is up or not, so closing it moves nothing. */
+  body.write .main { padding-bottom: calc(50dvh + var(--status-h) + 40px); }
+  html.kb .inspector { bottom: var(--kb, 0px); max-height: calc((100dvh - var(--kb, 0px)) / 2); } /* half of what the keyboard leaves, so the text above keeps its band */
 }
 .insp-head { position: sticky; top: calc(var(--s-4) * -1); z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); margin: calc(var(--s-4) * -1) calc(var(--s-4) * -1) var(--s-3); padding: 0 var(--s-2) 0 var(--s-3); background: var(--surface); border-bottom: 1px solid var(--line); }
-.insp-tabs { display: flex; gap: 2px; }
+.insp-tabwrap { position: relative; flex: 1; min-width: 0; }
+.insp-tabs { position: relative; display: flex; flex-wrap: wrap; gap: 0 2px; }
+.insp-tabs::-webkit-scrollbar { display: none; }
+/* One row of tabs that scrolls, with a button at the end that has more: no tab is hidden, and the keyboard goes by the arrow keys. */
+.insp-scroll { position: absolute; top: 0; height: var(--target); z-index: 1; display: grid; place-items: center; width: var(--target); padding: 0; border: 0; background: var(--surface); color: var(--fg-2); }
+.insp-scroll[hidden] { display: none; }
+.insp-sl { left: 0; border-right: 1px solid var(--line); }
+.insp-sr { right: 0; border-left: 1px solid var(--line); }
+.insp-scroll:hover { background: var(--surface-2); color: var(--fg); }
 .insp-tab { min-height: var(--target); padding: 0 var(--s-3); border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; color: var(--muted); font: 500 var(--text-sm)/var(--lh-sm) var(--font-ui); }
 .insp-tab:hover { color: var(--fg); }
 .insp-tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
@@ -100,8 +112,6 @@
 .insp-open[aria-expanded="true"] { background: var(--accent-soft); color: var(--accent); }
 
 /* Alternatives and stash: the form that adds one, the small cycler, the menu, and the two tabs' lists. */
-.insp-tabs { flex: 1; flex-wrap: wrap; } /* five tabs do not fit one row in a narrow panel: they wrap, none is hidden */
-.insp-head { align-items: flex-start; }
 .insp-tab { white-space: nowrap; }
 .alt-pop, .alt-cycler, .alt-menu { position: fixed; z-index: 60; margin: 0; padding: var(--s-2) var(--s-3); border: 1px solid var(--line); border-radius: var(--r-2); background: var(--surface); font-size: var(--text-sm); line-height: var(--lh-sm); }
 .alt-pop { display: flex; flex-direction: column; gap: var(--s-2); }

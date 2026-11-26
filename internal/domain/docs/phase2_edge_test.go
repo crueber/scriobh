@@ -22,15 +22,17 @@ func TestEmptyTextIsAVersionLikeAnyOther(t *testing.T) {
 	if got := g.content(d.ID, out.(revisions.Item).Item.ID); got != "" {
 		t.Errorf("empty snapshot content %q", got)
 	}
-	// Write, clear, write again: the cleared state is kept like any other.
+	// Write, clear, write again: the cleared state is kept like any other. Clearing two
+	// words is a big cut by the rule (more than a fifth of the chapter), so the text
+	// before it is kept as a cut version, not left to the autosave interval.
 	g.advance(10 * time.Minute)
 	g.save(g.ownA, d.ID, "some words")
 	g.advance(10 * time.Minute)
-	g.save(g.ownA, d.ID, "") // keeps "some words"
+	g.save(g.ownA, d.ID, "") // keeps "some words", as a cut
 	g.advance(10 * time.Minute)
 	g.save(g.ownA, d.ID, "words again") // keeps the empty text
 	rs := g.revs(g.ownA, d.ID)
-	if len(rs) != 3 || reasons(rs) != "autosave,autosave,manual" {
+	if len(rs) != 3 || reasons(rs) != "autosave,cut,manual" {
 		t.Fatalf("versions %s", reasons(rs))
 	}
 	if rs[0].WordCount != 0 || g.content(d.ID, rs[0].ID) != "" || g.content(d.ID, rs[1].ID) != "some words" {

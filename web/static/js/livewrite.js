@@ -11,13 +11,20 @@
   function el(tag, cls, text) { var e = doc.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function say(m) { var l = doc.getElementById("live"); if (l) l.textContent = m; }
 
-  // The tree: fresh counts and order a moment after the last event, and never while it is being renamed or dragged.
+  // The tree: fresh counts and order a moment after the last event, and never while it is being renamed or dragged. A redraw takes
+  // the focused row with it, so the row the writer is on gets its focus back, and the eyebrow takes the chapter's number from the tree.
   function tree() {
     win.clearTimeout(tid);
     tid = win.setTimeout(function () {
       if (doc.querySelector(".is-renaming, .is-dragging") || !S.tree) { tree(); return; }
+      var a = doc.activeElement, held = a && a.closest && a.closest("#tree .tree-row") ? a.dataset.id : "";
       var p = S.tree.refresh();
-      if (p && p.then) p.then(null, function () { /* the server is away: the next event asks again */ });
+      if (p && p.then) p.then(function () {
+        var r = held && doc.activeElement === doc.body && doc.querySelector('#tree .tree-row[data-id="' + held + '"]');
+        if (r) r.focus({ preventScroll: true });
+        var n = doc.getElementById("doc-num"), c = doc.querySelector('#tree .tree-row[data-id="' + W.cfg.id + '"] .tree-num');
+        if (n && c) n.textContent = c.textContent;
+      }, function () { /* the server is away: the next event asks again */ });
     }, 1200);
   }
   function close() { if (bar) { bar.remove(); bar = null; } }
@@ -59,7 +66,8 @@
     if (d.document_id !== W.cfg.id) return;
     if (t === "doc.trashed") { show("This chapter was moved to the trash somewhere else. Your text here is kept.", [{ label: "Dismiss", fn: close }]); return; }
     var p = d.payload || {};
-    if (t === "doc.updated" && !p.content) return; // a rename or a move: the tree has it, the text did not change
+    // A rename or a move carries no revision, and no text: the tree has it, and the words did not change, so the bar says nothing.
+    if (!p.revision || t === "doc.updated" && !p.content) return;
     win.setTimeout(function () { changed(p.revision); }, 1500);
   });
 })();

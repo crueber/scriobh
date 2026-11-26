@@ -1,7 +1,7 @@
 {{define "res-crumb"}}<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="{{.O.Base}}">{{.O.Name}}</a>{{if .Mid}}<span class="crumb-sep" aria-hidden="true">/</span><a href="{{.O.Base}}/research">{{.Mid}}</a>{{end}}<span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{.Here}}</span></nav>{{end}}
 {{define "res-tab"}}{{if eq .O.Kind "c"}}{{template "ctab-phone" ctabs .O.Slug .Active}}{{else}}{{template "ptab-phone" ptabs .O.Slug "" .Active}}{{end}}{{end}}
-{{define "res-ptabs"}}{{if eq .O.Kind "c"}}{{template "ctab-desktop" ctabs .O.Slug .Active}}{{else}}{{template "ptab-desktop" ptabs .O.Slug "" .Active}}{{end}}{{end}}
-{{define "res-more"}}{{if eq .O.Kind "c"}}{{template "cmore" ctabs .O.Slug .Active}}{{else}}{{template "project-more" ptabs .O.Slug "" .Active}}{{end}}{{end}}
+{{define "res-ptabs"}}{{if eq .O.Kind "c"}}{{template "ctab-desktop" ctabs .O.Slug .Active}}{{else}}{{template "ptab-desktop" ptabs .O.Slug "" .Active .O.Project.Role}}{{end}}{{end}}
+{{define "res-more"}}{{if eq .O.Kind "c"}}{{template "cmore" ctabs .O.Slug .Active}}{{else}}{{template "project-more" ptabs .O.Slug "" .Active .O.Project.Role}}{{end}}{{end}}
 {{define "res-subnav"}}<nav class="r-sub" aria-label="Research views">
   <a href="{{.O.Base}}/research"{{if eq .Active "list"}} aria-current="page"{{end}}>Notes</a>
   <a href="{{.O.Base}}/research/board"{{if eq .Active "board"}} aria-current="page"{{end}}>Board</a>

@@ -42,7 +42,7 @@ import (
 // MaxPDF is the largest PDF read.
 const MaxPDF = 32 << 20
 
-func pdfToFiles(ctx context.Context, data []byte, name string) (files []File, pre *prepass, err error) {
+func pdfToFiles(ctx context.Context, data []byte, name string, cut docxCutOpts, sum string) (files []File, pre *prepass, err error) {
 	// The HTTP binding recovers from a panic; the command line does not. A file
 	// that breaks this side is refused in both.
 	defer func() {
@@ -54,15 +54,15 @@ func pdfToFiles(ctx context.Context, data []byte, name string) (files []File, pr
 		ctx = context.Background()
 	}
 	// Everything from the bytes to the chapters is done by a supervised child process (pdfchild.go).
-	co, err := readPDF(ctx, data)
-	if err != nil {
+	var co *childOut
+	if v, ok := rawGet("pdf|" + sum); ok && sum != "" {
+		co = v.(*childOut) // a change of how it is cut re-cuts what was read: the child process is not run again
+	} else if co, err = readPDF(ctx, data); err != nil {
 		return nil, nil, pdfErr(err)
+	} else if sum != "" {
+		rawPut("pdf|"+sum, co)
 	}
 	res, info := co.Result, co.Info
-	files, noteN, err := pdfMarkdown(res)
-	if err != nil {
-		return nil, nil, err
-	}
 	pi := &ProjectInfo{Title: res.Title, Subtitle: res.Subtitle, Author: res.Author, Language: info.Lang}
 	pi.Title, _ = cleanLine(pi.Title, 200)
 	pi.Subtitle, _ = cleanLine(pi.Subtitle, 200)
@@ -70,7 +70,11 @@ func pdfToFiles(ctx context.Context, data []byte, name string) (files []File, pr
 	if l := pi.Language; l == "" || len(l) > 16 || strings.ContainsAny(l, " <>\"'") {
 		pi.Language = ""
 	}
-	sum := sha256.Sum256(data)
+	files, noteN, brk, notes, err := pdfMarkdown(res, name, cut, pi)
+	if err != nil {
+		return nil, nil, err
+	}
+	hash := sha256.Sum256(data)
 	rep := &res.Report
 	var repMap map[string]any
 	if b, e := json.Marshal(rep); e == nil {
@@ -79,7 +83,7 @@ func pdfToFiles(ctx context.Context, data []byte, name string) (files []File, pr
 	pdfMeta := map[string]any{"report": repMap, "pdf_version": info.Version, "producer": info.Producer, "creator": info.Creator, "tagged": info.Tagged,
 		"xref_rebuilt": info.RebuiltXref, "javascript_actions_ignored": info.JavaScript, "other_actions_ignored": info.Launch, "embedded_files_not_read": info.EmbeddedFiles,
 		"annotations_ignored": info.Annotations, "damaged_streams": info.DamagedStreams, "footnotes_written": noteN, "bytes": len(data), "name": folderName(name)}
-	pre = &prepass{layout: LayoutPdf, srcKind: "pdf", srcHash: hex.EncodeToString(sum[:]), project: pi, meta: map[string]any{"pdf": pdfMeta}}
+	pre = &prepass{layout: LayoutPdf, srcKind: "pdf", srcHash: hex.EncodeToString(hash[:]), project: pi, meta: map[string]any{"pdf": pdfMeta}, notes: notes, breaks: brk}
 	pre.warnings = pdfWarnings(res, info)
 	return files, pre, nil
 }
@@ -100,7 +104,7 @@ func pdfWarnings(res *pdfread.Result, info pdfread.Info) []string {
 	case "headings":
 		w = append(w, "The PDF has no usable outline: chapters were proposed from headings set larger than the body text. Check them before creating the project.")
 	default:
-		w = append(w, "No chapters could be told apart (no outline, no headings set larger than the text): the text is one document. Split it by hand after import.")
+		w = append(w, "No chapters could be told apart (no outline, no headings set larger than the text): the text is one document. The review lists the \"Chapter\" lines and other places a chapter could start that it found, for you to choose; a chapter label in capitals or bold is cut by itself.")
 	}
 	add(r.PictureOnlyTotal, "%d page(s) have no text layer (pictures only) and were left out.", r.PictureOnlyTotal)
 	add(r.Images, "%d picture(s) on the pages were not imported; the text around them was.", r.Images)
@@ -155,7 +159,7 @@ func pageList(p []int) string {
 
 // pdfMarkdown makes the Markdown files from the recovered chapters, through the
 // same blocks the Word importer composes files from.
-func pdfMarkdown(res *pdfread.Result) ([]File, int, error) {
+func pdfMarkdown(res *pdfread.Result, name string, cut docxCutOpts, pi *ProjectInfo) ([]File, int, *BreakInfo, map[string]*docNote, error) {
 	c := newDocxConv()
 	c.mode = DocxAccept
 	parts := false
@@ -249,17 +253,17 @@ func pdfMarkdown(res *pdfread.Result) ([]File, int, error) {
 		add(ch.Blocks, base)
 	}
 	if c.overflow {
-		return nil, 0, fmt.Errorf("the PDF holds more text than the %d MB import limit", MaxTotalBytes>>20)
+		return nil, 0, nil, nil, fmt.Errorf("the PDF holds more text than the %d MB import limit", MaxTotalBytes>>20)
 	}
 	mode := DocxChapters
 	if parts {
 		mode = DocxParts
 	}
-	files, _, err := c.files("", mode)
+	files, _, info, notes, err := c.cutBlocks(name, mode, cut, pi)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, nil, nil, cutErrorIn("pdf", err)
 	}
-	return files, noteN, nil
+	return files, noteN, info, notes, nil
 }
 
 // pdfSegs turns runs into the segments the Word converter renders.

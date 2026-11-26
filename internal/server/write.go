@@ -11,6 +11,7 @@ import (
 	"github.com/crueber/scriobh/internal/domain/account"
 	"github.com/crueber/scriobh/internal/domain/docs"
 	"github.com/crueber/scriobh/internal/domain/projects"
+	"github.com/crueber/scriobh/internal/domain/review"
 	"github.com/crueber/scriobh/internal/ops"
 )
 
@@ -125,6 +126,9 @@ type writeData struct {
 	// Sprint is the status bar's sprint line, for a person who may write here: what is running on this project, if
 	// anything, as the server saw it when the page was made (js/sprint.js takes over from its times).
 	Sprint *writeSprint
+	// OpenComments is the number of open threads on this chapter that this person can see (their own private ones among them): the number
+	// on the Comments tab. It comes from comment.list, so what someone else keeps to themselves is not in it.
+	OpenComments int
 }
 
 func displayTitle(t string) string {
@@ -275,7 +279,7 @@ func (s *Server) writePage(w http.ResponseWriter, r *http.Request, docID string)
 		}
 	}
 	insp := ""
-	if c, err := r.Cookie("scriobh_insp"); err == nil && (c.Value == "details" || c.Value == "versions" || c.Value == "scene" || c.Value == "alts" || c.Value == "stash" || c.Value == "lab" || c.Value == "ai") {
+	if c, err := r.Cookie("scriobh_insp"); err == nil && (c.Value == "details" || c.Value == "versions" || c.Value == "scene" || c.Value == "compendium" || c.Value == "alts" || c.Value == "stash" || c.Value == "lab" || c.Value == "ai" || c.Value == "comments") {
 		insp = c.Value
 	}
 	pv := account.Prefs(r.Context(), s.DB, p.UserID)
@@ -327,6 +331,9 @@ func (s *Server) writePage(w http.ResponseWriter, r *http.Request, docID string)
 		}
 		if d.CanEdit {
 			d.Sprint = s.writeSprintOf(r, pid)
+			if lo, err := s.Reg.Call(r.Context(), p, "comment.list", review.ListIn{ProjectID: pid, DocumentID: docID, Status: review.StatusOpen, Limit: 1}); err == nil {
+				d.OpenComments = lo.(review.ListOut).Open
+			}
 		}
 	}
 	cur := ""

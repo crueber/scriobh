@@ -19,7 +19,7 @@ import (
 func Register(r *ops.Registry) {
 	ops.Register(r, ops.Op{Name: "mention.list", Method: "GET", Path: "/api/v1/docs/{id}/mentions",
 		Desc: "The entities a document mentions, with how many times each occurs (as a name, as an alias, as an explicit [[link]]), a snippet, and with spans=true the place of every occurrence for highlighting, as UTF-16 offsets over the text with line endings normalised to LF (the measure doc.split takes). " +
-			"Only entities the caller may read through a Compendium are returned; being on the project grants none of the bible, so a reader who is not on the Compendium gets an empty list with hidden: true. indexing is true while a rescan is owed, and the answer may be behind.",
+			"Only entities the caller may read through a Compendium are returned; being on the project grants none of the Compendium, so a reader who is not on the Compendium gets an empty list with hidden: true. indexing is true while a rescan is owed, and the answer may be behind.",
 		Auth: docref.Via(ops.ProjectReader)}, list)
 	ops.Register(r, ops.Op{Name: "mention.by_entity", Method: "GET", Path: "/api/v1/projects/{id}/mentions",
 		Desc: "Where an entity appears in this book: the documents that mention it, in reading order, with the count in each and a snippet around the first. Manuscript text only (parts, chapters, scenes) unless all=true adds notes and front and back matter. " +

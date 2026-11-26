@@ -1,6 +1,6 @@
 pkgbase = scriobh-desktop-bin
 	pkgdesc = Scriobh, a private place to write long things: the desktop app (prebuilt)
-	pkgver = 2.3.0
+	pkgver = 2.4.0
 	pkgrel = 1
 	url = https://github.com/crueber/scriobh
 	arch = x86_64
@@ -14,12 +14,12 @@ pkgbase = scriobh-desktop-bin
 	depends = dbus
 	depends = xdg-utils
 	optdepends = gnome-keyring: keeps the key that protects saved AI and Git credentials in the system keychain (any Secret Service provider does)
-	provides = scriobh-desktop=2.3.0
+	provides = scriobh-desktop=2.4.0
 	conflicts = scriobh-desktop
 	options = !strip
 	options = !debug
-	noextract = Scriobh_2.3.0_amd64.deb
-	source = Scriobh_2.3.0_amd64.deb::https://github.com/crueber/scriobh/releases/download/v2.3.0/Scriobh_2.3.0_amd64.deb
+	noextract = Scriobh_2.4.0_amd64.deb
+	source = Scriobh_2.4.0_amd64.deb::https://github.com/crueber/scriobh/releases/download/v2.4.0/Scriobh_2.4.0_amd64.deb
 	source = LICENSE
 	source = NOTICE
 	sha256sums = REPLACE_WITH_SHA256_OF_THE_DEB

@@ -45,7 +45,7 @@ type CompendiumSet struct {
 const compendiumReadme = `# A generated copy of a Compendium
 
 This folder is a generated Markdown copy of a Compendium kept in Scríobh: the
-shared bible for one story world or subject. Scríobh writes it after every
+shared Compendium for one story world or subject. Scríobh writes it after every
 change and never reads it back; edit the Compendium in Scríobh.
 
 - entities/ has one file per entity, in a folder per kind, with its aliases,

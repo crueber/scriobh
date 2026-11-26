@@ -116,6 +116,10 @@ func TestGateStreamRoutesAuthorizeBeforeTheBody(t *testing.T) {
 	for _, pat := range patterns {
 		method, path, _ := strings.Cut(pat, " ")
 		path = w.pageFill(path, "")
+		if pat == "POST /ui/import/stage" {
+			// The import chooser's stage form names its project in the query: the same four callers are held to it as to any project's form.
+			path += "?into=" + w.slug
+		}
 		for _, c := range []struct {
 			who    caller
 			header bool

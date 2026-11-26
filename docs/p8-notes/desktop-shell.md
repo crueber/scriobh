@@ -110,14 +110,14 @@ So a key file from a browser-mode install stays the source of truth and nothing 
 | --- | --- |
 | Scríobh (macOS) | About, Check for Updates…, Settings… (`Cmd+,`), Services, Hide, Quit (`Cmd+Q`) |
 | File | Library, Import… (`Mod+Shift+I`), Export… (`Mod+Shift+E`), Print… (`Mod+P`), Close Window; Settings… and Quit here on Linux and Windows |
-| Edit | Undo, Redo, Cut, Copy, Paste, Select All, as native roles |
+| Edit | Undo, Redo, Cut, Copy, Paste, Select All, as native roles (on a Mac Undo and Redo send `undo:` and `redo:` to the first responder, with the keys `Cmd+Z` and `Cmd+Shift+Z`; the key reaches the page's keydown first, where the editor's keymap answers it, and a menu click reaches the page as a `beforeinput` `historyUndo` or `historyRedo`, which the editor answers with its own history, F-1226; neither path was run in a macOS WebKit window) |
 | View | Reload (`Mod+R`), Zoom In (`Mod+=`), Zoom Out (`Mod+-`), Actual Size (`Mod+0`), Toggle Full Screen (`Ctrl+Cmd+F` or `F11`) |
 | Window | Minimize, Zoom |
 | Help | Documentation, Show the Data Folder; Check for Updates… and About here on Linux and Windows |
 
 Items that open something navigate the one webview to an ordinary page: `/`, `/import`, `/settings`, and for Export… `/p/<slug>/compile` when the webview is on a project page (the shell reads the webview's address; otherwise the library).
 
-**Collisions checked.** The app's own chords with the same modifier, from F-063, F-164, F-411, `web/editor/src/rules.js` and `web/static/js/palette.js`: `Mod+Z`, `Mod+Shift+Z`, `Mod+Y`, `Mod+B`, `Mod+I`, `Mod+Shift+X`, `Mod+K`, `Mod+E`, `Mod+S`, `Mod+Enter`, `Mod+Alt+0` to `3`, `Mod+O`, `Mod+/`, `Mod+Shift+P`, and `Alt+Shift+A/N/P/O/G/S`. None of the shell's accelerators is one of them (`menu::tests` holds the two lists and fails on an overlap). The Edit menu's are the system's own undo, redo, cut, copy, paste and select all.
+**Collisions checked.** The app's own chords with the same modifier, from F-063, F-164, F-411, F-1224, `web/editor/src/rules.js` and `web/static/js/palette.js`: `Mod+Z`, `Mod+Shift+Z`, `Mod+Y`, `Mod+B`, `Mod+I`, `Mod+Shift+X`, `Mod+K`, `Mod+E`, `Mod+S`, `Mod+Enter`, `Mod+Alt+0` to `3`, `Mod+O`, `Mod+/`, `Mod+Shift+P`, and `Alt+Shift+A/N/P/O/G/S`, with `Alt+Shift+I` (the writing partner's menu), `Alt+Shift+J` (go to the proposal) and `Alt+Shift+B` (Split chapter here, F-1224), which the list had left out. None of the shell's accelerators is one of them (`menu::tests` holds the two lists and fails on an overlap). The Edit menu's are the system's own undo, redo, cut, copy, paste and select all.
 
 **Print** is a File menu item that calls the webview's native print, because `window.print()` does nothing in this webview (below).
 

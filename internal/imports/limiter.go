@@ -196,17 +196,37 @@ func (s source) cacheKey(layout string) string {
 	}
 	o := s.conv
 	w(layout, s.name, o.scrivResearch, o.scrivNotes, o.wpStatus, o.wpTypes, o.ghostStatus, o.ghostTypes, o.pictures, o.scrivSheets, o.epubSections, o.epubPages)
+	// How a PDF, a Pandoc document or a text file is cut is a function of the rule too (a Word file's has its own line below).
+	w("cut", s.headings, o.docxSplit, o.docxStyle, strconv.Itoa(o.docxWords), o.docxPattern, o.docxMatch, o.docxTry, o.docxTryMatch)
+	for _, b := range o.docxBreaks {
+		w(strconv.Itoa(b))
+	}
+	// A staged source carries the hash it was staged with: the bytes are not hashed again for every preview of a review.
+	bytesOf := func(kind string, b []byte) {
+		if s.sum != "" {
+			w(kind, s.sum)
+			return
+		}
+		w(kind, strconv.Itoa(len(b)))
+		h.Write(b)
+	}
 	if len(s.epub) > 0 {
-		w("epub", strconv.Itoa(len(s.epub)))
-		h.Write(s.epub)
+		bytesOf("epub", s.epub)
 	}
 	if len(s.pdf) > 0 {
-		w("pdf", strconv.Itoa(len(s.pdf)))
-		h.Write(s.pdf)
+		bytesOf("pdf", s.pdf)
+	}
+	if len(s.text) > 0 {
+		bytesOf("text", s.text)
 	}
 	if len(s.zip) > 0 {
-		w("zip", strconv.Itoa(len(s.zip)))
-		h.Write(s.zip)
+		bytesOf("zip", s.zip)
+	}
+	if len(s.docx) > 0 && s.sum != "" { // a staged Word file: the cut is a function of its hash and the reading rules, not of the edits
+		w("docx", s.sum, s.headings, s.changes, o.docxSplit, o.docxStyle, strconv.Itoa(o.docxWords), o.docxPattern, o.docxMatch, o.docxTry, o.docxTryMatch)
+		for _, b := range o.docxBreaks {
+			w(strconv.Itoa(b))
+		}
 	}
 	if len(s.pandoc) > 0 {
 		// What Pandoc makes of a file is a function of its version too.

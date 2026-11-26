@@ -31,7 +31,7 @@
       var a = el("a", "", brief.name); a.href = sheet(brief);
       name.append(a, el("span", "insp-tag", kindWord(brief.kind)));
       if (brief.overridden) name.append(el("span", "insp-tag", "This book's version"));
-    } else if (text) name.append(el("span", "", text), el("span", "insp-tag", "Not linked to the bible"));
+    } else if (text) name.append(el("span", "", text), el("span", "insp-tag", "Not linked to the Compendium"));
     else name.append(el("span", "fine", "Not set"));
     row.append(name);
     if (canEdit) {
@@ -44,7 +44,7 @@
       if (brief) {
         var off = el("button", "btn quiet small", "Unlink");
         off.type = "button";
-        off.setAttribute("aria-label", "Unlink the " + label.toLowerCase() + " from the bible (the text stays)");
+        off.setAttribute("aria-label", "Unlink the " + label.toLowerCase() + " from the Compendium (the text stays)");
         off.addEventListener("click", function () { set(field, ""); });
         acts.append(off);
       }
@@ -90,7 +90,7 @@
       api("GET", "/api/v1/projects/" + W.cfg.project + "/entities?kind=" + kind + "&limit=8&q=" + encodeURIComponent(input.value.trim())).then(function (r) {
         if (mine !== seq) return;
         items = r.ok && r.json ? (r.json.items || []) : []; act = 0; draw();
-        if (!items.length) say(input.value.trim() ? "No " + kind + " matches." : "No " + kind + "s in this book's bible yet.");
+        if (!items.length) say(input.value.trim() ? "No " + kind + " matches." : "No " + kind + "s in this book's Compendium yet.");
         else say(items.length + (items.length === 1 ? " match." : " matches."));
       }, function () { if (mine === seq) { items = []; draw(); say("Could not reach the server."); } });
     }
@@ -126,8 +126,10 @@
     if (it.ambiguous) li.append(el("span", "insp-tag", "Could also mean another entity"));
     if (bits.length) li.append(el("span", "insp-crumb", bits.join(", ")));
     if (b.summary) card.append(el("p", "sc-sum", b.summary)); else card.append(el("p", "fine", "No summary yet."));
-    var open = el("a", "", "Open the sheet"); open.href = sheet(b);
-    card.append(open);
+    var tab = el("button", "btn quiet small", "Open in the Compendium tab"), open = el("a", "", "Open the sheet"); open.href = sheet(b);
+    tab.type = "button";
+    tab.addEventListener("click", function () { S.lookupWant = { entity: b.id }; S.inspector.open("compendium", false); });
+    card.append(tab, open);
     li.append(card);
     return li;
   }
@@ -142,7 +144,7 @@
     var h2 = el("h2", "ver-h", "Named in the text");
     kids.push(h2);
     if (items.length) kids.push(list);
-    else kids.push(el("p", "fine", d.indexing ? "Still looking through the book for names. This fills in within a moment." : "No characters, places or things from the bible are named in this text yet."));
+    else kids.push(el("p", "fine", d.indexing ? "Still looking through the book for names. This fills in within a moment." : "No characters, places or things from the Compendium are named in this text yet."));
     if (d.indexing && items.length) kids.push(el("p", "fine", "Still looking through the book for names; more may appear."));
     if (d.hidden) kids.push(el("p", "fine", "Some names in this scene are left out because they belong to a Compendium you are not a member of."));
     var keepPick = picking && root.contains(picking);

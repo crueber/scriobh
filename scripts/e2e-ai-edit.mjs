@@ -363,6 +363,8 @@ await kit.test("the AI tab restored from the cookie works when the boot file is 
   ok((await text()).endsWith("x".repeat(typed)), "every key reached the text");
   await page.unroute(/aiboot/);
   await page.context().addCookies([{ name: "scriobh_insp", value: "", url: base() }]);
+  // The keys are saved before the next step leaves this page: a save still on its way would land after the next page has read the chapter.
+  await waitFor(async () => ((await api(wren.ctx, "GET", `/api/v1/docs/${doc}`)).json.item.content || "").includes("x".repeat(typed)), "the typed keys are saved", 15000);
 });
 
 await kit.test("by keyboard alone: the chord, the menu, the preview, Send, and the proposal's keys", async () => {

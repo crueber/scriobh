@@ -124,7 +124,7 @@
         // A part that did not arrive must not leave dead buttons behind: the formatting bar says so in words, and the text still saves.
         s.onerror = function () {
           var bar = /\/format\./.test(src) && $("#fmtbar");
-          if (bar) { var p = doc.createElement("p"); p.className = "fine fmt-gone"; p.textContent = "The formatting buttons could not be loaded. Your text is not affected and still saves. Bold, italic and links work from the keyboard (Ctrl or Command with B, I or K). Reload to try again."; bar.replaceChildren(p); bar.removeAttribute("role"); }
+          if (bar) { var p = doc.createElement("p"); p.className = "fine fmt-gone"; p.textContent = "The formatting buttons could not be loaded. Your text is not affected and still saves. Bold, italic and links work from the keyboard (" + (window.scriobh && window.scriobh.keys ? window.scriobh.keys.text("Mod+B Mod+I Mod+K") : "the format bar's keys") + "). Reload to try again."; bar.replaceChildren(p); bar.removeAttribute("role"); }
         };
         doc.head.appendChild(s);
       }); });
@@ -195,6 +195,7 @@
   }
   function purge() {
     draftKeys().forEach(function (k) { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } });
+    try { Object.keys(sessionStorage).filter(function (k) { return /^scriobh:lk:/.test(k); }).forEach(function (k) { sessionStorage.removeItem(k); }); } catch (e) { /* ignore */ } // the Compendium tab's place in this tab
     try { localStorage.removeItem("scriobh:purge"); } catch (e) { /* ignore */ }
   }
   // A sign-out that could not finish its removal (the network went, the tab closed) finishes it before anything is drawn.
@@ -342,4 +343,21 @@
       if (c) { e.preventDefault(); dlg.close(); }
     });
   }
+
+  // The browser's time zone, sent once per browser (and again only if the zone changes). The server stores it only for a person who
+  // has never chosen one, so a zone a person chose is never changed by this. Upkeep, not use: the request does not keep a gate open.
+  // It is sent a second after the load event, never while the page is starting. The request in flight while the writing view mounts
+  // was most of the ~25 ms that this block added to that mount at 4x CPU (U5 measurement). The phase-2 budget guards the mount; the page's
+  // own first requests go first.
+  var zoneKey = "scriobh:zone-sent";
+  function sendZone() {
+    var zone = ""; try { zone = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) { /* no zone to send */ }
+    var sent = ""; try { sent = window.localStorage.getItem(zoneKey) || ""; } catch (e) { /* not remembered here: sent again next time */ }
+    if (zone && zone !== sent) {
+      fetch("/api/v1/me/zone-default", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", Accept: "application/json", "X-Scriobh-Background": "1" }, body: JSON.stringify({ timezone: zone }) }).then(function (r) {
+        if (r.ok) { try { window.localStorage.setItem(zoneKey, zone); } catch (e) { /* the next page sends it again */ } }
+      }, function () { /* offline: sent on a later page */ });
+    }
+  }
+  if ($('meta[name="scriobh-user"]')) window.addEventListener("load", function () { window.setTimeout(sendZone, 1000); });
 })();

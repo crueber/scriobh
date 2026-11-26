@@ -186,7 +186,8 @@ func New(d Deps) (*Server, error) {
 	s.Reg = registry.BuildWith(d.DB, d.Events, d.Cfg.DataDir, registry.Options{Log: d.Log, Attachments: attachments.Limits{
 		MaxBytes: int64(d.Cfg.UploadMaxMB) << 20, UserBytes: int64(d.Cfg.QuotaUserMB) << 20,
 		OwnerBytes: int64(d.Cfg.QuotaProjectMB) << 20, InstanceBytes: int64(d.Cfg.QuotaInstanceMB) << 20, MaxInFlight: d.Cfg.UploadConcurrency},
-		AI: aiOptions(d.Cfg, secrets.New(key), d.Log), Webhook: webhookLimits(d.Cfg), Pandoc: pandocOptions(d.Cfg, d.Log)})
+		AI: aiOptions(d.Cfg, secrets.New(key), d.Log), Webhook: webhookLimits(d.Cfg), Pandoc: pandocOptions(d.Cfg, d.Log),
+		ImportStage: imports.StageLimits{Hours: d.Cfg.ImportStageHours, MaxOpen: d.Cfg.ImportStageMaxOpen, UserMB: d.Cfg.ImportStageUserMB, TotalMB: d.Cfg.ImportStageTotalMB}})
 	s.Mirror = mirror.New(mirror.Options{DataDir: d.Cfg.DataDir, DB: d.DB, Log: d.Log, Notifier: d.Events, Disabled: d.Cfg.MirrorDisabled,
 		Debounce: time.Duration(d.Cfg.MirrorDebounceMs) * time.Millisecond})
 	s.Backups = &backup.Service{DB: d.DB, DataDir: d.Cfg.DataDir, Version: d.Cfg.Version, Log: d.Log}
@@ -196,7 +197,7 @@ func New(d Deps) (*Server, error) {
 	env.SetService(keys.LimitsService, keys.Limits{MaxKeysPerUser: d.Cfg.MaxKeysPerUser})
 	env.SetService(admin.ServiceName, &admin.Service{Limits: attachments.Limits{MaxBytes: int64(d.Cfg.UploadMaxMB) << 20, UserBytes: int64(d.Cfg.QuotaUserMB) << 20,
 		OwnerBytes: int64(d.Cfg.QuotaProjectMB) << 20, InstanceBytes: int64(d.Cfg.QuotaInstanceMB) << 20, MaxInFlight: d.Cfg.UploadConcurrency},
-		MaxKeysPerUser: d.Cfg.MaxKeysPerUser, AdminFromIdP: d.Cfg.AdminGroup != "", Version: d.Cfg.Version, DataDir: d.Cfg.DataDir,
+		ImportStageBytes: int64(d.Cfg.ImportStageTotalMB) << 20, MaxKeysPerUser: d.Cfg.MaxKeysPerUser, AdminFromIdP: d.Cfg.AdminGroup != "", Version: d.Cfg.Version, DataDir: d.Cfg.DataDir,
 		Config: func() map[string]any { return configShape(d.Cfg) }, Log: ring.snapshot})
 	env.SetService(share.MeterService, s.shr.meter)
 	s.cards = studio.NewCards(d.DB)
@@ -329,6 +330,7 @@ func (s *Server) routes() {
 	s.uiRoute("POST /ui/projects/{id}/export", s.uiExport)
 	s.uiRoute("POST /ui/projects", s.uiProjectCreate)
 	m.HandleFunc("GET /ui/projects/new", s.uiProjectNew)
+	m.HandleFunc("GET /ui/shortcuts", s.uiShortcuts)
 	m.HandleFunc("GET /ui/projects/{id}/tree", s.uiTree)
 	m.HandleFunc("GET /ui/projects/{id}/menu", s.uiProjectMenu)
 	m.HandleFunc("GET /ui/projects/{id}/purge", s.uiProjectPurgeForm)
@@ -478,6 +480,7 @@ func (s *Server) sweepLoop(ctx context.Context) {
 	defer t.Stop()
 	s.sweepAI(ctx) // what the AI recipes held, from before the last stop
 	s.sweepEditions(ctx)
+	s.sweepImportDrafts(ctx) // staged imports from before the last stop: expired ones, and what a crash or a restored backup left
 	for {
 		select {
 		case <-ctx.Done():
@@ -493,6 +496,7 @@ func (s *Server) sweepLoop(ctx context.Context) {
 			}
 			s.sweepAI(ctx)
 			s.sweepEditions(ctx)
+			s.sweepImportDrafts(ctx)
 			if n, err := review.Sweep(ctx, s.DB); err != nil {
 				s.Log.Warn("notification sweep", "err", err)
 			} else if n > 0 {
@@ -526,6 +530,21 @@ func (s *Server) sweepEditions(ctx context.Context) {
 		s.Log.Warn("edition file sweep", "err", err)
 	} else if n > 0 {
 		s.Log.Info("edition file sweep", "removed", n)
+	}
+}
+
+// importStageLimits are the limits of staged imports this server was configured with.
+func (s *Server) importStageLimits() imports.StageLimits {
+	return imports.StageLimits{Hours: s.Cfg.ImportStageHours, MaxOpen: s.Cfg.ImportStageMaxOpen, UserMB: s.Cfg.ImportStageUserMB, TotalMB: s.Cfg.ImportStageTotalMB}
+}
+
+// sweepImportDrafts removes staged imports that were left: drafts idle past SCRIOBH_IMPORT_STAGE_HOURS, finished ones after a week, rows
+// whose staged file is gone, and files no row names (see imports.SweepDrafts).
+func (s *Server) sweepImportDrafts(ctx context.Context) {
+	if n, err := imports.SweepDrafts(ctx, s.DB, s.Cfg.DataDir, s.importStageLimits(), time.Now()); err != nil {
+		s.Log.Warn("import draft sweep", "err", err)
+	} else if n > 0 {
+		s.Log.Info("import draft sweep", "removed", n)
 	}
 }
 

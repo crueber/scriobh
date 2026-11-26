@@ -20,6 +20,7 @@ import (
 	"github.com/crueber/scriobh/internal/domain/projects"
 	"github.com/crueber/scriobh/internal/i18n"
 	"github.com/crueber/scriobh/internal/ops"
+	"github.com/crueber/scriobh/internal/shortcuts"
 )
 
 // Page is the data every full page receives. Page-specific data is in Data.
@@ -41,6 +42,8 @@ type Page struct {
 	Prefs                 map[string]string
 	// Banner is set on the pages of a Compendium that is in the trash or archived.
 	Banner *compBanner
+	// Back is the way back to writing on a Compendium page: the book most recently written that uses it (compBackTo).
+	Back *compBack
 	// Lang is the language of the interface (the person's, else English) and UIDir its direction; T looks a
 	// message up in it. The manuscript's own language and direction are the project's, never these.
 	Lang, UIDir string
@@ -96,7 +99,7 @@ func (s *Server) page(r *http.Request, title string, data any) Page {
 		p.Gate = m.info
 	}
 	if a.P.Authenticated() && strings.HasPrefix(r.URL.Path, "/c/") {
-		p.Banner = s.compBannerFor(r)
+		p.Banner, p.Back = s.compNav(r)
 	}
 	if a.P.Authenticated() {
 		p.Prefs = account.Prefs(r.Context(), s.DB, a.P.UserID)
@@ -138,8 +141,11 @@ func (s *Server) parseTemplates(tfs fs.FS) (map[string]*template.Template, error
 			b, err := json.Marshal(v)
 			return string(b), err
 		},
+		"keys":         shortcuts.Tokens,
+		"kbScope":      shortcuts.ScopeOf,
 		"docKind":      docKindLabel,
 		"ptabs":        ptabs,
+		"inLang":       inLang,
 		"outlineSorts": func() []outlineSort { return outlineSorts },
 		"ctabs":        ctabs,
 		"sha7":         gitShort,

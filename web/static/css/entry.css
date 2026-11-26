@@ -1,0 +1,130 @@
+/* The entry of a Compendium (F-1261): the compact header, the field grid with its quiet slots, the description and the counted
+   sections. One sheet for the full page and the writing view's Compendium tab. Flat fills, hairlines, tokens only, no gradients. */
+.entry { --en-label: clamp(5.5rem, 28%, 9rem); }
+.entry .en-head { margin: 0; }
+.en-title { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s-2); min-width: 0; }
+.entry .en-title h1, .entry .en-title h2 { display: flex; align-items: center; gap: var(--s-2); margin: 0; font: 400 var(--text-2xl)/var(--lh-2xl) var(--font-prose); letter-spacing: -.01em; overflow-wrap: anywhere; }
+.entry .en-title h2 { font-size: var(--text-xl); line-height: var(--lh-xl); }
+.entry .en-title .ent-kind { margin-left: 0; }
+.entry .en-meta { margin: 2px 0 0; color: var(--muted); font-size: var(--text-sm); line-height: var(--lh-sm); }
+.entry .saved { margin: var(--s-1) 0 0; }
+.entry .en-lede { margin: var(--s-2) 0 0; font: 400 var(--text-base)/var(--lh-base) var(--font-prose); color: var(--fg-2); }
+
+/* Also known as: chips, with the quick add as the last of them. */
+.en-aka { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-2); margin-top: var(--s-2); }
+.en-akal { font-size: var(--text-sm); line-height: var(--lh-sm); font-weight: 500; color: var(--fg-2); }
+.en-chips { display: contents; margin: 0; padding: 0; list-style: none; }
+.en-chip { display: inline-flex; align-items: center; gap: 2px; min-height: var(--target); padding: 0 0 0 var(--s-2); border: 1px solid var(--line); border-radius: var(--r-1); background: var(--surface); font-size: var(--text-sm); }
+.en-chip:last-child { padding-right: var(--s-2); }
+.en-chip form { display: contents; margin: 0; }
+.en-x { display: inline-grid; place-items: center; min-width: var(--target); min-height: var(--target); padding: 0; border: 0; border-radius: var(--r-1); background: transparent; color: var(--muted); font-size: var(--text-base); line-height: 1; }
+.en-x:hover { background: var(--surface-2); color: var(--fg); }
+.entry .en-addname { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--s-1); margin: 0; }
+.entry .en-addname input[type="text"] { width: 11rem; min-height: var(--target); padding: 0 var(--s-2); font-size: var(--text-sm); }
+.entry .en-addname .en-akanote { width: 12rem; }
+.entry .en-addname .btn { min-height: var(--target); padding: 0 var(--s-3); }
+
+/* The summary: two lines, quiet until it is hovered or focused. */
+.entry .en-summary { display: block; width: 100%; margin-top: var(--s-2); padding: 3px var(--s-2); border: 1px solid transparent; border-bottom-color: var(--field-line); border-radius: var(--r-1); background: transparent; color: var(--fg-2); font: 400 var(--text-base)/var(--lh-base) var(--font-prose); resize: none; field-sizing: content; min-height: 2lh; max-height: 8lh; }
+.entry .en-summary:hover { border-color: var(--line); }
+.entry .en-summary:focus-visible { border-color: var(--field-line); }
+.entry .en-summary::placeholder { font-family: var(--font-ui); font-size: var(--text-sm); }
+
+/* A line of links to the sections of the page, under the header. */
+.en-index { position: sticky; top: var(--header-h, 0px); z-index: 2; display: flex; gap: var(--s-1) var(--s-4); margin-top: var(--s-3); padding: 0; overflow-x: auto; background: var(--bg); border-top: 1px solid var(--line-2); border-bottom: 1px solid var(--line-2); font-size: var(--text-sm); white-space: nowrap; }
+.en-index a { display: inline-flex; align-items: center; min-height: var(--target); color: var(--fg-2); text-decoration: none; }
+.en-index a:hover { color: var(--fg); text-decoration: underline; }
+
+/* Sections. */
+.settings.entry .en-sec, .entry .en-sec { margin-top: var(--s-4); padding-top: var(--s-3); border-top: 1px solid var(--line-2); }
+.entry .en-h { margin: 0; font: 500 var(--text-base)/var(--lh-base) var(--font-ui); color: var(--fg); }
+.entry details.en-sec > summary { display: flex; align-items: center; gap: var(--s-2); min-height: var(--target); margin-top: calc(var(--s-3) * -1); cursor: pointer; list-style: none; }
+.entry details.en-sec > summary::-webkit-details-marker { display: none; }
+.entry details.en-sec > summary::before { content: ""; flex: none; width: 6px; height: 6px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(-45deg); }
+.entry details.en-sec[open] > summary::before { transform: rotate(45deg); }
+.entry details.en-sec > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.entry details.en-sec > .fine { margin: 0 0 var(--s-2); }
+.entry .en-sec .where-list { margin-top: 0; }
+.entry .en-sec .sub { margin: 0 0 var(--s-2); }
+
+/* The grid: a label column and a value column, a line to a field. */
+.en-grid { display: grid; grid-template-columns: 1fr; gap: 4px 0; margin: var(--s-2) 0 0; }
+.en-row { display: grid; grid-template-columns: var(--en-label) minmax(0, 1fr); align-items: start; gap: 0 var(--s-3); min-width: 0; }
+.en-label { padding-top: 6px; margin: 0; font-size: var(--text-sm); line-height: var(--lh-sm); font-weight: 500; color: var(--fg-2); overflow-wrap: anywhere; }
+.en-val { min-width: 0; margin: 0; }
+dl.en-grid .en-val { padding: 6px 0 4px; font: 400 var(--text-base)/var(--lh-base) var(--font-prose); overflow-wrap: anywhere; border-bottom: 1px solid var(--line-2); white-space: pre-wrap; }
+.entry .en-val input[type="text"], .entry .en-val select, .entry .en-val textarea { display: block; width: 100%; min-height: var(--target); padding: 4px var(--s-2); border: 1px solid transparent; border-bottom-color: var(--field-line); border-radius: var(--r-1); background: transparent; color: var(--fg); font: 400 var(--text-base)/var(--lh-base) var(--font-ui); resize: none; }
+.entry .en-val textarea { field-sizing: content; min-height: var(--target); max-height: 10lh; }
+.entry .en-val select { padding-right: 28px; }
+.entry .en-val input:hover, .entry .en-val select:hover, .entry .en-val textarea:hover { border-color: var(--line); background: var(--surface); }
+.entry .en-val input:focus-visible, .entry .en-val select:focus-visible, .entry .en-val textarea:focus-visible { border-color: var(--field-line); background: var(--surface); }
+.entry .en-val input[aria-invalid="true"], .entry .en-val textarea[aria-invalid="true"] { border-color: var(--danger); }
+.en-empty .en-label { font-weight: 400; color: var(--muted); }
+.en-empty select { color: var(--muted); }
+.en-none { color: var(--muted); }
+details.en-more { margin-top: var(--s-1); }
+details.en-more > summary { display: flex; align-items: center; min-height: var(--target); padding: 0 var(--s-2); cursor: pointer; font-size: var(--text-sm); color: var(--fg-2); border: 1px dashed var(--line); border-radius: var(--r-1); list-style: none; }
+details.en-more > summary::-webkit-details-marker { display: none; }
+details.en-more > summary:hover { background: var(--surface-2); color: var(--fg); }
+details.en-more[open] > summary { border-style: solid; }
+@media (max-width: 359px) { .en-row { grid-template-columns: minmax(0, 1fr); } .en-label { padding-top: 4px; } }
+
+/* The description. */
+.en-deschead { display: flex; align-items: baseline; gap: var(--s-3); }
+.en-words { color: var(--muted); font-size: var(--text-xs); line-height: var(--lh-xs); font-variant-numeric: tabular-nums; }
+.en-deschead .btn { margin-left: auto; align-self: center; min-height: var(--target); }
+.entry .en-body { display: block; width: 100%; margin-top: var(--s-2); padding: var(--s-2) var(--s-3); border: 1px solid var(--field-line); border-radius: var(--r-1); background: var(--surface); color: var(--fg); font: 400 var(--text-sm)/var(--lh-sm) var(--font-mono); resize: vertical; field-sizing: content; min-height: 9lh; max-height: 40vh; }
+.entry .en-md { margin-top: var(--s-2); }
+.entry .en-display .field { margin-top: var(--s-3); }
+.entry .en-display .swatches { margin-top: var(--s-3); }
+.entry .en-relform { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-2) var(--s-3); max-width: none; margin-top: var(--s-3); }
+.entry .en-relform > .field:first-of-type, .entry .en-relform > .check, .entry .en-relform > .form-actions { grid-column: 1 / -1; }
+@media (max-width: 520px) { .entry .en-relform { grid-template-columns: minmax(0, 1fr); } .entry .en-addname input[type="text"], .entry .en-addname .en-akanote { width: 100%; } .entry .en-addname { flex: 1 1 100%; } }
+.entry .form-actions.sticky-save { padding: var(--s-2) 0; }
+
+/* The compact list row, for the entity lists and the sidebar's results. */
+.ent-rows { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line-2); }
+.ent-sw { flex: none; width: 14px; height: 14px; border-radius: 3px; }
+.ent-sw-none { border-radius: 50%; background: var(--line); }
+.chip-none { background: none; border: 1px solid var(--line); box-sizing: border-box; }
+.ent-row { display: flex; gap: var(--s-3); align-items: center; padding: 0; border-bottom: 1px solid var(--line-2); }
+.ent-main { flex: 1 1 auto; min-width: 0; container-type: inline-size; }
+.ent-main p { margin: 0; overflow-wrap: anywhere; }
+.ent-name a { display: inline-flex; align-items: center; min-height: var(--target); color: var(--fg); font-weight: 500; }
+.ent-kind { margin-left: var(--s-1); padding: 0 6px; border: 1px solid var(--line); border-radius: var(--r-1); color: var(--muted); font-size: var(--text-xs); line-height: var(--lh-xs); white-space: nowrap; }
+.ent-sub, .ent-aka, .ent-via { color: var(--muted); font-size: var(--text-sm); line-height: var(--lh-sm); }
+.ent-sub mark { background: var(--match); color: var(--fg); border-radius: 2px; padding: 0 1px; }
+/* A list row is one line on a wide screen: the name, its kind, then the summary and the other names cut short. */
+.ent-line { display: flex; align-items: baseline; gap: var(--s-2); min-width: 0; min-height: var(--target); white-space: nowrap; overflow: hidden; }
+.ent-line > * { flex: none; }
+.ent-link { align-self: center; max-width: 45%; overflow: hidden; text-overflow: ellipsis; color: var(--fg); font-weight: 500; }
+.ent-line .ent-kind { margin-left: 0; align-self: center; }
+.ent-line .ent-sum, .ent-line .ent-aka, .ent-line .ent-via { align-self: center; }
+.ent-line .ent-sum { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-size: var(--text-sm); }
+.ent-line .ent-aka { flex: 0 1 28%; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ent-line .ent-via { flex: 0 1 30%; min-width: 0; white-space: normal; }
+.ent-row .ent-sub { padding-bottom: var(--s-1); }
+@media (max-width: 640px) {
+  .ent-row { align-items: flex-start; }
+  .ent-row .ent-sw { margin-top: 18px; }
+  .ent-line { flex-wrap: wrap; row-gap: 0; min-height: 0; white-space: normal; overflow: visible; padding: var(--s-1) 0; }
+  .ent-link { min-height: 28px; display: inline-flex; max-width: 100%; }
+  .ent-line .ent-sum { flex: 1 1 100%; white-space: nowrap; }
+  .ent-line .ent-aka, .ent-line .ent-via { flex: 1 1 100%; white-space: normal; }
+}
+
+/* The page's forms use the whole width of the sheet, and its sections sit close. */
+.settings.entry .form, .entry .form { max-width: none; gap: 0; }
+.settings.entry section.where, .entry section.where { margin-top: 0; padding-top: 0; border-top: 0; }
+.entry details.en-addrel { margin-top: var(--s-2); }
+.entry details.en-addrel > summary { display: inline-flex; list-style: none; cursor: pointer; }
+.entry details.en-addrel > summary::-webkit-details-marker { display: none; }
+.entry .form > .hint { margin: var(--s-2) 0 0; }
+/* Where the row is narrow for its own text (large text, a narrow column) the line wraps and nothing is cut short. */
+@media (min-width: 641px) {
+  @container (max-width: 36em) {
+    .ent-line { flex-wrap: wrap; row-gap: 0; min-height: 0; padding: var(--s-1) 0; white-space: normal; overflow: visible; }
+    .ent-link { max-width: 100%; }
+    .ent-line .ent-sum, .ent-line .ent-aka, .ent-line .ent-via { flex: 1 1 100%; white-space: normal; overflow: visible; text-overflow: clip; }
+  }
+}

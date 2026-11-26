@@ -98,7 +98,7 @@ func commit(c *ops.Ctx, tx *sql.Tx, id string, h head, content, now string, o co
 		return committed{}, ops.TooLarge()
 	}
 	hash := hashContent(content)
-	words := text.WordCount(content)
+	words, search := text.Derive(content) // one parse: the count and the search text
 	if o.Keep != "" {
 		if _, err := revisions.EnsureRecorded(tx, h.state(id), revisions.ReasonSnapshot, o.Keep, now); err != nil {
 			return committed{}, err
@@ -109,13 +109,13 @@ func commit(c *ops.Ctx, tx *sql.Tx, id string, h head, content, now string, o co
 		content, hash, words, text.CharCount(content), now, now, nullIfEmpty(c.P.UserID), id); err != nil {
 		return committed{}, err
 	}
-	if err := writeText(tx, id, h.ProjectID, h.Title, h.SynopsisShort, content); err != nil {
+	if err := writeTextBody(tx, id, h.ProjectID, h.Title, h.SynopsisShort, search); err != nil {
 		return committed{}, err
 	}
 	if err := altstore.SyncGhosts(tx, id, h.ProjectID, content, c.P.UserID, now); err != nil {
 		return committed{}, err
 	}
-	if err := afterSave(tx, prior{Title: h.Title, HeadState: h.state(id)}, h.ProjectID, id, h.Title, content, true, now); err != nil {
+	if err := afterSave(tx, prior{Title: h.Title, HeadState: h.state(id)}, h.ProjectID, id, h.Title, content, true, revisions.IsBigCut(h.Words, words), now); err != nil {
 		return committed{}, err
 	}
 	if _, err := comanchor.AfterWrite(tx, id, h.Content, content, h.Revision+1, now); err != nil {

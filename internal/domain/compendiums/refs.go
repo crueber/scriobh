@@ -19,7 +19,7 @@ import (
 func registerRefs(r *ops.Registry) {
 	ops.Register(r, ops.Op{
 		Name: "project.compendium.get", Method: "GET", Path: "/api/v1/projects/{id}/compendium",
-		Desc: "A project's Compendium wiring: its primary Compendium and the whole Compendiums it references. A Compendium the caller is not a member of is not named; it is counted in hidden, because project access never grants the bible.",
+		Desc: "A project's Compendium wiring: its primary Compendium and the whole Compendiums it references. A Compendium the caller is not a member of is not named; it is counted in hidden, because project access never grants the Compendium.",
 		Auth: ops.RequireProject(ops.ProjectReader),
 	}, projectCompendiumGet)
 	ops.Register(r, ops.Op{

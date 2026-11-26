@@ -116,7 +116,7 @@
 
   // ---- the card ----------------------------------------------------------------------------------------------------------------
   var card = el("div", "men-card"), sheet = null, shownFor = null, hideT = 0, showT = 0;
-  card.id = "men-card"; card.setAttribute("role", "group"); card.setAttribute("aria-label", "Name from the bible"); card.hidden = true;
+  card.id = "men-card"; card.setAttribute("role", "group"); card.setAttribute("aria-label", "Name from the Compendium"); card.hidden = true;
   doc.body.appendChild(card);
   if (win.CSSStyleSheet && doc.adoptedStyleSheets) { sheet = new win.CSSStyleSheet(); doc.adoptedStyleSheets = doc.adoptedStyleSheets.concat([sheet]); }
   function hide() { win.clearTimeout(showT); win.clearTimeout(hideT); card.hidden = true; shownFor = null; }
@@ -162,7 +162,7 @@
     if (!m) { hide(); return; }
     if (e.ctrlKey || e.metaKey) {
       var it = items[Number(m.dataset.mention)];
-      if (it) { e.preventDefault(); W.flushAll().then(function () { win.location.assign("/p/" + slug + "/e/" + it.entity.id); }); }
+      if (it) { e.preventDefault(); toTab(it.entity.id); }
       return;
     }
     show(m);
@@ -188,19 +188,27 @@
       : markOf(n.childNodes[at.offset - 1]) || markOf(n.childNodes[at.offset]) || markOf(n); // at the edge of a name, it is the name
     return m && view.dom.contains(m) ? items[Number(m.dataset.mention)] : null;
   }
+  // The entry opens in the inspector's Compendium tab, and the page stays where it is; without the inspector the sheet opens as it did.
+  function toTab(id) {
+    if (!S.inspector) { W.flushAll().then(function () { win.location.assign("/p/" + slug + "/e/" + id); }); return; }
+    S.lookupWant = { entity: id };
+    S.inspector.open("compendium", false);
+  }
   S.mentions = {
     get on() { return on; },
+    // The names changed (another name was added): ask again soon, and while the index catches up.
+    refresh: function () { retries = 0; soon(500); },
     open: function () {
       var it = underCaret();
-      if (!it) { say(on ? "The cursor is not in a name from the bible." : "Names from the bible are turned off."); if (S.toast) S.toast("The cursor is not in a name from the bible."); return false; }
-      W.flushAll().then(function () { win.location.assign("/p/" + slug + "/e/" + it.entity.id); });
+      if (!it) { say(on ? "The cursor is not in a name from the Compendium." : "Names from the Compendium are turned off."); if (S.toast) S.toast("The cursor is not in a name from the Compendium."); return false; }
+      toTab(it.entity.id);
       return true;
     },
     toggle: function () {
       on = !on; hide();
       try { win.localStorage.setItem("scriobh:mentions", on ? "on" : "off"); } catch (e) { /* kept for this page only */ }
       if (on) ask(); else redraw();
-      var l = doc.getElementById("live"); if (l) l.textContent = on ? "Names from the bible are underlined." : "Names from the bible are no longer underlined.";
+      var l = doc.getElementById("live"); if (l) l.textContent = on ? "Names from the Compendium are underlined." : "Names from the Compendium are no longer underlined.";
       return on;
     }
   };

@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/crueber/scriobh/internal/db"
@@ -39,8 +40,21 @@ parts, NN-title.md files become chapters. Nothing is written without --apply.
   --layout NAME    obsidian reads the folder as an Obsidian vault (never guessed
                    from the files); scrivener, wordpress and ghost name the
                    source when it is not recognised by its own markers
-  --docx-parts     for a .docx: Heading 1 is a part and Heading 2 a chapter
-                   (default: Heading 1 is a chapter)
+  --docx-parts     for a .docx: the lowest heading level is a part and the next
+                   a chapter (default: the headings, styles and "Chapter 1" lines
+                   are told apart for you, parts included)
+  --docx-split auto|heading1|heading2|style|label|page_breaks|section_breaks|numerals|size|none
+                   for a .docx: how it is cut into chapters. auto (default) uses
+                   strong boundaries only: headings, a style named for chapters,
+                   "Chapter 3" lines that look like titles. Page breaks, section
+                   breaks and lone numerals are only listed (with their ordinals)
+                   and cut when chosen. size makes pieces of --docx-split-words;
+                   none leaves one document
+  --docx-split-style NAME   with --docx-split style: the paragraph style's name
+  --docx-split-words N      with --docx-split size: about N words a piece
+                   (500 to 20000; default 5000)
+  --docx-break N   start a chapter at the paragraph with ordinal N (the preview
+                   lists them); may be given more than once
   --docx-changes suggest|accept|reject   for a .docx with tracked changes: suggest
                    (default) imports the text as its author left it and proposes
                    each change as a pending suggestion by its Word author; accept
@@ -83,7 +97,14 @@ edition of the project. A book with DRM, or a fixed layout, is refused.
 It may be a PDF with a text layer (book.pdf, up to 32 MiB): chapters come from
 its outline or from headings set larger than the text, running heads, page
 numbers and a contents page are removed, and the preview says what could not be
-recovered, with a confidence for each page. A scanned or encrypted PDF is refused.
+recovered, with a confidence for each page. A scanned or encrypted PDF is refused. A PDF with no outline and no headings is
+cut by the same detector as a Word document and a text file.
+
+It may be a plain text file (book.txt, UTF-8, up to 16 MiB): blank lines are
+paragraph breaks, a line of * * * is a scene break, and chapters are found by
+the same detector as a Word document's, reading only the words. A "Chapter 3"
+line in capitals or bold is a chapter; a plain one is listed for you to take with
+--docx-split label, or --docx-break N for one of them.
 
 It may be a Scrivener project (Name.scriv, a folder or a .zip of it: binder to
 manuscript tree, synopses, statuses, notes and annotations as private notes,
@@ -95,6 +116,19 @@ Limits: 2,000 Markdown files, 2 MiB each, 32 MiB together. Hidden folders,
 non-Markdown files and links are skipped and listed. Stop the server first; this
 command opens the database directly.
 `
+
+// intList is a flag that may be given more than once, each a whole number.
+type intList []int
+
+func (l *intList) String() string { return fmt.Sprint([]int(*l)) }
+func (l *intList) Set(v string) error {
+	n, err := strconv.Atoi(strings.TrimSpace(v))
+	if err != nil || n < 1 {
+		return fmt.Errorf("%q is not a paragraph ordinal (1 or more)", v)
+	}
+	*l = append(*l, n)
+	return nil
+}
 
 // importCmd runs `scriobh import`.
 func importCmd(args []string, stdout, stderr io.Writer) int {
@@ -114,6 +148,11 @@ func importCmd(args []string, stdout, stderr io.Writer) int {
 	layout := fl.String("layout", "", "")
 	docxParts := fl.Bool("docx-parts", false, "")
 	docxChanges := fl.String("docx-changes", "", "")
+	docxSplit := fl.String("docx-split", "", "")
+	docxStyle := fl.String("docx-split-style", "", "")
+	docxWords := fl.Int("docx-split-words", 0, "")
+	var breaks intList
+	fl.Var(&breaks, "docx-break", "")
 	scrivResearch := fl.String("scrivener-research", "", "")
 	scrivNotes := fl.String("scrivener-notes", "", "")
 	wpStatus := fl.String("wp-status", "", "")
@@ -140,7 +179,7 @@ func importCmd(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 	var files []imports.File
-	var docx, pdf, epub, zipData []byte
+	var docx, pdf, text, epub, zipData []byte
 	var name string
 	var hiddenDirs int
 	var err error
@@ -153,10 +192,12 @@ func importCmd(args []string, stdout, stderr io.Writer) int {
 			limit = editions.MaxFileBytes
 		case strings.HasSuffix(lower, ".pdf"):
 			limit = imports.MaxPDF
+		case strings.HasSuffix(lower, ".txt"), strings.HasSuffix(lower, ".text"):
+			limit = imports.MaxText
 		case strings.HasSuffix(lower, ".xml"), strings.HasSuffix(lower, ".json"):
 			limit = imports.ExportFileLimit
 		default:
-			fmt.Fprintln(stderr, "scriobh: a file to import is a .docx, a .pdf, an .epub, a .zip, or a WordPress (.xml) or Ghost (.json) export; for Markdown, name the folder")
+			fmt.Fprintln(stderr, "scriobh: a file to import is a .docx, a .pdf, a .txt, an .epub, a .zip, or a WordPress (.xml) or Ghost (.json) export; for Markdown, name the folder")
 			return 2
 		}
 		if st.Size() > limit {
@@ -176,6 +217,8 @@ func importCmd(args []string, stdout, stderr io.Writer) int {
 			epub = b
 		case strings.HasSuffix(lower, ".pdf"):
 			pdf = b
+		case strings.HasSuffix(lower, ".txt"), strings.HasSuffix(lower, ".text"):
+			text = b
 		case strings.HasSuffix(lower, ".zip"):
 			zipData = b
 		default:
@@ -232,7 +275,7 @@ func importCmd(args []string, stdout, stderr io.Writer) int {
 
 	var pv imports.PreviewOut
 	if *into == "" {
-		out, err := reg.Call(ctx, who, "import.preview", imports.PreviewIn{Name: name, Files: files, Zip: zipData, Docx: docx, Pdf: pdf, Epub: epub, EpubSections: *epubSections, EpubPages: *epubPages, Layout: *layout, DocxHeadings: headings, DocxChanges: *docxChanges, SplitScenes: split,
+		out, err := reg.Call(ctx, who, "import.preview", imports.PreviewIn{Name: name, Files: files, Zip: zipData, Docx: docx, Pdf: pdf, Text: text, Epub: epub, EpubSections: *epubSections, EpubPages: *epubPages, Layout: *layout, DocxHeadings: headings, DocxChanges: *docxChanges, DocxSplit: *docxSplit, DocxSplitStyle: *docxStyle, DocxSplitWords: *docxWords, DocxBreaks: breaks, SplitScenes: split,
 			ScrivResearch: *scrivResearch, ScrivNotes: *scrivNotes, WPStatus: *wpStatus, WPTypes: *wpTypes, GhostStatus: *ghostStatus, GhostTypes: *ghostTypes, Pictures: *pictures, ScrivSheets: *sheets})
 		if err != nil {
 			fmt.Fprintln(stderr, "scriobh:", err)
@@ -240,7 +283,7 @@ func importCmd(args []string, stdout, stderr io.Writer) int {
 		}
 		pv = out.(imports.PreviewOut)
 	} else {
-		out, err := reg.Call(ctx, who, "import.append_preview", imports.AppendPreviewIn{ProjectID: *into, Name: name, Files: files, Zip: zipData, Docx: docx, Pdf: pdf, Epub: epub, EpubSections: *epubSections, EpubPages: *epubPages, Layout: *layout, DocxHeadings: headings, DocxChanges: *docxChanges, SplitScenes: split,
+		out, err := reg.Call(ctx, who, "import.append_preview", imports.AppendPreviewIn{ProjectID: *into, Name: name, Files: files, Zip: zipData, Docx: docx, Pdf: pdf, Text: text, Epub: epub, EpubSections: *epubSections, EpubPages: *epubPages, Layout: *layout, DocxHeadings: headings, DocxChanges: *docxChanges, DocxSplit: *docxSplit, DocxSplitStyle: *docxStyle, DocxSplitWords: *docxWords, DocxBreaks: breaks, SplitScenes: split,
 			ScrivResearch: *scrivResearch, ScrivNotes: *scrivNotes, WPStatus: *wpStatus, WPTypes: *wpTypes, GhostStatus: *ghostStatus, GhostTypes: *ghostTypes, Pictures: *pictures, ScrivSheets: *sheets})
 		if err != nil {
 			fmt.Fprintln(stderr, "scriobh:", err)
@@ -258,7 +301,7 @@ func importCmd(args []string, stdout, stderr io.Writer) int {
 	}
 	var res imports.ApplyOut
 	if *into == "" {
-		out, err := reg.Call(ctx, who, "import.apply", imports.ApplyIn{Token: pv.Token, EditionLabel: *editionLabel, Name: name, Files: files, Zip: zipData, Docx: docx, Pdf: pdf, Epub: epub, EpubSections: *epubSections, EpubPages: *epubPages, Layout: *layout, DocxHeadings: headings, DocxChanges: *docxChanges, SplitScenes: split, Title: *title, Kind: *kind,
+		out, err := reg.Call(ctx, who, "import.apply", imports.ApplyIn{Token: pv.Token, EditionLabel: *editionLabel, Name: name, Files: files, Zip: zipData, Docx: docx, Pdf: pdf, Text: text, Epub: epub, EpubSections: *epubSections, EpubPages: *epubPages, Layout: *layout, DocxHeadings: headings, DocxChanges: *docxChanges, DocxSplit: *docxSplit, DocxSplitStyle: *docxStyle, DocxSplitWords: *docxWords, DocxBreaks: breaks, SplitScenes: split, Title: *title, Kind: *kind,
 			ScrivResearch: *scrivResearch, ScrivNotes: *scrivNotes, WPStatus: *wpStatus, WPTypes: *wpTypes, GhostStatus: *ghostStatus, GhostTypes: *ghostTypes, Pictures: *pictures, ScrivSheets: *sheets})
 		if err != nil {
 			fmt.Fprintln(stderr, "scriobh: nothing was imported:", err)
@@ -276,7 +319,7 @@ func importCmd(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stdout, "The book is kept, as it was received, as edition %s.\n", res.EditionID)
 		}
 	} else {
-		out, err := reg.Call(ctx, who, "import.append", imports.AppendIn{ProjectID: *into, ParentID: *parent, Token: pv.Token, EditionLabel: *editionLabel, Name: name, Files: files, Zip: zipData, Docx: docx, Pdf: pdf, Epub: epub, EpubSections: *epubSections, EpubPages: *epubPages, Layout: *layout, DocxHeadings: headings, DocxChanges: *docxChanges, SplitScenes: split,
+		out, err := reg.Call(ctx, who, "import.append", imports.AppendIn{ProjectID: *into, ParentID: *parent, Token: pv.Token, EditionLabel: *editionLabel, Name: name, Files: files, Zip: zipData, Docx: docx, Pdf: pdf, Text: text, Epub: epub, EpubSections: *epubSections, EpubPages: *epubPages, Layout: *layout, DocxHeadings: headings, DocxChanges: *docxChanges, DocxSplit: *docxSplit, DocxSplitStyle: *docxStyle, DocxSplitWords: *docxWords, DocxBreaks: breaks, SplitScenes: split,
 			ScrivResearch: *scrivResearch, ScrivNotes: *scrivNotes, WPStatus: *wpStatus, WPTypes: *wpTypes, GhostStatus: *ghostStatus, GhostTypes: *ghostTypes, Pictures: *pictures, ScrivSheets: *sheets})
 		if err != nil {
 			fmt.Fprintln(stderr, "scriobh: nothing was imported:", err)
@@ -408,6 +451,49 @@ func principalFor(d *db.DB, email string) (ops.Principal, error) {
 	return ops.Principal{UserID: id, Role: role, Via: "cli"}, nil
 }
 
+// printBreaks says how a Word document was cut and what else could be, with the ordinals --docx-break takes.
+func printBreaks(w io.Writer, pv imports.PreviewOut) {
+	b := pv.Breaks
+	if b == nil {
+		return
+	}
+	switch b.ChosenBy {
+	case "none_found":
+		fmt.Fprintf(w, "No chapter breaks were found by heading, style or \"Chapter\" label: one document of %d words.\n", b.Words)
+	case "none":
+		fmt.Fprintln(w, "Left as one document (--docx-split none).")
+	case "explicit":
+		fmt.Fprintf(w, "Cut by --docx-split %s: %d chapters.\n", b.Rule, b.Chapters)
+	default:
+		fmt.Fprintf(w, "Cut by %s (auto): %d chapters", b.ChosenBy, b.Chapters)
+		if b.Parts > 0 {
+			fmt.Fprintf(w, ", %d of them parts", b.Parts)
+		}
+		fmt.Fprintln(w, ".")
+	}
+	for _, o := range b.Options {
+		if o.Rule == "style" {
+			fmt.Fprintf(w, "  --docx-split style --docx-split-style %q: %d\n", o.Style, o.Count)
+			continue
+		}
+		fmt.Fprintf(w, "  --docx-split %s: %d\n", o.Rule, o.Count)
+	}
+	for _, l := range pv.LeftOut {
+		fmt.Fprintf(w, "Left out: %s (%s, %d words)\n", l.Title, l.Why, l.Words)
+	}
+	if len(b.Suggestions) > 0 {
+		fmt.Fprintf(w, "Possible chapter starts (%d), by --docx-break ORDINAL:\n", b.SuggestionsTotal)
+		for i, s := range b.Suggestions {
+			if i >= 40 {
+				fmt.Fprintf(w, "  ... and %d more\n", b.SuggestionsTotal-40)
+				break
+			}
+			fmt.Fprintf(w, "  %d  %s  %q\n", s.Ordinal, s.Rule, s.Line)
+		}
+	}
+	fmt.Fprint(w, "\n")
+}
+
 func printPreview(w io.Writer, pv imports.PreviewOut, name string, hiddenDirs int, into bool) {
 	layout := "generic Markdown folder"
 	switch pv.Layout {
@@ -427,6 +513,8 @@ func printPreview(w io.Writer, pv imports.PreviewOut, name string, hiddenDirs in
 		layout = "Ghost export"
 	case imports.LayoutEpub:
 		layout = "EPUB"
+	case imports.LayoutText:
+		layout = "plain text file"
 	}
 	fmt.Fprintf(w, "%s, read as a %s.\n", name, layout)
 	if !into {
@@ -446,6 +534,10 @@ func printPreview(w io.Writer, pv imports.PreviewOut, name string, hiddenDirs in
 		}
 	}
 	fmt.Fprint(w, "\n")
+	if a := pv.Already; a != nil {
+		fmt.Fprintf(w, "Already imported: this same file went into the project on %s, and %d of its documents are still there. Importing it again adds the text a second time. Take the earlier one back with: scriobh-cli import undo PROJECT %s\n", a.ImportedAt, a.Documents, a.SourceID)
+	}
+	printBreaks(w, pv)
 	if e := pv.Epub; e != nil {
 		fmt.Fprintf(w, "EPUB %s, cut by %s", e.Version, e.Strategy)
 		if e.Contents != "" && e.Contents != "none" {

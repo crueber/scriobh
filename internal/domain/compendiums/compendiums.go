@@ -217,7 +217,7 @@ func Register(r *ops.Registry) {
 	}
 	ops.Register(r, ops.Op{
 		Name: "compendium.create", Method: "POST", Path: "/api/v1/compendiums", Status: 201,
-		Desc: "Create a Compendium: the shared bible (entities, and later research and a timeline) for one story world or subject. It exists with or without a project. " +
+		Desc: "Create a Compendium: the shared Compendium (entities, and later research and a timeline) for one story world or subject. It exists with or without a project. " +
 			"The caller becomes its owner. Pass project_id to make it the primary Compendium of a project the caller owns that has none; a project has at most one primary.",
 		Auth: ops.Writer(),
 	}, create)
@@ -234,7 +234,7 @@ func Register(r *ops.Registry) {
 	ops.Register(r, ops.Op{
 		Name: "project.compendium.create", Method: "POST", Path: "/api/v1/projects/{id}/compendium", Status: 201,
 		Desc: "Create a Compendium for a project and make it the project's primary, in one step. The project must have none yet and the caller must own it. " +
-			"This is how a key restricted to one project builds a bible: the key reaches the project's primary Compendium, so it can then add entities with entity.create. " +
+			"This is how a key restricted to one project builds a Compendium: the key reaches the project's primary Compendium, so it can then add entities with entity.create. " +
 			"An unrestricted caller can use compendium.create with project_id instead.",
 		Auth: ops.RequireProject(ops.ProjectOwner),
 	}, createForProject)

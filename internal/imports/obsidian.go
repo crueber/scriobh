@@ -486,7 +486,7 @@ func plain(t string, inComment bool, st *obsStats, inTemplater *bool) string {
 		switch {
 		case obsImageExt[ext]:
 			st.imageEmbeds++
-			return "*\\[image: " + escBracket(name) + "\\]*"
+			return "\\[image: " + escBracket(name) + "\\]" // plain: an italic mark beside a word leaves asterisks in the text
 		case obsAttachExt[ext]:
 			st.attachEmbeds++
 			return "*\\[attachment: " + escBracket(name) + "\\]*"
@@ -496,7 +496,7 @@ func plain(t string, inComment bool, st *obsStats, inTemplater *bool) string {
 	})
 	t = reObsLocalMD.ReplaceAllStringFunc(t, func(m string) string {
 		st.localImages++
-		return "*\\[image\\]*"
+		return "\\[image\\]" // plain, as above
 	})
 	t = reObsLink.ReplaceAllStringFunc(t, func(m string) string {
 		inner := reObsLink.FindStringSubmatch(m)[1]

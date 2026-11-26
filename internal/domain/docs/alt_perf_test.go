@@ -56,8 +56,13 @@ func TestAlternativePerformance(t *testing.T) {
 	for i := 0; i < 20; i++ { // typing at the top: every anchor moves
 		next := "x" + cur.Content
 		t0 := time.Now()
-		cur = f.mustSave(cur, next)
+		got, err := f.save(cur, next)
 		saves = append(saves, time.Since(t0))
+		if err != nil {
+			t.Fatal(err)
+		}
+		cur = got
+		f.invariant(cur.ID) // checked after the clock stops: the budget is the save's
 	}
 	for i := 0; i < 20; i++ { // typing in the middle of a word nobody anchored
 		next := strings.Replace(cur.Content, " house was", " house, was", 1)
@@ -65,8 +70,13 @@ func TestAlternativePerformance(t *testing.T) {
 			next = strings.Replace(cur.Content, " house, was", " house was", 1)
 		}
 		t0 := time.Now()
-		cur = f.mustSave(cur, next)
+		got, err := f.save(cur, next)
 		nearSaves = append(nearSaves, time.Since(t0))
+		if err != nil {
+			t.Fatal(err)
+		}
+		cur = got
+		f.invariant(cur.ID)
 	}
 	all := f.alts(d.ID)
 	for i := 0; i < 20; i++ {
@@ -86,6 +96,9 @@ func TestAlternativePerformance(t *testing.T) {
 		}
 	}
 	f.invariant(d.ID)
+	// Every sample is logged: a save that lands on a WAL checkpoint is the slow one, and the p95 of 20 is the slowest of them.
+	t.Logf("samples, save at the top: %v", saves)
+	t.Logf("samples, ordinary save: %v", nearSaves)
 	t.Logf("p95 over 20: save at the top (500 anchors move) %v, ordinary save %v, choose %v, list %v", p95(saves), p95(nearSaves), p95(chooses), p95(lists))
 	budget := 250 * time.Millisecond * timingFactor // the machine is shared: twice the 120 ms save budget, and loosened more under the race detector
 	t.Run("time", func(t *testing.T) {

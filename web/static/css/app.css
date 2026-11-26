@@ -215,6 +215,8 @@ kbd { font: 500 11px/1 var(--font-mono); }
 .topbar-right { flex: none; margin-inline-start: auto; display: flex; align-items: center; gap: var(--s-2); }
 .kbd-hint { display: none; align-items: center; gap: 4px; padding: 4px 7px; border: 1px solid var(--line); border-radius: var(--r-1); background: var(--surface); color: var(--muted); }
 .kbd-hint:hover { color: var(--fg); }
+.kb-open { display: none; } /* no keyboard to learn on a phone: the account menu has the same line */
+@media (min-width: 640px) and (pointer: fine) { .kb-open { display: inline-grid; } }
 .avatar-btn { display: grid; place-items: center; min-width: var(--target); min-height: var(--target); padding: 0; border: 0; border-radius: 50%; background: none; }
 .avatar { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--cover); color: var(--cover-fg); font: 600 11px/1 var(--font-ui); letter-spacing: .04em; }
 
@@ -238,6 +240,7 @@ kbd { font: 500 11px/1 var(--font-mono); }
 .tab:hover { color: var(--fg); text-decoration: none; }
 .tab:focus-visible, .menu-item:focus-visible, .palette li:focus-visible { outline-offset: -4px; }
 .tab[aria-current="page"] { color: var(--accent); }
+.tabbar .tab { flex: 1 1 auto; padding: 0 3px; } /* the labels are as wide as their words, so "Compendium" never runs into "Research" */
 .menu { position: fixed; inset: auto 0 calc(var(--tabbar-h) + var(--safe-b)) 0; width: auto; height: auto; margin: 0; padding: var(--s-2); border: 1px solid var(--line); border-bottom: 0; border-radius: var(--r-2) var(--r-2) 0 0; background: var(--surface); color: var(--fg); overflow: visible; }
 .menu::backdrop { background: var(--scrim); }
 .menu-who { display: flex; flex-direction: column; padding: var(--s-2) var(--s-3) var(--s-3); margin-bottom: var(--s-2); border-bottom: 1px solid var(--line-2); }
@@ -327,6 +330,22 @@ dialog::backdrop { background: var(--scrim); }
 dialog[open] { animation: fade-in var(--dur-3) var(--ease); }
 .dialog { width: calc(100% - var(--s-4)); max-width: 560px; max-height: calc(100dvh - var(--s-6)); overflow: auto; }
 #dialog-body { padding: var(--s-4); }
+/* The shortcuts window (F-1250): the page's #dialog, wider, in two balanced columns when there is room, one at 390 px. Tokens only. */
+#dialog:has(.kb) { max-width: 880px; }
+.kb-lede { margin: var(--s-2) 0 var(--s-4); color: var(--muted); font: 400 var(--text-sm)/var(--lh-sm) var(--font-ui); }
+.kb-groups { column-gap: var(--s-6); }
+.kb-group { margin: 0 0 var(--s-5); break-inside: avoid; }
+.kb-group h3 { margin: 0 0 var(--s-1); padding-bottom: var(--s-1); border-bottom: 1px solid var(--line); font: 600 var(--text-sm)/var(--lh-sm) var(--font-ui); }
+.kb-here { margin-inline-start: var(--s-2); color: var(--accent); font-weight: 500; }
+.kb-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: var(--s-3); padding: 5px 0; border-bottom: 1px solid var(--line-2); }
+.kb-row dt { font: 400 var(--text-sm)/var(--lh-sm) var(--font-ui); }
+.kb-row dd { margin: 0; text-align: end; }
+.kb-alt + .kb-alt { margin-inline-start: var(--s-1); }
+.kb-or { margin-inline-end: 2px; color: var(--muted); font-size: var(--text-xs); }
+.kb kbd { display: inline-block; min-width: 22px; padding: 3px 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: var(--r-1); background: var(--surface-2); color: var(--fg); text-align: center; }
+.kb kbd + kbd { margin-inline-start: 3px; }
+@media (min-width: 720px) { .kb-groups { column-count: 2; } }
+@media (max-width: 479px) { .kb-row { grid-template-columns: 1fr; gap: var(--s-1); } .kb-row dd { text-align: start; } }
 .palette { width: calc(100% - var(--s-4)); max-width: 640px; margin: 12vh auto auto; overflow: hidden; }
 .palette-field { display: flex; align-items: center; gap: var(--s-3); height: 52px; padding: 0 var(--s-4); border-bottom: 1px solid var(--line); color: var(--muted); }
 .palette-field input { flex: 1; min-width: 0; height: 100%; min-height: 0; padding: 0; border: 0; background: none; color: var(--fg); font-size: var(--text-lg); }
@@ -520,12 +539,12 @@ input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; a
   .topbar > .crumb { flex-shrink: 8; } /* when the header is crowded the breadcrumb gives way (ellipsis) long before the page tabs scroll */
   .crumb a .icon { display: none; }
   .crumb-sep, .crumb-here { display: inline; }
-  .crumb-here { max-width: 40ch; }
+  .crumb-here { max-width: 40ch; flex: none; } /* the current page keeps its whole name while the earlier parts of the trail give way */
   .kbd-hint { display: inline-flex; }
   .ptabs { display: flex; align-items: stretch; align-self: stretch; gap: var(--s-1); margin-left: var(--s-5); }
   .ptabs { gap: 0; margin-left: var(--s-4); min-width: 0; overflow-x: auto; scrollbar-width: none; } /* larger text must not push the account button off the page: the tabs scroll inside their own bar instead */
   .ptabs::-webkit-scrollbar { display: none; }
-  .ptabs a { flex: none; white-space: nowrap; }
+  .ptabs a { flex: none; white-space: nowrap; } .ptabs { scroll-padding-inline: var(--s-4); } /* a page tab scrolled into focus lands whole inside the bar, clear of the header tools */
   .ptabs a { display: inline-flex; align-items: center; padding: 0 var(--s-3); border-bottom: 2px solid transparent; color: var(--muted); font: 500 var(--text-sm)/var(--lh-sm) var(--font-ui); text-decoration: none; }
   .ptabs a:hover { color: var(--fg); }
   .ptabs a[aria-current="page"] { color: var(--fg); border-bottom-color: var(--accent); }
@@ -546,6 +565,8 @@ input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; a
   #dialog-body { padding: var(--s-5); }
   .toasts { right: auto; bottom: var(--s-4); max-width: 420px; }
 }
+/* Nine project tabs fit beside the title from 1024 to 1399 px only with less padding on each; from 1400 px they keep the wider padding. */
+@media (min-width: 1024px) and (max-width: 1399px) { .ptabs a { padding: 0 var(--s-2); } }
 @media (min-width: 1150px) {
   .inspector { position: sticky; top: var(--header-h); z-index: auto; flex: 0 0 var(--inspector-w); width: var(--inspector-w); height: calc(100dvh - var(--header-h)); visibility: visible; transform: none; transition: none; }
 }
@@ -580,5 +601,8 @@ input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; a
 
 /* The line on every page of a Compendium that is in the trash or archived. Words carry the state, not the colour. */
 .comp-banner { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); margin: 0 0 var(--s-4); padding: var(--s-3) var(--s-4); border: 1px solid var(--line); border-left: 4px solid var(--warn); border-radius: var(--r-1); background: var(--surface); font: 400 var(--text-sm)/var(--lh-sm) var(--font-ui); }
+.comp-back { margin: 0 0 var(--s-2); padding: 0 var(--s-4); font: 400 var(--text-sm)/var(--lh-sm) var(--font-ui); }
+.comp-back a { display: inline-flex; align-items: center; gap: var(--s-1); min-height: var(--target); max-width: 100%; color: var(--muted); overflow-wrap: anywhere; }
+.comp-back a:hover { color: var(--fg); }
 .comp-banner[data-kind="archived"] { border-left-color: var(--muted); }
 .comp-banner p { flex: 1 1 18rem; margin: 0; }

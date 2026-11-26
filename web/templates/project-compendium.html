@@ -3,14 +3,14 @@
 <nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><a href="/p/{{.Data.Slug}}">{{.Data.Project.Title}}</a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">Compendium</span></nav>
 {{end}}
 {{define "tab-write"}}{{template "ptab-phone" ptabs .Data.Slug "" "compendium" .Data.Project.Role}}{{end}}
-{{define "projmore"}}{{template "project-more" ptabs .Data.Slug "" "compendium" .Data.Project.Role}}{{end}}
+{{define "projmore"}}{{template "project-more" (inLang $.Lang (ptabs .Data.Slug "" "compendium" .Data.Project.Role))}}{{end}}
 {{define "ptabs"}}{{template "ptab-desktop" ptabs .Data.Slug "" "compendium" .Data.Project.Role}}{{end}}
 {{define "content"}}
 {{with .Data}}{{$d := .}}
 <div class="settings comp" id="comp-page">
   {{template "live-marker" (dict "Scope" "project" "ID" .Project.ID)}}
   <h1>Compendium</h1>
-  <p class="sub">{{.Project.Title}}. A Compendium holds the bible of a book: characters, places, items, organisations and ideas. A project sees its primary Compendium, the whole Compendiums it references, and any single entities linked to it. Being on this project does not put anyone on the Compendium: that is decided on the Compendium's own page.</p>
+  <p class="sub">{{.Project.Title}}. A Compendium holds the entries of a book: characters, places, items, organisations and ideas. A project sees its primary Compendium, the whole Compendiums it references, and any single entities linked to it. Being on this project does not put anyone on the Compendium: that is decided on the Compendium's own page.</p>
   {{if .Error}}<p class="field-error" role="alert" id="comp-error">{{.Error}}</p>{{end}}
   {{if .SavedText}}<p class="saved" role="status">{{.SavedText}}</p>{{end}}
 

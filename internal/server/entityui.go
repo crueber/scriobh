@@ -268,6 +268,11 @@ func (s *Server) uiEntityCreate(w http.ResponseWriter, r *http.Request) {
 		s.render(w, r, http.StatusUnprocessableEntity, "entities", s.page(r, "Entities of "+c.Name, d))
 		return
 	}
+	if r.PostFormValue("again") == "1" {
+		// No fragment: the browser focuses the name box (autofocus) only on a load, not on a jump to an anchor.
+		http.Redirect(w, r, "/c/"+c.Slug+"/entities?saved=again", http.StatusSeeOther)
+		return
+	}
 	http.Redirect(w, r, "/c/"+c.Slug+"/e/"+out.(entities.Item).Item.ID+"?saved=created", http.StatusSeeOther)
 }
 
@@ -287,6 +292,64 @@ var longFormKeys = map[string]bool{"appearance": true, "voice": true, "wants": t
 // a line.
 func multiline(key, value string) bool {
 	return longFormKeys[key] || strings.Contains(value, "\n") || utf8.RuneCountInString(value) > 100
+}
+
+// entryGrid is a sheet's fields as the grid draws them (F-1261): every field the kind defines, in its place, filled or as a quiet
+// slot to type into. When more than emptyLimit are empty, the first emptyShown of them stay in their places and the rest sit behind
+// one "Show N more fields" row, so the writer sees at once that they exist and how many.
+type entryGrid struct {
+	Fields, More  []fieldRow
+	Filled, Total int
+}
+
+const (
+	emptyShown = 6
+	emptyLimit = 8
+)
+
+// fieldRows is how many lines a text field starts with: its own lines and its wrapping, at most eight. It grows with what is typed
+// where the browser can size it by its content, and starts at this where it cannot.
+func fieldRows(v string) int {
+	n := 1
+	for _, ln := range strings.Split(v, "\n") {
+		if w := (utf8.RuneCountInString(ln) + 55) / 56; w > 1 {
+			n += w - 1
+		}
+	}
+	n += strings.Count(v, "\n")
+	if n > 8 {
+		n = 8
+	}
+	return n
+}
+
+// gridOf lays the fields out. A reader's grid (ro) holds the filled fields only.
+func gridOf(rows []fieldRow, ro bool) entryGrid {
+	g := entryGrid{Total: len(rows)}
+	empty := 0
+	for _, f := range rows {
+		if f.Value == "" {
+			empty++
+		} else {
+			g.Filled++
+		}
+	}
+	seen := 0
+	for _, f := range rows {
+		f.Rows = fieldRows(f.Value)
+		switch {
+		case f.Value != "":
+			g.Fields = append(g.Fields, f)
+		case ro:
+		case empty > emptyLimit && seen >= emptyShown:
+			seen++
+			g.More = append(g.More, f)
+		default:
+			seen++
+			g.Fields = append(g.Fields, f)
+		}
+	}
+	return g
 }
 
 type relRow struct {
@@ -324,6 +387,30 @@ type entityPageData struct {
 	Conflict   *entityConflict
 	Live       bool
 	Where      *whereData
+	Origs      map[string]string // the hashes of the words the page began with, kept by a page that came back with a refusal
+}
+
+// Grid is the fields of the sheet an editor sees, GridRO the filled ones for a person who may not edit, and Words the length of the
+// description: what the shared entry component draws.
+func (d entityPageData) Grid() entryGrid   { return gridOf(d.Fields, false) }
+func (d entityPageData) GridRO() entryGrid { return gridOf(d.Fields, true) }
+func (d entityPageData) Words() int        { return len(strings.Fields(d.E.Body)) }
+
+// OrigKeys are the form keys whose starting words the page keeps, for a save that changes only what was changed.
+func (d entityPageData) OrigKeys() []string {
+	keys := []string{"name", "sort_name", "summary", "body", "color"}
+	for _, f := range d.Fields {
+		keys = append(keys, "f."+f.Key)
+	}
+	return keys
+}
+
+// Orig is the hash of a field's words as the page began with them: a page that came back with a refusal keeps the one it was sent with.
+func (d entityPageData) Orig(key string) string {
+	if h, ok := d.Origs[key]; ok {
+		return h
+	}
+	return lkHash(entityValue(d.E.Entity, key))
 }
 
 type entityCollision struct{ ID, Name, Via string }
@@ -335,9 +422,10 @@ type entityConflict struct {
 
 var entitySaved = map[string]string{
 	"created":   "The entity is added.",
+	"again":     "The entity is added. The name box is ready for the next one.",
 	"saved":     "Saved.",
-	"alias":     "Alias added.",
-	"unalias":   "Alias removed.",
+	"alias":     "Another name added.",
+	"unalias":   "Name removed.",
 	"relation":  "Relationship added.",
 	"unrelate":  "Relationship removed.",
 	"trashed":   "Moved to the trash. Its name and aliases are free for other entities now.",
@@ -372,6 +460,9 @@ func (s *Server) entitySheetView(r *http.Request, c compendiums.Compendium, e en
 	d.BodyHTML = template.HTML(text.RenderHTML(e.Body, text.HTMLOptions{HeadingShift: 2}))
 	if !e.Trashed {
 		d.Where = s.whereAcross(r, e.ID)
+		if d.Where != nil {
+			d.Where.Compact = true
+		}
 	}
 	fo, err := s.Reg.Call(r.Context(), p, "entity.field.list", entities.FieldListIn{ID: c.ID, Kind: e.Kind})
 	if err != nil {
@@ -461,9 +552,13 @@ func (s *Server) entityFail(w http.ResponseWriter, r *http.Request, c compendium
 		return
 	}
 	d.Error, d.Field, d.Scope = e.Message, e.Field, scope
+	d.Origs = map[string]string{}
 	for k, v := range r.PostForm {
 		if len(v) > 0 && k != "_csrf" {
 			d.Values[k] = v[0]
+			if strings.HasPrefix(k, "o.") {
+				d.Origs[strings.TrimPrefix(k, "o.")] = v[0]
+			}
 		}
 	}
 	if scope == "details" && r.PostForm.Has("name") {
@@ -542,16 +637,7 @@ func (s *Server) uiEntity(w http.ResponseWriter, r *http.Request) {
 	scope := "details"
 	switch action {
 	case "save":
-		name, sortName, summary, body, color := r.PostFormValue("name"), r.PostFormValue("sort_name"), r.PostFormValue("summary"), strings.ReplaceAll(r.PostFormValue("body"), "\r\n", "\n"), r.PostFormValue("color")
-		in := entities.UpdateIn{ID: id, Name: &name, SortName: &sortName, Summary: &summary, Body: &body, Color: &color, Fields: map[string]any{}}
-		if rev, perr := strconv.Atoi(r.PostFormValue("base_revision")); perr == nil && rev > 0 {
-			in.BaseRevision = &rev
-		}
-		for k, v := range r.PostForm {
-			if strings.HasPrefix(k, "f.") && len(v) > 0 {
-				in.Fields[strings.TrimPrefix(k, "f.")] = strings.TrimSpace(v[0])
-			}
-		}
+		in := entityUpdateFromForm(r, id)
 		if _, err = s.Reg.Call(ctx, p, "entity.update", in); err == nil {
 			s.sheetRedirect(w, r, c, id, "saved", "")
 			return
@@ -620,6 +706,48 @@ func (s *Server) uiEntity(w http.ResponseWriter, r *http.Request) {
 		err = ops.Invalid("", "That form was not recognised.")
 	}
 	s.entityFail(w, r, c, id, scope, err)
+}
+
+// entityUpdateFromForm is the entity.update input of a form that edits a sheet, by the names the full page uses (name, sort_name,
+// summary, body, color, f.<key>, base_revision). It sets only what the form sent: a sidebar form has no name, sort name or colour
+// and must not blank them, and a field it does not carry is left as it is. The full page sends everything, so it sets everything.
+func entityUpdateFromForm(r *http.Request, id string) entities.UpdateIn {
+	in := entities.UpdateIn{ID: id, Fields: map[string]any{}}
+	// A form that says the words it began with (o.<key>, their hashes) saves only the fields that are not as they began: a field the
+	// writer did not touch is left as it is now, which may be what someone else has made it since.
+	same := func(key string) bool {
+		o := r.PostForm.Get("o." + key)
+		if o == "" {
+			return false
+		}
+		for _, h := range strings.Split(o, ",") {
+			if h == lkHash(lkNorm(key, r.PostForm.Get(key))) {
+				return true
+			}
+		}
+		return false
+	}
+	str := func(key string, into **string, f func(string) string) {
+		if r.PostForm.Has(key) && !same(key) {
+			v := f(r.PostForm.Get(key))
+			*into = &v
+		}
+	}
+	id1 := func(v string) string { return v }
+	str("name", &in.Name, id1)
+	str("sort_name", &in.SortName, id1)
+	str("summary", &in.Summary, id1)
+	str("body", &in.Body, func(v string) string { return strings.ReplaceAll(v, "\r\n", "\n") })
+	str("color", &in.Color, id1)
+	if rev, err := strconv.Atoi(r.PostForm.Get("base_revision")); err == nil && rev > 0 {
+		in.BaseRevision = &rev
+	}
+	for k, v := range r.PostForm {
+		if strings.HasPrefix(k, "f.") && len(v) > 0 && !same(k) {
+			in.Fields[strings.TrimPrefix(k, "f.")] = strings.TrimSpace(v[0])
+		}
+	}
+	return in
 }
 
 // uiMarkdownPreview renders a Markdown draft with the same whitelist renderer the HTML export uses: raw HTML is

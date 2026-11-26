@@ -604,3 +604,88 @@ func TestInspectorIsDrawnOpenFromTheCookie(t *testing.T) {
 		t.Error("an unknown cookie value opened the inspector")
 	}
 }
+
+// The locked page's script is fetched only when the page is locked: #write names it as data-lock-src and it is never
+// in data-ext, which the shell loads on every writing page (js/lock.js; UX-FIXES U2).
+func TestLockScriptIsFetchedOnlyWhenLocked(t *testing.T) {
+	s := newWebServer(t)
+	tag := regexp.MustCompile(`<div class="write" id="write"[^>]*>`)
+	n := 0
+	for _, f := range pageFixtures() {
+		if f.name != "write" || f.page.Data.(writeData).Doc == nil {
+			continue
+		}
+		n++
+		el := tag.FindString(renderPage(t, s, f))
+		if el == "" {
+			t.Fatalf("%s: no #write element", f.page.Title)
+		}
+		if !strings.Contains(el, `data-lock-src="/static/js/lock.`) {
+			t.Errorf("%s: #write does not name js/lock.js as data-lock-src", f.page.Title)
+		}
+		if m := regexp.MustCompile(`data-ext="([^"]*)"`).FindStringSubmatch(el); m != nil && strings.Contains(m[1], "js/lock.") {
+			t.Errorf("%s: js/lock.js is in data-ext, so every writing page loads it", f.page.Title)
+		}
+	}
+	if n == 0 {
+		t.Fatal("no writing page with a document to check")
+	}
+}
+
+// The selection bar's script (UX-FIXES U6) is fetched at the first finished selection, never on load: #write names it as
+// data-selbar-src (and its words as data-selbar-msgs) for a person who can edit, and it is never in data-ext.
+func TestSelectionBarIsFetchedOnlyAtAFinishedSelection(t *testing.T) {
+	s := newWebServer(t)
+	tag := regexp.MustCompile(`<div class="write" id="write"[^>]*>`)
+	n := 0
+	for _, f := range pageFixtures() {
+		if f.name != "write" || f.page.Data.(writeData).Doc == nil {
+			continue
+		}
+		n++
+		el := tag.FindString(renderPage(t, s, f))
+		if el == "" {
+			t.Fatalf("%s: no #write element", f.page.Title)
+		}
+		canEdit := strings.Contains(el, `data-can-edit="true"`)
+		src := strings.Contains(el, `data-selbar-src="/static/js/selbar.`)
+		if canEdit != src {
+			t.Errorf("%s: data-selbar-src present = %v, want %v (can edit = %v)", f.page.Title, src, canEdit, canEdit)
+		}
+		if canEdit && !strings.Contains(el, `data-selbar-msgs="{`) {
+			t.Errorf("%s: #write has no data-selbar-msgs", f.page.Title)
+		}
+		if m := regexp.MustCompile(`data-ext="([^"]*)"`).FindStringSubmatch(el); m != nil && strings.Contains(m[1], "js/selbar.") {
+			t.Errorf("%s: js/selbar.js is in data-ext, so every writing page loads it", f.page.Title)
+		}
+	}
+	if n == 0 {
+		t.Fatal("no writing page with a document to check")
+	}
+}
+
+// The writing view's header has a labelled Compendium button (U5): it opens the inspector on its Compendium tab, its name is the
+// words of the tab, and its tooltip carries the chord the registry holds (Alt+Shift+C), not a typed one.
+func TestWritingHeaderHasALabelledCompendiumButton(t *testing.T) {
+	e := newWriteEnv(t)
+	html := e.s.do(e.owner, "GET", "/p/"+e.slug+"/d/"+e.chap, "").Body.String()
+	if !regexp.MustCompile(`(?s)<button[^>]*id="comp-open"[^>]*>(.*?)</button>`).MatchString(html) {
+		t.Fatal("the writing view has no Compendium button (id comp-open)")
+	}
+	open := regexp.MustCompile(`<button[^>]*id="comp-open"[^>]*>`).FindString(html)
+	for _, want := range []string{`data-panel="compendium"`, `aria-controls="inspector"`, `class="`} {
+		if !strings.Contains(open, want) {
+			t.Errorf("the Compendium button lacks %s: %s", want, open)
+		}
+	}
+	if !strings.Contains(strings.ReplaceAll(open, "&#43;", "+"), "Alt+Shift+C") { // html/template writes + as &#43; in an attribute
+		t.Errorf("the Compendium button's tooltip does not carry the registry chord Alt+Shift+C: %s", open)
+	}
+	if !strings.Contains(open, `aria-label="Compendium"`) {
+		t.Errorf("the Compendium button has no name: %s", open)
+	}
+	// The sidebar's own toggle says what it opens (U5): a name, not only an icon.
+	if tog := regexp.MustCompile(`<button[^>]*id="insp-open"[^>]*>`).FindString(html); !strings.Contains(tog, `aria-label="Sidebar"`) {
+		t.Errorf("the sidebar toggle has no name that says what it opens: %s", tog)
+	}
+}

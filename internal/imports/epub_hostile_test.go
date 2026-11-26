@@ -175,7 +175,7 @@ func TestEpubContentIsOnlyText(t *testing.T) {
 	ap := e.applyConv(pv, imports.ApplyIn{Name: "h.epub", Epub: book})
 	var c string
 	_ = e.d.Read().QueryRow(`SELECT content FROM documents WHERE project_id = ? AND title = 'One'`, ap.ProjectID).Scan(&c)
-	has(t, c, "After a self-closed script.", "After styles.", "After a prefixed svg.", "End.", "js link", "[web link](http://example.com/ok)", "[mail](mailto:a@b.example)", `*\[image: remote\]*`, `*\[image: inline\]*`)
+	has(t, c, "After a self-closed script.", "After styles.", "After a prefixed svg.", "End.", "js link", "[web link](http://example.com/ok)", "[mail](mailto:a@b.example)", `\[image: remote\]`, `\[image: inline\]`)
 	lacks(t, c, "alert", "steal", "bad()", "secret", "area", "no audio", "no video", "no canvas", "evil", "javascript:", "data:text", "file:///", "vbscript", "etc/passwd", "display:none", "<script", "<iframe", "onclick")
 	// What the book says that would be a construct of this program is text, escaped.
 	has(t, c, `\<scriobh-ghost\>`, `\[\[Wiki\]\]`)

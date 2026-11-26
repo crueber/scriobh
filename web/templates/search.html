@@ -4,7 +4,7 @@
 {{end}}
 {{define "tab-write"}}{{with .Data.Project}}{{template "ptab-phone" ptabs .Slug "" "search" .Role}}{{end}}{{end}}
 {{define "ptabs"}}{{with .Data.Project}}{{template "ptab-desktop" ptabs .Slug "" "search" .Role}}{{end}}{{end}}
-{{define "projmore"}}{{with .Data.Project}}{{template "project-more" ptabs .Slug "" "search" .Role}}{{end}}{{end}}
+{{define "projmore"}}{{with .Data.Project}}{{template "project-more" (inLang $.Lang (ptabs .Slug "" "search" .Role))}}{{end}}{{end}}
 {{define "content"}}
 {{with .Data}}
 <section class="search" aria-labelledby="search-title">

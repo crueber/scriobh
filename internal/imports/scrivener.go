@@ -66,6 +66,11 @@ type convOpts struct {
 	scrivSheets               string // notes (default) or entities: what the apply makes of character and place sheets
 	epubSections, epubPages   string // the EPUB import's options
 	pandocFmt                 string // the format of a document the Pandoc bridge reads
+	docxSplit, docxStyle      string // how a Word document is cut (docxbreaks.go)
+	docxWords                 int
+	docxPattern, docxMatch    string // a pattern to cut a Word document at (docxpattern.go)
+	docxTry, docxTryMatch     string // a pattern only tried: what it matches, and nothing is cut by it
+	docxBreaks                []int
 	// ctx is the caller's: a converter looks at it between items and stops when the
 	// caller has gone. Nil is never cancelled.
 	ctx context.Context

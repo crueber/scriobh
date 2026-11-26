@@ -72,9 +72,11 @@ pub const ACCELERATORS: &[(&str, &str)] = &[
     (ZOOM_RESET, "CmdOrCtrl+0"),
 ];
 
-/// The chords the web app itself listens for with the same modifier (`docs/FEATURES.md` F-063, F-164, F-411,
-/// `web/editor/src/rules.js`, `web/static/js/palette.js`). A native accelerator wins over the page, so none of
-/// the shell's may be one of these.
+/// The chords the web app itself listens for with the same modifier (`docs/FEATURES.md` F-063, F-164, F-411, F-1224,
+/// `web/editor/src/rules.js`, `web/static/js/palette.js`, `web/static/js/tree.js`). A native accelerator wins over the
+/// page, so none of the shell's may be one of these. The list is the registry's Mod and Alt+Shift chords
+/// (`internal/shortcuts`, F-1251): a Go test reads it and fails, naming the chord, when the two differ, so a chord is
+/// added to the registry and here together.
 pub const APP_CHORDS: &[&str] = &[
     "CmdOrCtrl+Z",
     "CmdOrCtrl+Shift+Z",
@@ -92,6 +94,7 @@ pub const APP_CHORDS: &[&str] = &[
     "CmdOrCtrl+Alt+3",
     "CmdOrCtrl+O",
     "CmdOrCtrl+/",
+    "CmdOrCtrl+\\",
     "CmdOrCtrl+Shift+P",
     "Alt+Shift+A",
     "Alt+Shift+N",
@@ -99,6 +102,11 @@ pub const APP_CHORDS: &[&str] = &[
     "Alt+Shift+O",
     "Alt+Shift+G",
     "Alt+Shift+S",
+    "Alt+Shift+I",
+    "Alt+Shift+J",
+    "Alt+Shift+B",
+    "Alt+Shift+C",
+    "Alt+Shift+M",
 ];
 
 fn accel(id: &str) -> &'static str {

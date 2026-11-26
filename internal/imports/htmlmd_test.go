@@ -1,6 +1,7 @@
 package imports
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
@@ -28,13 +29,13 @@ func TestHTMLSubset(t *testing.T) {
 c</code></pre>`, "```\na  b\nc\n```"},
 		{`<p>One<br>two</p><hr><p>Three</p>`, "One\\\ntwo\n\n* * *\n\nThree"},
 		{`<p>See <a href="https://example.org/a b">this</a> and <a href="javascript:alert(1)">that</a> and <a href="/relative">rel</a>.</p>`, "See [this](https://example.org/a%20b) and that and rel."},
-		{`<p><img src="https://cdn.example/x.png" alt="A map"> text</p>`, `*\[image: A map\]* text`},
+		{`<p><img src="https://cdn.example/x.png" alt="A map"> text</p>`, `\[image: A map\] text`},
 		{`<table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>x|y</td></tr></table>`, "| A | B |\n| --- | --- |\n| 1 | x\\|y |"},
 		{`<p>Before</p><script>alert(1)</script><style>p{}</style><iframe src="x">fallback</iframe><form><input value="v">Name</form><p>After</p>`, "Before\n\nAfter"},
 		{`<div>bare <b>text</b></div><div>second</div>`, "bare **text**\n\nsecond"},
 		{`<p>a&nbsp;&amp;&lt;b&gt;</p>`, `a \&\<b\>`},
 		{"<p>  spaced \n  out  </p>", "spaced out"},
-		{`<figure><img src="a.jpg" alt="Pic"><figcaption>The caption</figcaption></figure>`, "*\\[image: Pic\\]*\n\nThe caption"},
+		{`<figure><img src="a.jpg" alt="Pic"><figcaption>The caption</figcaption></figure>`, "\\[image: Pic\\]\n\nThe caption"},
 		{`<!-- wp:paragraph --><p>Block</p><!-- /wp:paragraph -->`, "Block"},
 		{`<p>Caption text [caption id="a" width="1"]kept[/caption] [gallery ids="1,2"] done [sic]</p>`, "Caption text kept done \\[sic\\]"},
 	}
@@ -101,5 +102,19 @@ func TestHTMLDeepAndHuge(t *testing.T) {
 	got, _ = htmlMD(t, many)
 	if len(strings.TrimSpace(got)) != 400_000 {
 		t.Errorf("runs: %d", len(got))
+	}
+}
+
+// A picture beside a word is set in plain text: no asterisk touches a letter, so Markdown prints none.
+func TestHTMLPictureBesideAWordNeverLeavesStrayAsterisks(t *testing.T) {
+	stray := regexp.MustCompile(`[\pL\pN]\*|\*[\pL\pN]`)
+	for _, src := range []string{`<p>Alpha<img src="https://cdn.example/x.png" alt="">APPY</p>`, `<p>Alpha <img src="https://cdn.example/x.png" alt="Pic">APPY</p>`} {
+		out, _ := htmlMD(t, src)
+		if stray.MatchString(out) {
+			t.Errorf("stray asterisks next to a letter for %q:\n%s", src, out)
+		}
+		if !strings.Contains(out, "APPY") {
+			t.Errorf("the word after the picture is kept: %q", out)
+		}
 	}
 }

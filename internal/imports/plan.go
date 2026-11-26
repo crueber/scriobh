@@ -13,7 +13,6 @@ import (
 	"github.com/crueber/scriobh/internal/domain/docs"
 	"github.com/crueber/scriobh/internal/domain/projects"
 	"github.com/crueber/scriobh/internal/ops"
-	"github.com/crueber/scriobh/internal/text"
 )
 
 // Layout names.
@@ -24,6 +23,7 @@ const (
 	LayoutObsidian = Obsidian
 	LayoutDocx     = "docx"
 	LayoutPdf      = "pdf"
+	LayoutText     = "text"
 )
 
 // Node is one proposed document. The nodes of a preview are in reading order;
@@ -39,16 +39,42 @@ type Node struct {
 	Headings   int      `json:"headings,omitempty" desc:"Second-level headings in the file, which split_scenes=h2 would turn into scenes."`
 	Split      bool     `json:"split,omitempty" desc:"This file was split into scenes at its second-level headings."`
 	Warnings   []string `json:"warnings,omitempty"`
+	FirstLine  string   `json:"first_line,omitempty" desc:"The start of its text, one line of at most 80 characters, with the Markdown taken out. It is the manuscript's text: show it as text."`
+	LastLine   string   `json:"last_line,omitempty" desc:"With a Word document: the end of its text, one line of at most 80 characters, with the Markdown taken out. It is the manuscript's text: show it as text."`
+	// What the Word chapter detector says of a document it made (see breaks in the preview).
+	Ordinal        int      `json:"ordinal,omitempty" desc:"A Word document's chapter: the paragraph it starts at, by its index among the document's paragraphs. Its key is named for it, so edits stay with it when another break is added or taken away."`
+	Why            []string `json:"why,omitempty" desc:"Why the cut is here, in fixed codes: heading:N, style:NAME, label, run, title_line, centred, bold, caps, larger, space, page_break, section_break, numeral, size, explicit."`
+	Confidence     float64  `json:"confidence,omitempty" desc:"0 to 1: how sure the detector is of this boundary. Under 0.6 the review marks it Check this one."`
+	Check          bool     `json:"check,omitempty" desc:"The detector is not sure of this boundary."`
+	NoTitle        bool     `json:"no_title,omitempty" desc:"No title was found for it: it is called Chapter N."`
+	SuggestedTitle string   `json:"suggested_title,omitempty" desc:"A title in capitals: the same title in title case, offered as a rename (nothing is changed unless it is taken)."`
+	WordNumber     string   `json:"word_number,omitempty" desc:"The number Word prints for this numbered heading (Chapter 3). It is not part of the title: Scríobh numbers chapters when it compiles."`
+	LineTitle      string   `json:"line_title,omitempty" desc:"The chapter line's label as a title (Chapter II), when the chapter's title holds text before its label. Use the chapter line as the title renames to it; the words before the label stay in the text."`
+	Tables         int      `json:"tables,omitempty" desc:"How many Word tables the document holds. Their cells are not in the word count."`
+	Cells          int      `json:"cells,omitempty" desc:"How many non-empty cells the document's tables hold."`
+}
+
+// LeftOutNode is a document the import leaves out on its own, and puts back when asked (edit keep).
+type LeftOutNode struct {
+	Key   string `json:"key"`
+	Title string `json:"title"`
+	Kind  string `json:"kind"`
+	Words int    `json:"words"`
+	Why   string `json:"why" enum:"contents"`
 }
 
 // pnode is a node with its text and children while the plan is built.
 type pnode struct {
 	Node
-	body  string
-	hash  string
-	kids  []*pnode
-	order int
-	meta  docMeta
+	body    string
+	caption string // the words before the chapter line the title held: kept as the first paragraph when a rename asks for it (keep_line)
+	hash    string
+	kids    []*pnode
+	order   int
+	meta    docMeta
+
+	leftOut bool // the import leaves it out unless the writer puts it back (a contents page)
+	leftWhy string
 }
 
 // manifest is the part of scriobh.json / project.json the importer reads. It
@@ -214,6 +240,8 @@ type plan struct {
 	// merged records the documents the writer merged into another (key -> key of the one it went into), so an
 	// edition's chapters can name the document their text ended up in.
 	merged map[string]string
+	// autoLeft are the documents left out on the import's own account that the writer has not put back.
+	autoLeft []*pnode
 }
 
 // Options are the mapping choices that shape the plan itself.
@@ -275,7 +303,7 @@ func buildPlan(in *intake, opt Options) *plan {
 			m, p.manifestFile = &mm, name
 		}
 	}
-	b := &builder{p: p, opt: opt, info: map[string]docInfo{}}
+	b := &builder{p: p, opt: opt, info: map[string]docInfo{}, notes: in.notes, docx: in.layout == LayoutDocx || in.breaks != nil}
 	if in.layout != "" && !in.keepManifest { // a DOCX or Obsidian conversion: a plain folder, whatever manifest it holds
 		m = nil
 	}
@@ -353,7 +381,9 @@ type builder struct {
 	conv  bool // a converter of Scrivener, WordPress or Ghost made the manifest
 	// counters for warnings that are one line however many files cause them
 	unlisted, empty, cut, tooMany, metaCut int
-	count                                  int // nodes built so far
+	count                                  int                 // nodes built so far
+	notes                                  map[string]*docNote // what the Word detector says of each file, by path
+	docx                                   bool
 }
 
 // dirNode is a folder of the file set.
@@ -569,6 +599,12 @@ func (b *builder) addFile(parent *pnode, e entry, kind, title, status string, fr
 		status = "draft"
 	}
 	n := &pnode{Node: Node{Key: f.Path, Kind: kind, Title: title, Status: status, SourcePath: f.Path}, body: body, hash: f.Hash}
+	if note := b.notes[f.Path]; note != nil {
+		if note.kind != "" {
+			n.Kind = note.kind
+		}
+		b.noted(n, note)
+	}
 	hs := secondLevelHeadings(body, MaxDocuments+1)
 	n.Headings = len(hs)
 	if len(hs) > 0 && b.opt.splits(n.Key) && kind != "note" {
@@ -586,9 +622,30 @@ func (b *builder) addFile(parent *pnode, e entry, kind, title, status string, fr
 		b.empty++
 	}
 	b.add(parent, n)
-	n.Words = text.WordCount(n.body)
+	n.Words = wordCount(n.body)
 	warnLong(n)
 	return n
+}
+
+// noted puts what the Word detector says of a document on its node.
+func (b *builder) noted(n *pnode, note *docNote) {
+	if b.docx && capsTitle(n.Title) {
+		if t := titleCase(n.Title); t != n.Title {
+			n.SuggestedTitle = t
+		}
+	}
+	if note == nil {
+		return
+	}
+	n.Ordinal, n.Why, n.NoTitle, n.WordNumber = note.ordinal, note.why, note.noTitle, note.numbered
+	n.LineTitle = note.lineTitle
+	n.caption = note.caption
+	if note.hasScore {
+		n.Confidence, n.Check = note.score, note.check
+	}
+	if note.left {
+		n.leftOut, n.leftWhy = true, note.leftWhy
+	}
 }
 
 // warnEmpty reports whether an empty file is worth a warning. In a Scríobh layout a
@@ -618,7 +675,7 @@ func (b *builder) splitInto(parent, n *pnode, hs []h2) {
 	n.body = tidy(full[:hs[0].start])
 	n.Split = true
 	b.add(parent, n)
-	n.Words = text.WordCount(n.body)
+	n.Words = wordCount(n.body)
 	for i, h := range hs {
 		end := len(full)
 		if i+1 < len(hs) {
@@ -628,10 +685,10 @@ func (b *builder) splitInto(parent, n *pnode, hs []h2) {
 		if cut {
 			b.cut++
 		}
-		c := &pnode{Node: Node{Key: fmt.Sprintf("%s#%d", n.Key, i+1), Kind: "scene", Title: title, Status: n.Status, SourcePath: n.SourcePath},
+		c := &pnode{Node: Node{Key: fmt.Sprintf("%s#%d", n.Key, h.idx+1), Kind: "scene", Title: title, Status: n.Status, SourcePath: n.SourcePath},
 			body: tidy(strings.TrimLeft(full[h.end:end], "\n")), hash: n.hash}
 		b.add(n, c)
-		c.Words = text.WordCount(c.body)
+		c.Words = wordCount(c.body)
 		warnLong(c)
 	}
 }
@@ -843,11 +900,13 @@ func checkMapping(edits []Edit, reorders []Reorder) error {
 
 // Edit changes one node of the previewed mapping, by key.
 type Edit struct {
-	Key   string  `json:"key" desc:"The node's key from the preview."`
-	Title *string `json:"title,omitempty" desc:"Rename the document."`
-	Kind  *string `json:"kind,omitempty" enum:"part,chapter,scene,note,front_matter,back_matter" desc:"Change what kind of document it is."`
-	Skip  bool    `json:"skip,omitempty" desc:"Leave this node, and everything inside it, out of the import."`
-	Split *bool   `json:"split,omitempty" desc:"Split this one file at its second-level headings (true) or keep it whole (false), whatever split_scenes says."`
+	Key      string  `json:"key" desc:"The node's key from the preview."`
+	Title    *string `json:"title,omitempty" desc:"Rename the document."`
+	KeepLine bool    `json:"keep_line,omitempty" desc:"With a rename to the chapter line's label: the words the title held before it are kept as the chapter's first paragraph. Set by Use the chapter line as the title; cleared by a rename the writer makes."`
+	Kind     *string `json:"kind,omitempty" enum:"part,chapter,scene,note,front_matter,back_matter" desc:"Change what kind of document it is."`
+	Skip     bool    `json:"skip,omitempty" desc:"Leave this node, and everything inside it, out of the import."`
+	Keep     bool    `json:"keep,omitempty" desc:"Put back a document the import left out on its own (the preview's left_out: a contents page). Not with skip."`
+	Split    *bool   `json:"split,omitempty" desc:"Split this one file at its second-level headings (true) or keep it whole (false), whatever split_scenes says."`
 	// MergeInto and Parent change the shape of the mapping: join a document to another, move it elsewhere.
 	MergeInto string  `json:"merge_into,omitempty" desc:"Add this document's text to the end of the document with this key and remove this one; what was inside it goes into the other. Use with nothing else on the same edit. Footnotes are renumbered."`
 	Parent    *string `json:"parent,omitempty" desc:"Move this document, and what is inside it, to the end of the document with this key (or to the top level with an empty string). A document cannot be moved into itself or into what is inside it, and the tree stays at most ten levels deep."`
@@ -918,6 +977,9 @@ func (p *plan) applyEdits(edits []Edit, reorders []Reorder) (map[string]bool, er
 			}
 			merges = append(merges, i)
 		default:
+			if e.Keep && (e.Skip || e.MergeInto != "") {
+				return nil, ops.Invalid(field(i, "keep"), "A document that is put back is not also left out or joined.")
+			}
 			if e.Parent != nil {
 				if e.Skip {
 					return nil, ops.Invalid(field(i, "parent"), "A document that is left out cannot be moved.")
@@ -973,6 +1035,18 @@ func (p *plan) applyEdits(edits []Edit, reorders []Reorder) (map[string]bool, er
 				return nil, ops.Invalid(field(i, "title"), "A title is one to 300 characters.")
 			}
 			n.Title = t
+			n.LineTitle = "" // offered for the title as it was: now it is the writer's
+			if e.KeepLine && n.caption != "" {
+				// the words the title held before its chapter line are the chapter's first paragraph, not lost with the rename
+				n.body = escLine(n.caption) + "\n\n" + n.body
+				n.Words = wordCount(n.body)
+			}
+			if n.SuggestedTitle != "" { // offered for the title as it was: now it is the writer's
+				n.SuggestedTitle = ""
+				if capsTitle(t) {
+					n.SuggestedTitle = titleCase(t)
+				}
+			}
 		}
 		if e.Kind != nil {
 			if !validKind(*e.Kind) {
@@ -984,6 +1058,25 @@ func (p *plan) applyEdits(edits []Edit, reorders []Reorder) (map[string]bool, er
 			skip[e.Key] = true
 		}
 	}
+	// the import's own leaving out: a contents page, unless the writer put it back
+	keep := map[string]bool{}
+	for _, e := range edits {
+		if e.Keep && !e.Skip {
+			keep[e.Key] = true
+		}
+	}
+	p.autoLeft = nil
+	var autoWalk func(kids []*pnode)
+	autoWalk = func(kids []*pnode) {
+		for _, k := range kids {
+			if k.leftOut && !keep[k.Key] {
+				skip[k.Key] = true
+				p.autoLeft = append(p.autoLeft, k)
+			}
+			autoWalk(k.kids)
+		}
+	}
+	autoWalk(p.roots)
 	// 4. the plan is settled: a document is left out when it or a document it is in is, and nothing may be merged or
 	// moved into one that is
 	out := map[string]bool{}
@@ -1125,7 +1218,7 @@ func (p *plan) mergeEdit(i int, e Edit, n *pnode) error {
 			return ops.Invalid(field+".merge_into", "A document cannot be merged into one that is inside it.")
 		}
 		t.body = mergeBodies(t.body, n.body)
-		t.Words = text.WordCount(t.body)
+		t.Words = wordCount(t.body)
 		t.Headings = len(secondLevelHeadings(t.body, MaxDocuments+1))
 		t.Warnings = nil
 		warnLong(t)

@@ -108,3 +108,101 @@
 .imp-to .btn { min-width: var(--target); }
 .imp-why { flex-basis: 100%; padding: 0; }
 .imp-map .fine { margin: var(--s-4) 0 0; }
+
+/* The chooser: one form for each format, only the chosen one shown, with no script. */
+.imp-pick .imp-form { display: none; }
+.imp-pick:has(#imp-f-md:checked) .imp-form[data-fmt="md"], .imp-pick:has(#imp-f-docx:checked) .imp-form[data-fmt="docx"],
+.imp-pick:has(#imp-f-epub:checked) .imp-form[data-fmt="epub"], .imp-pick:has(#imp-f-pdf:checked) .imp-form[data-fmt="pdf"], .imp-pick:has(#imp-f-text:checked) .imp-form[data-fmt="text"],
+.imp-pick:has(#imp-f-scrivener:checked) .imp-form[data-fmt="scrivener"], .imp-pick:has(#imp-f-wordpress:checked) .imp-form[data-fmt="wordpress"],
+.imp-pick:has(#imp-f-ghost:checked) .imp-form[data-fmt="ghost"], .imp-pick:has(#imp-f-pandoc:checked) .imp-form[data-fmt="pandoc"] { display: flex; }
+.rg-form:has(#rg-src-remote:checked) #rg-b-url, .rg-form:has(#rg-src-url:checked) #rg-b-remote { display: none; }
+.imp-open { margin-top: var(--s-5); }
+.imp-open .rg-list { margin-top: var(--s-2); }
+.imp-open .rg-acts { flex-wrap: wrap; }
+.imp-open form, .imp-discard, .imp-undo { margin: 0; }
+#imp-stage-msg:empty { display: none; }
+#imp-stage-msg { margin-top: var(--s-4); }
+
+/* The review: the tree is a flat list drawn in reading order, indented by depth; every control is a small form. */
+.imp-review { margin-top: var(--s-5); }
+.imp-review > h2 { margin-top: 0; }
+.imp-undo { display: inline-block; margin-top: var(--s-2); }
+.imp-opts { display: flex; flex-direction: column; gap: var(--s-3); margin-top: var(--s-4); padding-top: var(--s-3); border-top: 1px solid var(--line-2); }
+.imp-opts .field { margin: 0; }
+.imp-node { margin: 0; }
+.imp-node.d1 { padding-inline-start: var(--s-4); } .imp-node.d2 { padding-inline-start: calc(var(--s-4) * 2); } .imp-node.d3 { padding-inline-start: calc(var(--s-4) * 3); }
+.imp-node.d4, .imp-node.d5, .imp-node.d6, .imp-node.d7, .imp-node.d8, .imp-node.d9, .imp-node.d10 { padding-inline-start: calc(var(--s-4) * 3); }
+.imp-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); flex: 1 1 14rem; min-width: 0; margin: 0; }
+.imp-ctl.imp-btns, .imp-ctl.imp-to { flex-basis: 100%; }
+.imp-ctl input[type="text"] { flex: 1 1 14rem; min-width: 0; }
+.imp-showmore { padding: var(--s-3) 0; list-style: none; }
+.imp-go { align-items: center; }
+.imp-discard { margin-top: var(--s-3); }
+.imp-more > details > summary { margin-top: 0; }
+.imp-left li form { margin: 0; }
+.imp-node .imp-row > form { flex: 0 0 auto; margin: 0; }
+.import .imp-review .btn, .import .imp-review .imp-edit summary, .import .imp-open .btn { min-height: 44px; }
+.import .imp-review select, .import .imp-review input[type="text"] { min-height: 44px; }
+.import .imp-left summary, .import .imp-skipped summary, .import .imp-more summary, .import .imp-files summary { min-height: 44px; display: list-item; }
+
+/* How a Word document was cut (phase 2): the panel, what each chapter says of itself, and the places a chapter might start. */
+.imp-cut { margin-top: var(--s-4); }
+.imp-cut h3, .imp-cut h4 { margin: var(--s-3) 0 var(--s-1); }
+.imp-cutform { margin-top: var(--s-2); }
+.imp-first { flex-basis: 100%; margin: 0; color: var(--fg-2); font-size: var(--text-sm); line-height: var(--lh-sm); overflow-wrap: anywhere; }
+.imp-why { flex-basis: 100%; margin: 0; padding-bottom: var(--s-2); color: var(--muted); font-size: var(--text-xs); line-height: var(--lh-xs); }
+.imp-check { padding: 0 var(--s-2); border: 1px solid var(--warn); border-radius: var(--r-1); color: var(--fg); font-size: var(--text-xs); line-height: var(--lh-xs); }
+.imp-use { margin: 0; }
+.imp-sugs { margin: 0; padding: 0; list-style: none; }
+.imp-sug { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-1) var(--s-3); padding: var(--s-2) 0; border-bottom: 1px solid var(--line-2); }
+.imp-sug .imp-first, .imp-sug .imp-why { display: block; flex-basis: auto; padding: 0; }
+.imp-sugtext { flex: 1 1 14rem; min-width: 0; }
+.imp-sug form { margin: 0; flex: 0 0 auto; }
+.imp-bulk { display: flex; flex-wrap: wrap; gap: var(--s-2); margin: var(--s-3) 0; }
+.imp-bulk form, .imp-capsform { margin: 0; }
+.imp-capsform { margin-top: var(--s-2); }
+.imp-big { margin-top: var(--s-3); }
+.import .imp-cut .btn { min-height: 44px; }
+.import .imp-cut .check { min-height: 44px; }
+
+/* The writer's own breaks (phase 3): join with the one above, front and back matter for a run, the list of paragraphs to split at,
+   what is inside a long chapter, and the pattern. Flat fills and hairlines, on the existing tokens. */
+.imp-own { display: flex; flex-wrap: wrap; gap: var(--s-2); flex-basis: 100%; align-items: center; }
+.imp-own > form { flex: 0 1 auto; }
+.imp-splitbox { flex-basis: 100%; }
+.imp-splitform { display: flex; flex-direction: column; gap: var(--s-2); margin: var(--s-2) 0 0; padding-top: var(--s-2); border-top: 1px solid var(--line-2); }
+.imp-paras { max-height: 24rem; overflow-y: auto; margin: 0; padding: var(--s-1) var(--s-2); border: 1px solid var(--line-2); border-radius: var(--r-1); }
+.imp-paras legend { padding: 0 var(--s-1); font-weight: 600; }
+.imp-para { overflow-wrap: anywhere; }
+.imp-para .imp-why { display: block; padding: 0; }
+.imp-moreparas { padding: var(--s-2) 0; }
+.imp-look, .imp-inside { flex-basis: 100%; }
+.imp-look form, .imp-inside .imp-bulk form { margin: 0; }
+.imp-inside { margin-top: var(--s-2); padding-top: var(--s-2); border-top: 1px solid var(--line-2); }
+.imp-inside h4 { margin: 0 0 var(--s-1); }
+.imp-pat { margin-top: var(--s-3); }
+.imp-pat > summary { cursor: pointer; min-height: 44px; display: list-item; }
+.imp-patform { flex-direction: column; align-items: stretch; margin-top: var(--s-2); }
+.imp-patform .field { margin: 0; }
+.imp-patform input[type="text"] { flex: none; width: 100%; }
+.imp-patres { margin-top: var(--s-2); }
+.imp-patres ul { margin: var(--s-1) 0 0; }
+.import .imp-own .btn, .import .imp-inside .btn, .import .imp-splitform .btn, .import .imp-patform .btn { min-height: 44px; }
+.import .imp-para.check { min-height: 44px; }
+.imp-inside .imp-bulk form { flex: 0 1 auto; max-width: 100%; }
+.imp-inside .imp-bulk .btn { white-space: normal; }
+
+/* Taking an import back (phase 4): the earlier imports of a project, and the offer on the page of a result. The confirmation is a
+   disclosure with the words and the one button, so nothing is trashed by a single press on the summary. */
+.imp-undo-d { margin: 0; flex: 1 1 100%; }
+.imp-undo-d > summary { cursor: pointer; min-height: 44px; display: list-item; list-style-position: inside; padding-block: calc((44px - 1.4em) / 2); font-size: var(--text-sm); color: var(--fg-2); }
+.imp-undo-d form { margin: var(--s-2) 0 var(--s-3); }
+.imp-undo-d .btn { max-width: 100%; white-space: normal; min-height: 44px; }
+.imp-undo-cell { flex: 1 1 100%; }
+.imp-undo-offer { margin-top: var(--s-3); }
+.imp-already a { white-space: normal; }
+.imp-kept { margin: var(--s-1) 0 var(--s-2); padding: 0; list-style: none; font-size: var(--text-sm); line-height: var(--lh-sm); }
+.imp-kept li { padding: var(--s-1) 0; border-bottom: 1px solid var(--line-2); overflow-wrap: anywhere; }
+.imp-kept-why { display: block; color: var(--fg-2); font-size: var(--text-xs); line-height: var(--lh-xs); }
+.imp-kept-h { margin: var(--s-2) 0 0; font-weight: 600; font-size: var(--text-sm); }
+#imp-undone > p { margin: 0; }

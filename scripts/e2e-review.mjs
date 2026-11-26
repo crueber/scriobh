@@ -344,7 +344,7 @@ await kit.test("the writing view's Comments tab lists the chapter's threads; res
   await page.evaluate(() => document.querySelector("#insp-open").click());
   await page.click("#itab-comments");
   await kit.waitFor(async () => (await page.locator("#ipanel-comments .rv-card").count()) === 2, "two cards in the panel");
-  ok((await page.locator("#ipanel-comments").innerText()).includes("not in the text as you write"), "the panel says where comments are drawn");
+  ok((await page.locator("#ipanel-comments").innerText()).includes("can be marked in the text"), "the panel says where comments are drawn");
   const href = await page.locator("#ipanel-comments .rv-actions a").first().getAttribute("href");
   ok(href.startsWith(`/p/${slug}/read/${c}#t=`), "a link to the reading view: " + href);
   await page.locator("#ipanel-comments .rv-card").first().getByRole("button", { name: "Resolve" }).click();

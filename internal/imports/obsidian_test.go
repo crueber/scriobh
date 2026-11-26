@@ -1,6 +1,7 @@
 package imports_test
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
@@ -98,7 +99,7 @@ func TestObsidianVault(t *testing.T) {
 		"title: The Harbour", // front matter kept
 		"See [[The Road]] and [[The Road|that road]] and [[The Road|The Road > Salt]] and [[Maire|her voice]].",
 		"A block link [[The Road]] and a heading link Local here. #weather",
-		"*\\[image: map.png\\]* and [[The Road]] and *\\[attachment: notes.pdf\\]* and *\\[image: sketch.jpg\\]*.",
+		"\\[image: map.png\\] and [[The Road]] and *\\[attachment: notes.pdf\\]* and \\[image: sketch.jpg\\].",
 		"> **Warning: Careful**\n> The quay is slippery.",
 		"> **Note**\n> Plain callout.",
 		"A comment %%that stays%%\n\n%%private across a blank line%%\n\n%%and here%% done. Inline %%one%% too.",
@@ -149,5 +150,20 @@ func TestObsidianLayoutIsAChoice(t *testing.T) {
 	pv = e.must(e.w, "import.preview", imports.PreviewIn{Name: "Vault", Zip: z, Layout: "obsidian"}).(imports.PreviewOut)
 	if pv.Layout != "obsidian" || pv.Documents != 2 {
 		t.Errorf("zip: %+v", pv)
+	}
+}
+
+// A local picture beside a word is plain text: the vault's Markdown has no asterisk touching a letter.
+func TestObsidianPictureBesideAWordNeverLeavesStrayAsterisks(t *testing.T) {
+	e := newEnv(t)
+	f := files(map[string]string{"Vault/Part One/The Harbour.md": "# The Harbour\n\nAlpha ![pic](pic.png)APPY and more words.\n\nA second paragraph.\n"})
+	pv := e.must(e.w, "import.preview", imports.PreviewIn{Files: f, Layout: "obsidian"}).(imports.PreviewOut)
+	ap := e.must(e.w, "import.apply", imports.ApplyIn{Token: pv.Token, Name: "Vault", Files: f, Layout: "obsidian"}).(imports.ApplyOut)
+	text := e.docContent(ap.ProjectID, "The Harbour")
+	if !strings.Contains(text, "APPY") {
+		t.Fatalf("the word after the picture is kept:\n%s", text)
+	}
+	if regexp.MustCompile(`[\pL\pN]\*|\*[\pL\pN]`).MatchString(text) {
+		t.Fatalf("stray asterisks next to a letter in the vault's Markdown:\n%s", text)
 	}
 }

@@ -85,10 +85,11 @@ for (const [size, opts] of Object.entries(sizes)) {
     await load();
     await shot(page, `write-today-${tag}`);
     // details and links
-    await tap(page.getByRole("button", { name: "Details", exact: true }));
+    await tap(page.getByRole("button", { name: "Sidebar", exact: true }));
+    await tap(page.getByRole("tab", { name: "Details", exact: true }));
     await sleep(900);
     await shot(page, `inspector-details-${tag}`);
-    await tap(page.getByRole("button", { name: "Details", exact: true }));
+    await tap(page.getByRole("button", { name: "Sidebar", exact: true }));
     // versions
     await tap(page.getByRole("button", { name: "Versions", exact: true }));
     await page.getByRole("button", { name: /^Yesterday/ }).waitFor();

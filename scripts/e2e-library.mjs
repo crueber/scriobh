@@ -379,7 +379,7 @@ await kit.test("export: the dialog downloads a file and says what was recorded",
   await api(main, "PATCH", `/api/v1/docs/${p.doc}`, { base_revision: 1, title: "Chapter one", content: "A line that must be in the export.\n" });
   await pg.goto(`${base()}/`);
   await pg.getByRole("link", { name: "Actions for Export book" }).click();
-  await pg.getByRole("link", { name: /Export as Markdown/ }).click();
+  await pg.getByRole("link", { name: "Export…", exact: true }).click();
   await pg.locator("#project-export-form").waitFor();
   ok((await pg.locator("#project-export-form").innerText()).includes("recorded with a manifest"), "the manifest note");
   let [dl] = await Promise.all([pg.waitForEvent("download"), pg.getByRole("button", { name: "Export", exact: true }).click()]);
@@ -406,23 +406,21 @@ await kit.test("export: the dialog downloads a file and says what was recorded",
   await ctx.close();
 });
 
-await kit.test("split at cursor: from Source mode, from the palette, and in a read-only chapter", async () => {
+await kit.test("split chapter here: in one go from the rich editor (the palette), from Source mode, and in a read-only chapter", async () => {
   const p = await project("Split book");
   const text = "Para one.\n\nPara two.\n\nPara three.\n";
   await api(main, "PATCH", `/api/v1/docs/${p.doc}`, { base_revision: 1, title: "Whole", content: text });
   await pg.goto(`${base()}/p/${p.slug}`);
   await pg.waitForSelector(".scriobh-prose");
-  await pg.keyboard.press(`${MOD}+Shift+p`);
-  await pg.locator("#palette-input").fill("split");
-  await pg.keyboard.press("Enter");
-  await pg.getByText("Put the cursor where the new document should begin").waitFor();
-  const at = text.indexOf("Para two.");
-  await pg.locator(".scriobh-source").evaluate((t, n) => { t.focus(); t.setSelectionRange(n, n); }, at);
+  await waitFor(() => pg.evaluate(() => !!(window.scriobh.split && window.scriobh.alts)), "the split tool to load");
+  // The caret before "Para two." in the rich editor; the palette cuts there at once, without the Source view.
+  await pg.evaluate(() => { const ed = window.scriobh.write.editor; let at = -1; ed.view.state.doc.descendants((n, pos) => { if (at < 0 && n.isText && n.text === "Para two.") at = pos; }); ed.alts.select(at, at); ed.view.focus(); });
   await pg.keyboard.press(`${MOD}+Shift+p`);
   await pg.locator("#palette-input").fill("split");
   await pg.keyboard.press("Enter");
   await pg.waitForURL(/\?new=1|\/d\//, { timeout: 10000 });
   await pg.waitForSelector(".scriobh-prose");
+  eq(await pg.locator(".scriobh-source").isHidden(), true, "the new document opens in the rich editor");
   const list = (await api(main, "GET", `/api/v1/projects/${p.id}/docs`)).json;
   eq(list.items.length, 2, "two documents after the split");
   const head = await body(main, p.doc);
@@ -431,19 +429,30 @@ await kit.test("split at cursor: from Source mode, from the palette, and in a re
   eq(await body(main, tailId), "Para two.\n\nPara three.", "the tail takes the rest");
   await waitFor(async () => (await pg.evaluate(() => document.activeElement && document.activeElement.id)) === "doc-title", "the new document's title to take focus");
 
-  // A chapter past 25,000 words opens read-only; Split at cursor is how it gets cut down.
+  // From the Source view the caret of the textarea is the place.
+  await pg.goto(`${base()}/p/${p.slug}/d/${tailId}`);
+  await pg.waitForSelector(".scriobh-prose");
+  await waitFor(() => pg.evaluate(() => !!window.scriobh.split), "the split tool to load");
+  await pg.evaluate(() => window.scriobh.write.editor.toggleSource(true));
+  await pg.locator(".scriobh-source").evaluate((t) => { const n = t.value.indexOf("Para three."); t.focus(); t.setSelectionRange(n, n); });
+  await pg.keyboard.press(`${MOD}+Shift+p`);
+  await pg.locator("#palette-input").fill("split");
+  await pg.keyboard.press("Enter");
+  await pg.waitForURL((u) => !u.pathname.endsWith(tailId), { timeout: 10000 });
+  eq(await body(main, tailId), "Para two.", "from Source: the head");
+
+  // A chapter past 25,000 words opens read-only; the guard bar's button cuts it from the rich editor where the caret is.
   const big = await api(main, "POST", `/api/v1/projects/${p.id}/docs`, { title: "Too long", content: Array.from({ length: 25200 }, (_, i) => (i % 40 === 39 ? "beta\n\nbeta" : "beta")).join(" ") });
   const bid = big.json.item.id;
   await pg.goto(`${base()}/p/${p.slug}/d/${bid}`);
   await pg.waitForSelector(".scriobh-prose");
+  await waitFor(() => pg.evaluate(() => !!window.scriobh.split), "the split tool to load");
   eq(await pg.locator(".scriobh-prose").getAttribute("contenteditable"), "false", "read-only past the limit");
-  await pg.locator("#nb-guard").getByRole("button", { name: "Split at cursor" }).click();
-  await pg.getByText("Put the cursor where the new document should begin").waitFor();
-  await pg.locator(".scriobh-source").evaluate((t) => { const n = Math.floor(t.value.length / 2); t.focus(); t.setSelectionRange(n, n); });
-  await pg.locator("#nb-guard").getByRole("button", { name: "Split at cursor" }).click();
-  await waitFor(async () => (await api(main, "GET", `/api/v1/projects/${p.id}/docs`)).json.items.length === 4, "the long chapter to be split", 20000);
+  await pg.evaluate(() => { const ed = window.scriobh.write.editor; const mid = Math.floor(ed.view.state.doc.content.size / 2); ed.alts.select(mid, mid); });
+  const before = (await api(main, "GET", `/api/v1/projects/${p.id}/docs`)).json.items.length;
+  await pg.locator("#nb-guard").getByRole("button", { name: "Split chapter here" }).click();
+  await waitFor(async () => (await api(main, "GET", `/api/v1/projects/${p.id}/docs`)).json.items.length === before + 1, "the long chapter to be split", 20000);
   const after = (await api(main, "GET", `/api/v1/projects/${p.id}/docs`)).json.items;
-  ok(after.length === 4, "the long chapter became two: " + after.length);
   ok(after.every((d) => d.word_count < 25000), "both halves are under the limit: " + after.map((d) => d.word_count));
 });
 
@@ -502,7 +511,7 @@ await kit.test("review 2: focus after a shelf redraw, Undo by keyboard, dialogs 
   await pg.keyboard.press("Enter");
   await pg.locator("dialog#dialog[open]").waitFor();
   await sleep(300);
-  await pg.getByRole("link", { name: /Export as Markdown/ }).focus();
+  await pg.getByRole("link", { name: "Export…", exact: true }).focus();
   await pg.keyboard.press("Enter");
   await pg.locator("#project-export-form").waitFor();
   await waitFor(async () => (await pg.evaluate(() => document.activeElement && document.activeElement.id)) === "dialog-title", "focus on the export dialog's heading");
@@ -606,6 +615,62 @@ await kit.test("split: a chapter stored with CRLF line endings splits where the 
   const tail = (await api(main, "GET", `/api/v1/docs/${list.order[1]}`)).json.item.content.replace(/\r/g, "");
   ok(head.includes("Bravo line.") && !head.includes("Charlie"), "the head: " + JSON.stringify(head));
   ok(tail.startsWith("Charlie line."), "the tail: " + JSON.stringify(tail));
+});
+
+await kit.test("compile can be found: the card's menu, the palette by export or docx, the top tabs, and More at 390 px", async () => {
+  const p = await project("Compile book");
+  await api(main, "PATCH", `/api/v1/docs/${p.doc}`, { base_revision: 1, title: "Chapter one", content: "Words to compile.\n" });
+  await pg.goto(`${base()}/`);
+  // The card's menu: Compile sits just above the export item, and the export item names what it offers.
+  await pg.getByRole("link", { name: "Actions for Compile book" }).click();
+  await pg.locator("dialog#dialog[open] .actions").waitFor();
+  const names = (await pg.locator("dialog#dialog[open] .actions a.action-item").allInnerTexts()).map((n) => n.trim());
+  const at = names.indexOf("Compile…");
+  ok(at >= 0 && names[at + 1] === "Export…", "Compile is listed just above Export…: " + names.join(" | "));
+  ok(!names.some((n) => /Markdown/.test(n) && /Export/.test(n)), "no item still says Export as Markdown");
+  await pg.getByRole("link", { name: "Compile…", exact: true }).click();
+  await pg.waitForURL(new RegExp(`/p/${p.slug}/compile$`));
+  // The palette finds Compile by the words an editor would type, and the keyword hit runs it.
+  await pg.goto(`${base()}/p/${p.slug}`);
+  await pg.waitForSelector(".scriobh-prose");
+  for (const q of ["export", "docx", "pdf"]) {
+    await pg.keyboard.press(`${MOD}+Shift+p`);
+    await pg.locator("#palette-input").fill(q);
+    const labels = (await pg.locator("#palette-list .cmd-label").allInnerTexts()).map((l) => l.trim());
+    ok(labels.includes("Compile…"), `"${q}" finds Compile: ${labels.join(" | ")}`);
+    if (q === "export") ok(labels[0] === "Export…", "the export command is still the best match for export: " + labels[0]);
+    await pg.keyboard.press("Escape");
+  }
+  await pg.keyboard.press(`${MOD}+Shift+p`);
+  await pg.locator("#palette-input").fill("docx");
+  await pg.keyboard.press("Enter");
+  await pg.waitForURL(new RegExp(`/p/${p.slug}/compile$`));
+  // The top tabs: Compile is there, and the bar does not have to scroll to reach it, on the outline at 1280 and 1024 and on the
+  // writing view at 1280. (The writing view at 1024 already overflowed before Compile; docs/OPEN-QUESTIONS.md says so.)
+  const tabs = pg.locator("nav.ptabs");
+  for (const [w, path] of [[1280, "outline"], [1024, "outline"], [1280, "write"]]) {
+    await pg.setViewportSize({ width: w, height: 800 });
+    await pg.goto(`${base()}/p/${p.slug}${path === "write" ? "" : "/outline"}`);
+    await pg.waitForSelector("nav.ptabs");
+    ok(await tabs.getByRole("link", { name: "Compile", exact: true }).isVisible(), `the Compile tab shows at ${w} on ${path}`);
+    const fit = await tabs.evaluate((n) => n.scrollWidth <= n.clientWidth + 1);
+    ok(fit, `the top tabs fit at ${w} on ${path} without scrolling`);
+    if (path === "write") {
+      // The writing header keeps Saved and the Compendium button at 1280; the chapter's name is what gives way.
+      await pg.waitForFunction(() => { const s = document.getElementById("save-state"); return s && !s.hidden; }, null, { timeout: 15000 });
+      ok(await pg.locator("#save-state").isVisible(), `Saved shows in the writing header at ${w}`);
+      ok(await pg.locator("#comp-open").isVisible(), `the Compendium button shows in the writing header at ${w}`);
+    }
+  }
+  // At 390 px the top tabs are not shown: Compile is under More, and not in the bottom bar.
+  await pg.setViewportSize({ width: 390, height: 844 });
+  await pg.goto(`${base()}/p/${p.slug}/outline`);
+  await pg.waitForSelector(".tabbar");
+  ok(!(await tabs.isVisible()), "no top tabs at 390");
+  eq(await pg.locator(".tabbar a.tab", { hasText: "Compile" }).count(), 0, "no Compile in the bottom bar at 390");
+  await pg.locator(".tabbar").getByRole("button", { name: "More" }).click();
+  ok(await pg.locator("#account a.menu-item", { hasText: "Compile" }).isVisible(), "Compile is under More at 390");
+  await pg.setViewportSize({ width: 1000, height: 700 });
 });
 
 await kit.finish("e2e-library");

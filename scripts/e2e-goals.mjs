@@ -115,4 +115,51 @@ await kit.test("goals: at 390 px nothing scrolls sideways and More marks this pa
   await phone.ctx.close();
 });
 
+// U5: the writing day follows the browser's zone for a person who has never chosen one (the first signed-in page sends it), and a zone
+// they chose is kept when another browser has a different one.
+await kit.test("zone: a person who chose no time zone gets the browser's, and a chosen one is kept", async () => {
+  const who = "reader@dev.scriobh"; // a dev identity no other step of this script uses
+  const a = await kit.signedIn({ timezoneId: "Pacific/Auckland" }, who);
+  const me = async (ctx) => (await api(ctx.ctx, "GET", "/api/v1/me")).json.item.timezone;
+  await waitFor(async () => (await me(a)) === "Pacific/Auckland", "the browser's zone to be stored for a person who chose none");
+  await a.ctx.close();
+  // A choice made on purpose is not written over by a browser in another zone.
+  const b = await kit.signedIn({ timezoneId: "Pacific/Auckland" }, who);
+  eq((await api(b.ctx, "PATCH", "/api/v1/me", { timezone: "Europe/Paris" })).status, 200, "a zone is chosen");
+  const c = await kit.signedIn({ timezoneId: "Asia/Tokyo" }, who);
+  // The page sent its zone once the browser recorded the answer (a page with live updates never goes idle, so wait for the record).
+  await waitFor(() => c.page.evaluate(() => localStorage.getItem("scriobh:zone-sent")), "the page to send its zone");
+  eq(await me(c), "Europe/Paris", "the chosen zone is kept, not the other browser's");
+  await c.ctx.close();
+  await b.ctx.close();
+});
+
+// The zone is sent after the page has loaded, never while it starts: a request in flight while the writing view mounts costs that mount
+// about 25 ms at 4x CPU, most of it the request. The phase-2 budget guards the mount; this step checks only when the request starts. An
+// init script records the page's readyState at each send, in localStorage so the record survives the redirects of sign-in.
+await kit.test("zone: the browser's zone is sent after the page has loaded, not while it starts", async () => {
+  // A fresh browser for the same person, signed in by copying the session of the script's own context: a sign-in here would spend the
+  // per-address sign-in allowance (/auth/ requests, a burst of 10) that the steps above have already used, and the callback answers 429.
+  const ctx = await kit.newContext({ viewport: { width: 1280, height: 800 }, timezoneId: "Europe/Lisbon" });
+  await ctx.addCookies(await main.cookies());
+  await ctx.addInitScript(() => {
+    const send = window.fetch;
+    window.fetch = function (u) {
+      if (String(u).indexOf("/api/v1/me/zone-default") >= 0) {
+        try { const a = JSON.parse(localStorage.getItem("__zt") || "[]"); a.push(document.readyState); localStorage.setItem("__zt", JSON.stringify(a)); } catch (e) { /* the record is a test's aid */ }
+      }
+      return send.apply(this, arguments);
+    };
+  });
+  const page = await ctx.newPage();
+  kit.watch(page, "zone");
+  await page.goto(kit.base() + "/", { waitUntil: "load" });
+  await page.locator("body.signed-in").waitFor();
+  await waitFor(() => page.evaluate(() => localStorage.getItem("scriobh:zone-sent")), "the page to send its zone");
+  const states = await page.evaluate(() => JSON.parse(localStorage.getItem("__zt") || "[]"));
+  ok(states.length >= 1, "the zone was sent: " + JSON.stringify(states));
+  eq(states.every((s) => s === "complete"), true, "every send began after the load event: " + JSON.stringify(states));
+  await ctx.close();
+});
+
 await kit.finish("e2e-goals");

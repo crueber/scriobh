@@ -1,10 +1,9 @@
 {{define "head"}}
 <link rel="stylesheet" href="{{asset "css/import.css"}}">
 <script src="{{asset "js/import.js"}}" defer></script>
-<script src="{{asset "js/import-repo.js"}}" defer></script>
 {{end}}
 {{define "crumb"}}
-<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">Import from Git</span></nav>
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">{{template "icon" "chevron-left"}}<span>Library</span></a><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">{{.T "import.crumb_git"}}</span></nav>
 {{end}}
 {{define "content"}}
 {{with .Data}}
@@ -12,40 +11,38 @@
   <nav class="imp-tabs" aria-label="Where to import from"><a href="/import">Files and exports</a><a href="/import/git" aria-current="page">A Git repository</a></nav>
   <h1 id="imp-title" tabindex="-1">Import a Git repository</h1>
   <p class="lede">Scríobh fetches the repository once, shows you what it would create as a new project, and creates nothing until you say so. It never merges anything into a project you already have.</p>
-  <noscript><p class="field-error">Importing a repository needs JavaScript, to follow the fetch and show the preview. Turn it on for this site and reload.</p></noscript>
   {{if .Unavailable}}<p class="imp-note" data-kind="warn" role="alert">Importing from Git is not available on this server: {{.Unavailable}}</p>{{else}}
-  <form class="rg-form" id="rg-form" novalidate>
+  {{if .Error}}<section class="rg-job" id="rg-job" data-bad aria-label="The fetch"><h2 id="rg-job-h" tabindex="-1" data-focus>The fetch could not be started</h2><p class="rg-line">{{.Error}}</p>{{with .Hint}}<p class="rg-hint">{{.}}</p>{{end}}</section>{{end}}
+  <form class="rg-form" id="rg-form" method="post" action="/ui/import/git" novalidate><input type="hidden" name="_csrf" value="{{$.CSRF}}">
     <fieldset class="rg-src">
       <legend>Where is the repository?</legend>
-      <label class="check" for="rg-src-url"><input id="rg-src-url" type="radio" name="rg-src" value="url"{{if not .Pre}} checked{{end}}><span>At an https address</span></label>
-      <label class="check" for="rg-src-remote"><input id="rg-src-remote" type="radio" name="rg-src" value="remote"{{if .Pre}} checked{{end}}{{if not .Remotes}} disabled{{end}}><span>The repository one of my projects pushes to</span></label>
+      <label class="check" for="rg-src-url"><input id="rg-src-url" type="radio" name="rg-src" value="url"{{if not (or .Pre .Remote)}} checked{{end}}><span>At an https address</span></label>
+      <label class="check" for="rg-src-remote"><input id="rg-src-remote" type="radio" name="rg-src" value="remote"{{if or .Pre .Remote}} checked{{end}}{{if not .Remotes}} disabled{{end}}><span>The repository one of my projects pushes to</span></label>
       {{if not .Remotes}}<p class="fine">None of your projects has a Git remote yet. A remote is set up on a project's Git page.</p>{{end}}
     </fieldset>
-    <div class="rg-block" id="rg-b-url"{{if .Pre}} hidden{{end}}>
-      <div class="field"><label for="rg-url">Repository address</label><input id="rg-url" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://github.com/owner/book.git" aria-describedby="rg-url-h"><span class="hint" id="rg-url-h">Only https addresses work here. A public repository needs nothing else.</span></div>
+    <div class="rg-block" id="rg-b-url">
+      <div class="field"><label for="rg-url">Repository address</label><input id="rg-url" name="url" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://github.com/owner/book.git" value="{{index .Vals "url"}}" aria-describedby="rg-url-h"><span class="hint" id="rg-url-h">Only https addresses work here. A public repository needs nothing else.</span></div>
       <div class="field-row">
-        <div class="field"><label for="rg-user">User name <span class="optional">(only if a token needs one)</span></label><input id="rg-user" type="text" autocomplete="off" spellcheck="false"></div>
-        <div class="field"><label for="rg-token">Token <span class="optional">(private repositories)</span></label><input id="rg-token" type="password" autocomplete="off" spellcheck="false" aria-describedby="rg-token-h"></div>
+        <div class="field"><label for="rg-user">User name <span class="optional">(only if a token needs one)</span></label><input id="rg-user" name="username" type="text" autocomplete="off" spellcheck="false" value="{{index .Vals "username"}}"></div>
+        <div class="field"><label for="rg-token">Token <span class="optional">(private repositories)</span></label><input id="rg-token" name="token" type="password" autocomplete="off" spellcheck="false" aria-describedby="rg-token-h"></div>
       </div>
       <p class="fine" id="rg-token-h">The token is used for this fetch only. It is not saved, not shown again and not written to any log.</p>
     </div>
-    <div class="rg-block" id="rg-b-remote"{{if not .Pre}} hidden{{end}}>
-      <div class="field"><label for="rg-remote">Project and remote</label><select id="rg-remote">{{range .Remotes}}<option value="{{.ID}}" data-branch="{{.Branch}}"{{if eq .ID $.Data.Pre}} selected{{end}}>{{.Label}}</option>{{end}}</select></div>
+    <div class="rg-block" id="rg-b-remote">
+      <div class="field"><label for="rg-remote">Project and remote</label><select id="rg-remote" name="remote_id">{{range .Remotes}}<option value="{{.ID}}" data-branch="{{.Branch}}"{{if eq .ID $.Data.Pre}} selected{{end}}>{{.Label}}</option>{{end}}</select></div>
       <p class="fine">The fetch uses the remote's stored credentials, so only a project's owner can do this. {{if .PreProject}}You came from the Git page of {{.PreProject}}, whose remote has commits that project did not make.{{end}}</p>
     </div>
     <div class="field-row">
-      <div class="field"><label for="rg-branch">Branch <span class="optional">(optional)</span></label><input id="rg-branch" type="text" autocomplete="off" spellcheck="false" placeholder="The repository's own default"></div>
-      <div class="field"><label for="rg-path">Folder <span class="optional">(optional)</span></label><input id="rg-path" type="text" autocomplete="off" spellcheck="false" placeholder="All of it" aria-describedby="rg-path-h"></div>
+      <div class="field"><label for="rg-branch">Branch <span class="optional">(optional)</span></label><input id="rg-branch" name="branch" type="text" autocomplete="off" spellcheck="false" placeholder="The repository's own default" value="{{index .Vals "branch"}}"></div>
+      <div class="field"><label for="rg-path">Folder <span class="optional">(optional)</span></label><input id="rg-path" name="path" type="text" autocomplete="off" spellcheck="false" placeholder="All of it" value="{{index .Vals "path"}}" aria-describedby="rg-path-h"></div>
     </div>
     <p class="fine" id="rg-path-h">A folder is for a repository Scríobh pushed with a folder prefix: only that folder is imported.</p>
-    <label class="check" for="imp-split"><input id="imp-split" type="checkbox"><span>Turn each second-level heading (##) into a scene</span></label>
+    <label class="check" for="imp-split"><input id="imp-split" type="checkbox" name="split_scenes" value="h2"><span>Turn each second-level heading (##) into a scene</span></label>
     <p class="fine">Scríobh makes a shallow copy of one branch, reads only the Markdown text and the project file, and shows the proposed tree. A repository larger than {{.RepoMiB}} MB is refused. The limits are {{num .Caps.Markdown}} Markdown files, {{.Caps.FileMiB}} MiB for one file and {{.Caps.TotalMiB}} MiB of Markdown in all.</p>
     <div class="imp-go"><button class="btn solid" type="submit" id="rg-start">Fetch the repository</button></div>
   </form>
   {{end}}
   <p class="imp-status" id="imp-status" role="status" aria-live="polite"></p>
-  <section class="rg-job" id="rg-job" aria-label="The fetch" hidden></section>
-  <div id="imp-result" hidden></div>
   {{if not .Unavailable}}
   <section class="rg-record" aria-labelledby="rg-rec-h">
     <h2 id="rg-rec-h">What is kept</h2>
@@ -63,10 +60,9 @@
           {{if .Error}}<span class="rg-err">{{.Error}}</span>{{end}}
         </div>
         <div class="rg-acts">
-          {{if eq .Status "preview"}}<button type="button" class="btn small" data-act="open" data-job="{{.ID}}">Continue</button>{{end}}
-          {{if eq .Status "running"}}<button type="button" class="btn small" data-act="check" data-job="{{.ID}}">Check progress</button>{{end}}
+          {{if or (eq .Status "preview") (eq .Status "running")}}{{if .DraftID}}<a class="btn small" href="/import/d/{{.DraftID}}">{{if eq .Status "running"}}Check progress{{else}}Continue{{end}}</a>{{else}}<form method="post" action="/ui/import/git/{{.ID}}/open"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><button type="submit" class="btn small">{{if eq .Status "running"}}Check progress{{else}}Continue{{end}}</button></form>{{end}}{{end}}
           {{if eq .Status "done"}}{{if .Slug}}<a class="btn small quiet" href="/p/{{.Slug}}">Open the project</a>{{end}}{{end}}
-          {{if or (eq .Status "preview") (eq .Status "failed")}}<button type="button" class="btn small quiet" data-act="discard" data-job="{{.ID}}" aria-label="Throw away the import of {{.URL}}">Throw away</button>{{end}}
+          {{if or (eq .Status "preview") (eq .Status "failed")}}<form method="post" action="/ui/import/git/{{.ID}}/open"><input type="hidden" name="_csrf" value="{{$.CSRF}}"><input type="hidden" name="discard" value="1"><button type="submit" class="btn small quiet" aria-label="Throw away the import of {{.URL}}">Throw away</button></form>{{end}}
         </div>
       </li>{{end}}
     </ul>

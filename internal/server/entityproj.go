@@ -140,6 +140,17 @@ type projSheetData struct {
 	Where       *whereData
 }
 
+// Grid is the fields this book reads, the filled ones, as the shared entry component draws them; Words the description's length.
+func (d projSheetData) Grid() entryGrid {
+	rows := make([]fieldRow, 0, len(d.Fields))
+	for _, f := range d.Fields {
+		rows = append(rows, fieldRow{FieldDef: f.FieldDef, Value: f.Effective})
+	}
+	return gridOf(rows, true)
+}
+func (d projSheetData) GridRO() entryGrid { return d.Grid() }
+func (d projSheetData) Words() int        { return len(strings.Fields(d.E.Body)) }
+
 var projSheetSaved = map[string]string{
 	"override": "This book's override is saved. The Compendium's own entry is unchanged.",
 	"cleared":  "The override is cleared. This book reads the Compendium's entry again.",
@@ -166,27 +177,40 @@ func (s *Server) projectSheetView(r *http.Request, proj projects.Project, pe ent
 			d.OvSummary = *pe.Override.Summary
 		}
 	}
-	fo, err := s.Reg.Call(r.Context(), s.principal(r), "entity.field.list", entities.FieldListIn{ID: pe.CompendiumID, Kind: pe.Kind})
-	if err == nil {
-		for _, f := range fo.(entities.FieldListOut).Items {
-			row := projSheetField{FieldDef: f, Effective: pe.Fields[f.Key]}
-			if pe.Base != nil {
-				row.Base = pe.Base.Fields[f.Key]
-			} else {
-				row.Base = pe.Fields[f.Key]
-			}
-			if pe.Override != nil {
-				if v, ok := pe.Override.Fields[f.Key]; ok {
-					row.Has, row.Override, row.Blanked = true, v, v == ""
-				}
-			}
-			d.Fields = append(d.Fields, row)
-		}
-	}
+	d.Fields = s.projectSheetFields(r, pe)
 	if co, cerr := s.Reg.Call(r.Context(), s.principal(r), "compendium.get", compendiums.GetIn{ID: pe.CompendiumID}); cerr == nil {
 		d.CompSlug = s.addressed(r, co.(compendiums.DetailItem).Item.Compendium).Slug
 	}
 	return d, nil
+}
+
+// projectSheetFields are the fields a kind defines, each with what this book reads, what the Compendium says and what the book changes.
+func (s *Server) projectSheetFields(r *http.Request, pe entities.ProjectEntity) []projSheetField {
+	fo, err := s.Reg.Call(r.Context(), s.principal(r), "entity.field.list", entities.FieldListIn{ID: pe.CompendiumID, Kind: pe.Kind})
+	if err != nil {
+		return nil
+	}
+	return projectSheetFieldsOf(fo.(entities.FieldListOut).Items, pe)
+}
+
+// projectSheetFieldsOf is the same from definitions already read.
+func projectSheetFieldsOf(defs []entities.FieldDef, pe entities.ProjectEntity) []projSheetField {
+	var out []projSheetField
+	for _, f := range defs {
+		row := projSheetField{FieldDef: f, Effective: pe.Fields[f.Key]}
+		if pe.Base != nil {
+			row.Base = pe.Base.Fields[f.Key]
+		} else {
+			row.Base = pe.Fields[f.Key]
+		}
+		if pe.Override != nil {
+			if v, ok := pe.Override.Fields[f.Key]; ok {
+				row.Has, row.Override, row.Blanked = true, v, v == ""
+			}
+		}
+		out = append(out, row)
+	}
+	return out
 }
 
 func (s *Server) projectSheetPage(w http.ResponseWriter, r *http.Request) {
@@ -229,27 +253,8 @@ func (s *Server) uiEntityOverride(w http.ResponseWriter, r *http.Request) {
 	var err error
 	switch r.PathValue("action") {
 	case "set":
-		name, summary, notes := strings.TrimSpace(r.PostFormValue("name")), strings.TrimSpace(r.PostFormValue("summary")), strings.TrimSpace(r.PostFormValue("notes"))
-		fields := map[string]any{}
-		keys := []string{}
-		for k := range r.PostForm {
-			if strings.HasPrefix(k, "f.") {
-				keys = append(keys, strings.TrimPrefix(k, "f."))
-			}
-		}
-		sort.Strings(keys)
-		for _, k := range keys {
-			v := strings.TrimSpace(r.PostFormValue("f." + k))
-			switch {
-			case r.PostFormValue("blank."+k) == "1":
-				fields[k] = ""
-			case v != "":
-				fields[k] = v
-			default:
-				fields[k] = nil // stop overriding this field
-			}
-		}
-		_, err = s.Reg.Call(r.Context(), p, "project.entity.override.set", entities.OverrideSetIn{ID: proj.ID, EntityID: id, Name: &name, Summary: &summary, Fields: fields, Notes: &notes})
+		in := overrideFromForm(r, proj.ID, id)
+		_, err = s.Reg.Call(r.Context(), p, "project.entity.override.set", in)
 		if err == nil {
 			s.projectSheetRedirect(w, r, proj, id, "override")
 			return
@@ -293,8 +298,48 @@ func (s *Server) uiEntityOverride(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, http.StatusUnprocessableEntity, "project-entity", s.page(r, d.E.Name+" · "+proj.Title, d))
 }
 
+// overrideFromForm is the project.entity.override.set input of a form that edits this book's version of an entity, by the names the
+// book's sheet uses (name, summary, notes, f.<key>, blank.<key>). A box left empty stops overriding that field, and "blank.<key>"
+// overrides it with nothing. It sets the name, summary and notes only when the form sent them, so a form without one leaves it alone.
+func overrideFromForm(r *http.Request, projectID, entityID string) entities.OverrideSetIn {
+	in := entities.OverrideSetIn{ID: projectID, EntityID: entityID}
+	trim := func(key string, into **string) {
+		if r.PostForm.Has(key) {
+			v := strings.TrimSpace(r.PostForm.Get(key))
+			*into = &v
+		}
+	}
+	trim("name", &in.Name)
+	trim("summary", &in.Summary)
+	trim("notes", &in.Notes)
+	keys := []string{}
+	for k := range r.PostForm {
+		if strings.HasPrefix(k, "f.") {
+			keys = append(keys, strings.TrimPrefix(k, "f."))
+		}
+	}
+	if len(keys) == 0 {
+		return in
+	}
+	sort.Strings(keys)
+	in.Fields = map[string]any{}
+	for _, k := range keys {
+		v := strings.TrimSpace(r.PostForm.Get("f." + k))
+		switch {
+		case r.PostForm.Get("blank."+k) == "1":
+			in.Fields[k] = ""
+		case v != "":
+			in.Fields[k] = v
+		default:
+			in.Fields[k] = nil // stop overriding this field
+		}
+	}
+	return in
+}
+
 func (s *Server) registerEntityProject(m *http.ServeMux) {
 	m.HandleFunc("GET /p/{slug}/entities", s.projectEntitiesPage)
 	m.HandleFunc("GET /p/{slug}/e/{id}", s.projectSheetPage)
+	s.registerLookup(m)
 	s.uiRoute("POST /ui/projects/{id}/entity-override/{action}", s.uiEntityOverride)
 }

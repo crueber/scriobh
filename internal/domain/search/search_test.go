@@ -544,3 +544,32 @@ func TestMoreThanTheWordLimitIsRefusedNotTruncated(t *testing.T) {
 		t.Errorf("12 words are fine: %v", err)
 	}
 }
+
+// A save that changes no searchable text (a status, a word target) leaves the search text and its index as they are, and a title change
+// is found under the new title. The index is not rewritten for the saves that do not change it.
+func TestSavesThatChangeNoSearchableTextKeepTheIndex(t *testing.T) {
+	f := newFx(t)
+	pid := f.project(f.a, "Book")
+	d := f.doc(f.a, pid, docs.CreateIn{Title: "Arrival", Content: "The lantern swung over the harbour."})
+	rev := d.Revision
+	for _, in := range []docs.UpdateIn{{Status: ptr("revise")}, {TargetWords: ptr(500)}} {
+		in.ID, in.BaseRevision = d.ID, rev
+		out, err := f.reg.Call(f.ctx, f.a, "doc.update", in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rev = out.(docs.Item).Item.Revision
+	}
+	if got := titles(f.mustSearch(f.a, pid, "lantern harbour")); !contains(got, "Arrival") {
+		t.Errorf("after a status and a target: the body is not found: %v", got)
+	}
+	if _, err := f.reg.Call(f.ctx, f.a, "doc.update", docs.UpdateIn{ID: d.ID, BaseRevision: rev, Title: ptr("Renamed")}); err != nil {
+		t.Fatal(err)
+	}
+	if got := titles(f.mustSearch(f.a, pid, "renamed")); !contains(got, "Renamed") {
+		t.Errorf("a new title is not found: %v", got)
+	}
+	if got := titles(f.mustSearch(f.a, pid, "lantern")); !contains(got, "Renamed") {
+		t.Errorf("the body is not found after a rename: %v", got)
+	}
+}

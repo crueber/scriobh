@@ -26,10 +26,10 @@ import (
 // Register adds the scene ops.
 func Register(r *ops.Registry) {
 	ops.Register(r, ops.Op{Name: "scene.set_pov", Method: "PUT", Path: "/api/v1/docs/{id}/pov",
-		Desc: "Set a scene's point of view to a character of the bible, by id, name or alias among the entities the caller may read (empty clears the link and keeps the text). The scene's pov text becomes the character's name. Fails if the character is not in this project's scope or the caller may not read it (the same not found for both). Project editor.",
+		Desc: "Set a scene's point of view to a character of the Compendium, by id, name or alias among the entities the caller may read (empty clears the link and keeps the text). The scene's pov text becomes the character's name. Fails if the character is not in this project's scope or the caller may not read it (the same not found for both). Project editor.",
 		Auth: docref.Via(ops.ProjectEditor)}, func(c *ops.Ctx, in SetIn) (SetOut, error) { return set(c, in, "pov") })
 	ops.Register(r, ops.Op{Name: "scene.set_location", Method: "PUT", Path: "/api/v1/docs/{id}/location",
-		Desc: "Set where a scene happens to an entity of the bible (usually a place), by id, name or alias among the entities the caller may read (empty clears the link and keeps the text). The scene's location text becomes the entity's name. Project editor.",
+		Desc: "Set where a scene happens to an entity of the Compendium (usually a place), by id, name or alias among the entities the caller may read (empty clears the link and keeps the text). The scene's location text becomes the entity's name. Project editor.",
 		Auth: docref.Via(ops.ProjectEditor)}, func(c *ops.Ctx, in SetIn) (SetOut, error) { return set(c, in, "location") })
 	ops.Register(r, ops.Op{Name: "scene.entities", Method: "GET", Path: "/api/v1/docs/{id}/scene-entities",
 		Desc: "The \"in this scene\" sidebar: the entities a document mentions, plus its point of view and location, each with kind, summary (the book's override applied) and its roles in the scene. Only entities the caller may read; hidden says some were left out. indexing is true while the mention index owes a scan.",

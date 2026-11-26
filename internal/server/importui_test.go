@@ -28,8 +28,11 @@ func TestImportPages(t *testing.T) {
 	if rec.Code != 200 || !strings.Contains(body, `webkitdirectory`) || !strings.Contains(body, `id="imp-zip"`) || !strings.Contains(body, "js/import.") {
 		t.Errorf("import page: %d", rec.Code)
 	}
-	if strings.Contains(body, "data-into") {
+	if strings.Contains(body, "data-slug") || strings.Contains(body, "?into=") {
 		t.Error("a new-project import names a target project")
+	}
+	if strings.Contains(body, "import-books.js") || strings.Contains(body, "import-formats.js") {
+		t.Error("the chooser still loads the scripts the review replaced")
 	}
 	if rec := s.do(reader, "GET", "/import", ""); rec.Code != 403 {
 		t.Errorf("import page for an instance reader: %d, want 403", rec.Code)
@@ -39,7 +42,7 @@ func TestImportPages(t *testing.T) {
 	}
 
 	into := "/p/" + e.slug + "/import"
-	if rec := s.do(e.owner, "GET", into, ""); rec.Code != 200 || !strings.Contains(rec.Body.String(), `data-into="`+e.pid+`"`) {
+	if rec := s.do(e.owner, "GET", into, ""); rec.Code != 200 || !strings.Contains(rec.Body.String(), `data-slug="`+e.slug+`"`) || !strings.Contains(rec.Body.String(), `?into=`+e.slug) {
 		t.Errorf("import into, owner: %d", rec.Code)
 	}
 	if rec := s.do(editor, "GET", into, ""); rec.Code != 200 {

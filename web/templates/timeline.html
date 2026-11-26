@@ -9,7 +9,7 @@
 
 {{define "content"}}
 {{with .Data}}
-<section class="tl settings" id="tl" data-compendium="{{.C.ID}}" data-kind="compendium">
+<section class="tl settings" id="tl" data-compendium="{{.C.ID}}" data-kind="compendium" data-movable="false">
   <h1 id="tl-h" tabindex="-1">Timeline</h1>
   <p class="sub">{{.C.Name}}. What happens in this story world and when, whichever book tells it. Dates can be partial, such as a year alone.</p>
   {{if .Saved}}<div class="tl-saved"><p class="saved" role="status">{{.Saved}}</p>
@@ -37,20 +37,20 @@
 
   <section id="tl-events" aria-labelledby="tl-events-h">
     <h2 id="tl-events-h">{{if .Filter.Trash}}Events in the trash{{else}}Events{{end}}</h2>
-    {{if .Error}}<p class="field-error" role="alert" id="tl-err">{{.Error}}</p>{{end}}
+    {{if and .Error (not (eq .Field "from")) (not (eq .Field "to"))}}<p class="field-error" role="alert" id="tl-err">{{.Error}}</p>{{end}}
     <form class="tl-filter" method="get" action="/c/{{.Slug}}/timeline#tl-events" aria-label="Filter the events">
       {{if .Filter.Trash}}<input type="hidden" name="trash" value="1">{{end}}
       <div class="field"><label for="f-entity">Who or where</label>
         <select id="f-entity" name="entity"><option value="">Anyone or anywhere</option>{{range .Entities}}<option value="{{.ID}}"{{if eq .ID $.Data.Filter.Entity}} selected{{end}}>{{.Name}}</option>{{end}}</select></div>
       <div class="field"><label for="f-from">From</label>
-        <input id="f-from" name="from" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="1998-04" value="{{.Filter.From}}" data-date aria-describedby="f-from-h"{{if eq .Field "from"}} aria-invalid="true"{{end}}></div>
+        <input id="f-from" name="from" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="1998-04" value="{{.Filter.From}}" data-date aria-describedby="{{if eq .Field "from"}}f-from-err{{else}}f-from-h{{end}}"{{if eq .Field "from"}} aria-invalid="true"{{end}}>{{if eq .Field "from"}}<p class="hint tl-hint is-bad" id="f-from-err" role="status" data-hint data-def="From: for example 1998, 1998-04 or 1998-04-12.">{{.Error}}</p>{{end}}</div>
       <div class="field"><label for="f-to">To</label>
-        <input id="f-to" name="to" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="1999" value="{{.Filter.To}}" data-date aria-describedby="f-to-h"{{if eq .Field "to"}} aria-invalid="true"{{end}}></div>
+        <input id="f-to" name="to" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="1999" value="{{.Filter.To}}" data-date aria-describedby="{{if eq .Field "to"}}f-to-err{{else}}f-to-h{{end}}"{{if eq .Field "to"}} aria-invalid="true"{{end}}>{{if eq .Field "to"}}<p class="hint tl-hint is-bad" id="f-to-err" role="status" data-hint data-def="To: the same kinds of date.">{{.Error}}</p>{{end}}</div>
       {{if .Projects}}<div class="field"><label for="f-book">Told in</label>
         <select id="f-book" name="project"><option value="">Any book</option>{{range .Projects}}<option value="{{.ID}}"{{if eq .ID $.Data.Filter.Project}} selected{{end}}>{{.Title}}</option>{{end}}</select></div>{{end}}
       <div class="tl-fbtn"><button class="btn solid" type="submit">Show events</button>{{if .Filtered}}<a class="btn quiet" href="/c/{{.Slug}}/timeline{{if .Filter.Trash}}?trash=1{{end}}#tl-events">Clear the filters</a>{{end}}</div>
-      <p class="hint tl-hint" id="f-from-h" role="status" data-hint>From: for example 1998, 1998-04 or 1998-04-12.</p>
-      <p class="hint tl-hint" id="f-to-h" role="status" data-hint>To: the same kinds of date.</p>
+      {{if not (eq .Field "from")}}<p class="hint tl-hint" id="f-from-h" role="status" data-hint>From: for example 1998, 1998-04 or 1998-04-12.</p>{{end}}
+      {{if not (eq .Field "to")}}<p class="hint tl-hint" id="f-to-h" role="status" data-hint>To: the same kinds of date.</p>{{end}}
     </form>
 
     {{if .Rows}}<p class="fine tl-count">Showing {{.First}} to {{.Last}} of {{num .Total}} {{plural .Total "event" "events"}}, in story order: events with a date first, earliest first, then those without one.</p>{{end}}

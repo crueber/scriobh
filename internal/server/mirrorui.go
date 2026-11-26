@@ -115,7 +115,7 @@ func (s *Server) uiMirrorRebuild(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, b, http.StatusSeeOther)
 		return
 	}
-	td := tileData{P: pr, State: libraryState(r), CSRF: authFrom(r.Context()).CSRF}
+	td := tileData{P: pr, State: libraryState(r), CSRF: authFrom(r.Context()).CSRF, Words: s.menuWordsFor(r)}
 	td.Mirror = s.mirrorFor(r, pr.ID, pr.Role == ops.ProjectOwner || pr.Role == ops.ProjectEditor)
 	if !isHTMX(r) {
 		http.Redirect(w, r, "/ui/projects/"+pr.ID+"/menu?view="+urlQuery(td.State), http.StatusSeeOther)

@@ -83,11 +83,11 @@ await kit.test("the place is chosen the same way, only places are offered, and E
 });
 
 await kit.test("unlinking keeps the text, and free text that matches nothing is kept and marked", async () => {
-  await panel().getByRole("button", { name: "Unlink the point of view from the bible (the text stays)" }).click();
+  await panel().getByRole("button", { name: "Unlink the point of view from the Compendium (the text stays)" }).click();
   await waitFor(async () => (await api(main, "GET", `/api/v1/docs/${doc}/scene-entities`)).json.pov == null, "the point of view to be unlinked");
   const d = (await api(main, "GET", `/api/v1/docs/${doc}/scene-entities`)).json;
   ok(d.pov_text, "the free text stayed: " + JSON.stringify(d.pov_text));
-  await waitFor(async () => /Not linked to the bible/.test(await panel().innerText()), "the panel to say the text is not linked");
+  await waitFor(async () => /Not linked to the Compendium/.test(await panel().innerText()), "the panel to say the text is not linked");
 });
 
 await kit.test("while the index is behind the panel says so calmly and fills in; hidden names get one plain sentence", async () => {
@@ -111,7 +111,9 @@ await kit.test("on a phone the tab fits at 390 px and its targets are 44 px", as
   await open(ph);
   await waitFor(async () => (await ph.locator("#ipanel-scene .sc-name").count()) >= 3, "the names to appear", 20000);
   ok(await ph.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "no horizontal scroll");
-  const small = await ph.locator("#ipanel-scene button, #ipanel-scene a.btn, #ipanel-scene input").evaluateAll((els) => els.filter((e) => e.offsetParent && e.getBoundingClientRect().height < 44).map((e) => (e.textContent.trim() || e.placeholder) + " " + e.getBoundingClientRect().height));
+  // A height is bottom minus top in single precision: 512 to 1024 px down the page that loses 2^-14 px (44 reads 43.99993896), so the
+  // check allows a hundredth of a pixel and no more.
+  const small = await ph.locator("#ipanel-scene button, #ipanel-scene a.btn, #ipanel-scene input").evaluateAll((els) => els.filter((e) => e.offsetParent && e.getBoundingClientRect().height < 43.99).map((e) => (e.textContent.trim() || e.placeholder) + " " + e.getBoundingClientRect().height));
   eq(small.length, 0, "every control is 44 px tall: " + small.join(", "));
 });
 

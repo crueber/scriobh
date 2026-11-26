@@ -22,9 +22,9 @@
   }
 
   // ---- open, close, tabs -----------------------------------------------------------------------------
-  var openers = $$(".insp-open"), tabs = $$(".insp-tab", box), panels = { details: $("#ipanel-details"), versions: $("#ipanel-versions"), scene: $("#ipanel-scene"), alts: $("#ipanel-alts"), stash: $("#ipanel-stash"), lab: $("#ipanel-lab"), ai: $("#ipanel-ai"), comments: $("#ipanel-comments") };
+  var openers = $$(".insp-open"), tabs = $$(".insp-tab", box), panels = { details: $("#ipanel-details"), versions: $("#ipanel-versions"), scene: $("#ipanel-scene"), compendium: $("#ipanel-compendium"), alts: $("#ipanel-alts"), stash: $("#ipanel-stash"), lab: $("#ipanel-lab"), ai: $("#ipanel-ai"), comments: $("#ipanel-comments") };
   // The tabs that are their own files, and the object each one defines (the Alternatives tab is js/altpanel.js).
-  var LAZY = { versions: "versions", scene: "scene", alts: "altpanel", stash: "stash", lab: "lab", ai: "aipanel", comments: "review" };
+  var LAZY = { versions: "versions", scene: "scene", compendium: "lookup", alts: "altpanel", stash: "stash", lab: "lab", ai: "aipanel", comments: "review" };
   var wide = win.matchMedia("(min-width: 1150px)"), current = "";
   function show(name) {
     tabs.forEach(function (t) {
@@ -34,6 +34,8 @@
     });
     Object.keys(panels).forEach(function (k) { if (panels[k]) panels[k].hidden = k !== name; });
     current = name;
+    try { win.localStorage.setItem("scriobh:insp-tab", name); } catch (e) { /* not remembered here */ }
+    reveal($("#itab-" + name));
     if (LAZY[name]) lazyPanel(name);
     if (name === "details") links();
   }
@@ -53,13 +55,25 @@
     };
     doc.head.appendChild(t);
   }
+  // One row of tabs that scrolls; a button at an end says there are more. The tab that is shown is scrolled into the row, by the row alone.
+  var strip = $(".insp-tabs", box), tl = $("#insp-tl"), tr = $("#insp-tr");
+  function cue() { var m = strip.scrollWidth - strip.clientWidth; tl.hidden = strip.scrollLeft < 2; tr.hidden = strip.scrollLeft > m - 2; }
+  function reveal(t) {
+    if (t && t.offsetLeft < strip.scrollLeft + 44) strip.scrollLeft = t.offsetLeft - 44;
+    else if (t && t.offsetLeft + t.offsetWidth > strip.scrollLeft + strip.clientWidth - 44) strip.scrollLeft = t.offsetLeft + t.offsetWidth - strip.clientWidth + 44;
+    cue();
+  }
+  strip.addEventListener("scroll", cue);
+  win.addEventListener("resize", cue);
+  tl.addEventListener("click", function () { strip.scrollBy({ left: -strip.clientWidth * 0.7 }); });
+  tr.addEventListener("click", function () { strip.scrollBy({ left: strip.clientWidth * 0.7 }); });
   function open(name, focus) {
     box.classList.add("is-open");
     doc.body.classList.add("insp-on");
-    openers.forEach(function (b) { b.setAttribute("aria-expanded", String(b.dataset.panel === name)); });
+    openers.forEach(function (b) { b.setAttribute("aria-expanded", String(b.dataset.panel ? b.dataset.panel === name : true)); });
     show(name);
     keep(name);
-    if (focus) { var t = $("#itab-" + name); if (t) t.focus(); }
+    if (focus) { var t = $("#itab-" + name); if (t) t.focus({ preventScroll: true }); }
   }
   function close(refocus) {
     var had = box.contains(doc.activeElement), name = current;
@@ -68,13 +82,16 @@
     openers.forEach(function (b) { b.setAttribute("aria-expanded", "false"); });
     current = "";
     keep("");
-    if (had || refocus) { var back = $('.insp-open[data-panel="' + name + '"]') || $(".insp-open"); if (back) back.focus(); }
+    if (had || refocus) { var back = $('.insp-open[data-panel="' + name + '"]') || $(".insp-open:not([data-panel])") || $(".insp-open"); if (back) back.focus({ preventScroll: true }); } // focus goes back to the button that opened it, and the page stays where it is
   }
+  // The toggle with no tab of its own (the Sidebar button) opens on the tab used last, in this browser.
+  function last() { var n; try { n = win.localStorage.getItem("scriobh:insp-tab"); } catch (e) { /* none */ } return panels[n] ? n : "details"; }
   openers.forEach(function (b) {
     b.hidden = false;
     b.addEventListener("click", function () {
-      if (current === b.dataset.panel) { close(true); return; }
-      open(b.dataset.panel, true);
+      var name = b.dataset.panel || last();
+      if (b.dataset.panel ? current === name : current) { close(true); return; }
+      open(name, true);
     });
   });
   $("#insp-close").addEventListener("click", function () { close(true); });
@@ -95,7 +112,49 @@
   box.classList.remove("pre");
   if (was && wide.matches && panels[was]) open(was, false);
   else if (pre) box.classList.remove("is-open"); // drawn open for a wide screen, and this one is not
-  S.inspector = { open: open, close: close, get current() { return current; }, flush: function () { return canEdit ? flush() : Promise.resolve(true); } };
+  // The selected words, for the Compendium tab.
+  function selected() {
+    var src = $(".scriobh-source:not([hidden])"), v = W.editor && W.editor.view, s = v && v.state.selection;
+    return (src ? src.value.slice(src.selectionStart, src.selectionEnd) : s ? v.state.doc.textBetween(s.from, s.to, "\n") : "").trim();
+  }
+  // Back to the writing, the caret where it was and the page where it was, in the Source view too.
+  function toEditor() {
+    var src = $(".scriobh-source:not([hidden])");
+    if (src) src.focus({ preventScroll: true }); else W.editor.view.focus();
+  }
+  // The Compendium tab: its search, the selected words (how 1), or a new entry from them ("new").
+  function compendium(how) {
+    var t = how ? selected() : "";
+    S.lookupWant = { sel: /\n/.test(t) || t.length > 200 ? "" : t, isNew: how === "new" };
+    open("compendium", false);
+  }
+  // The Comments tab: the editor's selection as it is now (taken at the key or the tap, after the browser's own is read), kept for
+  // the tab's file, then the tab. Nothing is dispatched to the editor, so the words and the caret are as they were.
+  function want(panel, how) {
+    if (!panels[panel] || !W.editor) return;
+    var src = $(".scriobh-source:not([hidden])"), v = W.editor.view, s;
+    if (!src && S.alts) S.alts.sync();
+    s = v.state.selection;
+    S[panel + "Want"] = src ? { src: 1, from: src.selectionStart, to: src.selectionEnd, empty: how === "chapter" || src.selectionStart === src.selectionEnd, doc: src.value }
+      : { from: s.from, to: s.to, empty: how === "chapter" || s.empty, doc: v.state.doc };
+    open(panel, false);
+  }
+  S.inspector = { open: open, close: close, get current() { return current; }, flush: function () { return canEdit ? flush() : Promise.resolve(true); }, selected: selected, compendium: compendium, toEditor: toEditor, want: want };
+  // Alt+Shift+C opens the Compendium tab with the selected words, Alt+Shift+M the Comments tab (comment on them, or on the chapter);
+  // from inside the same tab, back to the editor.
+  var chords = (S.chords = S.chords || { clash: [] }), who = "compendium: the panel", whoM = "comments: the panel";
+  if (chords.KeyC && chords.KeyC !== who) chords.clash.push("KeyC: " + chords.KeyC + " and " + who);
+  if (chords.KeyM && chords.KeyM !== whoM) chords.clash.push("KeyM: " + chords.KeyM + " and " + whoM);
+  chords.KeyC = who;
+  chords.KeyM = whoM;
+  doc.addEventListener("keydown", function (e) {
+    var m = e.code === "KeyM" && panels.comments; // a reader has no Comments tab: the key is not ours
+    if ((e.code !== "KeyC" && !m) || !e.altKey || !e.shiftKey || e.ctrlKey || e.metaKey || e.isComposing || e.keyCode === 229) return;
+    e.preventDefault(); e.stopPropagation();
+    if (e.repeat) return;
+    if (current === (m ? "comments" : "compendium") && box.contains(doc.activeElement)) { toEditor(); if (!wide.matches) close(false); }
+    else if (m) want("comments"); else compendium(1);
+  }, true);
 
   // ---- details ---------------------------------------------------------------------------------------
   var form = $("#insp-form"), note = $("#insp-saved");

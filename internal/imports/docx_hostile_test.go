@@ -42,7 +42,7 @@ const hstyles = `<?xml version="1.0"?><w:styles ` + hwns + `><w:style w:type="pa
 
 func convert(t *testing.T, parts map[string]string) []File {
 	t.Helper()
-	fs, _, err := docxToFiles(hdocx(parts), "x.docx", "", "")
+	fs, _, err := docxToFiles(hdocx(parts), "x.docx", "", "", docxCutOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,6 +51,8 @@ func convert(t *testing.T, parts map[string]string) []File {
 
 // kinds lists the block kinds a Markdown text makes.
 func kinds(md string) (ks []text.NodeKind, d text.Doc) {
+	// a document with no chapter breaks is one document, titled for the file it came from
+	md = strings.TrimPrefix(md, "# X\n\n")
 	d = text.Structure(md, text.StructOptions{})
 	for _, n := range d.Nodes {
 		ks = append(ks, n.Kind)
@@ -69,7 +71,7 @@ func TestDocxTextBombsAreRefusedCheaply(t *testing.T) {
 	b.WriteString(`</w:t></w:r></w:p>`)
 	data := hdocx(map[string]string{"word/document.xml": hbody(b.String())})
 	start := time.Now()
-	_, _, err := docxToFiles(data, "x.docx", "", "")
+	_, _, err := docxToFiles(data, "x.docx", "", "", docxCutOpts{})
 	took := time.Since(start)
 	if err == nil {
 		t.Errorf("pieces: %v, err %v (a %d byte file)", took, err, len(data))
@@ -87,7 +89,7 @@ func TestDocxTextBombsAreRefusedCheaply(t *testing.T) {
 	runtime.GC()
 	runtime.ReadMemStats(&m0)
 	start = time.Now()
-	_, _, err = docxToFiles(data, "x.docx", "", "")
+	_, _, err = docxToFiles(data, "x.docx", "", "", docxCutOpts{})
 	runtime.ReadMemStats(&m1)
 	alloc := (m1.TotalAlloc - m0.TotalAlloc) >> 20
 	t.Logf("40 MB run: %v, %d MB allocated, err %v", time.Since(start), alloc, err)
@@ -108,7 +110,7 @@ func TestDocxManyNotesIsLinear(t *testing.T) {
 	}
 	data := hdocx(map[string]string{"word/document.xml": hbody(db.String()), "word/footnotes.xml": hnotes(nb.String()), "word/styles.xml": hstyles})
 	start := time.Now()
-	fs, _, err := docxToFiles(data, "x.docx", "", "")
+	fs, _, err := docxToFiles(data, "x.docx", "", "", docxCutOpts{})
 	took := time.Since(start)
 	t.Logf("%d notes: %v, err %v", n, took, err)
 	t.Run("time", func(t *testing.T) {

@@ -210,6 +210,7 @@
     var meta = el("p", "rv-meta"), nm = el("strong", null, who(t.author));
     meta.id = "rv-m-" + t.thread_id; li.setAttribute("aria-labelledby", meta.id); // named by its author and time, its words stay its content
     meta.appendChild(nm); meta.appendChild(stamp(t.created_at));
+    if (t.visibility === "private") meta.appendChild(el("span", "rv-kind", T("only_you", "Only you")));
     if (t.kind && t.kind !== "comment") meta.appendChild(el("span", "rv-kind", t.kind === "question" ? T("question", "Question") : T("suggestion_note", "Suggestion note")));
     if (t.status === "resolved") meta.appendChild(el("span", "rv-kind", T("resolved_by", "Resolved by {name}", { name: who(t.resolved_by) })));
     li.appendChild(meta);
@@ -230,6 +231,7 @@
     if (t.status === "open" && t.can_resolve) act.appendChild(btn(T("resolve", "Resolve"), function () { act1(t, "resolve", T("resolved", "Resolved."), li); }));
     if (t.status === "resolved" && t.can_resolve) act.appendChild(btn(T("reopen", "Reopen"), function () { act1(t, "reopen", T("reopened", "Reopened."), li); }));
     if (t.can_delete) act.appendChild(btn(T("delete", "Delete"), function (e) { remove(t, li, e.currentTarget); }, "quiet small danger-text"));
+    if (panelMode && S.cwrite) S.cwrite.actions(t, act, li); // Edit, Show in the text, and what a lost place offers
     Array.prototype.forEach.call(act.children, function (c) { c.setAttribute("aria-describedby", meta.id); }); // "Resolve", then whose comment it is
     li.appendChild(act);
     if (drafts[t.thread_id] != null) replyBox(li, t, true); // an unsent reply is still there after a redraw
@@ -248,8 +250,23 @@
     var e = $("#rv-empty"); if (e) { e.hidden = ts.length > 0; e.textContent = filter === "resolved" ? T("none_resolved", "Nothing has been resolved yet.") : filter === "mine" ? T("none_mine", "You have no open comments.") : filter === "mentions" ? T("none_mentions", "Nobody has mentioned you.") : T("none_open", "No open comments."); }
     var first = list.firstElementChild; if (first) first.tabIndex = 0;
     threads.forEach(function (t) { if (!panelMode) paint(t); });
+    if (panelMode) { tabN(); marks(); }
     if (at) { var back = doc.getElementById(at[0]); if (back) { back.focus({ preventScroll: true }); back.setSelectionRange(at[1], at[2]); } }
     else if (keep) { var k = doc.getElementById(keep); if (k) k.focus({ preventScroll: true }); }
+  }
+  // "Comments (3)": the open threads of this chapter, as text on the tab; nothing moves (the tab is a fixed place in the row)
+  function tabN() {
+    var n = threads.filter(function (t) { return t.status === "open" && !t.deleted; }).length, tab = $("#itab-comments"), c = $("#itab-comments-n");
+    if (!tab) return;
+    if (!n) { if (c) c.remove(); return; }
+    if (!c) { c = el("span"); c.id = "itab-comments-n"; tab.appendChild(c); }
+    c.textContent = " (" + n + ")";
+  }
+  // The words of open comments are marked in the text (js/cmarks.js), fetched the first time this chapter has one the person can read.
+  function marks() {
+    if (S.cmarks) return S.cmarks.refresh();
+    var c = $("#ipanel-comments");
+    if (c && c.dataset.cmarks && !c.dataset.cm && threads.some(function (t) { return t.status === "open" && !t.deleted; })) { c.dataset.cm = "1"; var sc = el("script"); sc.src = c.dataset.cmarks; doc.head.appendChild(sc); }
   }
   function replace(t) {
     var old = threads.filter(function (x) { return x.thread_id === t.thread_id; })[0];
@@ -302,7 +319,7 @@
     if (people) return Promise.resolve(people);
     return api("GET", base + "/comment-people").then(function (r) { people = r.ok && r.json ? r.json.items : []; return people; });
   }
-  function area(label, id) {
+  function area(label, id, off) { // off(): a comment only its author can see mentions nobody, so there is then no @ picker
     var wrap_ = el("div", "field"), l = el("label", null, label), ta = el("textarea"), picked = {};
     l.htmlFor = id; ta.id = id; ta.rows = 3; ta.maxLength = 10000; ta.setAttribute("aria-autocomplete", "list");
     wrap_.appendChild(l); wrap_.appendChild(ta);
@@ -318,7 +335,7 @@
     }
     ta.addEventListener("input", function () {
       var m = /@([^\s@]*)$/.exec(ta.value.slice(0, ta.selectionStart));
-      if (!m) return close();
+      if (!m || (off && off())) return close();
       loadPeople().then(function (ps) {
         var q = m[1].toLowerCase();
         hits = ps.filter(function (p) { return p.user_id !== me && p.name.toLowerCase().indexOf(q) >= 0; }).slice(0, 6);
@@ -335,8 +352,8 @@
     });
     return { box: wrap_, ta: ta, ids: function () { return Object.keys(picked).filter(function (k) { return ta.value.indexOf("@") >= 0; }); } };
   }
-  function form(label, id, submit, onSubmit, onCancel) {
-    var f = el("form", "rv-form"), a = area(label, id), err = el("p", "field-error"), row = el("div", "form-actions");
+  function form(label, id, submit, onSubmit, onCancel, off) {
+    var f = el("form", "rv-form"), a = area(label, id, off), err = el("p", "field-error"), row = el("div", "form-actions");
     err.setAttribute("role", "alert"); err.hidden = true;
     var go = el("button", "btn solid small", submit); go.type = "submit";
     row.appendChild(btn(T("cancel", "Cancel"), onCancel)); row.appendChild(go);
@@ -362,7 +379,7 @@
         if (!r.ok || !r.json) return why(r);
         delete drafts[id]; replace(r.json.item); fm.form.remove(); draw(true); loadCounts(); say(T("replied", "Reply sent.")); focusCard(id);
       });
-    }, function () { delete drafts[id]; fm.form.remove(); li.focus(); if (dirty) draw(true); });
+    }, function () { delete drafts[id]; fm.form.remove(); li.focus(); if (dirty) draw(true); }, function () { return t.visibility === "private"; });
     // what is typed is kept by thread, so a live update, a filter or a redraw never takes an unsent reply away
     if (drafts[id]) fm.ta.value = drafts[id]; else drafts[id] = "";
     fm.ta.addEventListener("input", function () { drafts[id] = fm.ta.value; });
@@ -499,7 +516,7 @@
   function next() {
     var card_ = doc.activeElement && doc.activeElement.closest && doc.activeElement.closest(".rv-card"), after = current || (card_ ? card_.dataset.id : "");
     if (decide) {
-      api("GET", base + "/review/queue?limit=1" + (after ? "&after=" + after : "")).then(function (r) {
+      api("GET", base + "/review/queue?limit=1&visibility=all" + (after ? "&after=" + after : "")).then(function (r) {
         var it = r.ok && r.json && r.json.items && r.json.items[0];
         if (!it) { say(T("no_more", "No more open comments.")); return; }
         if (focusCard(it.thread.thread_id) && secOf(it.document.id)) { filter = "open"; syncFilters(); draw(); focusCard(it.thread.thread_id); show(it.thread.thread_id); return; }
@@ -614,7 +631,20 @@
 
   // ---- the writing view's Comments tab --------------------------------------------------------------------------------
   if (panelMode) {
-    S.review = { show: function (panel) {
+    // The tab's own file (js/cwrite.js: start a comment, edit, show it in the text) is fetched the first time the tab is shown.
+    function more(panel) {
+      if (S.cwrite) { S.cwrite.show(panel); return; }
+      if (doc.querySelector("script[data-cw]") || !panel.dataset.cwrite) return;
+      var sc = el("script"); sc.src = panel.dataset.cwrite; sc.dataset.cw = "1";
+      sc.onload = function () { if (S.cwrite) S.cwrite.show(panel); };
+      sc.onerror = function () { sc.remove(); say(T("failed", "That did not work. Try again.")); };
+      doc.head.appendChild(sc);
+    }
+    S.review = { T: T, el: el, $: $, btn: btn, api: api, say: say, why: why, form: form, replace: replace, draw: draw, focusCard: focusCard, base: base, me: me, people: loadPeople,
+      get threads() { return threads; },
+      swap: function (t) { var i = threads.map(function (x) { return x.thread_id; }).indexOf(t.thread_id); if (i >= 0) threads[i] = t; else threads.push(t); draw(true); },
+      added: function (t) { threads.push(t); filter = "open"; syncFilters(); draw(true); },
+      show: function (panel) {
       try { M = JSON.parse((($("#rv-msg") || { dataset: {} }).dataset.msg) || "{}"); } catch (e) { M = {}; }
       live = $("#rv-live") || el("div", "sr-only"); live.setAttribute("role", "status");
       if (!$("link[data-rv]") && panel.dataset.css) { var l = el("link"); l.rel = "stylesheet"; l.href = panel.dataset.css; l.dataset.rv = "1"; doc.head.appendChild(l); }
@@ -623,14 +653,17 @@
         var h = el("div", "rv-tools"); buildFilters(h); panel.appendChild(h);
         list = el("ol", "rv-list"); panel.appendChild(list);
         panel.appendChild(el("p", "rv-empty", "")).id = "rv-empty";
-        panel.appendChild(el("p", "fine", T("panel_note", "Comments are shown here and in the reading view, not in the text as you write.")));
+        panel.appendChild(el("p", "fine", T("panel_note", "Comments are shown here and in the reading view. Their words can be marked in the text.")));
         list.addEventListener("keydown", cardKeys);
         list.addEventListener("focusout", function () { win.setTimeout(function () { if (dirty && !down && !typingIn()) draw(); }, 350); });
         doc.addEventListener("pointerdown", function () { down = true; }); doc.addEventListener("pointerup", function () { down = false; });
+        // What is private sends no event, so another tab of the same person learns of it when it is looked at again.
         doc.addEventListener("scriobh:event", function (e) { var t = (e.detail && e.detail.type) || ""; if (/^comment\./.test(t)) refreshSoon(); });
+        doc.addEventListener("visibilitychange", function () { if (!doc.hidden && current_()) refreshSoon(); });
       }
-      root = panel; reload();
+      root = panel; reload(); more(panel);
     } };
+    function current_() { return S.inspector && S.inspector.current === "comments"; }
     return;
   }
   if (doc.readyState === "loading") doc.addEventListener("DOMContentLoaded", start); else start();

@@ -1,0 +1,294 @@
+{{define "imp-stage-error"}}<p class="field-error" id="imp-stage-err" tabindex="-1" data-focus>{{.Msg}}</p>{{end}}
+
+{{define "imp-h"}}<input type="hidden" name="_csrf" value="{{.V.CSRF}}"><input type="hidden" name="rev" value="{{.V.Rev}}"><input type="hidden" name="rows" value="{{.V.Shown}}">{{with .Key}}<input type="hidden" name="key" value="{{.}}"><input type="hidden" name="edit" value="{{.}}">{{end}}{{end}}
+
+{{define "imp-form-attrs"}}method="post" action="{{.Act}}/update" hx-post="{{.Act}}/update" hx-target="#imp-review" hx-swap="outerHTML" hx-push-url="false"{{end}}
+
+{{define "imp-review"}}<div id="imp-review" class="imp-review" hx-history="false"{{if .Pending}} hx-get="{{.Act}}/progress" hx-trigger="every 2s" hx-swap="outerHTML" hx-push-url="false"{{end}}>
+  {{if .Notice}}<p id="imp-notice" class="imp-note" data-kind="{{.NoticeKind}}" tabindex="-1" role="alert"{{if eq .Focus "imp-notice"}} data-focus{{end}}>{{.Notice}}</p>{{end}}
+  {{if eq .Status "done"}}{{template "imp-done" .}}
+  {{else if .Pending}}{{template "imp-wait" .}}
+  {{else if .Failed}}{{template "imp-failed" .}}
+  {{else}}{{template "imp-body" .}}{{end}}
+</div>{{if .Live}}<div hx-swap-oob="innerHTML:#imp-live">{{.Live}}</div>{{end}}{{end}}
+
+{{define "imp-wait"}}<h2 id="imp-h" tabindex="-1">{{.T "import.fetch_h"}}</h2>
+  <p class="rg-line" role="status">{{.T "import.fetching"}}</p>
+  <p class="fine" id="rg-wait">{{.T "import.fetch_wait"}}</p>
+  <form class="imp-go" {{template "imp-discard-attrs" .}}>{{template "imp-h" (dict "V" . "Key" "")}}<input type="hidden" name="to" value="git"><button class="btn quiet" type="submit">{{.T "import.discard"}}</button></form>{{end}}
+
+{{define "imp-discard-attrs"}}method="post" action="{{.Act}}/discard"{{end}}
+
+{{define "imp-failed"}}<h2 id="imp-h" tabindex="-1" data-focus>{{.T "import.failed_h"}}</h2>
+  <p class="rg-line imp-note" data-kind="warn" role="alert">{{.Failed}}</p>{{with .Hint}}<p class="rg-hint">{{.}}</p>{{end}}
+  {{if .Retry}}<p><a class="btn solid" href="{{.PageURL}}">{{.T "import.retry"}}</a></p>{{end}}
+  <form class="imp-go" {{template "imp-discard-attrs" .}}>{{template "imp-h" (dict "V" . "Key" "")}}{{if eq .Kind "git"}}<input type="hidden" name="to" value="git">{{end}}<button class="btn" type="submit">{{.T "import.discard"}}</button></form>{{end}}
+
+{{define "imp-done"}}{{with .Done}}<h2 id="imp-h" tabindex="-1" data-focus>{{if eq .Documents 1}}{{$.T "import.done_h1"}}{{else}}{{$.T "import.done_h" "n" (num .Documents)}}{{end}}</h2>
+  {{if .EditionID}}<p class="imp-line">{{$.T "import.done_edn_plain"}}</p>{{end}}
+  {{if .Suggestions}}<p class="imp-line">{{$.T "import.done_sug" "n" (num .Suggestions)}}</p>{{end}}
+  {{if .Comments}}<p class="imp-line">{{$.T "import.done_com" "n" (num .Comments)}}</p>{{end}}
+  {{range .Warnings}}<p class="imp-note" data-kind="warn">{{.}}</p>{{end}}
+  {{with $.UndoSrc}}<div class="imp-undo-offer"><p class="imp-line" id="imp-ss-{{.RID}}">{{.Docs}} {{.State}}</p>{{if .Kept}}<p class="imp-line imp-kept-h">{{.KeptHead}}</p>{{template "imp-kept" .}}{{end}}{{template "imp-undo" .}}</div>{{end}}
+  <div class="imp-go">{{range $.DoneLinks}}<a class="btn{{if .Solid}} solid{{end}}" href="{{.Href}}">{{.Text}}</a>{{end}}</div>
+  {{end}}{{end}}
+
+{{define "imp-body"}}
+  <h2 id="imp-h" tabindex="-1">{{if .Into}}{{.T "import.h_add"}}{{else}}{{.T "import.h_create"}}{{end}}</h2>
+  <p class="imp-sum"><span>{{num .Docs}} {{plural .Docs "document" "documents"}}</span><span>{{num .Words}} {{plural .Words "word" "words"}}</span><span>{{.Label}}</span></p>
+  {{with .Already}}<p class="imp-note imp-already" id="imp-already" data-kind="warn">{{.Text}} <a href="{{.Href}}">{{.Link}}</a></p>{{end}}
+  {{range $.Reuse}}<form class="imp-ctl imp-reuse" {{template "imp-form-attrs" $}}>{{template "imp-h" (dict "V" $ "Key" "")}}<input type="hidden" name="act" value="reuse"><input type="hidden" name="from" value="{{.ID}}"><p class="hint" id="imp-reuse-hint">{{$.T "import.reuse_hint"}}</p><button class="btn small" id="imp-reuse-{{.ID}}" type="submit" aria-describedby="imp-reuse-hint">{{.Label}}</button></form>{{end}}
+  {{if .CanUndo}}<form class="imp-undo" {{template "imp-form-attrs" .}}>{{template "imp-h" (dict "V" . "Key" "")}}<input type="hidden" name="act" value="undo"><button class="btn small quiet" id="imp-undo" type="submit"{{if eq .Focus "imp-undo"}} data-focus{{end}}>{{.T "import.undo"}}</button></form>{{end}}
+  <div>
+    {{if .Folded}}<details class="imp-files"><summary>{{.T "import.notes_h" "n" (len .Warnings)}}</summary>{{range .Warnings}}<p class="imp-note" data-kind="warn">{{$.T "import.note_prefix"}} {{.}}</p>{{end}}</details>
+    {{else}}{{range .Warnings}}<p class="imp-note" data-kind="warn">{{$.T "import.note_prefix"}} {{.}}</p>{{end}}{{end}}
+    {{if .Hidden}}<p class="imp-note">{{$.T "import.note_prefix"}} {{if eq .Hidden 1}}{{.T "import.hidden_one" "n" (num .Hidden)}}{{else}}{{.T "import.hidden_many" "n" (num .Hidden)}}{{end}}</p>{{end}}
+  </div>
+  {{if .Cut}}{{template "imp-cut" .}}{{end}}
+  <div class="imp-book">{{template "imp-panels" .}}</div>
+  {{template "imp-opts" .}}
+  {{if not .Into}}<div class="imp-fields">
+    <button type="submit" class="sr-only" form="imp-applyform" formaction="{{.Act}}/update" name="act" value="project" tabindex="-1" aria-hidden="true">{{.T "import.save_project"}}</button>
+    {{/* The first submit button of the apply form in tree order is the one a browser presses for Enter in a field: here it saves the project fields, so Enter with no script does not import. */}}
+    <div class="field"><label for="imp-t">{{.T "import.f_project_title"}}</label><input id="imp-t" name="title" form="imp-applyform" type="text" maxlength="200" value="{{.Title}}" {{template "imp-proj-attrs" .}}></div>
+    <div class="field"><label for="imp-k">{{.T "import.f_project_kind"}}</label><select id="imp-k" name="kind" form="imp-applyform" {{template "imp-proj-attrs" .}}>{{range .ProjectKinds}}<option value="{{.Value}}"{{if eq .Value $.ProjKind}} selected{{end}}>{{.Label}}</option>{{end}}</select></div>
+    <div class="field"><label for="imp-a">{{.T "import.f_project_author"}}</label><input id="imp-a" name="author" form="imp-applyform" type="text" maxlength="200" value="{{.Author}}" {{template "imp-proj-attrs" .}}></div>
+    <span id="imp-pf" hidden><input type="hidden" name="act" value="project"><input type="hidden" name="rev" value="{{.Rev}}"></span>
+  </div>{{end}}
+  <div class="imp-map">{{if .MapN}}<h3>{{.T "import.map_h"}}</h3><p class="fine">{{.T "import.map_help"}}</p>{{end}}</div>
+  <ul class="imp-tree" id="imp-tree" aria-label="{{.T "import.tree_label"}}">{{template "imp-rows" .}}</ul>
+  {{if .Left}}<div class="imp-left"><details open><summary>{{.T "import.left_h" "n" (len .Left)}}</summary><ul>{{range .Left}}<li><span>{{.Text}}</span>
+    <form {{template "imp-form-attrs" $}}>{{template "imp-h" (dict "V" $ "Key" .Key)}}<input type="hidden" name="act" value="back"><button class="btn small quiet" id="imp-c-{{.RID}}-back" type="submit" data-act="back" data-key="{{.Key}}" aria-label="{{$.T "import.put_back_a" "t" .Text}}"{{$.Foc .RID "back"}}>{{$.T "import.put_back"}}</button></form></li>{{end}}</ul></details></div>{{end}}
+  {{if or .Research .Report}}<div class="imp-more">{{if .Research}}<details{{if le .ResN 40}} open{{end}}><summary>{{.T "import.research_h" "n" (num .ResN)}}</summary>
+    <ul class="imp-tree" aria-label="{{.T "import.research_label"}}">{{range .Research}}<li class="imp-node d{{.Depth}}"><div class="imp-row"><span class="imp-title">{{.Title}}</span><span class="imp-meta">{{.Meta}}</span>
+      <form {{template "imp-form-attrs" $}}>{{template "imp-h" (dict "V" $ "Key" .Key)}}<input type="hidden" name="act" value="skip"><button class="btn small quiet" type="submit" data-act="skip" data-key="{{.Key}}" aria-label="{{$.T "import.leave_out_a" "t" .Title}}">{{$.T "import.leave_out"}}</button></form></div></li>{{end}}</ul></details>{{end}}
+    {{if .Report}}<details><summary>{{.T "import.report_h"}}</summary><ul class="imp-rep">{{range .Report}}<li><span>{{.K}}</span><span class="why">{{.V}}</span></li>{{end}}</ul></details>{{end}}</div>{{end}}
+  {{if .Skipped.Total}}<div class="imp-skipped"><details><summary>{{.T "import.skipped_h" "n" (num .Skipped.Total)}}</summary><ul>
+    {{range .Skipped.Reasons}}<li>{{.K}}: {{.V}}</li>{{end}}
+    {{range .Skipped.List}}<li><span>{{.Path}}</span><span class="why">{{.Reason}}</span></li>{{end}}
+    {{if .Skipped.More}}<li>{{$.T "import.and_more_files" "n" (num .Skipped.More)}}</li>{{end}}</ul></details></div>{{end}}
+  {{if and .Cut .ReadOnlyN}}{{template "imp-ack" .}}{{end}}
+  <form class="imp-go" id="imp-applyform" method="post" action="{{.Act}}/apply" hx-post="{{.Act}}/apply" hx-target="#imp-review" hx-swap="outerHTML" hx-push-url="false" hx-disabled-elt="find button">
+    {{template "imp-h" (dict "V" . "Key" "")}}<input type="hidden" name="token" value="{{.Token}}">
+    <button class="btn solid" type="submit" data-go{{if or (not .Docs) (and .Cut .ReadOnlyN (not .AckBig))}} disabled{{end}}>{{if .Into}}{{.T "import.add"}}{{else}}{{.T "import.import"}}{{end}} {{num .Docs}} {{plural .Docs "document" "documents"}}</button>
+  </form>
+  <form class="imp-discard" {{template "imp-discard-attrs" .}}>{{template "imp-h" (dict "V" . "Key" "")}}{{if eq .Kind "git"}}<input type="hidden" name="to" value="git">{{end}}<button class="btn quiet" type="submit">{{.T "import.discard"}}</button></form>
+{{end}}
+
+{{define "imp-proj-attrs"}}hx-post="{{.Act}}/update" hx-trigger="change" hx-swap="none" hx-include="#imp-t,#imp-k,#imp-a,#imp-pf"{{end}}
+
+{{define "imp-rows"}}{{range .Rows}}<li class="imp-node d{{.Depth}}" data-kind="{{.Kind}}" data-key="{{.Key}}" id="imp-r-{{.RID}}">
+    <div class="imp-row">
+      <span class="imp-title" id="imp-t-{{.RID}}">{{.Title}}</span>
+      <span class="imp-meta">{{.KindName}} · {{num .Words}} {{plural .Words "word" "words"}}{{if .Tables}} · {{$.N "import.tables" .Tables}} · {{$.N "import.cells" .Cells}}{{end}}{{if gt .Depth 3}} · {{$.T "import.level" "n" .Level}}{{end}}</span>
+      {{if .Check}}<span class="imp-check">{{$.T "import.check_this"}}</span>{{end}}
+      {{if .Suggest}}<form class="imp-ctl imp-use" {{template "imp-form-attrs" $}}>{{template "imp-h" (dict "V" $ "Key" .Key)}}<input type="hidden" name="act" value="usecase"><input type="hidden" name="title" value="{{.Suggest}}"><button class="btn small quiet" type="submit" aria-describedby="imp-t-{{.RID}}">{{$.T "import.use_title" "t" .Suggest}}</button></form>{{end}}
+      {{if .FirstLine}}<p class="imp-first">“{{.FirstLine}}”</p>{{end}}
+      {{if or .Why .NoTitle}}<p class="imp-why">{{.Why}}{{if and .Why .NoTitle}} · {{end}}{{if .NoTitle}}{{$.T "import.no_title"}}{{end}}</p>{{end}}
+      {{if .Licence}}<form class="imp-ctl imp-putback" {{template "imp-form-attrs" $}}>{{template "imp-h" (dict "V" $ "Key" .Key)}}<input type="hidden" name="act" value="joinprev"><button class="btn small" id="imp-c-{{.RID}}-putback" type="submit" aria-label="{{$.T "import.put_back_a" "t" .Title}}"{{$.Foc .RID "joinprev"}}>{{$.T "import.put_back"}}</button></form>{{end}}
+      <details class="imp-edit" data-key="{{.Key}}"{{if .Open}} open{{end}}>
+        <summary id="imp-s-{{.RID}}"{{$.FocS .RID}} aria-label="{{$.T "import.edit_a" "t" .Title}}">{{$.T "import.edit"}}</summary>
+        <div class="imp-edit-body" id="imp-p-{{.RID}}"{{if not .Open}} hx-get="{{$.Act}}/row?key={{urlquery .Key}}" hx-trigger="toggle from:closest details once" hx-swap="innerHTML"{{end}}>{{if .Panel}}{{template "imp-panel" (dict "V" $ "R" .)}}{{end}}</div>
+      </details>
+      {{if not .Open}}<noscript><a class="btn small quiet" href="{{$.PageURL}}?edit={{urlquery .Key}}#imp-r-{{.RID}}">{{$.T "import.edit_noscript"}}</a></noscript>{{end}}
+      {{if .Warnings}}<p class="imp-warn">{{$.T "import.note_prefix"}} {{range $i, $w := .Warnings}}{{if $i}} {{end}}{{$w}}{{end}}</p>{{end}}
+      {{if or .Long .LookOpen}}<div class="imp-look" id="imp-look-{{.RID}}">{{if .LookOpen}}{{template "imp-inside" (dict "V" $ "I" $.Inside)}}{{else}}<form class="imp-ctl" method="get" action="{{$.PageURL}}" hx-get="{{$.Act}}/look" hx-target="#imp-look-{{.RID}}" hx-swap="innerHTML" hx-push-url="false"><input type="hidden" name="edit" value="{{.Key}}"><input type="hidden" name="look" value="inside"><button class="btn small" id="imp-lb-{{.RID}}" type="submit" aria-label="{{$.T "import.look_a" "t" .Title}}">{{$.T "import.look"}}</button></form>{{end}}</div>{{end}}
+    </div>
+  </li>{{end}}{{if .More}}<li class="imp-showmore"><a class="btn small" href="{{.MoreHref}}" hx-get="{{.Act}}/more?after={{.Shown}}" hx-target="closest li" hx-swap="outerHTML" hx-push-url="false">{{.T "import.show_more" "n" (num .More)}}</a></li>{{end}}{{end}}
+
+{{define "imp-panel"}}{{$v := .V}}{{$r := .R}}
+  <form class="imp-ctl" {{template "imp-form-attrs" $v}} hx-trigger="change">{{template "imp-h" (dict "V" $v "Key" $r.Key)}}<input type="hidden" name="act" value="title">
+    <input id="imp-c-{{$r.RID}}-title" name="title" type="text" maxlength="300" value="{{$r.Title}}" data-act="title" data-key="{{$r.Key}}" aria-label="{{$v.T "import.title_of" "t" $r.Title}}"{{$v.Foc $r.RID "title"}}>
+    <noscript><button class="btn small" type="submit">{{$v.T "import.rename"}}</button></noscript></form>
+  <form class="imp-ctl" {{template "imp-form-attrs" $v}} hx-trigger="change">{{template "imp-h" (dict "V" $v "Key" $r.Key)}}<input type="hidden" name="act" value="kind">
+    <select id="imp-c-{{$r.RID}}-kind" name="kind" data-act="kind" data-key="{{$r.Key}}" aria-label="{{$v.T "import.kind_of" "t" $r.Title}}"{{$v.Foc $r.RID "kind"}}>{{range $v.KindOptions}}<option value="{{.Key}}"{{if eq .Key $r.Kind}} selected{{end}}>{{.Text}}</option>{{end}}</select>
+    <noscript><button class="btn small" type="submit">{{$v.T "import.change_kind"}}</button></noscript></form>
+  {{if $r.Headings}}<form class="imp-ctl" {{template "imp-form-attrs" $v}} hx-trigger="change">{{template "imp-h" (dict "V" $v "Key" $r.Key)}}<input type="hidden" name="act" value="split"><input type="hidden" name="split" value="false">
+    <label class="check" for="imp-c-{{$r.RID}}-split"><input id="imp-c-{{$r.RID}}-split" type="checkbox" name="split" value="true" data-act="split" data-key="{{$r.Key}}"{{if $r.Split}} checked{{end}}{{$v.Foc $r.RID "split"}}><span>{{$v.T "import.split_h2" "n" $r.Headings}}</span></label>
+    <noscript><button class="btn small" type="submit">{{$v.T "import.apply_split"}}</button></noscript></form>{{end}}
+  <form class="imp-ctl imp-btns" {{template "imp-form-attrs" $v}}>{{template "imp-h" (dict "V" $v "Key" $r.Key)}}
+    <button class="btn small" id="imp-c-{{$r.RID}}-up" type="submit" name="act" value="up" data-act="up" data-key="{{$r.Key}}"{{if $r.First}} disabled{{end}} aria-label="{{$v.T "import.move_up_a" "t" $r.Title}}"{{$v.Foc $r.RID "up"}}>{{$v.T "import.move_up"}}</button>
+    <button class="btn small" id="imp-c-{{$r.RID}}-down" type="submit" name="act" value="down" data-act="down" data-key="{{$r.Key}}"{{if $r.Last}} disabled{{end}} aria-label="{{$v.T "import.move_down_a" "t" $r.Title}}"{{$v.Foc $r.RID "down"}}>{{$v.T "import.move_down"}}</button>
+    {{if $r.Panel.Ends}}<button class="btn small quiet" id="imp-c-{{$r.RID}}-top" type="submit" name="act" value="top" data-act="top" data-key="{{$r.Key}}"{{if $r.First}} disabled{{end}} aria-label="{{$v.T "import.move_top_a" "t" $r.Title}}"{{$v.Foc $r.RID "top"}}>{{$v.T "import.move_top"}}</button>
+    <button class="btn small quiet" id="imp-c-{{$r.RID}}-bottom" type="submit" name="act" value="bottom" data-act="bottom" data-key="{{$r.Key}}"{{if $r.Last}} disabled{{end}} aria-label="{{$v.T "import.move_bottom_a" "t" $r.Title}}"{{$v.Foc $r.RID "bottom"}}>{{$v.T "import.move_bottom"}}</button>{{end}}
+    <button class="btn small quiet" type="submit" name="act" value="skip" data-act="skip" data-key="{{$r.Key}}" aria-label="{{$v.T "import.leave_out_a" "t" $r.Title}}">{{$v.T "import.leave_out"}}</button>
+  </form>
+  {{if $r.Panel.Docx}}<div class="imp-own">
+    <form class="imp-ctl" {{template "imp-form-attrs" $v}}>{{template "imp-h" (dict "V" $v "Key" $r.Key)}}<input type="hidden" name="act" value="joinprev">
+      <button class="btn small" id="imp-c-{{$r.RID}}-joinprev" type="submit"{{if not $r.Panel.CanPrev}} aria-disabled="true" aria-describedby="imp-c-{{$r.RID}}-prevwhy"{{end}} aria-label="{{if $r.Panel.Licence}}{{$v.T "import.put_back_a" "t" $r.Title}}{{else}}{{$v.T "import.join_prev_a" "t" $r.Title}}{{end}}"{{$v.Foc $r.RID "joinprev"}}>{{if $r.Panel.Licence}}{{$v.T "import.put_back"}}{{else}}{{$v.T "import.join_prev"}}{{end}}</button>{{if not $r.Panel.CanPrev}} <span class="imp-warn imp-why" id="imp-c-{{$r.RID}}-prevwhy">{{$r.Panel.PrevWhy}}</span>{{end}}</form>
+    <form class="imp-ctl" {{template "imp-form-attrs" $v}}>{{template "imp-h" (dict "V" $v "Key" $r.Key)}}<input type="hidden" name="act" value="matter"><input type="hidden" name="side" value="front">
+      <button class="btn small quiet" id="imp-c-{{$r.RID}}-front" type="submit" aria-label="{{$v.T "import.matter_front_a" "t" $r.Title}}">{{$v.T "import.matter_front"}}</button></form>
+    <form class="imp-ctl" {{template "imp-form-attrs" $v}}>{{template "imp-h" (dict "V" $v "Key" $r.Key)}}<input type="hidden" name="act" value="matter"><input type="hidden" name="side" value="back">
+      <button class="btn small quiet" id="imp-c-{{$r.RID}}-back2" type="submit" aria-label="{{$v.T "import.matter_back_a" "t" $r.Title}}">{{$v.T "import.matter_back"}}</button></form>
+    <div class="imp-splitbox" id="imp-split-{{$r.RID}}">{{if $r.Panel.SplitOpen}}{{template "imp-split" (dict "V" $v "S" $v.Split)}}{{else}}<form class="imp-ctl" method="get" action="{{$v.PageURL}}" hx-get="{{$v.Act}}/look" hx-target="#imp-split-{{$r.RID}}" hx-swap="innerHTML" hx-push-url="false"><input type="hidden" name="edit" value="{{$r.Key}}"><input type="hidden" name="look" value="split">
+      <button class="btn small" id="imp-c-{{$r.RID}}-splitgo" type="submit" aria-label="{{$v.T "import.split_open_a" "t" $r.Title}}">{{$v.T "import.split_open"}}</button></form>{{end}}</div>
+  </div>{{end}}
+  {{if $r.Panel.BookLike}}
+  <form class="imp-ctl" {{template "imp-form-attrs" $v}}>{{template "imp-h" (dict "V" $v "Key" $r.Key)}}<input type="hidden" name="button" value="1"><input type="hidden" name="kind" value="{{if $r.Panel.IsPart}}chapter{{else}}part{{end}}">
+    <button class="btn small quiet" id="imp-c-{{$r.RID}}-make" type="submit" name="act" value="kind" data-act="kind" data-key="{{$r.Key}}" aria-label="{{if $r.Panel.IsPart}}{{$v.T "import.make_chapter_a" "t" $r.Title}}{{else}}{{$v.T "import.make_part_a" "t" $r.Title}}{{end}}"{{$v.Foc $r.RID "make"}}>{{if $r.Panel.IsPart}}{{$v.T "import.make_chapter"}}{{else}}{{$v.T "import.make_part"}}{{end}}</button></form>
+  <form class="imp-ctl imp-to" {{template "imp-form-attrs" $v}}>{{template "imp-h" (dict "V" $v "Key" $r.Key)}}
+    {{if $r.Panel.CanNest}}<label for="imp-c-{{$r.RID}}-nest">{{$v.T "import.nest_pick"}}</label>
+    <select id="imp-c-{{$r.RID}}-nest" name="to" data-key="{{$r.Key}}"><option value="">{{$v.T "import.top"}}</option>{{range $r.Panel.Targets}}<option value="{{.Key}}">{{.Text}}</option>{{end}}</select>
+    <button class="btn small" type="submit" name="act" value="parent" data-act="parent" data-key="{{$r.Key}}" aria-label="{{$v.T "import.nest_a" "t" $r.Title}}">{{$v.T "import.nest_go"}}</button>{{else}}<span class="imp-warn imp-why">{{$r.Panel.NestWhy}}</span>{{end}}</form>
+  <form class="imp-ctl imp-to" {{template "imp-form-attrs" $v}}>{{template "imp-h" (dict "V" $v "Key" $r.Key)}}
+    {{if $r.Panel.CanJoin}}<label for="imp-c-{{$r.RID}}-join">{{$v.T "import.join_pick"}}</label>
+    <select id="imp-c-{{$r.RID}}-join" name="to" data-key="{{$r.Key}}">{{range $r.Panel.Targets}}<option value="{{.Key}}">{{.Text}}</option>{{end}}</select>
+    <button class="btn small" type="submit" name="act" value="merge" data-act="merge" data-key="{{$r.Key}}" aria-label="{{$v.T "import.join_a" "t" $r.Title}}">{{$v.T "import.join_go"}}</button>
+    <span class="imp-warn">{{$v.T "import.join_note"}}</span>{{else}}<span class="imp-warn imp-why">{{$r.Panel.JoinWhy}}</span>{{end}}</form>
+  {{end}}
+{{end}}
+
+{{define "imp-opts"}}{{if .Opts.Show}}{{$o := .Opts}}
+  <form class="imp-opts" id="imp-opts" tabindex="-1"{{if eq .Focus "imp-opts"}} data-focus{{end}} {{template "imp-form-attrs" .}} hx-trigger="change">{{template "imp-h" (dict "V" . "Key" "")}}<input type="hidden" name="act" value="options">
+    {{if $o.Docx}}
+    <fieldset class="rg-src imp-radios" aria-describedby="imp-dc-h"><legend>{{.T "import.dc_h"}}</legend>
+      {{range $i, $c := list "suggest" "accept" "reject"}}<label class="check" for="imp-dc-{{$c}}"><input id="imp-dc-{{$c}}" type="radio" name="opt.docx_changes" value="{{$c}}"{{if eq $o.Changes $c}} checked{{end}}><span><strong>{{$.T (printf "import.dc_%s" $c)}}</strong> {{$.T (printf "import.dc_%s_d" $c)}}</span></label>{{end}}
+    </fieldset><p class="fine" id="imp-dc-h">{{.T "import.dc_note"}}</p>
+    {{end}}
+    {{if $o.Epub}}
+    <fieldset class="rg-src imp-radios"><legend>{{.T "import.es_h"}}</legend>
+      {{range $c := list "auto" "toc" "files" "headings"}}<label class="check" for="imp-es-{{$c}}"><input id="imp-es-{{$c}}" type="radio" name="opt.epub_sections" value="{{$c}}"{{if eq $o.Sections $c}} checked{{end}}><span><strong>{{$.T (printf "import.es_%s" $c)}}</strong> {{$.T (printf "import.es_%s_d" $c)}}</span></label>{{end}}
+    </fieldset>
+    <fieldset class="rg-src imp-radios"><legend>{{.T "import.ep_h"}}</legend>
+      {{range $c := list "skip" "keep"}}<label class="check" for="imp-ep-{{$c}}"><input id="imp-ep-{{$c}}" type="radio" name="opt.epub_pages" value="{{$c}}"{{if eq $o.Pages $c}} checked{{end}}><span><strong>{{$.T (printf "import.ep_%s" $c)}}</strong> {{$.T (printf "import.ep_%s_d" $c)}}</span></label>{{end}}
+    </fieldset>
+    <p class="fine">{{.T "import.epub_again"}}</p>
+    {{end}}
+    {{if $o.Scriv}}
+    <div class="field"><label for="imp-sr">{{.T "import.o_scriv_research"}}</label><select id="imp-sr" name="opt.scrivener_research"><option value="notes"{{if eq $o.ScrivResearch "notes"}} selected{{end}}>{{.T "import.o_scriv_research_notes"}}</option><option value="skip"{{if eq $o.ScrivResearch "skip"}} selected{{end}}>{{.T "import.o_scriv_research_skip"}}</option></select></div>
+    <div class="field"><label for="imp-sn">{{.T "import.o_scriv_notes"}}</label><select id="imp-sn" name="opt.scrivener_notes"><option value="private"{{if eq $o.ScrivNotes "private"}} selected{{end}}>{{.T "import.o_scriv_notes_private"}}</option><option value="skip"{{if eq $o.ScrivNotes "skip"}} selected{{end}}>{{.T "import.o_scriv_notes_skip"}}</option></select></div>
+    <div class="field"><label for="imp-ss">{{.T "import.o_scriv_sheets"}}</label><select id="imp-ss" name="opt.scrivener_sheets" aria-describedby="imp-ss-h"><option value="notes"{{if eq $o.ScrivSheets "notes"}} selected{{end}}>{{.T "import.o_scriv_sheets_notes"}}</option><option value="entities"{{if eq $o.ScrivSheets "entities"}} selected{{end}}>{{.T "import.o_scriv_sheets_entities"}}</option></select></div>
+    <p class="fine" id="imp-ss-h">{{if .Into}}{{.T "import.o_scriv_sheets_into"}}{{else}}{{.T "import.o_scriv_sheets_new"}}{{end}}</p>
+    {{end}}
+    {{if $o.WP}}
+    <div class="field"><label for="imp-wps">{{.T "import.o_wp_status"}}</label><select id="imp-wps" name="opt.wp_status"><option value="published"{{if eq $o.WPStatus "published"}} selected{{end}}>{{.T "import.o_wp_published"}}</option><option value="all"{{if eq $o.WPStatus "all"}} selected{{end}}>{{.T "import.o_wp_all"}}</option></select></div>
+    <div class="field"><label for="imp-wpt">{{.T "import.o_wp_types"}}</label><select id="imp-wpt" name="opt.wp_types"><option value="posts"{{if eq $o.WPTypes "posts"}} selected{{end}}>{{.T "import.o_posts"}}</option><option value="pages"{{if eq $o.WPTypes "pages"}} selected{{end}}>{{.T "import.o_pages"}}</option><option value="both"{{if eq $o.WPTypes "both"}} selected{{end}}>{{.T "import.o_both_pages_part"}}</option></select></div>
+    {{end}}
+    {{if $o.Ghost}}
+    <div class="field"><label for="imp-ghs">{{.T "import.o_wp_status"}}</label><select id="imp-ghs" name="opt.ghost_status"><option value="published"{{if eq $o.GhostStatus "published"}} selected{{end}}>{{.T "import.o_wp_published"}}</option><option value="all"{{if eq $o.GhostStatus "all"}} selected{{end}}>{{.T "import.o_ghost_all"}}</option></select></div>
+    <div class="field"><label for="imp-ght">{{.T "import.o_wp_types"}}</label><select id="imp-ght" name="opt.ghost_types"><option value="posts"{{if eq $o.GhostTypes "posts"}} selected{{end}}>{{.T "import.o_posts"}}</option><option value="pages"{{if eq $o.GhostTypes "pages"}} selected{{end}}>{{.T "import.o_pages"}}</option><option value="both"{{if eq $o.GhostTypes "both"}} selected{{end}}>{{.T "import.o_both"}}</option></select></div>
+    {{end}}
+    {{if $o.Pandoc}}
+    <div class="field"><label for="imp-pdf">{{.T "pandoc.import_format"}}</label><select id="imp-pdf" name="opt.pandoc_format">{{range $o.PandocFormats}}<option value="{{.Key}}"{{if eq .Key $o.PandocFormat}} selected{{end}}>{{.Text}}</option>{{end}}</select></div>
+    <div class="field"><label for="imp-pdh">{{.T "pandoc.import_headings"}}</label><select id="imp-pdh" name="opt.docx_headings"><option value="chapters"{{if eq $o.Headings "chapters"}} selected{{end}}>{{.T "pandoc.import_chapters"}}</option><option value="parts"{{if eq $o.Headings "parts"}} selected{{end}}>{{.T "pandoc.import_parts"}}</option></select></div>
+    {{end}}
+    {{if or $o.Scriv $o.WP $o.Ghost $o.Pandoc}}
+    <div class="field"><label for="imp-sp">{{.T "import.o_pictures"}}</label><select id="imp-sp" name="opt.pictures"><option value="import"{{if eq $o.Pictures "import"}} selected{{end}}>{{.T "import.o_pictures_import"}}</option><option value="skip"{{if eq $o.Pictures "skip"}} selected{{end}}>{{.T "import.o_pictures_skip"}}</option></select></div>
+    {{end}}
+    {{if $o.HasObsidian}}<input type="hidden" name="opt.layout" value="auto"><label class="check" for="imp-obs"><input id="imp-obs" type="checkbox" name="opt.layout" value="obsidian"{{if $o.Obsidian}} checked{{end}}><span>{{.T "import.o_obsidian"}}</span></label>{{end}}
+    <input type="hidden" name="opt.split_scenes" value="none"><label class="check" for="imp-split"><input id="imp-split" type="checkbox" name="opt.split_scenes" value="h2"{{if $o.SplitScenes}} checked{{end}}><span>{{.T "import.o_split"}}</span></label>
+    <noscript><button class="btn small" type="submit">{{.T "import.o_apply"}}</button></noscript>
+  </form>{{end}}{{end}}
+
+{{define "imp-cut"}}{{$c := .Cut}}
+  <section class="imp-cut" aria-labelledby="imp-cut-h">
+    <h3 id="imp-cut-h">{{.T "import.cut_h"}}</h3>
+    {{if $c.NoneSay}}<p class="imp-note" data-kind="warn" id="imp-none">{{$c.NoneSay}}</p>{{end}}{{if $c.Say}}<p class="imp-line" id="imp-cut-say">{{$c.Say}}</p>{{end}}
+    <form class="imp-opts imp-cutform" id="imp-cutform" {{template "imp-form-attrs" .}}>{{template "imp-h" (dict "V" . "Key" "")}}<input type="hidden" name="act" value="cut">
+      <fieldset class="rg-src imp-radios"><legend>{{.T "import.cut_other"}}</legend>
+        {{range $i, $r := $c.Radios}}<label class="check" for="imp-cut-{{$i}}"><input id="imp-cut-{{$i}}" type="radio" name="opt.docx_split" value="{{$r.Value}}"{{if $r.Checked}} checked{{if $c.FocusRadio}} data-focus{{end}}{{end}}><span>{{$r.Label}}</span></label>{{end}}
+      </fieldset>
+      {{if $c.Weak}}<p class="fine">{{$c.Weak}}</p>{{end}}
+      {{if gt $c.Levels 1}}<input type="hidden" name="opt.docx_headings" value="auto"><label class="check" for="imp-cut-parts"><input id="imp-cut-parts" type="checkbox" name="opt.docx_headings" value="parts"{{if $c.PartsOn}} checked{{end}}><span>{{.T "import.cut_parts_on"}}</span></label>{{end}}
+      <button class="btn small" id="imp-cut-apply" type="submit">{{.T "import.cut_apply"}}</button>
+    </form>
+    {{if $c.Caps}}<form class="imp-ctl imp-capsform" {{template "imp-form-attrs" .}}>{{template "imp-h" (dict "V" . "Key" "")}}<input type="hidden" name="act" value="titlecase"><button class="btn small" id="imp-caps" type="submit"{{if eq .Focus "imp-caps"}} data-focus{{end}}>{{.N "import.caps_all" $c.Caps}}</button></form>{{end}}
+    {{if ge $c.Lines 2}}<form class="imp-ctl imp-linesform" {{template "imp-form-attrs" .}}>{{template "imp-h" (dict "V" . "Key" "")}}<input type="hidden" name="act" value="lineall"><button class="btn small" id="imp-lines" type="submit"{{if eq .Focus "imp-lines"}} data-focus{{end}}>{{.N "import.lines_all" $c.Lines}}</button></form>{{end}}
+    <details class="imp-pat"{{if or $c.Pat.Has $c.Pat.Typed $c.Pat.Text}} open{{end}}><summary id="imp-pat-sum">{{.T "import.pat_h"}}</summary>
+      <form class="imp-ctl imp-patform" {{template "imp-form-attrs" .}}>{{template "imp-h" (dict "V" . "Key" "")}}<input type="hidden" name="act" value="pattern">
+        <div class="field"><label for="imp-pat">{{.T "import.pat_label"}}</label><input id="imp-pat" name="opt.docx_split_pattern" type="text" maxlength="200" value="{{$c.Pat.Text}}" autocomplete="off" spellcheck="false" aria-describedby="imp-pat-hint"><span class="hint" id="imp-pat-hint">{{.T "import.pat_hint"}}</span></div>
+        <fieldset class="rg-src imp-radios"><legend>{{.T "import.pat_how"}}</legend>
+          <label class="check" for="imp-pat-starts"><input id="imp-pat-starts" type="radio" name="opt.docx_split_match" value="starts"{{if not $c.Pat.Regex}} checked{{end}}><span>{{.T "import.pat_starts"}}</span></label>
+          <label class="check" for="imp-pat-regex"><input id="imp-pat-regex" type="radio" name="opt.docx_split_match" value="regex"{{if $c.Pat.Regex}} checked{{end}}><span>{{.T "import.pat_regex"}}</span></label>
+        </fieldset>
+        <button class="btn small" id="imp-pat-test" type="submit" name="test" value="1"{{if eq .Focus "imp-pat-test"}} data-focus{{end}}>{{.T "import.pat_test"}}</button>
+        <button class="btn small" id="imp-pat-go" type="submit" name="go" value="1">{{.T "import.pat_go"}}</button>
+      </form>
+      {{if $c.Pat.Has}}<div class="imp-patres" id="imp-pat-r"><p class="imp-line" data-kind="{{if $c.Pat.Refused}}warn{{else}}info{{end}}">{{$c.Pat.Say}}</p>{{if $c.Pat.Lines}}<ul class="imp-facts">{{range $c.Pat.Lines}}<li>“{{.}}”</li>{{end}}</ul>{{end}}</div>{{end}}
+    </details>
+    {{if .Stashed}}<p class="fine imp-stash">{{.N "import.stashed" (len .Stashed) "list" (join .Stashed ", ")}}</p>{{end}}
+    {{if $c.None}}
+    <div class="imp-found">
+      {{if $c.Found}}<ul class="imp-facts">{{range $c.Found}}<li>{{.}}</li>{{end}}</ul>{{end}}
+      {{if or $c.Bulk $c.Piece}}<div class="imp-bulk">
+        {{range $c.Bulk}}<form class="imp-ctl" {{template "imp-form-attrs" $}}>{{template "imp-h" (dict "V" $ "Key" "")}}<input type="hidden" name="act" value="cut"><button class="btn" type="submit" name="opt.docx_split" value="{{.Value}}">{{.Text}}</button></form>{{end}}
+        {{with $c.Piece}}<form class="imp-ctl" {{template "imp-form-attrs" $}}>{{template "imp-h" (dict "V" $ "Key" "")}}<input type="hidden" name="act" value="cut"><button class="btn" type="submit" name="opt.docx_split" value="{{.Value}}">{{.Text}}</button></form>{{end}}
+      </div>{{end}}
+      {{if or $c.Sugs $c.SugMore $c.FocusH}}<h4 id="imp-sug-h" tabindex="-1"{{if $c.FocusH}} data-focus{{end}}>{{.T "import.sug_h"}}</h4><p class="fine">{{.T "import.sug_help"}}</p>
+      <ul class="imp-sugs" aria-labelledby="imp-sug-h">{{range $c.Sugs}}<li class="imp-sug">
+        <div class="imp-sugtext">{{if .Line}}<span class="imp-first" id="imp-sugl-{{.Ordinal}}">“{{.Line}}”</span>{{end}}<span class="imp-why">{{.Why}}{{if .Why}} · {{end}}{{.Pos}}</span></div>
+        <form class="imp-ctl" {{template "imp-form-attrs" $}}>{{template "imp-h" (dict "V" $ "Key" "")}}<input type="hidden" name="act" value="break"><input type="hidden" name="ord" value="{{.Ordinal}}"><button class="btn small" id="imp-sug-{{.Ordinal}}" type="submit"{{if .Line}} aria-describedby="imp-sugl-{{.Ordinal}}"{{end}}{{if .Focus}} data-focus{{end}}>{{$.T "import.sug_start"}}</button></form></li>{{end}}
+        {{if $c.SugMore}}<li class="imp-showmore"><a class="btn small" href="{{$c.SugMoreHref}}" hx-get="{{$.Act}}/progress?sug={{$c.SugMoreN}}&at={{$c.SugAt}}" hx-target="#imp-review" hx-swap="outerHTML" hx-push-url="false">{{$.T "import.show_more" "n" (num $c.SugMore)}}</a></li>{{end}}</ul>
+      {{if $c.SugUnlisted}}<p class="fine">{{$.T "import.sug_unlisted" "n" (num $c.SugUnlisted)}}</p>{{end}}{{end}}
+    </div>
+    {{end}}
+  </section>
+{{end}}
+
+{{define "imp-ack"}}
+  <div class="imp-big"><p class="imp-note" data-kind="warn" id="imp-big-h">{{.N "import.big_h" .ReadOnlyN "limit" .ReadOnlyLimit}} {{.T "import.big_help"}}</p>
+    <form class="imp-ctl" {{template "imp-form-attrs" .}} hx-trigger="change">{{template "imp-h" (dict "V" . "Key" "")}}<input type="hidden" name="act" value="ack"><input type="hidden" name="opt.ack_big" value="false">
+      <label class="check" for="imp-ack"><input id="imp-ack" type="checkbox" name="opt.ack_big" value="true"{{if .AckBig}} checked{{end}}{{if eq .Focus "imp-ack"}} data-focus{{end}} aria-describedby="imp-big-h"><span>{{.T "import.ack_big"}}</span></label>
+      <noscript><button class="btn small" type="submit">{{.T "import.o_apply"}}</button></noscript></form></div>
+{{end}}
+
+{{define "imp-panels"}}
+  {{with .Book}}<h3>{{$.T "import.book_h"}}</h3>
+    <dl class="imp-dl">{{range .Facts}}<div><dt>{{.K}}</dt><dd>{{.V}}</dd></div>{{end}}</dl>
+    <p class="imp-line">{{.Cut}}</p><p class="imp-line">{{.Cover}}</p>
+    {{if .UseCover}}<div class="field"><label class="check" for="imp-usecover"><input id="imp-usecover" type="checkbox" name="use_cover" value="true" form="imp-applyform" aria-describedby="imp-usecover-h"><span>{{$.T "import.use_cover"}}</span></label><span class="hint" id="imp-usecover-h">{{$.T "import.use_cover_h"}}</span></div>{{else if .UseCoverNote}}<p class="imp-line">{{.UseCoverNote}}</p>{{end}}
+    <div class="field"><label for="imp-label">{{$.T "import.label"}}</label><input id="imp-label" name="edition_label" form="imp-applyform" type="text" maxlength="200" value="{{.Label}}" aria-describedby="imp-label-h"><span class="hint" id="imp-label-h">{{$.T "import.label_hint"}}</span></div>
+    <details class="imp-files"><summary>{{$.T "import.files_h" "n" (num .FilesN)}}</summary><ul class="imp-filelist">{{range .Files}}<li><span class="imp-path">{{.Path}}</span><span class="why">{{.Why}}</span></li>{{end}}</ul>{{if .FilesMore}}<p class="fine">{{$.T "import.files_more" "n" (num .FilesMore)}}</p>{{end}}</details>
+  {{end}}
+  {{with .Pdf}}<h3>{{$.T "import.pdf_h"}}</h3>
+    <dl class="imp-dl">{{range .Facts}}<div><dt>{{.K}}</dt><dd>{{.V}}</dd></div>{{end}}</dl>
+    <h4>{{$.T "import.pdf_lost_h"}}</h4>
+    <ul class="imp-facts">{{range .Lines}}<li data-ok="{{if .OK}}true{{else}}false{{end}}"><span class="imp-mark" aria-hidden="true"></span><span>{{.Text}}</span></li>{{end}}</ul>
+    {{if .Pages}}<details class="imp-files"><summary>{{$.T "import.pdf_pages_h" "n" (num .PageN)}}</summary><ul class="imp-filelist">{{range .Pages}}<li><span class="imp-path">{{.K}}</span><span class="why">{{.V}}</span></li>{{end}}</ul></details>{{end}}
+    <p class="fine">{{$.T "import.pdf_nokeep"}}</p>
+  {{end}}
+  {{with .Word}}<h3>{{$.T "import.tr_h"}}</h3>
+    <p class="imp-line">{{.Say}}</p>{{if .Rule}}<p class="imp-line">{{.Rule}}</p>{{end}}
+    <ul class="imp-facts">{{range .Items}}<li>{{.}}</li>{{end}}{{if .Why}}<li class="imp-sub"><ul class="imp-facts">{{range .Why}}<li>{{.}}</li>{{end}}</ul></li>{{end}}</ul>
+    {{if .Authors}}<h4>{{$.T "import.tr_authors"}}</h4><ul class="imp-facts">{{range .Authors}}<li>{{.}}</li>{{end}}</ul>{{end}}
+  {{end}}
+{{end}}
+
+{{define "imp-split"}}{{$v := .V}}{{$s := .S}}
+  {{if not $s.Paras}}<p class="imp-line" id="imp-split-none-{{$s.RID}}" tabindex="-1" data-focus>{{$v.T "import.split_none"}}</p>{{else}}
+  <form class="imp-splitform" {{template "imp-form-attrs" $v}}>{{template "imp-h" (dict "V" $v "Key" $s.Key)}}<input type="hidden" name="act" value="splitat">
+    <fieldset class="rg-src imp-radios imp-paras"><legend>{{$v.T "import.split_h" "t" $s.Title}}</legend>
+      <p class="fine">{{$v.T "import.split_help"}}</p>
+      {{template "imp-split-rows" .}}
+    </fieldset>
+    <button class="btn small" id="imp-split-go-{{$s.RID}}" type="submit">{{$v.T "import.split_go"}}</button>
+  </form>{{end}}
+{{end}}
+
+{{define "imp-split-rows"}}{{$v := .V}}{{$s := .S}}{{range $i, $p := $s.Paras}}<label class="check imp-para" for="{{$p.ID}}"><input id="{{$p.ID}}" type="radio" name="ord" value="{{$p.Ordinal}}" required{{if eq $i 0}} data-focus{{end}}><span>“{{$p.Line}}” <span class="imp-why">{{$p.Pos}}{{if $p.Title}} · {{$v.T "import.split_title"}}{{end}}</span></span></label>{{end}}{{if $s.More}}<div class="imp-moreparas"><a class="btn small" href="{{$s.MoreHref}}" hx-get="{{$v.Act}}/look?edit={{urlquery $s.Key}}&amp;look=split&amp;after={{$s.MoreAfter}}&amp;more=1" hx-target="closest .imp-moreparas" hx-swap="outerHTML" hx-push-url="false">{{$v.T "import.show_more" "n" (num $s.More)}}</a></div>{{end}}{{end}}
+
+{{define "imp-split-more"}}{{template "imp-split-rows" .}}{{end}}
+
+{{define "imp-inside"}}{{$v := .V}}{{$i := .I}}
+  <div class="imp-inside">
+    <h4 id="imp-in-h-{{$i.RID}}" tabindex="-1"{{if $i.FocusH}} data-focus{{end}}>{{$v.T "import.in_h" "t" $i.Title}}</h4>
+    {{if $i.Joined}}<p class="fine">{{$v.N "import.in_joined" $i.Joined}}</p>{{end}}
+    {{if $i.Nothing}}<p class="imp-line">{{$v.T "import.in_none"}}</p>{{else}}
+    <ul class="imp-facts">{{range $i.Found}}<li>{{.}}</li>{{end}}</ul>
+    <div class="imp-bulk">{{range $i.Bulk}}<form class="imp-ctl" {{template "imp-form-attrs" $v}}>{{template "imp-h" (dict "V" $v "Key" $i.Key)}}<input type="hidden" name="act" value="within"><input type="hidden" name="look" value="inside"><input type="hidden" name="rule" value="{{.Value}}"><button class="btn small" type="submit">{{.Text}}</button></form>{{end}}</div>
+    <p class="fine">{{$v.T "import.sug_help"}}</p>
+    <ul class="imp-sugs" aria-labelledby="imp-in-h-{{$i.RID}}">{{template "imp-inside-rows" (dict "V" $v "I" $i "More" false)}}</ul>{{end}}
+  </div>
+{{end}}
+
+{{define "imp-inside-rows"}}{{$v := .V}}{{$i := .I}}{{range $k, $s := $i.Sugs}}<li class="imp-sug">
+    <div class="imp-sugtext"><span class="imp-first" id="{{$s.ID}}-l">“{{$s.Line}}”</span><span class="imp-why">{{$s.Why}} · {{$s.Pos}}</span></div>
+    <form class="imp-ctl" {{template "imp-form-attrs" $v}}>{{template "imp-h" (dict "V" $v "Key" $i.Key)}}<input type="hidden" name="act" value="splitat"><input type="hidden" name="look" value="inside"><input type="hidden" name="ord" value="{{$s.Ordinal}}"><button class="btn small" id="{{$s.ID}}" type="submit" aria-describedby="{{$s.ID}}-l"{{if or $s.Focus (and $.More (eq $k 0))}} data-focus{{end}}>{{$v.T "import.sug_start"}}</button></form></li>{{end}}{{if $i.More}}<li class="imp-showmore"><a class="btn small" href="{{$i.MoreHref}}" hx-get="{{$v.Act}}/look?edit={{urlquery $i.Key}}&amp;look=inside&amp;after={{$i.MoreAfter}}&amp;more=1" hx-target="closest li" hx-swap="outerHTML" hx-push-url="false">{{$v.T "import.show_more" "n" (num $i.More)}}</a></li>{{end}}{{end}}
+
+{{define "imp-inside-more"}}{{template "imp-inside-rows" (dict "V" .V "I" .I "More" true)}}{{end}}
+
+{{define "imp-undo"}}<details class="imp-undo-d" id="imp-undo-{{.RID}}"><summary aria-describedby="imp-ss-{{.RID}}">{{.Summary}}</summary>
+  <p class="fine">{{.Help}}</p>
+  <form method="post" action="{{.Form}}"><input type="hidden" name="_csrf" value="{{.CSRF}}"><button class="btn" type="submit" aria-describedby="imp-ss-{{.RID}}">{{.Action}}</button></form></details>{{end}}
+
+{{define "imp-kept"}}<ul class="imp-kept">{{range .Kept}}<li><span class="imp-kept-t">{{.Title}}</span> <span class="imp-kept-why">{{.Reason}}</span></li>{{end}}{{with .More}}<li class="imp-kept-more">{{.}}</li>{{end}}</ul>{{end}}

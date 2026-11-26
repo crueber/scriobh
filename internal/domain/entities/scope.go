@@ -3,8 +3,10 @@ package entities
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/crueber/scriobh/internal/db"
@@ -68,83 +70,55 @@ type eff struct {
 	Relations                    []string
 }
 
+// onlyOf keeps a loadEffectiveOnly read to one entity id (bound as ?2) on col; "" when it reads them all.
+func onlyOf(only, col string) string {
+	if only == "" {
+		return ""
+	}
+	return " AND " + col + " = ?2"
+}
+
+// relOnly keeps the relationships to the one entity (?2), from either end.
+func relOnly(only string) string {
+	if only == "" {
+		return ""
+	}
+	return " AND (r.from_entity_id = ?2 OR r.to_entity_id = ?2)"
+}
+
 // loadEffective reads every entity in a project's scope with its override
 // applied, in sort order. It is one query for the entities, one for the
 // aliases and one for the relationships, however many entities there are.
 func loadEffective(ctx context.Context, q Querier, projectID string) ([]eff, error) {
-	refs := map[string]int{} // a referenced Compendium's place in the order the references were added
-	var primary sql.NullString
-	if err := q.QueryRowContext(ctx, `SELECT compendium_id FROM projects WHERE id = ?`, projectID).Scan(&primary); err != nil {
-		return nil, ops.NotFound("project")
+	return loadEffectiveOnly(ctx, q, projectID, "")
+}
+
+// loadEffectiveOnly is loadEffective for one entity when only is an entity id: that entity's row, aliases and relationships, and nothing
+// else of the book is read. Only "" reads them all.
+func loadEffectiveOnly(ctx context.Context, q Querier, projectID, only string) ([]eff, error) {
+	args := []any{projectID}
+	if only != "" {
+		args = append(args, only)
 	}
-	rr, err := q.QueryContext(ctx, `SELECT target_compendium_id FROM compendium_refs WHERE owner_kind = 'project' AND owner_id = ? ORDER BY created_at, id`, projectID)
+	primary, refs, err := scopeRefs(ctx, q, projectID)
 	if err != nil {
 		return nil, err
 	}
-	for rr.Next() {
-		var id string
-		if err := rr.Scan(&id); err != nil {
-			rr.Close()
-			return nil, err
-		}
-		refs[id] = len(refs) + 1
-	}
-	if err := rr.Close(); err != nil {
-		return nil, err
-	}
-	rows, err := q.QueryContext(ctx, `SELECT e.id, e.compendium_id, c.name, e.kind, e.name, e.sort_key, e.summary, e.body, e.fields_json, e.color, e.updated_at,
-			o.project_id IS NOT NULL, o.name, o.summary, COALESCE(o.fields_json, '{}'), COALESCE(o.notes, ''), COALESCE(o.updated_at, '')
+	rows, err := q.QueryContext(ctx, `SELECT `+effCols("e.body")+`
 		FROM entities e
 		JOIN compendiums c ON c.id = e.compendium_id AND c.deleted_at IS NULL AND c.trashed_at IS NULL
 		LEFT JOIN project_entity_overrides o ON o.project_id = ?1 AND o.entity_id = e.id
-		WHERE e.trashed_at IS NULL AND `+scopePredicate("e")+` ORDER BY e.sort_key, e.id`, projectID)
+		WHERE e.trashed_at IS NULL AND `+scopePredicate("e")+onlyOf(only, "e.id")+` ORDER BY e.sort_key, e.id`, args...)
 	if err != nil {
 		return nil, err
 	}
 	var out []eff
 	index := map[string]int{}
 	for rows.Next() {
-		var x eff
-		var fields, ofields string
-		var hasOverride bool
-		var oname, osummary sql.NullString
-		var onotes, oat string
-		if err := rows.Scan(&x.ID, &x.CompendiumID, &x.CompendiumName, &x.Kind, &x.BaseName, &x.SortKey, &x.BaseSummary, &x.Body, &fields, &x.Color, &x.UpdatedAt,
-			&hasOverride, &oname, &osummary, &ofields, &onotes, &oat); err != nil {
+		x, err := scanEff(rows, primary, refs)
+		if err != nil {
 			rows.Close()
 			return nil, err
-		}
-		switch n := refs[x.CompendiumID]; {
-		case primary.Valid && x.CompendiumID == primary.String:
-			x.Via, x.Order = "primary", 0
-		case n > 0:
-			x.Via, x.Order = "reference", n
-		default:
-			x.Via, x.Order = "link", linkOrder
-		}
-		x.BaseFields = parseFields(fields)
-		x.Name, x.Summary = x.BaseName, x.BaseSummary
-		x.Fields = map[string]string{}
-		for k, v := range x.BaseFields {
-			x.Fields[k] = v
-		}
-		x.Aliases = []string{}
-		if hasOverride {
-			ov := &OverrideView{Fields: parseFields(ofields), Notes: onotes, UpdatedAt: oat}
-			if oname.Valid {
-				n := oname.String
-				ov.Name = &n
-				x.Name = n
-			}
-			if osummary.Valid {
-				s := osummary.String
-				ov.Summary = &s
-				x.Summary = s
-			}
-			for k, v := range ov.Fields {
-				x.Fields[k] = v
-			}
-			x.Override = ov
 		}
 		index[x.ID] = len(out)
 		out = append(out, x)
@@ -157,7 +131,7 @@ func loadEffective(ctx context.Context, q Querier, projectID string) ([]eff, err
 	}
 	arows, err := q.QueryContext(ctx, `SELECT a.entity_id, a.alias FROM entity_aliases a JOIN entities e ON e.id = a.entity_id
 		JOIN compendiums c ON c.id = e.compendium_id AND c.deleted_at IS NULL AND c.trashed_at IS NULL
-		WHERE e.trashed_at IS NULL AND `+scopePredicate("e")+` ORDER BY a.entity_id, a.alias_key, a.id`, projectID)
+		WHERE e.trashed_at IS NULL AND `+scopePredicate("e")+onlyOf(only, "a.entity_id")+` ORDER BY a.entity_id, a.alias_key, a.id`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +150,7 @@ func loadEffective(ctx context.Context, q Querier, projectID string) ([]eff, err
 	}
 	lrows, err := q.QueryContext(ctx, `SELECT r.from_entity_id, r.to_entity_id, r.label, r.inverse_label, r.symmetric, f.name, t.name
 		FROM entity_relations r JOIN entities f ON f.id = r.from_entity_id JOIN entities t ON t.id = r.to_entity_id
-		WHERE f.trashed_at IS NULL AND t.trashed_at IS NULL AND (`+scopePredicate("f")+` OR `+scopePredicate("t")+`)`, projectID)
+		WHERE f.trashed_at IS NULL AND t.trashed_at IS NULL AND (`+scopePredicate("f")+` OR `+scopePredicate("t")+`)`+relOnly(only), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -205,6 +179,127 @@ func loadEffective(ctx context.Context, q Querier, projectID string) ([]eff, err
 		sort.Strings(out[i].Relations)
 	}
 	return out, nil
+}
+
+// effCols is the column list of an effective entity, the order scanEff reads it in. A query that does not need the body passes an empty string literal in its place.
+func effCols(body string) string {
+	return `e.id, e.compendium_id, c.name, e.kind, e.name, e.sort_key, e.summary, ` + body + `, e.fields_json, e.color, e.updated_at,
+		o.project_id IS NOT NULL, o.name, o.summary, COALESCE(o.fields_json, '{}'), COALESCE(o.notes, ''), COALESCE(o.updated_at, '')`
+}
+
+// scanner is a row or a row set: what scanEff reads through.
+type scanner interface{ Scan(dest ...any) error }
+
+// scanEff reads one row of effCols into an eff, with the book's override applied and how the project reaches it.
+func scanEff(rs scanner, primary sql.NullString, refs map[string]int) (eff, error) {
+	var x eff
+	var fields, ofields string
+	var hasOverride bool
+	var oname, osummary sql.NullString
+	var onotes, oat string
+	if err := rs.Scan(&x.ID, &x.CompendiumID, &x.CompendiumName, &x.Kind, &x.BaseName, &x.SortKey, &x.BaseSummary, &x.Body, &fields, &x.Color, &x.UpdatedAt,
+		&hasOverride, &oname, &osummary, &ofields, &onotes, &oat); err != nil {
+		return eff{}, err
+	}
+	switch n := refs[x.CompendiumID]; {
+	case primary.Valid && x.CompendiumID == primary.String:
+		x.Via, x.Order = "primary", 0
+	case n > 0:
+		x.Via, x.Order = "reference", n
+	default:
+		x.Via, x.Order = "link", linkOrder
+	}
+	x.BaseFields = parseFields(fields)
+	x.Name, x.Summary = x.BaseName, x.BaseSummary
+	x.Fields = map[string]string{}
+	for k, v := range x.BaseFields {
+		x.Fields[k] = v
+	}
+	x.Aliases = []string{}
+	if hasOverride {
+		ov := &OverrideView{Fields: parseFields(ofields), Notes: onotes, UpdatedAt: oat}
+		if oname.Valid {
+			n := oname.String
+			ov.Name = &n
+			x.Name = n
+		}
+		if osummary.Valid {
+			s := osummary.String
+			ov.Summary = &s
+			x.Summary = s
+		}
+		for k, v := range ov.Fields {
+			x.Fields[k] = v
+		}
+		x.Override = ov
+	}
+	return x, nil
+}
+
+// scopeRefs reads a project's primary Compendium (NULL when it has none) and the Compendiums it references. The value in refs is the
+// reference's place in the order the references were added, from 1.
+func scopeRefs(ctx context.Context, q Querier, projectID string) (sql.NullString, map[string]int, error) {
+	var primary sql.NullString
+	if err := q.QueryRowContext(ctx, `SELECT compendium_id FROM projects WHERE id = ?`, projectID).Scan(&primary); err != nil {
+		return primary, nil, ops.NotFound("project")
+	}
+	refs := map[string]int{}
+	rr, err := q.QueryContext(ctx, `SELECT target_compendium_id FROM compendium_refs WHERE owner_kind = 'project' AND owner_id = ? ORDER BY created_at, id`, projectID)
+	if err != nil {
+		return primary, nil, err
+	}
+	for rr.Next() {
+		var id string
+		if err := rr.Scan(&id); err != nil {
+			rr.Close()
+			return primary, nil, err
+		}
+		refs[id] = len(refs) + 1
+	}
+	if err := rr.Close(); err != nil {
+		return primary, nil, err
+	}
+	return primary, refs, nil
+}
+
+// readableCompendiums returns the roles the caller holds on the Compendiums of a project's scope that it may read: a member at reader or
+// above. A key pinned to a project reads the primary Compendium and nothing else. The candidates are the primary, the references and the
+// Compendiums of the project's links; a candidate the caller may not read is left out, and its entities are counted as hidden.
+func readableCompendiums(ctx context.Context, q Querier, p ops.Principal, projectID string, primary sql.NullString, refs map[string]int) (map[string]string, error) {
+	var cands []string
+	if primary.Valid {
+		cands = append(cands, primary.String)
+	}
+	for id := range refs {
+		cands = append(cands, id)
+	}
+	lrows, err := q.QueryContext(ctx, `SELECT DISTINCT e.compendium_id FROM project_entity_links l JOIN entities e ON e.id = l.entity_id WHERE l.project_id = ?`, projectID)
+	if err != nil {
+		return nil, err
+	}
+	for lrows.Next() {
+		var id string
+		if err := lrows.Scan(&id); err != nil {
+			lrows.Close()
+			return nil, err
+		}
+		cands = append(cands, id)
+	}
+	if err := lrows.Close(); err != nil {
+		return nil, err
+	}
+	roles := map[string]string{}
+	checked := map[string]bool{}
+	for _, cid := range cands {
+		if checked[cid] || p.ProjectID != "" && (!primary.Valid || cid != primary.String) {
+			continue
+		}
+		checked[cid] = true
+		if role, ok := compaccess.Role(ctx, q, p.UserID, cid); ok && compaccess.AtLeast(role, compaccess.Reader) {
+			roles[cid] = role
+		}
+	}
+	return roles, nil
 }
 
 // ProjectionFile is a file of a project's compendium/ projection.
@@ -487,7 +582,7 @@ func registerScope(r *ops.Registry) {
 	ops.Register(r, ops.Op{
 		Name: "project.entity.list", Method: "GET", Path: "/api/v1/projects/{id}/entities",
 		Desc: "The entities a project shows, as the project sees them: its primary Compendium's, those of Compendiums it references, and single linked entities, each with the project's override applied and how it was reached (via). " +
-			"Only entities of Compendiums the caller is a member of are returned: being on the project does not grant the bible, so a project reader who is not on the Compendium gets an empty list. No bodies; use project.entity.get.",
+			"Only entities of Compendiums the caller is a member of are returned: being on the project does not grant the Compendium, so a project reader who is not on the Compendium gets an empty list. No bodies; use project.entity.get.",
 		Auth: ops.RequireProject(ops.ProjectReader),
 	}, projectList)
 	ops.Register(r, ops.Op{
@@ -563,53 +658,136 @@ type ProjectListOut struct {
 	Hidden     bool            `json:"hidden" desc:"True when the project has entities of a Compendium the caller is not a member of. They are not counted or named."`
 }
 
+// projectList answers one page of a project's entities. The database does the work: the scope, the caller's readable Compendiums, the kind
+// and Compendium filters and the search (each word folded as the Go code folds it, through scr_fold) are one WHERE clause, the counts and the
+// page are read with it, and only the page's rows and aliases are read. A body and the relationships are never read here.
 func projectList(c *ops.Ctx, in ProjectListIn) (ProjectListOut, error) {
 	tx, err := c.DB().Read().BeginTx(c, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		return ProjectListOut{}, err
 	}
 	defer tx.Rollback()
-	rows, err := loadEffective(c, tx, in.ID)
+	out := ProjectListOut{Items: []ProjectEntity{}}
+	primary, refs, err := scopeRefs(c, tx, in.ID)
 	if err != nil {
-		return ProjectListOut{}, err
+		return out, err
 	}
-	all := len(rows)
-	rows, roles, err := readable(c, tx, c.P, rows)
+	roles, err := readableCompendiums(c, tx, c.P, in.ID, primary, refs)
 	if err != nil {
-		return ProjectListOut{}, err
+		return out, err
 	}
-	out := ProjectListOut{Items: []ProjectEntity{}, Hidden: len(rows) < all}
-	k := text.FoldTitle(in.Q)
-	var match []eff
-	for _, r := range rows {
-		if in.Kind != "" && r.Kind != in.Kind || in.Compendium != "" && r.CompendiumID != in.Compendium {
-			continue
-		}
-		if k != "" {
-			hit := strings.Contains(text.FoldTitle(r.Name), k) || strings.Contains(text.FoldTitle(r.BaseName), k)
-			for _, a := range r.Aliases {
-				hit = hit || strings.Contains(text.FoldTitle(a), k)
-			}
-			if !hit {
-				continue
-			}
-		}
-		match = append(match, r)
+	allowed, err := json.Marshal(keysOf(roles))
+	if err != nil {
+		return out, err
 	}
-	out.Total = len(match)
-	if in.Offset < len(match) {
-		end := in.Offset + in.Limit
-		if end > len(match) {
-			end = len(match)
+	// Hidden: some entity of the scope is in a Compendium the caller may not read.
+	var all, readable int
+	if err := tx.QueryRowContext(c, `SELECT COUNT(*), COALESCE(SUM(e.compendium_id IN (SELECT value FROM json_each(?2))), 0)
+		FROM entities e JOIN compendiums c ON c.id = e.compendium_id AND c.deleted_at IS NULL AND c.trashed_at IS NULL
+		WHERE e.trashed_at IS NULL AND `+scopePredicate("e"), in.ID, string(allowed)).Scan(&all, &readable); err != nil {
+		return out, err
+	}
+	out.Hidden = readable < all
+
+	args := []any{in.ID, string(allowed)}
+	add := func(v any) string {
+		args = append(args, v)
+		return "?" + strconv.Itoa(len(args))
+	}
+	where := []string{`e.trashed_at IS NULL`, scopePredicate("e"), `e.compendium_id IN (SELECT value FROM json_each(?2))`}
+	if in.Kind != "" {
+		where = append(where, `e.kind = `+add(in.Kind))
+	}
+	if in.Compendium != "" {
+		where = append(where, `e.compendium_id = `+add(in.Compendium))
+	}
+	if k := text.FoldTitle(in.Q); k != "" {
+		ph := add(k)
+		where = append(where, `(instr(scr_fold(COALESCE(o.name, e.name)), `+ph+`) > 0 OR instr(scr_fold(e.name), `+ph+`) > 0
+			OR EXISTS (SELECT 1 FROM entity_aliases a WHERE a.entity_id = e.id AND instr(scr_fold(a.alias), `+ph+`) > 0))`)
+	}
+	from := ` FROM entities e
+		JOIN compendiums c ON c.id = e.compendium_id AND c.deleted_at IS NULL AND c.trashed_at IS NULL
+		LEFT JOIN project_entity_overrides o ON o.project_id = ?1 AND o.entity_id = e.id
+		WHERE ` + strings.Join(where, " AND ")
+	var total int
+	if err := tx.QueryRowContext(c, `SELECT COUNT(*)`+from, args...).Scan(&total); err != nil {
+		return out, err
+	}
+	out.Total = total
+	if in.Offset < 0 || in.Offset >= total {
+		return out, nil
+	}
+	end := in.Offset + in.Limit
+	if end > total {
+		end = total
+	}
+	if end < total {
+		out.NextOffset = end
+	}
+	if end <= in.Offset {
+		return out, nil
+	}
+	pargs := append(append([]any{}, args...), end-in.Offset, in.Offset)
+	rows, err := tx.QueryContext(c, `SELECT `+effCols("''")+from+` ORDER BY e.sort_key, e.id LIMIT ?`+strconv.Itoa(len(args)+1)+` OFFSET ?`+strconv.Itoa(len(args)+2), pargs...)
+	if err != nil {
+		return out, err
+	}
+	var page []eff
+	index := map[string]int{}
+	for rows.Next() {
+		x, err := scanEff(rows, primary, refs)
+		if err != nil {
+			rows.Close()
+			return out, err
 		}
-		for _, r := range match[in.Offset:end] {
-			out.Items = append(out.Items, r.wire(roles, false))
+		index[x.ID] = len(page)
+		page = append(page, x)
+	}
+	if err := rows.Close(); err != nil {
+		return out, err
+	}
+	if len(page) > 0 {
+		ids := make([]string, len(page))
+		for i, x := range page {
+			ids[i] = x.ID
 		}
-		if end < len(match) {
-			out.NextOffset = end
+		idJSON, err := json.Marshal(ids)
+		if err != nil {
+			return out, err
 		}
+		arows, err := tx.QueryContext(c, `SELECT a.entity_id, a.alias FROM entity_aliases a WHERE a.entity_id IN (SELECT value FROM json_each(?1))
+			ORDER BY a.entity_id, a.alias_key, a.id`, string(idJSON))
+		if err != nil {
+			return out, err
+		}
+		for arows.Next() {
+			var id, alias string
+			if err := arows.Scan(&id, &alias); err != nil {
+				arows.Close()
+				return out, err
+			}
+			if i, ok := index[id]; ok {
+				page[i].Aliases = append(page[i].Aliases, alias)
+			}
+		}
+		if err := arows.Close(); err != nil {
+			return out, err
+		}
+	}
+	for _, x := range page {
+		out.Items = append(out.Items, x.wire(roles, false))
 	}
 	return out, nil
+}
+
+// keysOf is the keys of a map, in no order.
+func keysOf(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
 }
 
 // ProjectGetIn names one entity in a project.
@@ -658,6 +836,18 @@ func projectGet(c *ops.Ctx, in ProjectGetIn) (ProjectItem, error) {
 		return ProjectItem{}, err
 	}
 	defer tx.Rollback()
+	ref := strings.TrimSpace(in.Entity)
+	// An id, which the lookup panel and the sheet send, reads that entity alone. Anything else (a name, an alias, an unknown id) still reads
+	// the whole book, as it always did, so the answer for a name is unchanged.
+	one, err := loadEffectiveOnly(c, tx, in.ID, ref)
+	if err != nil {
+		return ProjectItem{}, err
+	}
+	if one, roles, err := readable(c, tx, c.P, one); err != nil {
+		return ProjectItem{}, err
+	} else if x, ok := findIn(one, ref); ok {
+		return ProjectItem{Item: x.wire(roles, true)}, nil
+	}
 	rows, err := loadEffective(c, tx, in.ID)
 	if err != nil {
 		return ProjectItem{}, err
@@ -666,7 +856,7 @@ func projectGet(c *ops.Ctx, in ProjectGetIn) (ProjectItem, error) {
 	if err != nil {
 		return ProjectItem{}, err
 	}
-	x, ok := findIn(rows, strings.TrimSpace(in.Entity))
+	x, ok := findIn(rows, ref)
 	if !ok {
 		return ProjectItem{}, ops.NotFound("entity")
 	}

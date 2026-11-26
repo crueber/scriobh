@@ -155,7 +155,9 @@ await kit.test("the 390 px phone: the Alternatives tab is a sheet that fits, its
   await pg.evaluate(() => window.scriobh.inspector.close());
   // Add an alternative by the toolbar's button on a touch screen.
   await pg.evaluate(() => { const v = window.scriobh.write.editor.view; let hit; v.state.doc.descendants((n, p) => { if (!hit && n.isText && n.text.includes("tide")) hit = [p + n.text.indexOf("tide"), p + n.text.indexOf("tide") + 4]; }); v.dispatch(v.state.tr.setSelection(v.state.selection.constructor.create(v.state.doc, hit[0], hit[1]))); });
-  await pg.locator('#fmtbar [data-cmd="alt"]').tap();
+  await pg.locator("#fmt-aa").tap(); // the strip is behind Aa on a phone (U11.3)
+  await pg.locator('#fmtbar [data-cmd="revise"]').tap();
+  await pg.locator('#revise-menu [data-cmd="alt"]').tap();
   await pg.locator("#alt-pop").waitFor();
   const pb = await pg.locator("#alt-pop").boundingBox();
   ok(pb.x >= 0 && pb.x + pb.width <= 391, "the add form is inside the screen: " + JSON.stringify(pb));
@@ -363,13 +365,16 @@ await kit.test("review 12: the formatting bar says when it is wider than the scr
   kit.watch(pg, "phone");
   await pg.goto(`${base()}/p/${book.slug}/d/${doc}`);
   await ready(pg);
+  // On a phone the strip is behind Aa (U11.3): open it, then the "more" button is there to scroll the bar.
+  await pg.waitForFunction(() => performance.getEntriesByType("resource").some((r) => /\/js\/phone\./.test(r.name)), null, { timeout: 8000 });
+  await pg.locator("#fmt-aa").tap();
   await pg.waitForSelector(".fmt-more:not([hidden])", { timeout: 5000 });
-  const w0 = await pg.evaluate(() => document.querySelector("#fmtbar").scrollLeft);
+  const w0 = await pg.evaluate(() => document.querySelector(".fmt-track").scrollLeft);
   await pg.locator(".fmt-more").tap();
   await sleep(700);
-  ok((await pg.evaluate(() => document.querySelector("#fmtbar").scrollLeft)) > w0, "the button scrolled the bar");
+  ok((await pg.evaluate(() => document.querySelector(".fmt-track").scrollLeft)) > w0, "the button scrolled the bar");
   for (let i = 0; i < 5 && (await pg.locator(".fmt-more").innerText()) === "\u203a"; i++) { await pg.locator(".fmt-more").tap(); await sleep(700); }
-  const hidden = await pg.evaluate(() => { const bar = document.querySelector("#fmtbar").getBoundingClientRect(), more = document.querySelector(".fmt-more").getBoundingClientRect(); return [...document.querySelectorAll('#fmtbar [data-cmd="alt"], #fmtbar [data-cmd="ghost"], #fmtbar [data-cmd="stash"]')].filter((b) => b.getBoundingClientRect().right > more.left + 1 || b.getBoundingClientRect().left < bar.left - 1).length; });
+  const hidden = await pg.evaluate(() => { const bar = document.querySelector(".fmt-track").getBoundingClientRect(), more = document.querySelector(".fmt-more").getBoundingClientRect(); return [...document.querySelectorAll('#fmtbar [data-cmd="alt"], #fmtbar [data-cmd="ghost"], #fmtbar [data-cmd="stash"]')].filter((b) => b.getBoundingClientRect().right > more.left + 1 || b.getBoundingClientRect().left < bar.left - 1).length; });
   eq(hidden, 0, "after scrolling to the end, the new buttons are on screen and not under the arrow");
   // Targets: wide as well as tall.
   await pg.evaluate(() => window.scriobh.inspector.open("alts", false));

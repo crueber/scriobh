@@ -295,6 +295,39 @@ func compBriefs(ctx context.Context, q vocab.Querier, cids []string) (map[string
 	return out, rows.Err()
 }
 
+// compBriefsOf is compBriefs for the entities with these ids only, read in chunks of 500.
+func compBriefsOf(ctx context.Context, q vocab.Querier, cids, ids []string) (map[string]vocab.Brief, error) {
+	out := map[string]vocab.Brief{}
+	if len(cids) == 0 {
+		return out, nil
+	}
+	for from := 0; from < len(ids); from += 500 {
+		chunk := ids[from:min(from+500, len(ids))]
+		args := append(anys(chunk), anys(cids)...)
+		rows, err := q.QueryContext(ctx, `SELECT id, name, kind, color, summary FROM entities WHERE id IN (`+placeholders(len(chunk))+`)
+			AND compendium_id IN (`+placeholders(len(cids))+`) AND trashed_at IS NULL`, args...)
+		if err != nil {
+			return nil, err
+		}
+		for rows.Next() {
+			var b vocab.Brief
+			if err := rows.Scan(&b.ID, &b.Name, &b.Kind, &b.Color, &b.Summary); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			out[b.ID] = b
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		if err := rows.Close(); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
 // findEntity resolves an entity id, or a name or alias, among the live
 // entities of one Compendium. Names and aliases are unique within a Compendium
 // (the entity ops refuse a clash), so a name has at most one meaning; if the

@@ -101,7 +101,7 @@ Print one with `scriobh-cli --skill <name>`; they are written out below.
 
 - `quickstart`: Look around: sign in, list, read, search
 - `drafting`: Draft: create a project and a chapter, write, save safely
-- `compendium`: Compendium: build and use the story bible
+- `compendium`: Compendium: build and use the story's reference
 - `import`: Import: bring in existing Markdown
 - `export`: Export: take the manuscript out
 
@@ -172,9 +172,9 @@ Trashing (`doc trash`) needs `--yes` and is reversible with `doc restore`. A sna
 
 ### Recipe: compendium
 
-A Compendium holds the story bible: entities (characters, places, items, organisations, concepts), research, a timeline. It can exist without a project and be shared by several. The commands below are what this server offers, taken from its schema.
+A Compendium holds the story's reference: entities (characters, places, items, organisations, concepts), research, a timeline. It can exist without a project and be shared by several. The commands below are what this server offers, taken from its schema.
 
-Ground rules for building a bible:
+Ground rules for building a Compendium:
 
 - Work in small batches and read back: add a handful of entities, list them, then continue. Preview each write with `--dry-run`.
 - Refer to things by name; the CLI resolves them. An entity is looked up inside one Compendium, so say which with `--compendium NAME` (a key restricted to a project or a Compendium works in its own, and needs no flag). Entities match by name or alias, and a name or alias another entity already uses is refused, so keep them distinct.
@@ -289,7 +289,7 @@ scriobh-cli timeline scene unlink "The Salt Road/Chapter 1" --yes
 - `compendium attachment usage`: Storage in use by a Compendium, by you, and its limits.
 - `compendium change get`: One recorded merge or split with its before-state: every entity that moved (its name and revision as they were), every entity merged away with its whole sheet, every relationship, event person, place and alias that was dropped, the keys repointed and the references added.
 - `compendium change list`: The merges and splits that moved entities into or out of this Compendium, newest first: when, by whom, the counts.
-- `compendium create`: Create a Compendium: the shared bible (entities, and later research and a timeline) for one story world or subject.
+- `compendium create`: Create a Compendium: the shared Compendium (entities, and later research and a timeline) for one story world or subject.
 - `compendium export`: Export a Compendium as a Markdown bundle (a zip): one file per entity with front matter (name, kind, aliases, summary, custom fields, relationships), a manifest of the Compendium's settings, field definitions and every file's SHA-256, and a README.
 - `compendium get`: Get one Compendium with what depends on it: the projects that use it (named only when the caller can open them), the Compendiums it references and how many reference it, and the member count.
 - `compendium list`: List the Compendiums the caller is a member of, most recently changed first.
@@ -1656,7 +1656,7 @@ scriobh-cli backup list
 
 #### `comment create`
 
-Write a comment: a new thread anchored to a range of a document (give document_id and a quote with the words around it, or offsets with the base_revision you hold), a comment on a document as a whole (document_id only), a comment on the project (neither), or a reply (parent_id: the first comment of a thread). Needs the reviewer role. The anchor is a range of the document's Markdown source: it follows the text as it is edited and goes orphaned, never guessed onto a lookalike, when the text is gone. A range may not touch a private note or ghosted text. mentions are user ids from comment.people; @name in the body is resolved to the same people. Mentioned people, the author of the thread you reply to and the project's owner get an in-app notification (nothing is emailed or pushed). Comments are not part of the manuscript: they never reach an export, the mirror, Git or the search index.
+Write a comment: a new thread anchored to a range of a document (give document_id and a quote with the words around it, or offsets with the base_revision you hold), a comment on a document as a whole (document_id only), a comment on the project (neither), or a reply (parent_id: the first comment of a thread). Needs the reviewer role. The anchor is a range of the document's Markdown source: it follows the text as it is edited and goes orphaned, never guessed onto a lookalike, when the text is gone. A range may not touch a private note or ghosted text. mentions are user ids from comment.people; @name in the body is resolved to the same people. Mentioned people, the author of the thread you reply to and the project's owner get an in-app notification (nothing is emailed or pushed). Comments are not part of the manuscript: they never reach an export, the mirror, Git or the search index. visibility is shared (default: the people on the project who can read comments) or private ("Only me": the author alone, not the owner, not an editor, not an instance administrator). A private comment has no mentions and tells no one: no notification, no event, no webhook. A reply has its thread's visibility. Your own agent keys see your private comments, as you do.
 
 `POST /api/v1/projects/{id}/comments`, key scope `write`, needs project reviewer role. Can be previewed with `--dry-run`.
 
@@ -1672,12 +1672,13 @@ scriobh-cli comment create "The Salt Road" --body @chapter-1.md
 - `--document-id, --doc doc name or id  (name or id)  The document the comment is on; empty for a comment on the project.`
 - `--end N  Anchor: end (exclusive).`
 - `--kind comment|question|suggestion-note  Default comment.`
-- `--mentions JSON  User ids to mention (from comment.people).`
+- `--mentions JSON  User ids to mention (from comment.people). Not for a private comment.`
 - `--occurrence N  With quote: which occurrence, counting from 0, when context cannot tell.`
 - `--parent-id, --comment comment name or id  (name or id)  Reply to this thread (the id of its first comment).`
 - `--plain  quote, before and after are the text as a reader sees it rendered (a selection in the reading view), not Markdown source. It is looked for in the text a reader can see (not front matter, private notes, link targets or footnotes), and placed in the source, formatting inside it included.`
 - `--quote TEXT  Anchor, instead of offsets: the Markdown source of the text.`
 - `--start N  Anchor: start, in UTF-16 code units of the body at base_revision.`
+- `--visibility shared|private  Default shared. private: only you can see it ("Only me"); it has no mentions and tells no one. A reply takes its thread's.`
 
 #### `comment delete`
 
@@ -1694,7 +1695,7 @@ scriobh-cli comment delete "The Salt Road" text --yes
 
 #### `comment get`
 
-One thread: the comment you name (or the thread a reply belongs to), with its replies.
+One thread: the comment you name (or the thread a reply belongs to), with its replies. A private thread of someone else is answered exactly as an id that does not exist (404).
 
 `GET /api/v1/projects/{id}/comments/{comment_id}`, key scope `read`, needs project reviewer role.
 
@@ -1707,7 +1708,7 @@ scriobh-cli comment get "The Salt Road" text
 
 #### `comment list`
 
-List comment threads (each root with its replies), newest last, for the whole project or one document (in document order, anchored ones first, then those that lost their place). Filter by status (open, resolved, all), anchor state, kind, author (a user id, or me), mentions_me and q (a word in the text). Needs the reviewer role: a reader cannot see comments. total and the open/resolved counts are for the same filters without the status.
+List comment threads (each root with its replies), newest last, for the whole project or one document (in document order, anchored ones first, then those that lost their place). Filter by status (open, resolved, all), anchor state, kind, author (a user id, or me), mentions_me and q (a word in the text). Needs the reviewer role: a reader cannot see comments. total and the open/resolved counts are for the same filters without the status. Only the threads you can see are listed or counted: shared ones, and your own private ("Only me") ones, which no one else's call, an owner's or an administrator's included, can list, count or find with q. visibility narrows to shared, private or all (default all: everything you can see). A private comment of someone who is taken off the project is kept, and no one can read it; it is theirs again if they are added back. Backups and the database file hold private comments as they hold everything else: "Only me" is kept by the application, not against someone who has the server's files.
 
 `GET /api/v1/projects/{id}/comments`, key scope `read`, needs project reviewer role.
 
@@ -1726,6 +1727,7 @@ scriobh-cli comment list "The Salt Road"
 - `--q TEXT  (query)  Only threads with this word or phrase in a comment (case-insensitive for plain letters).`
 - `--state active|orphaned|none  (query)  Only anchored threads in this state (none: not anchored to a range).`
 - `--status open|resolved|all  (query)  Default all.`
+- `--visibility shared|private|all  (query)  shared: only threads the people on the project can read. private: only your own "Only me" threads. Default all: every thread you can see.`
 
 #### `comment people`
 
@@ -1790,7 +1792,7 @@ scriobh-cli comment resolve "The Salt Road" text
 
 #### `comment update`
 
-Reword a comment. Only its author, and only within 15 minutes of writing it; after that, reply instead. Mentions are worked out again; a person newly mentioned is notified.
+Reword a comment. Only its author, and only within 15 minutes of writing it (of sharing it, for one that was written as private); after that, reply instead. A private comment has no time limit: nobody else has read it. Mentions are worked out again; a person newly mentioned is notified (never for a private comment).
 
 `PATCH /api/v1/projects/{id}/comments/{comment_id}`, key scope `write`, needs project reviewer role. Can be previewed with `--dry-run`.
 
@@ -1954,7 +1956,7 @@ scriobh-cli compendium change list "The Salt Road"
 
 #### `compendium create`
 
-Create a Compendium: the shared bible (entities, and later research and a timeline) for one story world or subject. It exists with or without a project. The caller becomes its owner. Pass project_id to make it the primary Compendium of a project the caller owns that has none; a project has at most one primary.
+Create a Compendium: the shared Compendium (entities, and later research and a timeline) for one story world or subject. It exists with or without a project. The caller becomes its owner. Pass project_id to make it the primary Compendium of a project the caller owns that has none; a project has at most one primary.
 
 `POST /api/v1/compendiums`, key scope `write`, needs writer role. Can be previewed with `--dry-run`.
 
@@ -2118,7 +2120,7 @@ scriobh-cli compendium primary set "The Salt Road" --compendium-id "The Salt Roa
 
 #### `compendium purge`
 
-Permanently delete a Compendium with its entities, aliases, relationships, field definitions, overrides, links, references and recorded exports. It cannot be undone. Owner only; it must already be in the trash. confirm_name must equal its name exactly, and detach_projects must list the id of every project that uses it (primary or by reference) and hidden_projects the count of those the caller cannot open, as compendium.get reports them, so nobody loses a bible by surprise. Projects keep everything else; their primary pointer is cleared.
+Permanently delete a Compendium with its entities, aliases, relationships, field definitions, overrides, links, references and recorded exports. It cannot be undone. Owner only; it must already be in the trash. confirm_name must equal its name exactly, and detach_projects must list the id of every project that uses it (primary or by reference) and hidden_projects the count of those the caller cannot open, as compendium.get reports them, so nobody loses a Compendium by surprise. Projects keep everything else; their primary pointer is cleared.
 
 `DELETE /api/v1/compendiums/{id}`, key scope `write`, needs compendium role. Can be previewed with `--dry-run`. Needs `--yes`.
 
@@ -3758,8 +3760,14 @@ scriobh-cli import append "The Salt Road" --token TOKEN
 
 - `<project>, --id, --project  (required, name or id)  Project id.`
 - `--docx @FILE  The same .docx that was previewed, base64.`
+- `--docx-breaks JSON  With docx, text, pdf or pandoc: paragraphs a chapter starts at in addition to what docx_split finds, by ordinal (the preview's breaks.suggestions and each document's ordinal give them): the paragraph's index among the document's paragraphs. At most 5,000. A chapter is taken away by joining it into the one before.`
 - `--docx-changes suggest|accept|reject  With docx: what tracked changes become. suggest (default) imports the text as its author left it, every change rejected, and proposes each change inside a paragraph as a pending suggestion by its Word author (a label, not an account) at the time Word recorded; accepting them all in review gives the reviewers' text. Changes that cannot be suggestions (a whole paragraph inserted or deleted, a heading, a table, a footnote, code, over the caps of 300 per document and 1,000 per import, or ones the review checks would refuse) are taken as the reviewer left them, and the preview counts each kind. accept imports the final view and reject the original, with no suggestions. Word comments are imported as comments by their Word authors in every mode.`
-- `--docx-headings chapters|parts`
+- `--docx-headings auto|chapters|parts`
+- `--docx-split auto|heading1|heading2|style|label|page_breaks|section_breaks|numerals|size|pattern|none  With docx or text (and a pdf or pandoc source that has no headings): how the document is cut into chapters. auto (default) cuts at strong boundaries only, all used together: a heading of the chapter level (the lowest level used twice; a book title at Heading 1 over Heading 2 chapters, and Part headings over chapters, are told apart without a setting), a paragraph in a custom style named for chapters, and a 'Chapter 3' line that looks like a title (centred, bold, capitals, larger or after a page break), with an unformatted one that belongs to a numbered run. A page break, a section break, a lone numeral or a plain label alone never cuts under auto; the preview lists them as breaks.suggestions and each can be chosen: heading1 or heading2 cut at that heading level, style at docx_split_style, label at every line that begins with a chapter word and a number, page_breaks, section_breaks and numerals at those, size at pieces of docx_split_words, pattern at the paragraphs that match docx_split_pattern, none leaves one document. docx_breaks adds chapters of the writer's own under any of them.`
+- `--docx-split-match starts|regex  With docx_split_pattern: starts (default) matches the beginning of a paragraph, ignoring case; regex reads the pattern as an RE2 expression, case as typed (begin it with (?i) to ignore case).`
+- `--docx-split-pattern TEXT  With docx_split pattern: the text a chapter's first line begins with (docx_split_match starts), or an RE2 regular expression the line matches (regex). At most 200 characters. It is tried only against paragraphs of 200 characters or fewer, so a long paragraph is never a chapter start; a regular expression with a very large program, or a book with too much short text to try it on, is refused. The preview's breaks.pattern says how many paragraphs it matches, and the first five. A pattern kept with another docx_split changes nothing but that answer.`
+- `--docx-split-style TEXT  With docx_split style: the paragraph style's name (the preview's breaks.options lists those that exist).`
+- `--docx-split-words N  With docx_split size: about how many words a piece has, 500 to 20,000 (default 5,000). The cut is at the nearest scene break within a fifth, else at a paragraph's end.`
 - `--edition-label TEXT  With epub: what the edition is called (default: the preview's epub.label).`
 - `--edits JSON`
 - `--epub @FILE  Instead of files, a zip or a Word document: an EPUB 2 or 3 book (.epub), base64. The reading order, metadata, cover, pictures and footnotes are read and the preview proposes parts, chapters and front and back matter, which the edits can rename, merge (merge_into), move (parent), skip and reorder. A book with DRM, or with a fixed layout, is refused. The file is kept intact, with its SHA-256, as an edition of the project (edition.list).`
@@ -3776,10 +3784,13 @@ scriobh-cli import append "The Salt Road" --token TOKEN
 - `--pdf @FILE  Instead of files, a zip or a .docx: a PDF with a text layer, base64 (up to 32 MiB). The text is read, with its chapters taken from the outline or from headings; running heads, page numbers and a table of contents are removed, footnotes are kept, and the preview says what could not be recovered (scanned pages, tables, pictures, columns, right-to-left text) with a confidence for each page. A scanned or encrypted PDF is refused; nothing in a PDF is run.`
 - `--pictures import|skip  With a Scrivener project, or a WordPress or Ghost export sent as a zip with its images folder: import (default) stores the pictures that are in what was sent as attachments of the project, checked and cleaned of their location, camera and other details, and links the text to them; skip leaves them out (each is marked [image]). A picture is never fetched from an address.`
 - `--reorder JSON`
+- `--rev N  With stage_id: the draft's revision you reviewed.`
 - `--scrivener-notes private|skip  With a Scrivener project: private (default) puts each document's notes after its text as private notes; skip leaves them out.`
 - `--scrivener-research notes|skip  With a Scrivener project: notes (default) imports the Research folder as research notes (a picture becomes a note showing it, with pictures: import; PDFs and web pages are named in a note, not imported); skip leaves Research out.`
 - `--scrivener-sheets notes|entities  With a Scrivener project: notes (default) imports the Characters and Places folders as research notes; entities makes each character and place sheet an entity of the project's primary Compendium (a new project gets one, owned by you; adding to a project uses its primary Compendium if you may edit it). A name the Compendium already has, or a sheet with a picture, stays a research note, and the result says so.`
 - `--split-scenes none|h2`
+- `--stage-id, --stage stage name or id  (name or id)  Instead of the files: the draft import.stage made for this project. Its file, options and edits are used; send also rev and the preview's token.`
+- `--text @FILE  Instead of files, a zip or a .docx: a plain text file (.txt, UTF-8, up to 16 MiB), base64. Blank lines separate paragraphs; a line of * * * or --- is a scene break; the characters Markdown would take for markup are escaped. Chapters are found from what the words say: a heading is never assumed, a chapter label (Chapter 3) in capitals is a chapter, and a plain one is offered in the preview (breaks.suggestions) to take; docx_split, docx_split_pattern and docx_breaks cut it as they cut a Word document.`
 - `--token TEXT  (required)  The token import.append_preview returned for these same files.`
 - `--wp-status published|all  With a WordPress export: published (default) imports published posts and pages only; all adds drafts, pending, scheduled and private ones, which are marked do not compile.`
 - `--wp-types posts|pages|both  With a WordPress export: posts (default), pages, or both (pages go in a part called Pages after the posts).`
@@ -3797,8 +3808,16 @@ scriobh-cli import append-preview "The Salt Road"
 
 - `<project>, --id, --project  (required, name or id)  Project id.`
 - `--docx @FILE  Instead of files or a zip: a Word document (.docx), base64. Headings become chapters, text before the first heading becomes front matter, scene breaks, lists, tables and footnotes are kept; comments, images and tracked changes are reported, not imported.`
+- `--docx-breaks JSON  With docx, text, pdf or pandoc: paragraphs a chapter starts at in addition to what docx_split finds, by ordinal (the preview's breaks.suggestions and each document's ordinal give them): the paragraph's index among the document's paragraphs. At most 5,000. A chapter is taken away by joining it into the one before.`
 - `--docx-changes suggest|accept|reject  With docx: what tracked changes become. suggest (default) imports the text as its author left it, every change rejected, and proposes each change inside a paragraph as a pending suggestion by its Word author (a label, not an account) at the time Word recorded; accepting them all in review gives the reviewers' text. Changes that cannot be suggestions (a whole paragraph inserted or deleted, a heading, a table, a footnote, code, over the caps of 300 per document and 1,000 per import, or ones the review checks would refuse) are taken as the reviewer left them, and the preview counts each kind. accept imports the final view and reject the original, with no suggestions. Word comments are imported as comments by their Word authors in every mode.`
-- `--docx-headings chapters|parts  With docx: chapters (default) makes Heading 1 a chapter; parts makes Heading 1 a part and Heading 2 a chapter.`
+- `--docx-headings auto|chapters|parts  With docx: leave empty (or auto) to have the heading level and the parts chosen for you (see docx_split). chapters makes the lowest heading level the chapters, with no parts; parts makes it a part and the next level the chapters.`
+- `--docx-split auto|heading1|heading2|style|label|page_breaks|section_breaks|numerals|size|pattern|none  With docx or text (and a pdf or pandoc source that has no headings): how the document is cut into chapters. auto (default) cuts at strong boundaries only, all used together: a heading of the chapter level (the lowest level used twice; a book title at Heading 1 over Heading 2 chapters, and Part headings over chapters, are told apart without a setting), a paragraph in a custom style named for chapters, and a 'Chapter 3' line that looks like a title (centred, bold, capitals, larger or after a page break), with an unformatted one that belongs to a numbered run. A page break, a section break, a lone numeral or a plain label alone never cuts under auto; the preview lists them as breaks.suggestions and each can be chosen: heading1 or heading2 cut at that heading level, style at docx_split_style, label at every line that begins with a chapter word and a number, page_breaks, section_breaks and numerals at those, size at pieces of docx_split_words, pattern at the paragraphs that match docx_split_pattern, none leaves one document. docx_breaks adds chapters of the writer's own under any of them.`
+- `--docx-split-match starts|regex  With docx_split_pattern: starts (default) matches the beginning of a paragraph, ignoring case; regex reads the pattern as an RE2 expression, case as typed (begin it with (?i) to ignore case).`
+- `--docx-split-pattern TEXT  With docx_split pattern: the text a chapter's first line begins with (docx_split_match starts), or an RE2 regular expression the line matches (regex). At most 200 characters. It is tried only against paragraphs of 200 characters or fewer, so a long paragraph is never a chapter start; a regular expression with a very large program, or a book with too much short text to try it on, is refused. The preview's breaks.pattern says how many paragraphs it matches, and the first five. A pattern kept with another docx_split changes nothing but that answer.`
+- `--docx-split-style TEXT  With docx_split style: the paragraph style's name (the preview's breaks.options lists those that exist).`
+- `--docx-split-try TEXT  With docx: a pattern to try. It changes nothing: the preview's breaks.try says how many paragraphs it matches (docx_split_try_match says how to read it, as docx_split_match does), and the first five.`
+- `--docx-split-try-match starts|regex`
+- `--docx-split-words N  With docx_split size: about how many words a piece has, 500 to 20,000 (default 5,000). The cut is at the nearest scene break within a fifth, else at a paragraph's end.`
 - `--edits JSON  Optional: preview with these edits applied.`
 - `--epub @FILE  Instead of files, a zip or a Word document: an EPUB 2 or 3 book (.epub), base64. The reading order, metadata, cover, pictures and footnotes are read and the preview proposes parts, chapters and front and back matter, which the edits can rename, merge (merge_into), move (parent), skip and reorder. A book with DRM, or with a fixed layout, is refused. The file is kept intact, with its SHA-256, as an edition of the project (edition.list).`
 - `--epub-pages skip|keep  With epub: skip (default) leaves out the cover page and the title page, which the project's own title and author replace; keep imports a title page as front matter. The contents page is always left out.`
@@ -3817,6 +3836,8 @@ scriobh-cli import append-preview "The Salt Road"
 - `--scrivener-research notes|skip  With a Scrivener project: notes (default) imports the Research folder as research notes (a picture becomes a note showing it, with pictures: import; PDFs and web pages are named in a note, not imported); skip leaves Research out.`
 - `--scrivener-sheets notes|entities  With a Scrivener project: notes (default) imports the Characters and Places folders as research notes; entities makes each character and place sheet an entity of the project's primary Compendium (a new project gets one, owned by you; adding to a project uses its primary Compendium if you may edit it). A name the Compendium already has, or a sheet with a picture, stays a research note, and the result says so.`
 - `--split-scenes none|h2`
+- `--stage-id, --stage stage name or id  (name or id)  Instead of the files: the id import.stage returned. The staged file, the options and the edits are then the draft's (review it with import.draft.update); send nothing else of the source.`
+- `--text @FILE  Instead of files, a zip or a .docx: a plain text file (.txt, UTF-8, up to 16 MiB), base64. Blank lines separate paragraphs; a line of * * * or --- is a scene break; the characters Markdown would take for markup are escaped. Chapters are found from what the words say: a heading is never assumed, a chapter label (Chapter 3) in capitals is a chapter, and a plain one is offered in the preview (breaks.suggestions) to take; docx_split, docx_split_pattern and docx_breaks cut it as they cut a Word document.`
 - `--wp-status published|all  With a WordPress export: published (default) imports published posts and pages only; all adds drafts, pending, scheduled and private ones, which are marked do not compile.`
 - `--wp-types posts|pages|both  With a WordPress export: posts (default), pages, or both (pages go in a part called Pages after the posts).`
 - `--zip @FILE  Instead of files: a zip of the folder, base64.`
@@ -3833,8 +3854,14 @@ scriobh-cli import apply --token TOKEN
 
 - `--author TEXT`
 - `--docx @FILE  The same .docx that was previewed, base64.`
+- `--docx-breaks JSON  With docx, text, pdf or pandoc: paragraphs a chapter starts at in addition to what docx_split finds, by ordinal (the preview's breaks.suggestions and each document's ordinal give them): the paragraph's index among the document's paragraphs. At most 5,000. A chapter is taken away by joining it into the one before.`
 - `--docx-changes suggest|accept|reject  With docx: what tracked changes become. suggest (default) imports the text as its author left it, every change rejected, and proposes each change inside a paragraph as a pending suggestion by its Word author (a label, not an account) at the time Word recorded; accepting them all in review gives the reviewers' text. Changes that cannot be suggestions (a whole paragraph inserted or deleted, a heading, a table, a footnote, code, over the caps of 300 per document and 1,000 per import, or ones the review checks would refuse) are taken as the reviewer left them, and the preview counts each kind. accept imports the final view and reject the original, with no suggestions. Word comments are imported as comments by their Word authors in every mode.`
-- `--docx-headings chapters|parts  As in the preview.`
+- `--docx-headings auto|chapters|parts  As in the preview.`
+- `--docx-split auto|heading1|heading2|style|label|page_breaks|section_breaks|numerals|size|pattern|none  With docx or text (and a pdf or pandoc source that has no headings): how the document is cut into chapters. auto (default) cuts at strong boundaries only, all used together: a heading of the chapter level (the lowest level used twice; a book title at Heading 1 over Heading 2 chapters, and Part headings over chapters, are told apart without a setting), a paragraph in a custom style named for chapters, and a 'Chapter 3' line that looks like a title (centred, bold, capitals, larger or after a page break), with an unformatted one that belongs to a numbered run. A page break, a section break, a lone numeral or a plain label alone never cuts under auto; the preview lists them as breaks.suggestions and each can be chosen: heading1 or heading2 cut at that heading level, style at docx_split_style, label at every line that begins with a chapter word and a number, page_breaks, section_breaks and numerals at those, size at pieces of docx_split_words, pattern at the paragraphs that match docx_split_pattern, none leaves one document. docx_breaks adds chapters of the writer's own under any of them.`
+- `--docx-split-match starts|regex  With docx_split_pattern: starts (default) matches the beginning of a paragraph, ignoring case; regex reads the pattern as an RE2 expression, case as typed (begin it with (?i) to ignore case).`
+- `--docx-split-pattern TEXT  With docx_split pattern: the text a chapter's first line begins with (docx_split_match starts), or an RE2 regular expression the line matches (regex). At most 200 characters. It is tried only against paragraphs of 200 characters or fewer, so a long paragraph is never a chapter start; a regular expression with a very large program, or a book with too much short text to try it on, is refused. The preview's breaks.pattern says how many paragraphs it matches, and the first five. A pattern kept with another docx_split changes nothing but that answer.`
+- `--docx-split-style TEXT  With docx_split style: the paragraph style's name (the preview's breaks.options lists those that exist).`
+- `--docx-split-words N  With docx_split size: about how many words a piece has, 500 to 20,000 (default 5,000). The cut is at the nearest scene break within a fifth, else at a paragraph's end.`
 - `--edition-label TEXT  With epub: what the edition is called (default: the preview's epub.label, the title and year).`
 - `--edits JSON  Renames, kind changes, skips, merges, moves and per-file splits, by node key.`
 - `--epub @FILE  Instead of files, a zip or a Word document: an EPUB 2 or 3 book (.epub), base64. The reading order, metadata, cover, pictures and footnotes are read and the preview proposes parts, chapters and front and back matter, which the edits can rename, merge (merge_into), move (parent), skip and reorder. A book with DRM, or with a fixed layout, is refused. The file is kept intact, with its SHA-256, as an edition of the project (edition.list).`
@@ -3852,16 +3879,84 @@ scriobh-cli import apply --token TOKEN
 - `--pdf @FILE  Instead of files, a zip or a .docx: a PDF with a text layer, base64 (up to 32 MiB). The text is read, with its chapters taken from the outline or from headings; running heads, page numbers and a table of contents are removed, footnotes are kept, and the preview says what could not be recovered (scanned pages, tables, pictures, columns, right-to-left text) with a confidence for each page. A scanned or encrypted PDF is refused; nothing in a PDF is run.`
 - `--pictures import|skip  With a Scrivener project, or a WordPress or Ghost export sent as a zip with its images folder: import (default) stores the pictures that are in what was sent as attachments of the project, checked and cleaned of their location, camera and other details, and links the text to them; skip leaves them out (each is marked [image]). A picture is never fetched from an address.`
 - `--reorder JSON  New order for one parent's children.`
+- `--rev N  With stage_id: the draft's revision you reviewed (import.draft.get). A draft that has moved on is refused.`
 - `--scrivener-notes private|skip  With a Scrivener project: private (default) puts each document's notes after its text as private notes; skip leaves them out.`
 - `--scrivener-research notes|skip  With a Scrivener project: notes (default) imports the Research folder as research notes (a picture becomes a note showing it, with pictures: import; PDFs and web pages are named in a note, not imported); skip leaves Research out.`
 - `--scrivener-sheets notes|entities  With a Scrivener project: notes (default) imports the Characters and Places folders as research notes; entities makes each character and place sheet an entity of the project's primary Compendium (a new project gets one, owned by you; adding to a project uses its primary Compendium if you may edit it). A name the Compendium already has, or a sheet with a picture, stays a research note, and the result says so.`
 - `--split-scenes none|h2  As in the preview.`
+- `--stage-id, --stage stage name or id  (name or id)  Instead of the files: the draft import.stage made. Its file, options and edits are used; send also rev and the preview's token.`
+- `--text @FILE  Instead of files, a zip or a .docx: a plain text file (.txt, UTF-8, up to 16 MiB), base64. Blank lines separate paragraphs; a line of * * * or --- is a scene break; the characters Markdown would take for markup are escaped. Chapters are found from what the words say: a heading is never assumed, a chapter label (Chapter 3) in capitals is a chapter, and a plain one is offered in the preview (breaks.suggestions) to take; docx_split, docx_split_pattern and docx_breaks cut it as they cut a Word document.`
 - `--title TEXT  Project title; default the preview's.`
 - `--token TEXT  (required)  The token import.preview returned for these same files.`
 - `--use-cover  With epub: make the book's cover picture the new project's own cover (a layout of one front image, with the book's title as its description). The preview's epub.cover.can_use_as_cover says whether it may be one; a picture that may not is left as an attachment and the result says so.`
 - `--wp-status published|all  With a WordPress export: published (default) imports published posts and pages only; all adds drafts, pending, scheduled and private ones, which are marked do not compile.`
 - `--wp-types posts|pages|both  With a WordPress export: posts (default), pages, or both (pages go in a part called Pages after the posts).`
 - `--zip @FILE  The same zip that was previewed, base64.`
+
+#### `import draft discard`
+
+Throw away an import draft and its staged file. Nothing that was imported is touched.
+
+`DELETE /api/v1/imports/drafts/{id}`, key scope `write`, needs writer role. Cannot be previewed with `--dry-run`. Needs `--yes`.
+
+```sh
+scriobh-cli import draft discard text --yes
+```
+
+- `<draft>, --id, --draft  (required, name or id)  The draft's id (stage_id).`
+
+#### `import draft get`
+
+One import draft: its options, your edits and its revision; with preview=true also what the import would create now (the same answer as import.preview). Only its owner can read it; anyone else, and a draft that does not exist, are not found.
+
+`GET /api/v1/imports/drafts/{id}`, key scope `read`, needs writer role.
+
+```sh
+scriobh-cli import draft get text
+```
+
+- `<draft>, --id, --draft  (required, name or id)  The draft's id (stage_id).`
+- `--look-after N  (query)  How many of the list to skip: it comes a page at a time.`
+- `--look-count N  (query)  How many to list, up to 1,000 (default 100).`
+- `--look-key TEXT  (query)  With a Word document: look into the chapter with this key (from the preview). Nothing is changed.`
+- `--look-mode split|inside  (query)  split (default) lists the chapter's paragraphs, to split it at one; inside lists the places a chapter could start inside it (a page break, a section break, a heading below the chapter level, a scene break, an unformatted label, a lone number), the weak rules included.`
+- `--preview  (query)  Also run the preview of the draft's current state (the same answer as import.preview with stage_id).`
+
+#### `import draft list`
+
+Your imports in progress, and those you finished in the last week, newest change first. Only you can see them.
+
+`GET /api/v1/imports/drafts`, key scope `read`, needs writer role.
+
+```sh
+scriobh-cli import draft list
+```
+
+#### `import draft update`
+
+Change an import draft: the options its file is read with, a rename, a kind, a join into another document, a move, a reorder, what to leave out, the new project's title; or undo the last change. Send base_revision: a draft that has moved on (another tab) is refused with reason revision. The change is made on a copy and previewed first, and saved only if the preview accepts it (a join into itself or a move into what is inside it is refused with the reason and nothing is stored). It answers the new revision and the preview.
+
+`POST /api/v1/imports/drafts/{id}`, key scope `write`, needs writer role. Cannot be previewed with `--dry-run`.
+
+```sh
+scriobh-cli import draft update text --base-revision 1
+```
+
+- `<draft>, --id, --draft  (required, name or id)  The draft's id (stage_id).`
+- `--base-revision N  (required)  The revision the change was made on: a draft that has moved on refuses it with reason revision.`
+- `--break N  With a Word document, a text file, or a PDF or Pandoc document cut by the detector: start a chapter at the paragraph with this ordinal (a suggestion's ordinal from the preview's breaks). The chapter that was there is split in two at it.`
+- `--break-from TEXT  With break: the key of the chapter the paragraph is in, so the answer can say where it was split (the break itself is only the paragraph's ordinal).`
+- `--chapter-line-all  Rename every chapter whose title holds text before a chapter label to that label (line_title), except those the writer has named. The words before the label stay in the chapter.`
+- `--edit JSON`
+- `--matter JSON  Make this document, and everything above it (side front) or below it (side back), front matter or back matter, as one change. Parts are left as they are.`
+- `--move JSON`
+- `--options JSON  Options the source is read with, by name (docx_headings, docx_changes, docx_split, docx_split_style, docx_split_words, docx_breaks, split_scenes, layout, epub_sections, epub_pages, pictures, scrivener_research, scrivener_notes, scrivener_sheets, wp_status, wp_types, ghost_status, ghost_types, pandoc_format) and, for the apply, use_cover (true or false), edition_label and ack_big (a Word document with a chapter of 25,000 words or more imports only when this is true). Changing one that changes how the file is read clears the edits, except for a Word document, whose chapters are named for the paragraph they start at: the edits of those that remain stay and the rest are listed; undo takes that back.`
+- `--project JSON  The new project's title, kind and author. These are saved without a new revision, since nothing in the mapping depends on them.`
+- `--reorder JSON  A parent's children in the order wanted.`
+- `--reuse TEXT  The id of an earlier review of this same file (one of this review's reuse offers): its chapter changes are used here, through the same rules as a change of cut. Those whose chapter is not in this cut are set aside and listed. Only while this review has no changes of its own.`
+- `--title-case-all  Rename every chapter whose title is in capitals to the title case the preview suggests (suggested_title), except those the writer already renamed.`
+- `--undo  Go back to the state before the last change (and again to redo it).`
+- `--within JSON  With a Word document: start a chapter at every place of one kind inside a chapter (a page break, a section break, a heading below the chapter level, a scene break, an unformatted label, a lone number, or pieces of docx_split_words), as one change.`
 
 #### `import git-apply`
 
@@ -3951,8 +4046,16 @@ scriobh-cli import preview
 ```
 
 - `--docx @FILE  Instead of files or a zip: a Word document (.docx), base64. Headings become chapters, text before the first heading becomes front matter, scene breaks, lists, tables and footnotes are kept; comments, images and tracked changes are reported, not imported.`
+- `--docx-breaks JSON  With docx, text, pdf or pandoc: paragraphs a chapter starts at in addition to what docx_split finds, by ordinal (the preview's breaks.suggestions and each document's ordinal give them): the paragraph's index among the document's paragraphs. At most 5,000. A chapter is taken away by joining it into the one before.`
 - `--docx-changes suggest|accept|reject  With docx: what tracked changes become. suggest (default) imports the text as its author left it, every change rejected, and proposes each change inside a paragraph as a pending suggestion by its Word author (a label, not an account) at the time Word recorded; accepting them all in review gives the reviewers' text. Changes that cannot be suggestions (a whole paragraph inserted or deleted, a heading, a table, a footnote, code, over the caps of 300 per document and 1,000 per import, or ones the review checks would refuse) are taken as the reviewer left them, and the preview counts each kind. accept imports the final view and reject the original, with no suggestions. Word comments are imported as comments by their Word authors in every mode.`
-- `--docx-headings chapters|parts  With docx: chapters (default) makes Heading 1 a chapter; parts makes Heading 1 a part and Heading 2 a chapter.`
+- `--docx-headings auto|chapters|parts  With docx: leave empty (or auto) to have the heading level and the parts chosen for you (see docx_split). chapters makes the lowest heading level the chapters, with no parts; parts makes it a part and the next level the chapters.`
+- `--docx-split auto|heading1|heading2|style|label|page_breaks|section_breaks|numerals|size|pattern|none  With docx or text (and a pdf or pandoc source that has no headings): how the document is cut into chapters. auto (default) cuts at strong boundaries only, all used together: a heading of the chapter level (the lowest level used twice; a book title at Heading 1 over Heading 2 chapters, and Part headings over chapters, are told apart without a setting), a paragraph in a custom style named for chapters, and a 'Chapter 3' line that looks like a title (centred, bold, capitals, larger or after a page break), with an unformatted one that belongs to a numbered run. A page break, a section break, a lone numeral or a plain label alone never cuts under auto; the preview lists them as breaks.suggestions and each can be chosen: heading1 or heading2 cut at that heading level, style at docx_split_style, label at every line that begins with a chapter word and a number, page_breaks, section_breaks and numerals at those, size at pieces of docx_split_words, pattern at the paragraphs that match docx_split_pattern, none leaves one document. docx_breaks adds chapters of the writer's own under any of them.`
+- `--docx-split-match starts|regex  With docx_split_pattern: starts (default) matches the beginning of a paragraph, ignoring case; regex reads the pattern as an RE2 expression, case as typed (begin it with (?i) to ignore case).`
+- `--docx-split-pattern TEXT  With docx_split pattern: the text a chapter's first line begins with (docx_split_match starts), or an RE2 regular expression the line matches (regex). At most 200 characters. It is tried only against paragraphs of 200 characters or fewer, so a long paragraph is never a chapter start; a regular expression with a very large program, or a book with too much short text to try it on, is refused. The preview's breaks.pattern says how many paragraphs it matches, and the first five. A pattern kept with another docx_split changes nothing but that answer.`
+- `--docx-split-style TEXT  With docx_split style: the paragraph style's name (the preview's breaks.options lists those that exist).`
+- `--docx-split-try TEXT  With docx: a pattern to try. It changes nothing: the preview's breaks.try says how many paragraphs it matches (docx_split_try_match says how to read it, as docx_split_match does), and the first five.`
+- `--docx-split-try-match starts|regex`
+- `--docx-split-words N  With docx_split size: about how many words a piece has, 500 to 20,000 (default 5,000). The cut is at the nearest scene break within a fifth, else at a paragraph's end.`
 - `--edits JSON  Optional: preview with these edits applied, exactly as apply would.`
 - `--epub @FILE  Instead of files, a zip or a Word document: an EPUB 2 or 3 book (.epub), base64. The reading order, metadata, cover, pictures and footnotes are read and the preview proposes parts, chapters and front and back matter, which the edits can rename, merge (merge_into), move (parent), skip and reorder. A book with DRM, or with a fixed layout, is refused. The file is kept intact, with its SHA-256, as an edition of the project (edition.list).`
 - `--epub-pages skip|keep  With epub: skip (default) leaves out the cover page and the title page, which the project's own title and author replace; keep imports a title page as front matter. The contents page is always left out.`
@@ -3971,9 +4074,73 @@ scriobh-cli import preview
 - `--scrivener-research notes|skip  With a Scrivener project: notes (default) imports the Research folder as research notes (a picture becomes a note showing it, with pictures: import; PDFs and web pages are named in a note, not imported); skip leaves Research out.`
 - `--scrivener-sheets notes|entities  With a Scrivener project: notes (default) imports the Characters and Places folders as research notes; entities makes each character and place sheet an entity of the project's primary Compendium (a new project gets one, owned by you; adding to a project uses its primary Compendium if you may edit it). A name the Compendium already has, or a sheet with a picture, stays a research note, and the result says so.`
 - `--split-scenes none|h2  h2 turns the second-level headings of each file into scenes. Default none.`
+- `--stage-id, --stage stage name or id  (name or id)  Instead of the files: the id import.stage returned. The staged file, the options and the edits are then the draft's (review it with import.draft.update); send nothing else of the source.`
+- `--text @FILE  Instead of files, a zip or a .docx: a plain text file (.txt, UTF-8, up to 16 MiB), base64. Blank lines separate paragraphs; a line of * * * or --- is a scene break; the characters Markdown would take for markup are escaped. Chapters are found from what the words say: a heading is never assumed, a chapter label (Chapter 3) in capitals is a chapter, and a plain one is offered in the preview (breaks.suggestions) to take; docx_split, docx_split_pattern and docx_breaks cut it as they cut a Word document.`
 - `--wp-status published|all  With a WordPress export: published (default) imports published posts and pages only; all adds drafts, pending, scheduled and private ones, which are marked do not compile.`
 - `--wp-types posts|pages|both  With a WordPress export: posts (default), pages, or both (pages go in a part called Pages after the posts).`
 - `--zip @FILE  Instead of files: a zip of the folder, base64.`
+
+#### `import source list`
+
+The imports a project has had, newest first (the 20 most recent): what each was, when, how many documents it made and how many are still here, and what import.undo would do with it now.
+
+`GET /api/v1/projects/{id}/imports`, key scope `read`, needs project editor role.
+
+```sh
+scriobh-cli import source list "The Salt Road"
+```
+
+- `<project>, --id, --project  (required, name or id)  Project id.`
+
+#### `import stage`
+
+Hold a file for import on the server while you review what it would create: the request's body is the file (a Word document, an EPUB, a PDF, a zip, a document for Pandoc, or one WordPress or Ghost export), its kind and the options in the query. It answers a stage_id. Nothing is imported. Review it with import.draft.get and import.draft.update (renames, kinds, joins, moves, what to leave out), then import.apply (or import.append, with project) with the stage_id, the preview's token and the draft's revision. The file is kept only until the import is applied or discarded, and for 72 hours at most (SCRIOBH_IMPORT_STAGE_HOURS); it is never in a backup, an export or a Git push, and the original is not kept after the apply. Limits: 34 MiB for a Word document or a zip, 32 MiB for a book; five drafts a person, 256 MiB a person.
+
+`POST /api/v1/imports/stage`, key scope `write`, needs writer role. Cannot be previewed with `--dry-run`.
+
+```sh
+scriobh-cli import stage --file @./figure.png
+```
+
+- `--docx-changes suggest|accept|reject  (query)  As for import.preview.`
+- `--docx-headings auto|chapters|parts  (query)  As for import.preview.`
+- `--docx-split auto|heading1|heading2|style|label|page_breaks|section_breaks|numerals|size|pattern|none  (query)  As for import.preview.`
+- `--docx-split-match starts|regex  (query)  As for import.preview.`
+- `--docx-split-pattern TEXT  (query)  As for import.preview.`
+- `--docx-split-style TEXT  (query)  As for import.preview.`
+- `--docx-split-words N  (query)  As for import.preview.`
+- `--epub-pages skip|keep  (query)  As for import.preview.`
+- `--epub-sections auto|toc|files|headings  (query)  As for import.preview.`
+- `--format odt|rtf|latex|mediawiki|org|textile|rst|fb2|typst|docbook  (query)  With kind pandoc: the document's format.`
+- `--ghost-status published|all  (query)  As for import.preview.`
+- `--ghost-types posts|pages|both  (query)  As for import.preview.`
+- `--kind docx|epub|pdf|text|zip|pandoc|file  (query)  What the body is: docx (a Word document), epub, pdf, text (a plain text file, UTF-8), zip (a zip of Markdown, a Scríobh export, an Obsidian vault, or a Scrivener project, WordPress or Ghost export), pandoc (a document Pandoc reads; give format) or file (a lone WordPress .xml or Ghost .json export).`
+- `--layout auto|obsidian|scrivener|wordpress|ghost  (query)  As for import.preview.`
+- `--name TEXT  (query)  The name to show and to start the project's title from, up to 200 characters. Default: nothing.`
+- `--origin folder  (query)  folder: the zip is the Markdown of a folder chosen on the import page, which the review says in its own words.`
+- `--parent TEXT  (query)  With project: the folder of it to add into; empty for the end of the top level.`
+- `--pictures import|skip  (query)  As for import.preview.`
+- `--project project name or id  (query, name or id)  Stage for adding to this project (you must be able to edit it) instead of for a new project.`
+- `--scrivener-notes private|skip  (query)  As for import.preview.`
+- `--scrivener-research notes|skip  (query)  As for import.preview.`
+- `--scrivener-sheets notes|entities  (query)  As for import.preview.`
+- `--split-scenes none|h2  (query)  As for import.preview.`
+- `--wp-status published|all  (query)  As for import.preview.`
+- `--wp-types posts|pages|both  (query)  As for import.preview.`
+- `--file TEXT  (required)  The file to upload: a path (or @path), or - for standard input.`
+
+#### `import undo`
+
+Take back one import: move to the project's trash the documents it made that are exactly as it left them, and keep every other. A document is kept (and the answer says why: edited, placed, attached, open, contains or unknown) when its text, title, synopsis or status was saved since; when it was moved, put in another order, linked to an entity, excluded from the AI or changed in any other way that is not a save; when anything was attached to it that the import did not make (a comment, suggestion, alternative, ghost, tag, timeline link, share link, site setting, done mark, stash item or AI work); when a tab has it open for writing; when something that is not from the import is inside it; or when the import was made before the state of what it wrote was recorded. If there is any doubt it is kept. Pictures, research notes, entities and an EPUB's edition are not documents and stay. Nothing is deleted: doc.restore brings a document back. Repeating it trashes nothing more.
+
+`POST /api/v1/projects/{id}/imports/{source}/undo`, key scope `write`, needs project editor role. Can be previewed with `--dry-run`.
+
+```sh
+scriobh-cli import undo "The Salt Road" text
+```
+
+- `<project>, --id, --project  (required, name or id)  Project id.`
+- `<source>, --source  (required)  The import's id: import.source.list's id, or the source_id import.apply and import.append answered.`
 
 ### key
 
@@ -3992,7 +4159,7 @@ scriobh-cli key create --name "The Salt Road"
 - `--expires-in-days N  Days until the key stops working. Default 90; 0 for a key that never expires; at most 3650.`
 - `--label TEXT  A longer note, up to 200 characters.`
 - `--name TEXT  (required)  What the key is for, up to 80 characters, for example the agent's name.`
-- `--project-id, --project project name or id  (name or id)  Restrict the key to this one project and to that project's primary compendium: one key can then fill a book's bible and draft its chapters. A project key can create and attach that compendium with project.compendium.create.`
+- `--project-id, --project project name or id  (name or id)  Restrict the key to this one project and to that project's primary compendium: one key can then fill a book's Compendium and draft its chapters. A project key can create and attach that compendium with project.compendium.create.`
 - `--scope read|write|admin  read to look, write to build (default), admin only when needed. A key can never exceed the scope of whoever creates it.`
 
 #### `key list`
@@ -4212,7 +4379,7 @@ scriobh-cli mention by-entity "The Salt Road"
 
 #### `mention list`
 
-The entities a document mentions, with how many times each occurs (as a name, as an alias, as an explicit [[link]]), a snippet, and with spans=true the place of every occurrence for highlighting, as UTF-16 offsets over the text with line endings normalised to LF (the measure doc.split takes). Only entities the caller may read through a Compendium are returned; being on the project grants none of the bible, so a reader who is not on the Compendium gets an empty list with hidden: true. indexing is true while a rescan is owed, and the answer may be behind.
+The entities a document mentions, with how many times each occurs (as a name, as an alias, as an explicit [[link]]), a snippet, and with spans=true the place of every occurrence for highlighting, as UTF-16 offsets over the text with line endings normalised to LF (the measure doc.split takes). Only entities the caller may read through a Compendium are returned; being on the project grants none of the Compendium, so a reader who is not on the Compendium gets an empty list with hidden: true. indexing is true while a rescan is owed, and the answer may be behind.
 
 `GET /api/v1/docs/{id}/mentions`, key scope `read`, needs project reader role.
 
@@ -4477,6 +4644,18 @@ scriobh-cli profile update
 - `--locale en|ga|fr|de|es|it|pt|nl  One of en, ga, fr, de, es, it, pt, nl.`
 - `--timezone TEXT  IANA zone name such as Europe/Dublin.`
 
+#### `profile zone-default`
+
+Store the browser's time zone for the caller, only if they have never chosen one. A zone already stored, chosen or from an earlier browser, is not changed. Returns the profile as it now is.
+
+`POST /api/v1/me/zone-default`, key scope `write`, needs any signed-in key. Can be previewed with `--dry-run`.
+
+```sh
+scriobh-cli profile zone-default --timezone text
+```
+
+- `--timezone TEXT  (required)  The browser's IANA zone name, such as Europe/Dublin. Stored only if the person has never chosen a zone.`
+
 ### project
 
 #### `project archive`
@@ -4603,7 +4782,7 @@ scriobh-cli project attachment usage "The Salt Road"
 
 #### `project compendium create`
 
-Create a Compendium for a project and make it the project's primary, in one step. The project must have none yet and the caller must own it. This is how a key restricted to one project builds a bible: the key reaches the project's primary Compendium, so it can then add entities with entity.create. An unrestricted caller can use compendium.create with project_id instead.
+Create a Compendium for a project and make it the project's primary, in one step. The project must have none yet and the caller must own it. This is how a key restricted to one project builds a Compendium: the key reaches the project's primary Compendium, so it can then add entities with entity.create. An unrestricted caller can use compendium.create with project_id instead.
 
 `POST /api/v1/projects/{id}/compendium`, key scope `write`, needs project owner role. Can be previewed with `--dry-run`.
 
@@ -4619,7 +4798,7 @@ scriobh-cli project compendium create "The Salt Road" --name "The Salt Road"
 
 #### `project compendium get`
 
-A project's Compendium wiring: its primary Compendium and the whole Compendiums it references. A Compendium the caller is not a member of is not named; it is counted in hidden, because project access never grants the bible.
+A project's Compendium wiring: its primary Compendium and the whole Compendiums it references. A Compendium the caller is not a member of is not named; it is counted in hidden, because project access never grants the Compendium.
 
 `GET /api/v1/projects/{id}/compendium`, key scope `read`, needs project reader role.
 
@@ -4834,7 +5013,7 @@ scriobh-cli project entity link remove "The Salt Road" --yes
 
 #### `project entity list`
 
-The entities a project shows, as the project sees them: its primary Compendium's, those of Compendiums it references, and single linked entities, each with the project's override applied and how it was reached (via). Only entities of Compendiums the caller is a member of are returned: being on the project does not grant the bible, so a project reader who is not on the Compendium gets an empty list. No bodies; use project.entity.get.
+The entities a project shows, as the project sees them: its primary Compendium's, those of Compendiums it references, and single linked entities, each with the project's override applied and how it was reached (via). Only entities of Compendiums the caller is a member of are returned: being on the project does not grant the Compendium, so a project reader who is not on the Compendium gets an empty list. No bodies; use project.entity.get.
 
 `GET /api/v1/projects/{id}/entities`, key scope `read`, needs project reader role.
 
@@ -5541,7 +5720,7 @@ scriobh-cli repo release-list "The Salt Road"
 
 #### `review queue`
 
-The writer's review queue: every open thread of the project in reading order (comments on the project first; then each document in the order of the book, its threads in order of position, those that lost their text last), each with its document and breadcrumb, plus the counts per document. Give after (a thread id, even one just resolved) to get the threads that come after it: the first is the next unresolved. Filter by document_id, author, kind and state. Needs the editor role.
+The writer's review queue: every open thread of the project in reading order (comments on the project first; then each document in the order of the book, its threads in order of position, those that lost their text last), each with its document and breadcrumb, plus the counts per document. Give after (a thread id, even one just resolved) to get the threads that come after it: the first is the next unresolved. Filter by document_id, author, kind and state. Needs the editor role. visibility: shared (default) is the threads the people on the project can read, the review everyone shares; all adds your own private ("Only me") threads, which no one else's call can list. The counts follow the same choice.
 
 `GET /api/v1/projects/{id}/review/queue`, key scope `read`, needs project editor role.
 
@@ -5556,10 +5735,11 @@ scriobh-cli review queue "The Salt Road"
 - `--kind comment|question|suggestion-note  (query)`
 - `--limit N  (query)  Threads per page (default 50, at most 200).`
 - `--state active|orphaned|none  (query)`
+- `--visibility shared|private|all  (query)  Default shared: the review everyone shares. all: also your own private threads (the ones you can see). A private thread of someone else's is never listed.`
 
 #### `review resolve-all`
 
-Resolve every open thread that matches a filter (document_id, author, kind, state, or an explicit thread_ids list) in one transaction. Send preview true first: the answer is the count and nothing changes; send the same request with expect_count set to that number to do it, and it is refused (409) if the set changed. The authors of the threads are notified. Needs the editor role.
+Resolve every open thread that matches a filter (document_id, author, kind, state, or an explicit thread_ids list) in one transaction. Send preview true first: the answer is the count and nothing changes; send the same request with expect_count set to that number to do it, and it is refused (409) if the set changed. The authors of the threads are notified. Needs the editor role. visibility: shared (default) resolves the threads the people on the project can read, never your own private ("Only me") ones; private resolves only yours, tells no one and is not counted anywhere else. A thread of someone else's that is private is skipped as an id that does not exist.
 
 `POST /api/v1/projects/{id}/review/resolve`, key scope `write`, needs project editor role. Can be previewed with `--dry-run`.
 
@@ -5575,6 +5755,7 @@ scriobh-cli review resolve-all "The Salt Road"
 - `--preview  Count what would be resolved and change nothing.`
 - `--state active|orphaned|none`
 - `--thread-ids JSON  Instead of filters: exactly these threads (ones that are not open are skipped).`
+- `--visibility shared|private  Default shared. private: resolve only your own private threads (nobody is told). There is no way to resolve both in one call.`
 
 ### revision
 
@@ -5736,7 +5917,7 @@ scriobh-cli scene link-entities "The Salt Road"
 
 #### `scene set-location`
 
-Set where a scene happens to an entity of the bible (usually a place), by id, name or alias among the entities the caller may read (empty clears the link and keeps the text). The scene's location text becomes the entity's name. Project editor.
+Set where a scene happens to an entity of the Compendium (usually a place), by id, name or alias among the entities the caller may read (empty clears the link and keeps the text). The scene's location text becomes the entity's name. Project editor.
 
 `PUT /api/v1/docs/{id}/location`, key scope `write`, needs project editor role. Can be previewed with `--dry-run`.
 
@@ -5750,7 +5931,7 @@ scriobh-cli scene set-location "The Salt Road/Chapter 1" --entity text
 
 #### `scene set-pov`
 
-Set a scene's point of view to a character of the bible, by id, name or alias among the entities the caller may read (empty clears the link and keeps the text). The scene's pov text becomes the character's name. Fails if the character is not in this project's scope or the caller may not read it (the same not found for both). Project editor.
+Set a scene's point of view to a character of the Compendium, by id, name or alias among the entities the caller may read (empty clears the link and keeps the text). The scene's pov text becomes the character's name. Fails if the character is not in this project's scope or the caller may not read it (the same not found for both). Project editor.
 
 `PUT /api/v1/docs/{id}/pov`, key scope `write`, needs project editor role. Can be previewed with `--dry-run`.
 
@@ -6788,6 +6969,8 @@ scriobh-cli timeline event list "The Salt Road"
 - `--limit N  (query)  Page size, 1 to 500; default 100.`
 - `--offset N  (query)  Events to skip.`
 - `--project TEXT  (query)  Only events a scene of this project tells. The caller must be able to open the project.`
+- `--q TEXT  (query)  Only events where every word matches the title, the story label, the story date, the place's name or a person's name, ignoring case.`
+- `--scene TEXT  (query)  Only events this scene (a document id) tells.`
 - `--to TEXT  (query)  Only events that start on or before this date.`
 - `--trash  (query)  List the trashed events instead.`
 
@@ -7019,4 +7202,4 @@ scriobh-cli webhook update "The Salt Road" text
 - `--url TEXT  A new address, replacing the whole of the old one (the old path and query are never shown, so they cannot be edited). The failure count starts again.`
 
 
-Schema hash: `sha256:55f262ef070755e913d4d92bf78e90d45bd52054ceba8e4a876b9336338e7d3c`. `scriobh-cli skill check` compares an installed copy, and this CLI, with the server.
+Schema hash: `sha256:b62f33b7183aed11bdf30ecc1e2479b5d11c3fc68572611d75a4f3c16c992ef1`. `scriobh-cli skill check` compares an installed copy, and this CLI, with the server.

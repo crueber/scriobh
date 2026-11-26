@@ -251,6 +251,8 @@ func baseFragmentFixtures() []fragmentFixture {
 	return append(append(researchFragmentFixtures(), []fragmentFixture{
 		{"new-project", "new-project-form", form},
 		{"new-project", "new-project-form", bad},
+		{"shortcuts", "shortcuts-dialog", shortcutsFixture("write", true, true)},
+		{"shortcuts", "shortcuts-dialog", shortcutsFixture("app", false, false)},
 		{"project-tile", "project-tile", tileData{P: ownerFixture(fixtureProjects()[0]), State: "active", CSRF: "tok"}},
 		{"project-tile", "project-tile", tileData{P: trashedFixture(fixtureProjects()[:1])[0], State: "trashed", CSRF: "tok"}},
 		{"project-menu", "project-menu", tileData{P: ownerFixture(fixtureProjects()[0]), State: "active", CSRF: "tok"}},
@@ -698,58 +700,65 @@ var writeGlue = []string{"js/doc.js", "js/tree.js"}
 // budget instead of the shell's. A new lazy file is registered here, or the shell total counts it.
 var lazyJS = map[string]int{
 	"js/compare.js": 2 * 1024, "js/rowmenu.js": 3 * 1024, "js/link.js": 1536, "js/modes.js": 3 * 1024,
-	"js/compendium.js":     1280,
-	"js/format.js":         6 * 512,   // the writing view's formatting bar, the cue when it is wider than the screen, and the selected-words figure: wired a moment after the page loads
-	"js/alts.js":           16 * 1024, // the writing view: alternatives and ghosts in the text (marks, cycling, keys, menu, the held editor and its checks), and the stash hook
-	"js/altpanel.js":       5 * 1024,  // the Alternatives tab of the inspector
-	"js/stash.js":          5 * 1024,  // the Stash tab of the inspector
-	"js/git.js":            2 * 1024,
-	"js/publish.js":        1280, // the release page only: follows an edition being built and uploaded, replacing its own fragment
-	"js/inspector.js":      5 * 1024,
-	"js/live.js":           2 * 1024,
-	"js/livewrite.js":      2 * 1024,
-	"js/mentions.js":       5 * 1024,
-	"js/outsort.js":        2 * 1024,
-	"js/scene.js":          4 * 1024,
-	"js/today.js":          768,
-	"js/versions.js":       5 * 1024,
-	"js/wiki.js":           4 * 1024,
-	"js/themes.js":         1024,      // the Settings theme picker, loaded on that page only
-	"js/import.js":         8192,      // the import pages only: reads a folder or zip, renders the preview tree, edits, applies, takes back a change the server refuses, offers a retry when it is busy
-	"js/import-books.js":   9216,      // the import pages only: the EPUB and PDF sources, the book, fidelity and tracked-changes panels of the preview, nest and join, the answer after an apply that kept an edition; about a hundred catalogue words
-	"js/import-formats.js": 3584,      // the import pages only: the format chooser, Scrivener, WordPress and Ghost sources, the research notes and the converter's report in the preview
-	"js/import-repo.js":    4608,      // the repository import page only: starts and follows the fetch, then hands the job to import.js
-	"js/attach.js":         6144,      // the writing view (upload and insert) and the attachment pages: one file, loaded where files are handled
-	"js/outline.js":        8 * 1024,  // the outline page only: inline edit, reorder by drag and by key, add, merge after each change
-	"js/boards.js":         6656,      // the corkboard and the status board only: move a card, edit a synopsis, change a status
-	"js/read.js":           3584,      // reading mode only: page keys, the remembered position, continuous scroll
-	"js/entity.js":         2 * 1024,  // the entity bible pages only: the Markdown preview and the live refresh of the list
-	"js/research.js":       5 * 512,   // the research list and board: focus after a change, board keys, live refresh
-	"js/pad.js":            5 * 1024,  // the note and scratchpad pages: autosave with a revision, local draft, conflict choice, preview, clipping click-through
-	"js/timeline.js":       5 * 1024,  // the timeline pages only: live date hints, the entity picker, keyboard moves of events
-	"js/review.js":         14 * 1024, // the reading view for reviewers and up (comment margin, selection, keys) and the Comments tab of the writing view's inspector
-	"js/compile.js":        8 * 1024,  // the Compile page: the options form built from the ops, the preview viewer, custom presets, the download with its manifest summary
-	"js/when.js":           640,       // times the server wrote in UTC, shown in the person's own zone and language
-	"js/arm.js":            1792,      // a confirmation a double tap cannot get through: bulk actions, remove a person, revoke a link, delete a comment
-	"js/share-links.js":    1024,      // the share links page: the link shown once, with this server's address in front, and a copy button
-	"js/connect.js":        1280,      // the static site, webhooks and connect-an-agent pages: this server's own origin in the snippets, copy buttons, focus on a secret shown once
-	"js/gate.js":           4608,      // every page of a project that has a passphrase, once it is open: the cover over the page when the project locks, the unlock from it, Lock now
-	"js/held.js":           3584,      // every page of a project that has a passphrase: a local draft for every field that is not saved yet, put back after an unlock
-	"js/jump.js":           1024,      // the writing view opened from a search by meaning: scrolls to the passage, selected, and changes nothing
-	"js/compile-print.js":  5 * 1024,  // the Compile page: the print proof drawn from the placed lines, the printer's checklist, the paperback cover form (the server draws and words it)
-	"js/share.js":          8 * 1024,  // the page a share link opens: unlock, contents, chapters as they are reached, comments for a comment link
-	"js/suggest.js":        7 * 1024,  // suggestion mode in the reading view: the marks, the Suggestions tab, accept and reject, the plan for accept all
-	"js/aiadmin.js":        11776,     // /settings/ai and /p/{slug}/ai only: providers, policy, exclusions, budgets and usage, all through the ai.* ops
-	"js/aiboot.js":         1280,      // the writing view when AI is on: wires the chord and loads ai.js on first use; the one AI file that rides with the page
-	"js/ai.js":             12288,     // the writing partner's core (preview, run, proposals), fetched when an AI control is first used
-	"js/aipanel.js":        2048,      // the AI tab of the inspector: its two views, each fetched when shown
-	"js/aichat.js":         3584,      // the chat view
-	"js/aireviews.js":      5632,      // the reviews view, the summary proposal and the extraction list
-	"js/lab.js":            8192,      // the Lab tab: the local checks (no AI needed), marks in the text, accept and dismiss, accept all after a preview
-	"js/sprint.js":         2944,      // the writing view, only while a sprint runs or when one is started from the status bar: the sprint line (one text, rewritten when the minute changes), the end's notice (of the sprint that ended, by its id and state) and the focus put back in the text (2,560 until the Phase 7.5 fix round, 2,816 after its first pass)
-	"js/studio.js":         1280,      // the dashboard only: the calendar opens at its newest week, and a day's figure is read by tap, click or the arrow keys
-	"js/cover.js":          5 * 1024,  // the cover page only: a picture chosen or dropped is sent at once, the position grid answers the up and down keys, and a page-mode front is redrawn as the controls change (an SVG placed by the server's own arithmetic)
-	"js/card.js":           1536,      // the progress card page only: the link shown once with this server's address, copy, and the PNG drawn from the card's SVG on a canvas
+	"js/compendium.js":    1280,
+	"js/format.js":        3200,      // the writing view's formatting bar, the cue when it is wider than the screen, and the selected-words figure: wired a moment after the page loads
+	"js/revise.js":        1792,      // the writing view, after the page has loaded (data-ext): the Revise menu's keys, focus, the press that keeps the selection, the items' shortcuts from the registry, and their state before the menu shows (a new file, so its own limit)
+	"js/alts.js":          16 * 1024, // the writing view: alternatives and ghosts in the text (marks, cycling, keys, menu, the held editor and its checks), and the stash hook
+	"js/split.js":         5 * 1024,  // the writing view: the chapter break at the cursor (doc.split) from the rich editor, the Source view and the chord; most of it is its words, each with its English default (T(key, default)) as the catalogue test requires
+	"js/altpanel.js":      5 * 1024,  // the Alternatives tab of the inspector
+	"js/stash.js":         5 * 1024,  // the Stash tab of the inspector
+	"js/git.js":           2 * 1024,
+	"js/publish.js":       1280, // the release page only: follows an edition being built and uploaded, replacing its own fragment
+	"js/inspector.js":     6400, // the inspector, and the chords that open its Compendium (Alt+Shift+C) and Comments (Alt+Shift+M) tabs, with the hand-off of the editor's selection (want)
+	"js/lock.js":          1536, // the locked page only (another tab holds the chapter): the banner, Take over, and what frees it
+	"js/selbar.js":        2048, // the writing view: the selection bar over a finished selection (Add to Compendium, Look up, Comment), fetched at the first one; its three paths are the chords
+	"js/phone.js":         1792, // the writing view on a phone (under 640 px): the sheet gives the caret back when a finger opened it (a key gets focus back where it was), a tap on the text or Escape closes it, the caret line is kept above it and the keyboard, and the Aa button shows the formatting strip (U11.3; 1,701 B)
+	"js/resume.js":        1024, // the writing view: the caret and the scroll back after a Back-button, a reload or "Back to writing"; per tab, only while the writer has done nothing
+	"js/lookup.js":        6656, // the Compendium tab of the inspector: one save at a time, the revision and its conflict, the selection, Esc back to the caret, the last save on the way out, the answer to the last thing asked, the scene the events are of, and a note that is not lost
+	"js/live.js":          2 * 1024,
+	"js/livewrite.js":     2 * 1024,
+	"js/mentions.js":      5 * 1024,
+	"js/outsort.js":       2 * 1024,
+	"js/scene.js":         4 * 1024,
+	"js/today.js":         768,
+	"js/versions.js":      5 * 1024,
+	"js/wiki.js":          4 * 1024,
+	"js/themes.js":        1024,      // the Settings theme picker, loaded on that page only
+	"js/import.js":        2560,      // the import pages only: sends a chosen file at once, sends only what an import reads from a chosen folder, says how much has gone, and focuses the control the server marked after a swap (the review is drawn by the server)
+	"js/attach.js":        6144,      // the writing view (upload and insert) and the attachment pages: one file, loaded where files are handled
+	"js/outline.js":       8 * 1024,  // the outline page only: inline edit, reorder by drag and by key, add, merge after each change
+	"js/boards.js":        6656,      // the corkboard and the status board only: move a card, edit a synopsis, change a status
+	"js/read.js":          3584,      // reading mode only: page keys, the remembered position, continuous scroll
+	"js/entity.js":        2304,      // the entity bible pages only: the Markdown preview and the live refresh of the list
+	"js/research.js":      5 * 512,   // the research list and board: focus after a change, board keys, live refresh
+	"js/pad.js":           5 * 1024,  // the note and scratchpad pages: autosave with a revision, local draft, conflict choice, preview, clipping click-through
+	"js/timeline.js":      5 * 1024,  // the timeline pages only: live date hints, the entity picker, keyboard moves of events
+	"js/review.js":        14 * 1024, // the reading view for reviewers and up (comment margin, selection, keys) and the Comments tab of the writing view's inspector
+	"js/cwrite.js":        7168,      // the Comments tab of the writing view: a comment on the chapter or on selected words ("Only me" by default), the words named by the editor's serializer (or as a reader sees them, when the editor spells the chapter otherwise) once what was typed is saved and with the editor held only for that, nothing else written to the chapter, the page put back on a phone, edit, Show in the text, a lost comment re-attached or kept on the chapter; about thirty words with their English defaults
+	"js/cmarks.js":        3328,      // the writing view, after the page has loaded when the chapter has a comment the person can read (else when the Comments tab first has one): the faint marks on the words of open comments, drawn from saved text and carried through each edit, a click that opens the comment, and the Comments tab switch; its own copy of the place code (bodyOf, toLive), as cwrite.js needs the reading view's script
+	"js/compile.js":       8 * 1024,  // the Compile page: the options form built from the ops, the preview viewer, custom presets, the download with its manifest summary
+	"js/when.js":          640,       // times the server wrote in UTC, shown in the person's own zone and language
+	"js/arm.js":           1792,      // a confirmation a double tap cannot get through: bulk actions, remove a person, revoke a link, delete a comment
+	"js/share-links.js":   1024,      // the share links page: the link shown once, with this server's address in front, and a copy button
+	"js/connect.js":       1280,      // the static site, webhooks and connect-an-agent pages: this server's own origin in the snippets, copy buttons, focus on a secret shown once
+	"js/gate.js":          4608,      // every page of a project that has a passphrase, once it is open: the cover over the page when the project locks, the unlock from it, Lock now
+	"js/held.js":          3584,      // every page of a project that has a passphrase: a local draft for every field that is not saved yet, put back after an unlock
+	"js/jump.js":          1024,      // the writing view opened from a search by meaning: scrolls to the passage, selected, and changes nothing
+	"js/compile-print.js": 5 * 1024,  // the Compile page: the print proof drawn from the placed lines, the printer's checklist, the paperback cover form (the server draws and words it)
+	"js/share.js":         8 * 1024,  // the page a share link opens: unlock, contents, chapters as they are reached, comments for a comment link
+	"js/suggest.js":       7 * 1024,  // suggestion mode in the reading view: the marks, the Suggestions tab, accept and reject, the plan for accept all
+	"js/aiadmin.js":       11776,     // /settings/ai and /p/{slug}/ai only: providers, policy, exclusions, budgets and usage, all through the ai.* ops
+	"js/aiboot.js":        1280,      // the writing view when AI is on: wires the chord and loads ai.js on first use; the one AI file that rides with the page
+	"js/ai.js":            12288,     // the writing partner's core (preview, run, proposals), fetched when an AI control is first used
+	"js/aipanel.js":       2048,      // the AI tab of the inspector: its two views, each fetched when shown
+	"js/aichat.js":        3584,      // the chat view
+	"js/aireviews.js":     5632,      // the reviews view, the summary proposal and the extraction list
+	"js/lab.js":           8192,      // the Lab tab: the local checks (no AI needed), marks in the text, accept and dismiss, accept all after a preview
+	"js/shortcuts.js":     2 * 1024,  // every signed-in page, only when the keyboard shortcuts window is first asked for: the fragment fetched and put in the page's own dialog, the Mac's signs and the layout's letters on its caps, Tab kept inside
+	"js/sprint.js":        2944,      // the writing view, only while a sprint runs or when one is started from the status bar: the sprint line (one text, rewritten when the minute changes), the end's notice (of the sprint that ended, by its id and state) and the focus put back in the text (2,560 until the Phase 7.5 fix round, 2,816 after its first pass)
+	"js/studio.js":        1280,      // the dashboard only: the calendar opens at its newest week, and a day's figure is read by tap, click or the arrow keys
+	"js/cover.js":         5 * 1024,  // the cover page only: a picture chosen or dropped is sent at once, the position grid answers the up and down keys, and a page-mode front is redrawn as the controls change (an SVG placed by the server's own arithmetic)
+	"js/card.js":          1536,      // the progress card page only: the link shown once with this server's address, copy, and the PNG drawn from the card's SVG on a canvas
 }
 
 func isWriteGlue(f string) bool {
@@ -882,8 +891,9 @@ func TestAssetBudgets(t *testing.T) {
 		}
 	}
 	sprite, _ := fs.ReadFile(static, "icons/sprite.svg")
-	if n := strings.Count(string(sprite), "<symbol "); n == 0 || n > 48 {
-		t.Errorf("sprite has %d symbols; expected 1 to 48", n)
+	// 50: the keyboard icon of the shortcuts window (F-1250) was the 49th symbol; the comment bubble of the format bar's Comment button (F-1284) is the 50th, and nothing already in the sprite draws a speech bubble.
+	if n := strings.Count(string(sprite), "<symbol "); n == 0 || n > 50 {
+		t.Errorf("sprite has %d symbols; expected 1 to 50", n)
 	}
 	if strings.Contains(strings.ToLower(string(sprite)), "gradient") {
 		t.Errorf("sprite contains a gradient")

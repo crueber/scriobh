@@ -11,6 +11,8 @@
   var el = function (tag, cls, text) { var e = doc.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   var api = W.api, id = W.cfg.id, canEdit = W.cfg.canEdit, base = "/api/v1/docs/" + id;
   var root = null, state = { day: "", sub: null, days: null, items: null, head: null }, busy = false, refreshTimer = 0;
+  var M = {}; // the words of the list, from the catalogue (data-versions-msgs on the writing view)
+  try { M = JSON.parse(doc.getElementById("write").dataset.versionsMsgs); } catch (e) { M = {}; }
   var offset = -new Date().getTimezoneOffset(), writable = canEdit && !W.cfg.readonly;
   function toast(m, undo) { if (S.toast) S.toast(m, undo ? { undo: undo } : undefined); }
   function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
@@ -22,7 +24,6 @@
     var n = Math.round((t - dt) / 864e5);
     return n === 0 ? "Today" : n === 1 ? "Yesterday" : dt.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
   }
-  var REASON = { autosave: "Autosaved", manual: "Named version", snapshot: "Snapshot", restore: "Restored", "import": "Imported", alternative: "Alternative", "ai-accepted": "Accepted suggestion" };
   function button(label, fn, cls, aria) {
     var b = el("button", cls || "btn quiet small", label);
     b.type = "button";
@@ -88,7 +89,7 @@
   }
   function row(v) {
     var li = el("li", "ver-item"), top = el("div", "ver-top"), t = time(v.created_at);
-    top.append(el("span", "ver-time", t), el("span", "ver-reason", v.label || REASON[v.reason] || v.reason));
+    top.append(el("span", "ver-time", t), el("span", "ver-reason", v.label || M["reason_" + v.reason] || v.reason));
     if (v.current) top.append(el("span", "insp-tag", "Current"));
     if (v.pinned && !v.label) top.append(el("span", "insp-tag", "Kept"));
     var meta = el("p", "ver-meta", words(v.word_count) + (v.delta ? " (" + (v.delta > 0 ? "+" : "−") + fmt(Math.abs(v.delta)) + ")" : ""));

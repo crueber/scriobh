@@ -4,7 +4,7 @@ layout: ghost
 == chapter: HTML Only [status done, compile true, date "2021-01-01", source "ghost/post/html-only"]
    | From the **html** field. [Link](https://example.org/)
    | 
-   | *\[image: b\]*
+   | \[image: b\]
 == chapter: Markdown Post [status done, compile true, date "2022-05-03", source "ghost/post/markdown-post"]
    synopsis: "A post written in Markdown." long: ""
    | * * *
@@ -22,7 +22,7 @@ layout: ghost
    | 
    | > quoted
    | 
-   | *\[image: alt text\]*
+   | \[image: alt text\]
    | 
    | ```
    | code block

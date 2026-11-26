@@ -55,6 +55,7 @@ type whereData struct {
 	Next      string
 	Prev      string
 	Failed    bool
+	Compact   bool // the page draws its own heading for the section
 }
 
 func crumbText(titles ...string) string { return strings.Join(titles, " / ") }

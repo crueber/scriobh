@@ -8,7 +8,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { repo } from "./harness.mjs";
 
-export const dayAgo = (n) => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10);
+// The calendar day n days ago in this process's zone: the day the browser's zone shows the person (the app counts days in the person's own zone since v2.4.0), not the UTC day.
+export const dayAgo = (n) => { const d = new Date(Date.now() - n * 864e5); const p = (v) => String(v).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
 
 // rows: [{ ago, words, net?, minutes?, hour?, target?, hit? }]: a day `ago` days before today (UTC, the profile's default zone).
 export function seedDays(dataDir, userId, projectId, rows) {

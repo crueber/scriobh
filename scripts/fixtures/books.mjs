@@ -186,3 +186,18 @@ export function makeDocx(file, scratch) {
   zipTo(file, dir);
   return file;
 }
+
+// A Word file with one chapter of 16,000 words that has page breaks and a deeper heading inside it, then a short chapter: the look inside
+// a long chapter has something to list.
+export function makeLongDocx(file, scratch) {
+  const dir = join(scratch, "longdocx-" + Math.random().toString(36).slice(2, 8));
+  const brk = `<w:p><w:r><w:br w:type="page"/></w:r></w:p>`;
+  let body = wp("Heading1", run("The Long One"));
+  for (let i = 0; i < 160; i++) body += (i && i % 40 === 0 ? brk : "") + (i === 60 ? wp("Heading2", run("A deeper heading")) : "") + wp("", run(("word ".repeat(100)).trim() + ` ${i}.`));
+  body += wp("Heading1", run("The Short One")) + wp("", run("A few words to end on, so it is not empty."));
+  const doc = `<?xml version="1.0" encoding="UTF-8"?><w:document ${wns}><w:body>${body}</w:body></w:document>`;
+  const styles = `<?xml version="1.0"?><w:styles ${wns}><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:pPr><w:outlineLvl w:val="0"/></w:pPr></w:style><w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:pPr><w:outlineLvl w:val="1"/></w:pPr></w:style></w:styles>`;
+  put(dir, { "[Content_Types].xml": `<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/></Types>`, "word/document.xml": doc, "word/styles.xml": styles });
+  zipTo(file, dir);
+  return file;
+}

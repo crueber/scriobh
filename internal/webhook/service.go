@@ -903,7 +903,7 @@ func (s *Service) withCommentText(ctx context.Context, body []byte) []byte {
 		return body
 	}
 	var text string
-	err := s.o.DB.Read().QueryRowContext(ctx, `SELECT body FROM comments WHERE id = ? AND project_id = ? AND deleted_at IS NULL`, cid, p.ProjectID).Scan(&text)
+	err := s.o.DB.Read().QueryRowContext(ctx, `SELECT body FROM comments WHERE id = ? AND project_id = ? AND visibility = 'shared' AND deleted_at IS NULL`, cid, p.ProjectID).Scan(&text)
 	if err != nil {
 		return body
 	}

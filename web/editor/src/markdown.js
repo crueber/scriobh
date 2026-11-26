@@ -165,6 +165,21 @@ export function parseDetailed(markdown) {
 
 export function parse(markdown) { return parseDetailed(markdown).doc }
 
+// Where each top-level block of `markdown` lies in it, as offsets into the text with every line break written as "\n": from the
+// start of its first line to the start of the line after its last (so its own line break is inside it). For naming a place in a
+// text exactly as it was stored, spelt however it was spelt, without writing it again. One entry for each block the parser
+// reads; `parse` makes one child of the document for each, when it makes no other choice.
+export function blockSpans(markdown) {
+  const text = String(markdown == null ? "" : markdown).replace(/\r\n?/g, "\n"), starts = [0]
+  for (let i = 0; i < text.length; i++) if (text.charCodeAt(i) === 10) starts.push(i + 1)
+  const at = n => (n < starts.length ? starts[n] : text.length)
+  const blocks = []
+  try {
+    for (const t of tokenizer.parse(text, {})) if (t.level === 0 && t.map && (t.nesting === 1 || t.nesting === 0)) blocks.push({start: at(t.map[0]), end: at(t.map[1])})
+  } catch (e) { return {text, blocks: []} }
+  return {text, blocks}
+}
+
 // ---------------------------------------------------------------------------
 // Serializing
 

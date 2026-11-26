@@ -81,7 +81,7 @@ func TestImportRepoPage(t *testing.T) {
 	if rec.Code != 200 {
 		t.Fatalf("import page: %d", rec.Code)
 	}
-	for _, need := range []string{`id="rg-form"`, `id="rg-url"`, `type="password"`, `js/import.`, `js/import-repo.`, `data-git`, `href="/import"`} {
+	for _, need := range []string{`id="rg-form"`, `id="rg-url"`, `type="password"`, `js/import.`, `data-git`, `href="/import"`} {
 		if !strings.Contains(body, need) {
 			t.Errorf("the page is missing %s", need)
 		}
@@ -239,7 +239,7 @@ func TestImportRepoFlowAndList(t *testing.T) {
 	if code, _ := restJSON(t, s, other, "GET", "/api/v1/imports/git?job_id="+id, ""); code != 404 {
 		t.Errorf("another person read the job: %d", code)
 	}
-	if p := s.do(e.owner, "GET", "/import/git", "").Body.String(); !strings.Contains(p, `data-act="open"`) || !strings.Contains(p, `data-act="discard"`) || !strings.Contains(p, "2 documents") {
+	if p := s.do(e.owner, "GET", "/import/git", "").Body.String(); !strings.Contains(p, `href="/import/d/imd_`) || !strings.Contains(p, `name="discard"`) || !strings.Contains(p, "2 documents") {
 		t.Errorf("a ready import offers Continue, Throw away and its size")
 	}
 	code, pv := restJSON(t, s, e.owner, "POST", "/api/v1/imports/git/preview", `{"job_id":"`+id+`"}`)
@@ -260,7 +260,7 @@ func TestImportRepoFlowAndList(t *testing.T) {
 	slug := ap["slug"].(string)
 	// A finished import links to its project and offers no way to throw away the copy kept beside it.
 	p := s.do(e.owner, "GET", "/import/git", "").Body.String()
-	if !strings.Contains(p, `href="/p/`+slug+`"`) || strings.Contains(p, `data-act="discard"`) {
+	if !strings.Contains(p, `href="/p/`+slug+`"`) || strings.Contains(p, `name="discard"`) {
 		t.Errorf("a finished import in the list: link or discard wrong")
 	}
 	// Applying again, or discarding the finished job, is not offered; the op also refuses to apply twice.
@@ -287,10 +287,10 @@ func TestImportRepoListIsEscapedAndPerStatus(t *testing.T) {
 	if strings.Contains(body, "<script>alert") || strings.Contains(body, "<b>x</b>") {
 		t.Error("a job's text is not escaped")
 	}
-	if !strings.Contains(body, `data-act="check" data-job="imp_run"`) || strings.Contains(body, `data-act="discard" data-job="imp_run"`) {
+	if !strings.Contains(body, `/ui/import/git/imp_run/open`) || strings.Contains(body, `aria-label="Throw away the import of https://example.org/&lt;b&gt;x&lt;/b&gt;.git"`) && strings.Count(body, `name="discard"`) != 1 {
 		t.Error("a running fetch should offer Check progress and no Throw away")
 	}
-	if !strings.Contains(body, `data-act="discard" data-job="imp_bad"`) || !strings.Contains(body, "could not be reached") {
+	if !strings.Contains(body, `name="discard"`) || !strings.Contains(body, "could not be reached") {
 		t.Error("a failed fetch should show why and offer Throw away")
 	}
 	// The op itself refuses to throw a running fetch away, in words.

@@ -134,7 +134,7 @@ func Manifest(ctx context.Context, d *db.DB, l Link) (ManifestOut, error) {
 	}
 	counts := map[string]int{}
 	if l.CanComment() {
-		rows, err := d.Read().QueryContext(ctx, `SELECT document_id, count(*) FROM comments WHERE share_id = ? AND parent_id IS NULL AND deleted_at IS NULL AND document_id IS NOT NULL GROUP BY document_id`, l.ID)
+		rows, err := d.Read().QueryContext(ctx, `SELECT document_id, count(*) FROM comments WHERE share_id = ? AND visibility = 'shared' AND parent_id IS NULL AND deleted_at IS NULL AND document_id IS NOT NULL GROUP BY document_id`, l.ID)
 		if err != nil {
 			return out, err
 		}
@@ -253,7 +253,7 @@ type GuestThread struct {
 // are never in them).
 func Threads(ctx context.Context, d *db.DB, l Link, docID, content string) ([]GuestThread, error) {
 	rows, err := d.Read().QueryContext(ctx, `SELECT c.id, c.status, c.anchor_state, c.anchor_start, c.anchor_end, c.anchor_quote FROM comments c
-		WHERE c.share_id = ? AND c.document_id = ? AND c.parent_id IS NULL AND (c.deleted_at IS NULL OR EXISTS (SELECT 1 FROM comments r WHERE r.parent_id = c.id AND r.deleted_at IS NULL))
+		WHERE c.share_id = ? AND c.visibility = 'shared' AND c.document_id = ? AND c.parent_id IS NULL AND (c.deleted_at IS NULL OR EXISTS (SELECT 1 FROM comments r WHERE r.parent_id = c.id AND r.deleted_at IS NULL))
 		ORDER BY (c.anchor_state = 'orphaned'), (c.anchor_state = 'none') DESC, c.anchor_start, c.id LIMIT 500`, l.ID, docID)
 	if err != nil {
 		return nil, err
@@ -291,7 +291,7 @@ func Threads(ctx context.Context, d *db.DB, l Link, docID, content string) ([]Gu
 	ph := strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")
 	crows, err := d.Read().QueryContext(ctx, `SELECT c.id, COALESCE(c.parent_id, c.id), c.share_id IS NOT NULL, c.guest_name, COALESCE(NULLIF(u.display_name,''), 'Member'), c.author_id IS NULL, c.body, c.created_at
 		FROM comments c LEFT JOIN users u ON u.id = c.author_id
-		WHERE (c.id IN (`+ph+`) OR c.parent_id IN (`+ph+`)) AND c.deleted_at IS NULL ORDER BY c.created_at, c.id`, append(ids, ids...)...)
+		WHERE (c.id IN (`+ph+`) OR c.parent_id IN (`+ph+`)) AND c.visibility = 'shared' AND c.deleted_at IS NULL ORDER BY c.created_at, c.id`, append(ids, ids...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -415,7 +415,7 @@ func AddComment(ctx context.Context, d *db.DB, m *Meter, sink GuestSink, l Link,
 	since := db.Format(now.Add(-time.Hour))
 	if n, oldest := m.Fails(l.ID, now.Add(-time.Hour)); n > 0 {
 		var recent int
-		if err := d.Read().QueryRowContext(ctx, `SELECT count(*) FROM comments WHERE share_id = ? AND created_at > ?`, l.ID, since).Scan(&recent); err != nil {
+		if err := d.Read().QueryRowContext(ctx, `SELECT count(*) FROM comments WHERE share_id = ? AND visibility = 'shared' AND created_at > ?`, l.ID, since).Scan(&recent); err != nil {
 			return res, err
 		}
 		if recent+n >= perHour {
@@ -462,12 +462,12 @@ func addComment(ctx context.Context, d *db.DB, sink GuestSink, l Link, in GuestI
 		res.Duplicate = false
 		var dup string
 		cut := db.Format(db.NowTime().Add(-duplicateWindow))
-		if err := tx.QueryRowContext(ctx, `SELECT COALESCE(parent_id, id) FROM comments WHERE share_id = ? AND client_key = ? AND created_at > ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1`, l.ID, key, cut).Scan(&dup); err == nil {
+		if err := tx.QueryRowContext(ctx, `SELECT COALESCE(parent_id, id) FROM comments WHERE share_id = ? AND visibility = 'shared' AND client_key = ? AND created_at > ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1`, l.ID, key, cut).Scan(&dup); err == nil {
 			created.ThreadID, res.Duplicate = dup, true
 			return nil
 		}
 		var total, recent int
-		if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM comments WHERE share_id = ?`, l.ID).Scan(&total); err != nil {
+		if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM comments WHERE share_id = ? AND visibility = 'shared'`, l.ID).Scan(&total); err != nil {
 			return err
 		}
 		if total >= MaxGuestCommentsPerLink {
@@ -475,7 +475,7 @@ func addComment(ctx context.Context, d *db.DB, sink GuestSink, l Link, in GuestI
 		}
 		since := db.Format(db.NowTime().Add(-time.Hour))
 		var oldest sql.NullString
-		if err := tx.QueryRowContext(ctx, `SELECT count(*), min(created_at) FROM comments WHERE share_id = ? AND created_at > ?`, l.ID, since).Scan(&recent, &oldest); err != nil {
+		if err := tx.QueryRowContext(ctx, `SELECT count(*), min(created_at) FROM comments WHERE share_id = ? AND visibility = 'shared' AND created_at > ?`, l.ID, since).Scan(&recent, &oldest); err != nil {
 			return err
 		}
 		if recent >= perHour {

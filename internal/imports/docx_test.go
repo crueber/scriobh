@@ -148,8 +148,17 @@ func TestDocxParts(t *testing.T) {
 	if strings.Join(got, "|") != "part:Part One|chapter:Part One|chapter:Chapter A|chapter:Chapter B|part:Part Two|chapter:Chapter C" {
 		t.Errorf("parts: %v", got)
 	}
+	// the default now tells parts from chapters by itself (D2): the same book needs no setting
+	pv = e.previewDocx(d, imports.PreviewIn{})
+	got = nil
+	for _, n := range pv.Nodes {
+		got = append(got, n.Kind+":"+n.Title)
+	}
+	if strings.Join(got, "|") != "part:Part One|chapter:Part One|chapter:Chapter A|chapter:Chapter B|part:Part Two|chapter:Chapter C" {
+		t.Errorf("parts without a setting: %v", got)
+	}
 	// chapters mode: Heading 2 stays inside, and split_scenes turns it into scenes
-	pv = e.previewDocx(d, imports.PreviewIn{SplitScenes: "h2"})
+	pv = e.previewDocx(d, imports.PreviewIn{SplitScenes: "h2", DocxHeadings: "chapters"})
 	got = nil
 	for _, n := range pv.Nodes {
 		got = append(got, n.Kind+":"+n.Title)

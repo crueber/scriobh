@@ -14,10 +14,12 @@ func registerQueue(r *ops.Registry) {
 	editor := ops.RequireProject(ops.ProjectEditor)
 	ops.Register(r, ops.Op{Name: "review.queue", Method: "GET", Path: "/api/v1/projects/{id}/review/queue", Auth: editor,
 		Desc: "The writer's review queue: every open thread of the project in reading order (comments on the project first; then each document in the order of the book, its threads in order of position, those that lost their text last), each with its document and breadcrumb, plus the counts per document. " +
-			"Give after (a thread id, even one just resolved) to get the threads that come after it: the first is the next unresolved. Filter by document_id, author, kind and state. Needs the editor role."},
+			"Give after (a thread id, even one just resolved) to get the threads that come after it: the first is the next unresolved. Filter by document_id, author, kind and state. Needs the editor role. " +
+			"visibility: shared (default) is the threads the people on the project can read, the review everyone shares; all adds your own private (\"Only me\") threads, which no one else's call can list. The counts follow the same choice."},
 		func(c *ops.Ctx, in QueueIn) (QueueOut, error) { return queue(c, in) })
 	ops.Register(r, ops.Op{Name: "review.resolve_all", Method: "POST", Path: "/api/v1/projects/{id}/review/resolve", Auth: editor,
-		Desc: "Resolve every open thread that matches a filter (document_id, author, kind, state, or an explicit thread_ids list) in one transaction. Send preview true first: the answer is the count and nothing changes; send the same request with expect_count set to that number to do it, and it is refused (409) if the set changed. The authors of the threads are notified. Needs the editor role."},
+		Desc: "Resolve every open thread that matches a filter (document_id, author, kind, state, or an explicit thread_ids list) in one transaction. Send preview true first: the answer is the count and nothing changes; send the same request with expect_count set to that number to do it, and it is refused (409) if the set changed. The authors of the threads are notified. Needs the editor role. " +
+			"visibility: shared (default) resolves the threads the people on the project can read, never your own private (\"Only me\") ones; private resolves only yours, tells no one and is not counted anywhere else. A thread of someone else's that is private is skipped as an id that does not exist."},
 		func(c *ops.Ctx, in ResolveAllIn) (ResolveAllOut, error) { return resolveAll(c, in) })
 }
 
@@ -54,6 +56,7 @@ type QueueIn struct {
 	Kind       string `query:"kind" enum:"comment,question,suggestion-note"`
 	State      string `query:"state" enum:"active,orphaned,none"`
 	After      string `query:"after" desc:"A thread id: only the threads after it in queue order."`
+	Visibility string `query:"visibility" enum:"shared,private,all" desc:"Default shared: the review everyone shares. all: also your own private threads (the ones you can see). A private thread of someone else's is never listed."`
 	Limit      int    `query:"limit" desc:"Threads per page (default 50, at most 200)."`
 }
 
@@ -157,7 +160,11 @@ func keyOf(t tree, r row) sortKey {
 
 func queue(c *ops.Ctx, in QueueIn) (QueueOut, error) {
 	q := c.DB().Read()
-	lin := ListIn{DocumentID: in.DocumentID, Status: StatusOpen, State: in.State, Kind: in.Kind, Author: in.Author}
+	mode := in.Visibility
+	if mode == "" {
+		mode = VisShared
+	}
+	lin := ListIn{DocumentID: in.DocumentID, Status: StatusOpen, State: in.State, Kind: in.Kind, Author: in.Author, Visibility: mode}
 	where, args, ierr := threadFilter(in.ProjectID, c.P.UserID, lin, true)
 	if ierr != nil {
 		return QueueOut{}, ierr
@@ -166,7 +173,7 @@ func queue(c *ops.Ctx, in QueueIn) (QueueOut, error) {
 	if err != nil {
 		return QueueOut{}, err
 	}
-	roots, err := fetch(c, q, where, args...)
+	roots, err := fetch(c, q, c.P.UserID, where, args...)
 	if err != nil {
 		return QueueOut{}, err
 	}
@@ -191,7 +198,7 @@ func queue(c *ops.Ctx, in QueueIn) (QueueOut, error) {
 			ak = k
 		} else {
 			// Resolved or filtered out since: where it stood is still known.
-			ar, err := fetch(c, q, `WHERE c.id = ? AND c.project_id = ? AND c.parent_id IS NULL`, in.After, in.ProjectID)
+			ar, err := fetch(c, q, c.P.UserID, `WHERE c.id = ? AND c.project_id = ? AND c.parent_id IS NULL`, in.After, in.ProjectID)
 			if err != nil {
 				return out, err
 			}
@@ -208,7 +215,7 @@ func queue(c *ops.Ctx, in QueueIn) (QueueOut, error) {
 	for i, r := range page {
 		ids[i] = r.ID
 	}
-	reps, err := repliesOf(c, q, ids)
+	reps, err := repliesOf(c, q, c.P.UserID, ids)
 	if err != nil {
 		return out, err
 	}
@@ -234,9 +241,11 @@ func queue(c *ops.Ctx, in QueueIn) (QueueOut, error) {
 		out.Next = page[0].ID
 	}
 	// counts per document, in reading order
+	// The counts follow the same audience as the list: the shared threads, or the ones this person can see.
+	vis, vargs := audience("c", c.P.UserID, mode)
 	crows, err := q.QueryContext(c, `SELECT c.document_id, c.status, c.anchor_state = 'orphaned', count(*) FROM comments c
-		WHERE c.project_id = ? AND c.parent_id IS NULL AND c.document_id IS NOT NULL AND (c.deleted_at IS NULL OR EXISTS (SELECT 1 FROM comments r WHERE r.parent_id = c.id AND r.deleted_at IS NULL))
-		GROUP BY c.document_id, c.status, c.anchor_state = 'orphaned'`, in.ProjectID)
+		WHERE `+vis+` AND c.project_id = ? AND c.parent_id IS NULL AND c.document_id IS NOT NULL AND (c.deleted_at IS NULL OR EXISTS (SELECT 1 FROM comments r WHERE r.parent_id = c.id AND r.deleted_at IS NULL))
+		GROUP BY c.document_id, c.status, c.anchor_state = 'orphaned'`, append(vargs, in.ProjectID)...)
 	if err != nil {
 		return out, err
 	}
@@ -283,6 +292,7 @@ type ResolveAllIn struct {
 	Kind        string   `json:"kind,omitempty" enum:"comment,question,suggestion-note"`
 	State       string   `json:"state,omitempty" enum:"active,orphaned,none"`
 	ThreadIDs   []string `json:"thread_ids,omitempty" desc:"Instead of filters: exactly these threads (ones that are not open are skipped)."`
+	Visibility  string   `json:"visibility,omitempty" enum:"shared,private" desc:"Default shared. private: resolve only your own private threads (nobody is told). There is no way to resolve both in one call."`
 	Preview     bool     `json:"preview,omitempty" desc:"Count what would be resolved and change nothing."`
 	ExpectCount *int     `json:"expect_count,omitempty" desc:"The count a preview gave. The request is refused (409) if the set has a different size now."`
 }
@@ -301,6 +311,14 @@ const maxResolveAll = 5000
 
 func resolveAll(c *ops.Ctx, in ResolveAllIn) (ResolveAllOut, error) {
 	out := ResolveAllOut{Preview: in.Preview}
+	mode := in.Visibility
+	switch mode {
+	case "":
+		mode = VisShared
+	case VisShared, VisPrivate:
+	default:
+		return out, ops.Invalid("visibility", "Use shared or private.")
+	}
 	if len(in.ThreadIDs) > maxResolveAll {
 		return out, ops.Invalid("thread_ids", "At most 5,000 threads at a time.")
 	}
@@ -308,18 +326,18 @@ func resolveAll(c *ops.Ctx, in ResolveAllIn) (ResolveAllOut, error) {
 		out.Count, out.Resolved = 0, 0
 		var roots []row
 		if len(in.ThreadIDs) > 0 {
-			rs, err := fetch(c, tx, `WHERE c.project_id = ? AND c.parent_id IS NULL AND c.status = 'open' AND c.deleted_at IS NULL AND c.id IN (`+placeholders(len(in.ThreadIDs))+`)`,
-				append([]any{in.ProjectID}, idArgs(in.ThreadIDs)...)...)
+			rs, err := fetch(c, tx, c.P.UserID, `WHERE c.project_id = ? AND c.visibility = ? AND c.parent_id IS NULL AND c.status = 'open' AND c.deleted_at IS NULL AND c.id IN (`+placeholders(len(in.ThreadIDs))+`)`,
+				append([]any{in.ProjectID, mode}, idArgs(in.ThreadIDs)...)...)
 			if err != nil {
 				return err
 			}
 			roots = rs
 		} else {
-			where, args, ierr := threadFilter(in.ProjectID, c.P.UserID, ListIn{DocumentID: in.DocumentID, Status: StatusOpen, State: in.State, Kind: in.Kind, Author: in.Author}, true)
+			where, args, ierr := threadFilter(in.ProjectID, c.P.UserID, ListIn{DocumentID: in.DocumentID, Status: StatusOpen, State: in.State, Kind: in.Kind, Author: in.Author, Visibility: mode}, true)
 			if ierr != nil {
 				return ierr
 			}
-			rs, err := fetch(c, tx, where+` LIMIT ?`, append(args, maxResolveAll+1)...)
+			rs, err := fetch(c, tx, c.P.UserID, where+` LIMIT ?`, append(args, maxResolveAll+1)...)
 			if err != nil {
 				return err
 			}
@@ -348,6 +366,9 @@ func resolveAll(c *ops.Ctx, in ResolveAllIn) (ResolveAllOut, error) {
 			}
 		}
 		out.Resolved = len(ids)
+		if mode == VisPrivate {
+			return c.FlushTo(tx) // nobody is told, and nothing is recorded that would show the others that such notes exist
+		}
 		for i, r := range roots {
 			if i >= 200 {
 				break // a notification each for the first 200 is plenty; a person is not buried

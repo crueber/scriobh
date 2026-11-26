@@ -38,8 +38,8 @@ await watchLong();
 const docs = async (pid) => (await api(main, "GET", `/api/v1/projects/${pid}/docs`)).json;
 const open = async (path = "/import") => { await pg.goto(base() + path); await pg.waitForSelector("#imp-folder"); };
 const status = () => pg.locator("#imp-status").innerText();
-const treeTitles = () => pg.locator("#imp-result .imp-node > .imp-row .imp-title").allInnerTexts();
-const nodeFor = (title) => pg.locator(`#imp-result .imp-node:has(> .imp-row > .imp-title:text-is("${title}"))`).first();
+const treeTitles = () => pg.locator("#imp-review .imp-node > .imp-row .imp-title").allInnerTexts();
+const nodeFor = (title) => pg.locator(`#imp-review .imp-node:has(> .imp-row > .imp-title:text-is("${title}"))`).first();
 const openEdit = async (title) => {
   const n = nodeFor(title);
   if (!(await n.locator("details.imp-edit").first().evaluate((d) => d.open))) {
@@ -47,9 +47,12 @@ const openEdit = async (title) => {
     await pg.keyboard.press("Enter"); // keyboard only: the summary toggles on Enter
   }
   ok(await n.locator("details.imp-edit").first().evaluate((d) => d.open), "the Edit panel did not open");
+  await n.locator(".imp-edit-body form").first().waitFor();
+  await settle(); // the panel was just swapped in: htmx marks it added for a moment
   return n;
 };
-const settle = async () => { await sleep(500); await waitFor(async () => !/Updating|Working out/.test(await status()), "the preview to settle", 20000); };
+// A change is a form whose answer is swapped into the review: it has settled when htmx has nothing in flight.
+const settle = async () => { await sleep(200); await pg.waitForFunction(() => !document.querySelector(".htmx-request, .htmx-swapping, .htmx-settling, .htmx-added"), null, { timeout: 20000 }); await sleep(100); };
 
 await kit.test("import: a folder is previewed as a tree, edited with the keyboard, and created", async () => {
   await open();
@@ -157,18 +160,19 @@ await kit.test("import: a 25 MB zip does not freeze the page and the preview ans
 });
 
 await kit.test("import: plain-words errors for a zip that is too big, not a zip, and a folder with nothing to import", async () => {
-  kit.allowed = [/status of 422/];
+  kit.allowed = [/status of 422/, /status of 413/];
   await open();
   const huge = join(kit.tmp, "huge.zip");
-  execFileSync("dd", ["if=/dev/zero", `of=${huge}`, "bs=1048576", "count=35"], { stdio: "ignore" });
+  writeFileSync(huge, Buffer.concat([Buffer.from("PK\x03\x04"), Buffer.alloc(35 * 1048576)])); // looks like a zip, and is too big
   await pg.locator("#imp-zip").setInputFiles(huge);
-  await waitFor(async () => /larger than 34 MiB/.test(await status()), "the size message");
-  ok(/choose the folder instead/.test(await status()), "the size message does not say what to do: " + (await status()));
+  const stageErr = () => pg.locator("#imp-stage-err").innerText();
+  await waitFor(async () => /larger than 34 MiB/.test(await stageErr()), "the size message", 30000);
+  ok(/choose a folder/.test(await stageErr()), "the size message does not say what to do: " + (await stageErr()));
   const notzip = join(kit.tmp, "notes.zip");
   writeFileSync(notzip, "this is not a zip file");
   await pg.locator("#imp-zip").setInputFiles(notzip);
-  await waitFor(async () => /not a readable zip file/.test(await status()), "the not-a-zip message");
-  eq(await pg.locator("#imp-result").isHidden(), true, "a preview is shown for something that is not a zip");
+  await waitFor(async () => /not a readable zip file/.test(await stageErr()), "the not-a-zip message");
+  eq(await pg.locator("#imp-review").count(), 0, "a review is shown for something that is not a zip");
   const empty = join(kit.tmp, "empty-folder");
   write(empty, "readme.txt", "Only a text file.");
   await pg.locator("#imp-folder").setInputFiles(empty);
@@ -289,11 +293,13 @@ await kit.test("import: a Word document is previewed with what was left out, and
   const titles = await treeTitles();
   ok(titles.includes("One") && titles.includes("Two"), "the chapters come from the headings: " + titles.join(", "));
   eq(await pg.locator("#imp-t").inputValue(), "Word Source", "the project's title comes from the document");
-  // headings as parts: the preview is made again
-  await pg.selectOption("#imp-dh", "parts");
+  // another way to cut: the preview is made again
+  await pg.locator('#imp-cutform input[value="none"]').check();
+  await pg.locator("#imp-cut-apply").click();
   await settle();
-  ok((await status()) === "" || !/could not/i.test(await status()), "parts: " + await status());
-  await pg.selectOption("#imp-dh", "chapters");
+  ok((await status()) === "" || !/could not/i.test(await status()), "one document: " + await status());
+  await pg.locator('#imp-cutform input[value="auto"]').check();
+  await pg.locator("#imp-cut-apply").click();
   await settle();
   await pg.locator("[data-go]").click();
   await pg.waitForURL(/\/p\/word-source[^/]*\/d\//, { timeout: 20000 });
@@ -314,10 +320,10 @@ await kit.test("import: an Obsidian vault is converted, with what was dropped li
   await pg.check("#imp-obs");
   await pg.locator("#imp-zip").setInputFiles(zipPath);
   await pg.locator("#imp-h").waitFor();
-  const notes = await pg.locator("#imp-result .imp-note, #imp-result .imp-warn, #imp-result .imp-skipped").allInnerTexts();
+  const notes = await pg.locator("#imp-review .imp-note, #imp-review .imp-warn, #imp-review .imp-skipped").allInnerTexts();
   const all = notes.join(" | ");
   ok(/canvas/i.test(all), "the canvas is listed as skipped: " + all);
-  ok(/dataview|Templater|image|picture|attachment/i.test(all + (await pg.locator("#imp-result").innerText())), "what was dropped is reported");
+  ok(/dataview|Templater|image|picture|attachment/i.test(all + (await pg.locator("#imp-review").innerText())), "what was dropped is reported");
   ok((await treeTitles()).length >= 2, "two notes become two chapters");
   ok(/An Obsidian vault/.test(await pg.locator(".imp-sum").innerText()), "the preview says it is a vault: " + await pg.locator(".imp-sum").innerText());
   await pg.locator("[data-go]").click();

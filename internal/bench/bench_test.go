@@ -262,7 +262,7 @@ func TestRunSmoke(t *testing.T) {
 	}
 	for _, want := range []string{"doc.get", "page.chapter", "page.project", "doc.list", "outline.get", "project.list", "search.query", "search.rare", "search.prefix", "page.search",
 		"doc.update", "http.save", "revision.list", "revision.diff", "export.md.single", "export.md.bundle", "export.html.single", "export.html.bundle",
-		"mirror.full_write", "mirror.rebuild_noop", "search.rebuild", "backup.create", "import.epub", "db.size", "search.semantic", "search.semantic.load",
+		"mirror.full_write", "mirror.rebuild_noop", "search.rebuild", "backup.create", "import.epub", "import.docx.h1", "import.docx.labels", "import.docx.none", "import.docx.500k", "import.look.150k", "import.look.500k", "import.draft.split", "import.pattern", "db.size", "search.semantic", "search.semantic.load",
 		"studio.dashboard", "studio.calendar.all"} {
 		m, ok := names[want]
 		if !ok {
@@ -343,5 +343,39 @@ func TestRunSmoke(t *testing.T) {
 	if v := Judge(rep, b, Policy{Tolerance: 0.2}); v.OK() {
 		// Only metrics slower than the floor can regress; the db size is always large enough.
 		t.Errorf("a baseline three times faster found no regression (db.size at least): %+v", v)
+	}
+}
+
+// A retry rebuilds the fixture of a case that keeps state (a staged draft that
+// the case discards). Forcing every measurement with a repeat to be taken once
+// more must finish the run; the draft cases are the ones that used to fail
+// with not_found, because their retry ran against a draft already discarded.
+func TestRetryOfAStatefulCaseRebuildsItsFixture(t *testing.T) {
+	var log bytes.Buffer
+	dir := t.TempDir()
+	forced := 0
+	rep, err := Run(context.Background(), Options{
+		Sizes:   []Size{{"3k", 3000}},
+		DataDir: dir,
+		Runs:    3,
+		Log:     &log,
+		Version: "test",
+		Failing: func(size string, m Metric) bool { forced++; return true },
+	})
+	if err != nil {
+		t.Fatalf("the run failed on a retry: %v\n%s", err, log.String())
+	}
+	if forced == 0 {
+		t.Fatal("no measurement was offered to the retry")
+	}
+	for _, want := range []string{"import.draft.split looks slow", "import.draft.edit looks slow", "import.look.150k looks slow", "import.pattern looks slow", "import.draft looks slow", "import.undo.plan looks slow"} {
+		if !strings.Contains(log.String(), want) {
+			t.Errorf("the retry of %q did not run:\n%s", want, log.String())
+		}
+	}
+	for _, m := range rep.Sizes[0].Metrics {
+		if m.P50 <= 0 && m.Name != "mirror.rebuild_noop" && m.Unit == UnitMS {
+			t.Errorf("%s measured nothing after the retry: %+v", m.Name, m)
+		}
 	}
 }

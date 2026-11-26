@@ -103,6 +103,7 @@ func (s *Server) sweepFixtures(t *testing.T, owner caller, kind, id string) {
 		s.reviewFixtures(t, owner, id)
 		s.webhookFixtures(t, id)
 		s.editionFixtures(t, id)
+		s.importSourceFixture(t, id)
 	}
 	if kind == "compendium" {
 		s.changeFixture(t, owner, id)
