@@ -25,13 +25,26 @@ type mirrorView struct {
 
 // userZone is the profile's time zone, UTC when it is empty or unknown.
 func (s *Server) userZone(r *http.Request) *time.Location {
-	out, err := s.Reg.Call(r.Context(), s.principal(r), "profile.get", account.EmptyIn{})
-	if err != nil {
-		return time.UTC
+	a := authFrom(r.Context())
+	if a.cache != nil {
+		a.cache.mu.Lock()
+		if a.cache.zoneDone {
+			loc := a.cache.zone
+			a.cache.mu.Unlock()
+			return loc
+		}
+		a.cache.mu.Unlock()
 	}
-	loc, err := time.LoadLocation(out.(account.ProfileItem).Item.Timezone)
-	if err != nil || loc == nil {
-		return time.UTC
+	loc := time.UTC
+	if out, err := s.Reg.Call(r.Context(), s.principal(r), "profile.get", account.EmptyIn{}); err == nil {
+		if l, err := time.LoadLocation(out.(account.ProfileItem).Item.Timezone); err == nil && l != nil {
+			loc = l
+		}
+	}
+	if a.cache != nil {
+		a.cache.mu.Lock()
+		a.cache.zone, a.cache.zoneDone = loc, true
+		a.cache.mu.Unlock()
 	}
 	return loc
 }

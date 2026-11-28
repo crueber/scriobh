@@ -124,6 +124,10 @@ func entityFTS(ctx context.Context, q queryer, cid, expr string, limit, offset i
 		out.Items = append(out.Items, h)
 		ids = append(ids, rowid)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return CompendiumQueryOut{}, err
+	}
 	if err := rows.Close(); err != nil {
 		return CompendiumQueryOut{}, err
 	}

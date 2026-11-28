@@ -112,7 +112,16 @@ func cachePut(project string, e *engine) {
 func cacheForget(project string) {
 	cache.Lock()
 	defer cache.Unlock()
+	if _, ok := cache.m[project]; !ok {
+		return
+	}
 	delete(cache.m, project)
+	for i, id := range cache.order {
+		if id == project {
+			cache.order = append(cache.order[:i], cache.order[i+1:]...)
+			break
+		}
+	}
 }
 
 // Querier is what a transaction and a pool share.

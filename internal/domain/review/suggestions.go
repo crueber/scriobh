@@ -259,27 +259,30 @@ func suggestCreateOpt(c *ops.Ctx, in SuggestionCreateIn, tell bool) (SuggestionI
 			id, in.ProjectID, in.DocumentID, c.P.UserID, in.BaseRevision, string(raw), note, now, now); err != nil {
 			return err
 		}
-		// the people who decide: the owner and the editors
-		rows, err := tx.QueryContext(c, `SELECT user_id FROM project_members WHERE project_id = ? AND role IN ('owner','editor')`, in.ProjectID)
-		if err != nil {
-			return err
-		}
-		var who []string
-		for rows.Next() {
-			var u string
-			if err := rows.Scan(&u); err != nil {
+		if tell {
+			// the people who decide: the owner and the editors
+			rows, err := tx.QueryContext(c, `SELECT user_id FROM project_members WHERE project_id = ? AND role IN ('owner','editor')`, in.ProjectID)
+			if err != nil {
+				return err
+			}
+			var who []string
+			for rows.Next() {
+				var u string
+				if err := rows.Scan(&u); err != nil {
+					rows.Close()
+					return err
+				}
+				who = append(who, u)
+			}
+			if err := rows.Err(); err != nil {
 				rows.Close()
 				return err
 			}
-			who = append(who, u)
-		}
-		rows.Close()
-		for _, u := range who {
-			if !tell {
-				break
-			}
-			if err := notify(tx, u, in.ProjectID, "suggestion", "", id, in.DocumentID, c.P.UserID, now); err != nil {
-				return err
+			rows.Close()
+			for _, u := range who {
+				if err := notify(tx, u, in.ProjectID, "suggestion", "", id, in.DocumentID, c.P.UserID, now); err != nil {
+					return err
+				}
 			}
 		}
 		c.Emit(ops.Event{Type: "suggestion.created", ProjectID: in.ProjectID, DocumentID: in.DocumentID, Payload: map[string]any{"suggestion_id": id}})

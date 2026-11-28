@@ -125,6 +125,10 @@ func loadEvents(ctx context.Context, q vocab.Querier, cids []string, trashed boo
 		out = append(out, e)
 		byID[e.ID] = e
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, err
+	}
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
@@ -147,6 +151,10 @@ func loadEvents(ctx context.Context, q vocab.Querier, cids []string, trashed boo
 		if e := byID[id]; e != nil {
 			e.People = append(e.People, p)
 		}
+	}
+	if err := prows.Err(); err != nil {
+		_ = prows.Close()
+		return nil, err
 	}
 	if err := prows.Close(); err != nil {
 		return nil, err
@@ -194,6 +202,10 @@ func loadOne(ctx context.Context, q vocab.Querier, id string) (*ev, error) {
 			return nil, err
 		}
 		e.People = append(e.People, p)
+	}
+	if err := prows.Err(); err != nil {
+		_ = prows.Close()
+		return nil, err
 	}
 	if err := prows.Close(); err != nil {
 		return nil, err

@@ -35,6 +35,10 @@ func (l *loader) earlierSummaries(targetID string) (string, error) {
 		}
 		long[id] = s
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return "", err
+	}
 	if err := rows.Close(); err != nil {
 		return "", err
 	}

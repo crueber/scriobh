@@ -51,11 +51,28 @@ func compAddressMap(items []compendiums.Compendium) map[string]string {
 
 // compAddresses reads the set the caller can open and addresses it.
 func (s *Server) compAddresses(r *http.Request) map[string]string {
+	a := authFrom(r.Context())
+	cacheable := a.cache != nil && (r.Method == http.MethodGet || r.Method == http.MethodHead)
+	if cacheable {
+		a.cache.mu.Lock()
+		if a.cache.compDone {
+			m := a.cache.compAddrs
+			a.cache.mu.Unlock()
+			return m
+		}
+		a.cache.mu.Unlock()
+	}
 	out, err := s.Reg.Call(r.Context(), s.principal(r), "compendium.list", compendiums.ListIn{State: compendiums.StateAll})
 	if err != nil {
 		return nil
 	}
-	return compAddressMap(out.(compendiums.ListOut).Items)
+	m := compAddressMap(out.(compendiums.ListOut).Items)
+	if cacheable {
+		a.cache.mu.Lock()
+		a.cache.compAddrs, a.cache.compDone = m, true
+		a.cache.mu.Unlock()
+	}
+	return m
 }
 
 // addressed returns c with its Slug replaced by its address, so every page built from it links to the right one.
@@ -199,6 +216,9 @@ func (s *Server) compBackTo(r *http.Request, compID string) *compBack {
 		} else if at > atOpen || (at == atOpen && id > bestOpen) {
 			bestOpen, atOpen = id, at
 		}
+	}
+	if rows.Err() != nil {
+		return nil
 	}
 	best := bestOpen
 	if best == "" {

@@ -246,6 +246,10 @@ func fingerprints(ctx context.Context, q entities.Querier, only string) (fps, pr
 		}
 		fmt.Fprintf(get(id), "p\x00%q\x00%q\x00%q\x00%q\x00%q\x00%q\x00%q\x00%q\x00%q\x00%v\x00%v\n", id, slug, title, sub, author, kind, lang, genre, status, trashed, archived)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, nil, err
+	}
 	if err := rows.Close(); err != nil {
 		return nil, nil, err
 	}
@@ -271,6 +275,10 @@ func fingerprints(ctx context.Context, q entities.Querier, only string) (fps, pr
 		}
 		fmt.Fprintf(h, "d\x00%q\x00%q\x00%q\x00%q\x00%q\x00%v\x00%q\x00%q\x00%q\x00%q\x00%q\x00%q\x00%q\x00%d\x00%d\x00%q\x00%q\n",
 			id, parent, kind, title, status, pos, hash, synS, synL, pov, loc, sd, se, target, include, povE, locE)
+	}
+	if err := drows.Err(); err != nil {
+		_ = drows.Close()
+		return nil, nil, err
 	}
 	if err := drows.Close(); err != nil {
 		return nil, nil, err
@@ -302,6 +310,10 @@ func fingerprints(ctx context.Context, q entities.Querier, only string) (fps, pr
 		if h, ok := hashes[pid]; ok {
 			fmt.Fprintf(h, "e\x00%q\x00%q\x00%q\x00%q\x00%q\x00%d\x00%q\n", id, kind, label, ident, sum, size, at)
 		}
+	}
+	if err := erows.Err(); err != nil {
+		_ = erows.Close()
+		return nil, nil, err
 	}
 	if err := erows.Close(); err != nil {
 		return nil, nil, err

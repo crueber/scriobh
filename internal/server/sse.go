@@ -95,7 +95,7 @@ func (s *Server) authorizeRead(ctx context.Context, p ops.Principal, op, id stri
 	set := false
 	for _, f := range ops.InputFields(e.In) {
 		if f.Location == "path" && f.Name == "id" {
-			v.Field(f.Index).SetString(id)
+			v.FieldByIndex(f.Index).SetString(id)
 			set = true
 		}
 	}

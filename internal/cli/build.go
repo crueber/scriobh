@@ -324,7 +324,7 @@ func (in *inputs) dataObject(spec string) (map[string]any, error) {
 // destructive reports whether an op needs --yes: it deletes, purges, revokes
 // or prunes.
 func destructive(o Op) bool {
-	if o.Method == "DELETE" {
+	if o.Method == "DELETE" || o.Permanent {
 		return true
 	}
 	ws := o.Words()
@@ -370,22 +370,31 @@ func (inv *Invocation) Validate() error {
 	return nil
 }
 
+func (inv *Invocation) isDryRun() bool {
+	if inv.Global.DryRun {
+		return true
+	}
+	vals := inv.Values["dry_run"]
+	return len(vals) > 0 && strings.EqualFold(strings.TrimSpace(vals[len(vals)-1]), "true")
+}
+
 // Preflight refuses what the server would refuse or what the command line
 // promises not to do, before any request: a preview of an op that cannot be
 // previewed, a destructive command without --yes, and a file response with
 // nowhere to put it. The skill's examples are held to the same rules.
 func (inv *Invocation) Preflight() error {
 	op, g := inv.Op, inv.Global
-	if g.DryRun && op.NoDryRun {
+	dry := inv.isDryRun()
+	if dry && op.NoDryRun {
 		return &Fail{Code: "dry_run_unsupported", Exit: ExitValidation,
 			Message: op.Command() + " cannot be previewed with --dry-run; it has effects a rollback cannot undo.",
 			Hint:    "Read the command's help, check the input yourself, and run it without --dry-run."}
 	}
-	if destructive(op) && !g.Yes && !g.DryRun {
+	if destructive(op) && !g.Yes && !dry {
 		return &UsageError{Msg: op.Command() + " is destructive and needs --yes.",
 			Hint: "Preview it first with --dry-run, then repeat with --yes."}
 	}
-	if isFileOp(op) && g.Output == "" && !g.DryRun {
+	if isFileOp(op) && g.Output == "" && !dry {
 		return &UsageError{Msg: op.Command() + " returns a file; say where to put it with --output FILE (or - for standard output).",
 			Hint: "Example: scriobh-cli " + op.Command() + " --output result.out"}
 	}

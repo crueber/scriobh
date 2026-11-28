@@ -174,7 +174,11 @@ func Create(ctx context.Context, dbPath, dataDir string, o Options) (*Result, er
 	type src struct{ arc, path string }
 	srcs := []src{{DatabaseName, snap}}
 	skipped := 0
-	skip := map[string]bool{o.Out: true}
+	outClean := filepath.Clean(o.Out)
+	if abs, err := filepath.Abs(outClean); err == nil {
+		outClean = abs
+	}
+	skip := map[string]bool{o.Out: true, outClean: true}
 	for _, r := range roots {
 		if (r == "files" && o.NoFiles) || (r == "mirror" && o.NoMirror) || (r == "conflicts" && o.NoConflicts) {
 			continue
@@ -197,7 +201,11 @@ func Create(ctx context.Context, dbPath, dataDir string, o Options) (*Result, er
 				}
 				return nil
 			}
-			if !d.Type().IsRegular() || skip[p] {
+			pAbs := filepath.Clean(p)
+			if abs, err := filepath.Abs(pAbs); err == nil {
+				pAbs = abs
+			}
+			if !d.Type().IsRegular() || skip[p] || skip[pAbs] {
 				skipped++ // a symlink, socket or device is never archived
 				return nil
 			}

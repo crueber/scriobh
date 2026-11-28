@@ -37,18 +37,14 @@ type printFacts struct {
 
 // thousands writes a count with its separators: 1,200,000.
 func thousands(v any) string {
-	n, ok := v.(int)
-	if f, isF := v.(float64); isF {
-		n, ok = int(f), true
-	}
-	if !ok {
+	switch x := v.(type) {
+	case int:
+		return commas(x)
+	case float64:
+		return commas(int(x))
+	default:
 		return fmt.Sprint(v)
 	}
-	s := strconv.Itoa(n)
-	for i := len(s) - 3; i > 0; i -= 3 {
-		s = s[:i] + "," + s[i:]
-	}
-	return s
 }
 
 func num3(v float64) string {
@@ -135,10 +131,12 @@ func (s *Server) coverPrintError(r *http.Request, err error) error {
 	switch {
 	case e.Code == ops.CodeNotFound:
 		c.Message = s.tr(r, "cmp.cv.r.cover_file_missing")
-	case s.printRefusal(r, e) != "":
-		c.Message = s.printRefusal(r, e)
 	default:
-		return err
+		if msg := s.printRefusal(r, e); msg != "" {
+			c.Message = msg
+		} else {
+			return err
+		}
 	}
 	return &c
 }

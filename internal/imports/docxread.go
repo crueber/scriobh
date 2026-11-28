@@ -68,6 +68,9 @@ func readDocx(data []byte) (*docxFile, error) {
 		if budget < 0 {
 			return nil, errors.New("the document holds more text than the import limit")
 		}
+		if err := checkTagSizes(b); err != nil {
+			return nil, fmt.Errorf("%s: %w", zf.Name, err)
+		}
 		return b, nil
 	}
 	for _, zf := range zr.File {

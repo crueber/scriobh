@@ -2,7 +2,7 @@
 {{define "crumb"}}{{template "res-crumb" (dict "O" .Data "Mid" "Research" "Here" "Board")}}{{end}}
 {{define "tab-write"}}{{template "res-tab" (dict "O" .Data "Active" "research")}}{{end}}
 {{define "ptabs"}}{{template "res-ptabs" (dict "O" .Data "Active" "research")}}{{end}}
-{{define "projmore"}}{{template "res-more" (dict "O" .Data "Active" "research")}}{{end}}
+{{define "projmore"}}{{template "res-more" (dict "O" .Data "Active" "research" "Lang" $.Lang)}}{{end}}
 {{define "content"}}
 {{with .Data}}
 <div class="research board-page" id="research" data-owner="{{.Kind}}" data-can-edit="{{.CanEdit}}">

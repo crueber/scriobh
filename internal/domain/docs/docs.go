@@ -619,16 +619,14 @@ func updateTx(c *ops.Ctx, tx *sql.Tx, l *leases, in UpdateIn, noticesOut *[]stri
 		if deleted.Valid {
 			return ops.Conflict("This document is in the trash. Restore it before editing.")
 		}
-		if in.TabID != "" {
-			if l.heldByOther(in.ID, in.TabID) {
-				return ops.ConflictWith("This document is open for writing in another tab.", map[string]any{"reason": "lease", "current_revision": rev})
-			}
-			if !c.DryRun() { // a preview must not take the lease
-				l.acquire(in.ID, in.TabID, false)
-			}
+		if in.TabID != "" && l.heldByOther(in.ID, in.TabID) {
+			return ops.ConflictWith("This document is open for writing in another tab.", map[string]any{"reason": "lease", "current_revision": rev})
 		}
 		if in.BaseRevision != rev {
 			return ops.ConflictWith("This document changed since you opened it.", map[string]any{"reason": "revision", "current_revision": rev})
+		}
+		if in.TabID != "" && !c.DryRun() { // a preview must not take the lease
+			l.acquire(in.ID, in.TabID, false)
 		}
 		changed := false
 		synBefore := synS // the search text is written only when the title or synopsis, or the body, changed
@@ -670,10 +668,7 @@ func updateTx(c *ops.Ctx, tx *sql.Tx, l *leases, in UpdateIn, noticesOut *[]stri
 			include = v
 		}
 		// goals: remember what the text was before this save (see RecordSave below).
-		oldContent, oldWords := content, 0
-		if in.Content != nil {
-			_ = tx.QueryRow(`SELECT word_count FROM documents WHERE id = ?`, in.ID).Scan(&oldWords)
-		}
+		oldContent, oldWords := content, wordCount
 		sceneChanged, err := applyScene(in, &pov, &location, &storyDate, &storyEnd)
 		if err != nil {
 			return err
@@ -1098,16 +1093,14 @@ func split(c *ops.Ctx, l *leases, in SplitIn) (SplitOut, error) {
 		if deleted.Valid {
 			return ops.Conflict("This document is in the trash. Restore it before splitting it.")
 		}
-		if in.TabID != "" {
-			if l.heldByOther(in.ID, in.TabID) {
-				return ops.ConflictWith("This document is open for writing in another tab.", map[string]any{"reason": "lease", "current_revision": rev})
-			}
-			if !c.DryRun() { // a preview must not take the lease
-				l.acquire(in.ID, in.TabID, false)
-			}
+		if in.TabID != "" && l.heldByOther(in.ID, in.TabID) {
+			return ops.ConflictWith("This document is open for writing in another tab.", map[string]any{"reason": "lease", "current_revision": rev})
 		}
 		if in.BaseRevision != rev {
 			return ops.ConflictWith("This document changed since you opened it.", map[string]any{"reason": "revision", "current_revision": rev})
+		}
+		if in.TabID != "" && !c.DryRun() { // a preview must not take the lease
+			l.acquire(in.ID, in.TabID, false)
 		}
 		// A document that carries alternatives is split at a point outside every
 		// anchor, and its comment is divided between the halves.

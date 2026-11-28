@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -112,7 +113,7 @@ func (g *Global) set(name, val string) error {
 	case "all":
 		g.All, err = boolean()
 	case "max-pages":
-		_, err = fmt.Sscanf(val, "%d", &g.MaxPages)
+		g.MaxPages, err = strconv.Atoi(val)
 		if err != nil || g.MaxPages < 1 {
 			err = usagef("--max-pages takes a positive number")
 		}
@@ -130,7 +131,7 @@ func (g *Global) set(name, val string) error {
 		g.NoCache, err = boolean()
 	case "retries":
 		g.retriesSet = true
-		_, err = fmt.Sscanf(val, "%d", &g.Retries)
+		g.Retries, err = strconv.Atoi(val)
 		if err != nil || g.Retries < 0 || g.Retries > 10 {
 			err = usagef("--retries takes a number from 0 to 10")
 		}

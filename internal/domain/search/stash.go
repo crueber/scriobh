@@ -87,6 +87,10 @@ func stashFTS(ctx context.Context, q queryer, project, expr string, f StashFilte
 		hits = append(hits, h)
 		rowids = append(rowids, rowid)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, 0, err
+	}
 	if err := rows.Close(); err != nil {
 		return nil, 0, err
 	}
@@ -176,65 +180,47 @@ func stashLike(ctx context.Context, q queryer, project string, words []string, f
 // rebuildStash re-derives stash_text from the items and rebuilds stash_fts, as
 // the research rebuild does.
 func rebuildStash(ctx context.Context, tx *sql.Tx) error {
-	rows, err := tx.QueryContext(ctx, `SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'stash_text'`)
-	if err != nil {
+	var hasTriggers int
+	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'stash_text'`).Scan(&hasTriggers); err != nil {
 		return err
 	}
-	var names, ddl []string
-	for rows.Next() {
-		var n, s string
-		if err := rows.Scan(&n, &s); err != nil {
-			rows.Close()
-			return err
-		}
-		names, ddl = append(names, n), append(ddl, s)
-	}
-	if err := rows.Close(); err != nil {
-		return err
-	}
-	if len(names) == 0 {
+	if hasTriggers == 0 {
 		return nil // an older database without the stash index
 	}
-	for _, n := range names {
-		if _, err := tx.Exec(`DROP TRIGGER ` + quoteIdent(n)); err != nil {
+	return rebuildFTSTable(ctx, tx, "stash_text", "stash_fts", func(tx *sql.Tx) error {
+		irows, err := tx.QueryContext(ctx, `SELECT id, project_id, title, tags, content FROM stash_items ORDER BY id`)
+		if err != nil {
 			return err
 		}
-	}
-	if _, err := tx.Exec(`DELETE FROM stash_text`); err != nil {
-		return err
-	}
-	irows, err := tx.QueryContext(ctx, `SELECT id, project_id, title, tags, content FROM stash_items ORDER BY id`)
-	if err != nil {
-		return err
-	}
-	type row struct{ id, project, title, tags, body string }
-	var got []row
-	for irows.Next() {
-		var r row
-		if err := irows.Scan(&r.id, &r.project, &r.title, &r.tags, &r.body); err != nil {
-			irows.Close()
+		type row struct{ id, project, title, tags, body string }
+		var got []row
+		for irows.Next() {
+			var r row
+			if err := irows.Scan(&r.id, &r.project, &r.title, &r.tags, &r.body); err != nil {
+				irows.Close()
+				return err
+			}
+			got = append(got, r)
+		}
+		if err := irows.Err(); err != nil {
+			_ = irows.Close()
 			return err
 		}
-		got = append(got, r)
-	}
-	if err := irows.Close(); err != nil {
-		return err
-	}
-	for _, r := range got {
-		if _, err := tx.Exec(`INSERT INTO stash_text(item_id, project_id, title, tags, body) VALUES (?,?,?,?,?)`,
-			r.id, r.project, r.title, StashTagsText(r.tags), text.SearchBody(r.body)); err != nil {
+		if err := irows.Close(); err != nil {
 			return err
 		}
-	}
-	if _, err := tx.Exec(`INSERT INTO stash_fts(stash_fts) VALUES('rebuild')`); err != nil {
-		return err
-	}
-	for _, s := range ddl {
-		if _, err := tx.Exec(s); err != nil {
+		stmt, err := tx.PrepareContext(ctx, `INSERT INTO stash_text(item_id, project_id, title, tags, body) VALUES (?,?,?,?,?)`)
+		if err != nil {
 			return err
 		}
-	}
-	return nil
+		defer stmt.Close()
+		for _, r := range got {
+			if _, err := stmt.ExecContext(ctx, r.id, r.project, r.title, StashTagsText(r.tags), text.SearchBody(r.body)); err != nil {
+				return err
+			}
+		}
+		return stmt.Close()
+	})
 }
 
 // StashTagsText turns the stored JSON array of tags into the words the index

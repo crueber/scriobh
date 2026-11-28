@@ -103,6 +103,10 @@ func referencedList(c *ops.Ctx, in ReferencedListIn) (ReferencedListOut, error) 
 		e.Aliases = []string{}
 		all = append(all, e)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return ReferencedListOut{}, err
+	}
 	if err := rows.Close(); err != nil {
 		return ReferencedListOut{}, err
 	}
@@ -139,6 +143,10 @@ func referencedList(c *ops.Ctx, in ReferencedListIn) (ReferencedListOut, error) 
 			return ReferencedListOut{}, err
 		}
 		aliases[id] = append(aliases[id], alias)
+	}
+	if err := arows.Err(); err != nil {
+		_ = arows.Close()
+		return ReferencedListOut{}, err
 	}
 	if err := arows.Close(); err != nil {
 		return ReferencedListOut{}, err

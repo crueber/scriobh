@@ -5,9 +5,8 @@
 (function () {
   "use strict";
   var doc = document, win = window;
-  var $ = function (s, r) { return (r || doc).querySelector(s); };
-  var $$ = function (s, r) { return Array.prototype.slice.call((r || doc).querySelectorAll(s)); };
   var S = win.scriobh || (win.scriobh = {});
+  var $ = S.$, $$ = S.$$, el = S.el;
   var W = S.write;
   var root = $("#write"), slot = $("#tree-slot");
   if (!root || !slot || !W) return;
@@ -18,8 +17,7 @@
     try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* storage is optional */ }
     return null;
   }
-  function el(tag, cls, text) { var e = doc.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-  function fmt(n) { return n ? String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",") : "–"; }
+  function fmt(n) { return n ? S.fmt(n) : "–"; }
   function tree() { return $("#tree", slot); }
   function rows() { var t = tree(); return t ? $$(".tree-row", t) : []; }
   function visible() { return rows().filter(function (r) { return !r.hidden; }); }

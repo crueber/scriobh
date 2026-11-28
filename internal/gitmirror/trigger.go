@@ -315,7 +315,7 @@ func testTrigger(c *ops.Ctx, in RemoteBody) (TriggerTestOut, error) {
 	if !t.Enabled || r.RestorePaused {
 		return TriggerTestOut{}, ops.Conflict("This trigger is switched off or paused (a restore pauses every trigger). It calls nothing, a test included, until its owner switches it on.")
 	}
-	res, ok := s.sendTrigger(c, r, t, db.NewID("gtd"), "git.ping", "", "", 1)
+	res, ok, _ := s.sendTrigger(c, r, t, db.NewID("gtd"), "git.ping", "", "", 1)
 	return TriggerTestOut{OK: ok, Status: res}, nil
 }
 
@@ -357,18 +357,19 @@ type triggerPayload struct {
 	Commit     string `json:"commit,omitempty"`
 }
 
-// sendTrigger makes one attempt and returns the short status line and whether it was delivered.
-func (s *Service) sendTrigger(ctx context.Context, r *remoteRow, t *triggerRow, id, event, branch, commit string, attempt int) (string, bool) {
+// sendTrigger makes one attempt and returns the short status line, whether it
+// was delivered, and whether a failure is permanent (not worth retrying).
+func (s *Service) sendTrigger(ctx context.Context, r *remoteRow, t *triggerRow, id, event, branch, commit string, attempt int) (line string, ok, permanent bool) {
 	secret, err := s.o.Box.Open(t.SecretSealed, triggerSecretContext(r.ID))
 	if err != nil {
-		return "failed: the signing secret cannot be read", false
+		return "failed: the signing secret cannot be read", false, false
 	}
 	defer clear(secret)
 	target := t.URL
 	if t.PathSealed != "" {
 		rest, err := s.o.Box.Open(t.PathSealed, triggerPathContext(r.ID))
 		if err != nil {
-			return "failed: the address cannot be read", false
+			return "failed: the address cannot be read", false, false
 		}
 		target += string(rest)
 		clear(rest)
@@ -384,7 +385,7 @@ func (s *Service) sendTrigger(ctx context.Context, r *remoteRow, t *triggerRow, 
 	h.Set(webhook.HeaderEvent, event)
 	h.Set(webhook.HeaderAttempt, strconv.Itoa(attempt))
 	res := s.triggerSender().Send(ctx, target, h, body)
-	return statusLine(res), res.OK()
+	return statusLine(res), res.OK(), res.Permanent() || res.Class == webhook.ErrClassBlocked
 }
 
 // statusLine is the whole of what is kept about an attempt: the status or the class of failure, never a body.
@@ -510,12 +511,12 @@ func (s *Service) settleOne(ctx context.Context, id, remoteID, projectID, pushID
 		return true
 	}
 	attempts++
-	line, ok := s.sendTrigger(ctx, r, t, id, TriggerEvent, branch, commit, attempts)
+	line, ok, permanent := s.sendTrigger(ctx, r, t, id, TriggerEvent, branch, commit, attempts)
 	switch {
 	case ok:
 		finish("delivered", line, now, attempts)
 		return true
-	case strings.Contains(line, "(rejected)") || strings.Contains(line, "(gone)") || strings.Contains(line, "(redirect_refused)") || strings.Contains(line, "(blocked)") || strings.HasPrefix(line, "failed: blocked"):
+	case permanent:
 		finish("dead", line+"; not retried", now, attempts)
 		return true
 	case attempts >= maxTriggerAttempts || age > triggerStale:

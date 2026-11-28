@@ -132,8 +132,15 @@ func researchFTS(ctx context.Context, q queryer, col, owner, expr string, limit,
 		out.Items = append(out.Items, h)
 		rowids = append(rowids, rowid)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return ResearchQueryOut{}, err
+	}
 	if err := rows.Close(); err != nil {
 		return ResearchQueryOut{}, err
+	}
+	if len(rowids) == 0 {
+		return out, nil
 	}
 	byRow := map[int64]*ResearchHit{}
 	for i := range out.Items {
@@ -220,67 +227,45 @@ func researchLike(ctx context.Context, q queryer, col, owner string, words []str
 // rebuildResearch re-derives research_text from the notes and rebuilds
 // research_fts, as the document and entity rebuilds do.
 func rebuildResearch(ctx context.Context, tx *sql.Tx) error {
-	rows, err := tx.QueryContext(ctx, `SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'research_text'`)
-	if err != nil {
-		return err
-	}
-	var names, ddl []string
-	for rows.Next() {
-		var n, s string
-		if err := rows.Scan(&n, &s); err != nil {
-			rows.Close()
+	return rebuildFTSTable(ctx, tx, "research_text", "research_fts", func(tx *sql.Tx) error {
+		nrows, err := tx.QueryContext(ctx, `SELECT id, project_id, compendium_id, title, source_url, body, quote FROM research_notes ORDER BY id`)
+		if err != nil {
 			return err
 		}
-		names, ddl = append(names, n), append(ddl, s)
-	}
-	if err := rows.Close(); err != nil {
-		return err
-	}
-	for _, n := range names {
-		if _, err := tx.Exec(`DROP TRIGGER ` + quoteIdent(n)); err != nil {
+		type row struct {
+			id, title, source, body, quote string
+			project, compendium            sql.NullString
+		}
+		var got []row
+		for nrows.Next() {
+			var r row
+			if err := nrows.Scan(&r.id, &r.project, &r.compendium, &r.title, &r.source, &r.body, &r.quote); err != nil {
+				nrows.Close()
+				return err
+			}
+			got = append(got, r)
+		}
+		if err := nrows.Err(); err != nil {
+			_ = nrows.Close()
 			return err
 		}
-	}
-	if _, err := tx.Exec(`DELETE FROM research_text`); err != nil {
-		return err
-	}
-	nrows, err := tx.QueryContext(ctx, `SELECT id, project_id, compendium_id, title, source_url, body, quote FROM research_notes ORDER BY id`)
-	if err != nil {
-		return err
-	}
-	type row struct {
-		id, title, source, body, quote string
-		project, compendium            sql.NullString
-	}
-	var got []row
-	for nrows.Next() {
-		var r row
-		if err := nrows.Scan(&r.id, &r.project, &r.compendium, &r.title, &r.source, &r.body, &r.quote); err != nil {
-			nrows.Close()
+		if err := nrows.Close(); err != nil {
 			return err
 		}
-		got = append(got, r)
-	}
-	if err := nrows.Close(); err != nil {
-		return err
-	}
-	for _, r := range got {
-		plain := text.SearchBody(r.body)
-		if r.quote != "" {
-			plain += "\n" + text.SearchBody(r.quote)
-		}
-		if _, err := tx.Exec(`INSERT INTO research_text(note_id, project_id, compendium_id, title, source, body) VALUES (?,?,?,?,?,?)`,
-			r.id, r.project, r.compendium, r.title, r.source, plain); err != nil {
+		stmt, err := tx.PrepareContext(ctx, `INSERT INTO research_text(note_id, project_id, compendium_id, title, source, body) VALUES (?,?,?,?,?,?)`)
+		if err != nil {
 			return err
 		}
-	}
-	if _, err := tx.Exec(`INSERT INTO research_fts(research_fts) VALUES('rebuild')`); err != nil {
-		return err
-	}
-	for _, s := range ddl {
-		if _, err := tx.Exec(s); err != nil {
-			return err
+		defer stmt.Close()
+		for _, r := range got {
+			plain := text.SearchBody(r.body)
+			if r.quote != "" {
+				plain += "\n" + text.SearchBody(r.quote)
+			}
+			if _, err := stmt.ExecContext(ctx, r.id, r.project, r.compendium, r.title, r.source, plain); err != nil {
+				return err
+			}
 		}
-	}
-	return nil
+		return stmt.Close()
+	})
 }

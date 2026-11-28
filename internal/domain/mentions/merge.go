@@ -40,6 +40,10 @@ func MergeApply(tx *sql.Tx, sourceID, targetID string) error {
 		m.r.Ambiguous = amb == 1
 		all = append(all, m)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return err
+	}
 	if err := rows.Close(); err != nil {
 		return err
 	}

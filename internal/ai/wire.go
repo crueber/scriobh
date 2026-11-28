@@ -93,6 +93,11 @@ func ValidModel(s string) bool {
 
 // Encode builds the exact request body for a model: the bytes that are sent.
 func (c *Client) Encode(model string, p Payload, stream bool) ([]byte, error) {
+	return Encode(c.ep, model, p, stream)
+}
+
+// Encode builds the exact request body for ep and model without allocating an HTTP client.
+func Encode(ep Endpoint, model string, p Payload, stream bool) ([]byte, error) {
 	if !ValidModel(model) {
 		return nil, errors.New("ai: not a usable model name")
 	}
@@ -104,7 +109,7 @@ func (c *Client) Encode(model string, p Payload, stream bool) ([]byte, error) {
 			return nil, fmt.Errorf("ai: unknown role %q", m.Role)
 		}
 	}
-	switch c.ep.Kind {
+	switch ep.Kind {
 	case KindOpenAICompatible, KindOpenRouter:
 		b := oaiBody{Model: model, Messages: p.Messages, MaxTokens: p.MaxTokens, Temperature: p.Temperature, Stream: stream}
 		if stream {
@@ -113,12 +118,12 @@ func (c *Client) Encode(model string, p Payload, stream bool) ([]byte, error) {
 		if p.JSON {
 			b.ResponseFormat = &oaiFormat{Type: "json_object"}
 		}
-		if c.ep.Kind == KindOpenRouter {
-			r := orRouting{ZDR: c.ep.Routing.ZDR, Order: c.ep.Routing.Order}
-			if !c.ep.Routing.AllowDataCollection {
+		if ep.Kind == KindOpenRouter {
+			r := orRouting{ZDR: ep.Routing.ZDR, Order: ep.Routing.Order}
+			if !ep.Routing.AllowDataCollection {
 				r.DataCollection = "deny"
 			}
-			if c.ep.Routing.NoFallbacks {
+			if ep.Routing.NoFallbacks {
 				f := false
 				r.AllowFallbacks = &f
 			}
@@ -127,7 +132,7 @@ func (c *Client) Encode(model string, p Payload, stream bool) ([]byte, error) {
 		}
 		return marshal(b)
 	case KindOllama:
-		b := ollamaBody{Model: model, Messages: p.Messages, Stream: stream, Options: ollamaOptions{NumPredict: p.MaxTokens, Temperature: p.Temperature}, KeepAlive: c.ep.KeepAlive}
+		b := ollamaBody{Model: model, Messages: p.Messages, Stream: stream, Options: ollamaOptions{NumPredict: p.MaxTokens, Temperature: p.Temperature}, KeepAlive: ep.KeepAlive}
 		if p.JSON {
 			b.Format = "json"
 		}

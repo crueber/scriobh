@@ -37,6 +37,10 @@ func mergeApply(tx *sql.Tx, sourceID, targetID string) error {
 		}
 		touched = append(touched, id)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return err
+	}
 	if err := rows.Close(); err != nil {
 		return err
 	}

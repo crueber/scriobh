@@ -2,8 +2,13 @@ package ops
 
 import (
 	"context"
+	"database/sql"
+	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/crueber/scriobh/internal/db"
 )
 
 type pingIn struct {
@@ -145,5 +150,74 @@ func TestErrorMapping(t *testing.T) {
 	}
 	if strings.Contains(AsError(context.Canceled).Message, "cancel") {
 		t.Error("internal errors must not leak details")
+	}
+}
+
+type testTxSink struct {
+	events int
+	audits int
+}
+
+func (s *testTxSink) Flush(_ context.Context, _ string, evs []Event, auds []AuditEntry) error {
+	s.events += len(evs)
+	s.audits += len(auds)
+	return nil
+}
+
+func (s *testTxSink) FlushTx(_ *sql.Tx, _ string, evs []Event, auds []AuditEntry) error {
+	s.events += len(evs)
+	s.audits += len(auds)
+	return nil
+}
+
+func TestCtxWithTxRestoresQueuedSideEffectsOnFailure(t *testing.T) {
+	d, err := db.Open(filepath.Join(t.TempDir(), "ops.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+
+	sink := &testTxSink{}
+	c := &Ctx{
+		Context: context.Background(),
+		Env:     &Env{DB: d, Sink: sink},
+		P:       Principal{UserID: "u1"},
+	}
+	c.Emit(Event{Type: "before"})
+	c.Audit(AuditEntry{Action: "before"})
+
+	boom := errors.New("boom")
+	// Flush inside fn (clearing c.events/c.audit to nil) and then fail: must not panic
+	// and must restore the pre-existing queued events and audit entries.
+	err = c.WithTx(func(tx *sql.Tx) error {
+		c.Emit(Event{Type: "inside"})
+		if err := c.FlushTo(tx); err != nil {
+			return err
+		}
+		return boom
+	})
+	if !errors.Is(err, boom) {
+		t.Fatalf("err = %v, want boom", err)
+	}
+	if len(c.events) != 1 || c.events[0].Type != "before" {
+		t.Fatalf("events = %+v, want [before]", c.events)
+	}
+	if len(c.audit) != 1 || c.audit[0].Action != "before" {
+		t.Fatalf("audit = %+v, want [before]", c.audit)
+	}
+	if c.flushed {
+		t.Fatal("flushed must be restored to false on failure")
+	}
+
+	// Subsequent succeeding WithTx flushes both the preserved pre-existing entries and new ones.
+	sink.events, sink.audits = 0, 0
+	if err := c.WithTx(func(tx *sql.Tx) error {
+		c.Emit(Event{Type: "after"})
+		return nil
+	}); err != nil {
+		t.Fatalf("second WithTx: %v", err)
+	}
+	if sink.events != 2 || sink.audits != 1 || len(c.events) != 0 || len(c.audit) != 0 || !c.flushed {
+		t.Fatalf("after commit: sink=(%d,%d) queued=(%d,%d) flushed=%v", sink.events, sink.audits, len(c.events), len(c.audit), c.flushed)
 	}
 }

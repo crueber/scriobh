@@ -103,6 +103,10 @@ func (d *DB) migrateWith(ctx context.Context, all []Migration, backupDir string)
 		}
 		applied[v] = c
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return res, err
+	}
 	if err := rows.Close(); err != nil {
 		return res, err
 	}

@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/crueber/scriobh/internal/alts"
@@ -110,6 +111,7 @@ type Server struct {
 	bodyGrace             time.Duration // ... waiting before the floor applies
 	bodyFloor             int64         // ... bytes a second, once it does
 	schema                ops.Schema    // the op schema, built once after the ops are bound
+	schemaJSON            []byte        // pre-marshaled op schema JSON for GET /api/v1/_ops
 	mux                   *http.ServeMux
 	handler               http.Handler
 	desk                  *desktopRT // desktop mode (desktop.go); nil when SCRIOBH_DESKTOP is unset
@@ -408,12 +410,14 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 		}
 	}
 	srv := s.httpServer()
-	go s.sweepLoop(ctx)
 	defer s.observeOutbound()()
 	attachments.SweepTemp(s.Cfg.DataDir) // uploads that were in flight when the last process stopped
 	// Not derived from ctx: the mirror keeps working while the last requests
 	// finish, and is stopped (and drained) only after the HTTP server has.
 	bg, stopBackground := context.WithCancel(context.Background())
+	var bgWG sync.WaitGroup
+	bgWG.Add(1)
+	go func() { defer bgWG.Done(); s.sweepLoop(bg) }()
 	s.Mirror.Start(bg)
 	s.Git.Start(bg)
 	s.Webhooks.Start(bg)
@@ -423,10 +427,12 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 	}
 	s.Mail.Start(bg)
 	sched := &backup.Scheduler{Svc: s.Backups, Interval: time.Duration(s.Cfg.BackupIntervalHours) * time.Hour, Keep: s.Cfg.BackupKeep, Log: s.Log}
-	go sched.Run(bg)
+	bgWG.Add(1)
+	go func() { defer bgWG.Done(); sched.Run(bg) }()
 	defer func() {
-		// main closes the database next: let the mirror finish what is pending.
+		// main closes the database next: let the mirror and background loops finish what is pending.
 		stopBackground()
+		bgWG.Wait()
 		s.Git.Wait()
 		s.Webhooks.Wait()
 		if hasSem {

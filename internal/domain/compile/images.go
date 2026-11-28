@@ -44,29 +44,31 @@ func resolverFor(c *ops.Ctx, projectID string, read bool) imageResolver {
 				tooMany++
 				continue
 			}
-			switch {
-			case reDataImage.MatchString(k) && len(k) <= maxDataImage:
-				m := reDataImage.FindStringSubmatch(k)
-				raw, err := base64.StdEncoding.DecodeString(m[1])
-				if err != nil {
-					missing++
-					continue
-				}
-				img, st := describe(raw)
-				if st != "ok" {
-					if st == "big" {
-						tooBig++
-					} else {
+			if len(k) <= maxDataImage {
+				if m := reDataImage.FindStringSubmatch(k); m != nil {
+					raw, err := base64.StdEncoding.DecodeString(m[1])
+					if err != nil {
 						missing++
+						continue
 					}
+					img, st := describe(raw)
+					if st != "ok" {
+						if st == "big" {
+							tooBig++
+						} else {
+							missing++
+						}
+						continue
+					}
+					if img.Rotated {
+						rotated++
+					}
+					out[k] = img
 					continue
 				}
-				if img.Rotated {
-					rotated++
-				}
-				out[k] = img
-			case reAttachment.MatchString(k):
-				id := reAttachment.FindStringSubmatch(k)[1]
+			}
+			if m := reAttachment.FindStringSubmatch(k); m != nil {
+				id := m[1]
 				img, status := attachment(c, projectID, id, read, &total)
 				switch status {
 				case "ok":
@@ -79,9 +81,9 @@ func resolverFor(c *ops.Ctx, projectID string, read bool) imageResolver {
 				default:
 					missing++
 				}
-			default:
-				remote++
+				continue
 			}
+			remote++
 		}
 		if remote > 0 {
 			ws = append(ws, Warning{Code: "image_remote", Message: fmt.Sprintf("%d image(s) link to a web address or a path. A compile never fetches one, so they are left out.", remote)})

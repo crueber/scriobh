@@ -122,14 +122,19 @@ func Register(r *ops.Registry) {
 		Desc: "The site's status: whether building and publishing to a folder are available on this server, the last build and the last publish (time, counts, hashes), and where it was published (relative to the server's sites folder). Compare input_hash with site.preview's to see whether anything changed since.",
 		Auth: ed}, status)
 	r.Env().AddPurgeHook(func(ctx context.Context, projectID string) {
-		_, cfg := configOf(r.Env())
-		if cfg.Root == "" {
-			return
-		}
-		if svc, _ := configOf(r.Env()); svc != nil {
+		svc, cfg := configOf(r.Env())
+		if svc != nil {
 			l := svc.lock(projectID)
 			l.Lock() // a publish that is writing finishes first, and none starts under the removal
-			defer l.Unlock()
+			defer func() {
+				l.Unlock()
+				svc.mu.Lock()
+				delete(svc.locks, projectID)
+				svc.mu.Unlock()
+			}()
+		}
+		if cfg.Root == "" {
+			return
 		}
 		name, err := sitegen.FindDir(cfg.Root, projectID)
 		if err != nil || name == "" {
@@ -557,30 +562,16 @@ func preview(c *ops.Ctx, in PreviewIn) (PreviewOut, error) {
 		return PreviewOut{}, err
 	}
 	posts, pages, words := split(r)
-	return PreviewOut{Posts: nonNilP(posts), Pages: nonNilP(pages), Excluded: nonNil(r.sel.excluded), Warnings: nonNilW(r.res.Warnings), Tags: r.res.Tags, Categories: r.res.Cats,
+	return PreviewOut{Posts: nonNil(posts), Pages: nonNil(pages), Excluded: nonNil(r.sel.excluded), Warnings: nonNil(r.res.Warnings), Tags: r.res.Tags, Categories: r.res.Cats,
 		Files: len(r.res.Files), Bytes: r.res.Bytes, Words: words, Feeds: r.opts.BaseURL != "", BaseURL: r.opts.BaseURL, InputHash: r.res.InputHash,
 		SiteHash: r.res.Hash, Notes: r.sel.notes}, nil
 }
 
-func nonNilP(p []sitegen.PostInfo) []sitegen.PostInfo {
-	if p == nil {
-		return []sitegen.PostInfo{}
+func nonNil[T any](s []T) []T {
+	if s == nil {
+		return []T{}
 	}
-	return p
-}
-
-func nonNil(e []Excluded) []Excluded {
-	if e == nil {
-		return []Excluded{}
-	}
-	return e
-}
-
-func nonNilW(w []sitegen.Warning) []sitegen.Warning {
-	if w == nil {
-		return []sitegen.Warning{}
-	}
-	return w
+	return s
 }
 
 // ---- build --------------------------------------------------------------------------------
@@ -664,7 +655,7 @@ func build(c *ops.Ctx, in BuildIn) (BuildOut, error) {
 		return BuildOut{}, ops.Internal(err)
 	}
 	return BuildOut{ExportID: file.ExportID, Filename: file.Filename, ContentType: file.ContentType, Bytes: file.Bytes, SHA256: file.SHA256, Posts: posts, Pages: pages,
-		Files: len(r.res.Files), SiteHash: r.res.Hash, InputHash: r.res.InputHash, Warnings: nonNilW(r.res.Warnings), Body: body}, nil
+		Files: len(r.res.Files), SiteHash: r.res.Hash, InputHash: r.res.InputHash, Warnings: nonNil(r.res.Warnings), Body: body}, nil
 }
 
 // ---- publish ------------------------------------------------------------------------------
@@ -767,7 +758,7 @@ func publishOp(c *ops.Ctx, in PublishIn) (PublishOut, error) {
 		return PublishOut{}, ops.Internal(err)
 	}
 	return PublishOut{Location: wr.Name + "/public", PublishedAt: now, Posts: posts, Pages: pages, Files: wr.Files, Bytes: wr.Bytes, Replaced: wr.Replaced,
-		SiteHash: r.res.Hash, InputHash: r.res.InputHash, Warnings: nonNilW(r.res.Warnings)}, nil
+		SiteHash: r.res.Hash, InputHash: r.res.InputHash, Warnings: nonNil(r.res.Warnings)}, nil
 }
 
 // ---- status -------------------------------------------------------------------------------

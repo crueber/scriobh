@@ -269,22 +269,64 @@ func (e *imageEmbedder) decode(img Image) (*pdfw.Image, string) {
 		alpha = make([]byte, 0, w*h)
 	}
 	opaque := true
-	for y := b.Min.Y; y < b.Max.Y; y++ {
-		for x := b.Min.X; x < b.Max.X; x++ {
-			c := color.NRGBAModel.Convert(m.At(x, y)).(color.NRGBA)
-			if img.Flat && c.A != 255 { // over what is behind it, and no mask
-				a := uint32(c.A)
-				c.R = uint8((uint32(c.R)*a + uint32(img.Flatten[0])*(255-a) + 127) / 255)
-				c.G = uint8((uint32(c.G)*a + uint32(img.Flatten[1])*(255-a) + 127) / 255)
-				c.B = uint8((uint32(c.B)*a + uint32(img.Flatten[2])*(255-a) + 127) / 255)
-				c.A = 255
+	emit := func(r, g, b, a uint8) {
+		if img.Flat && a != 255 { // over what is behind it, and no mask
+			au := uint32(a)
+			r = uint8((uint32(r)*au + uint32(img.Flatten[0])*(255-au) + 127) / 255)
+			g = uint8((uint32(g)*au + uint32(img.Flatten[1])*(255-au) + 127) / 255)
+			b = uint8((uint32(b)*au + uint32(img.Flatten[2])*(255-au) + 127) / 255)
+			a = 255
+		}
+		rgb = append(rgb, r, g, b)
+		if !img.Flat {
+			alpha = append(alpha, a)
+		}
+		if a != 255 {
+			opaque = false
+		}
+	}
+	switch src := m.(type) {
+	case *image.NRGBA:
+		for y := b.Min.Y; y < b.Max.Y; y++ {
+			o := src.PixOffset(b.Min.X, y)
+			for x := b.Min.X; x < b.Max.X; x++ {
+				emit(src.Pix[o], src.Pix[o+1], src.Pix[o+2], src.Pix[o+3])
+				o += 4
 			}
-			rgb = append(rgb, c.R, c.G, c.B)
-			if !img.Flat {
-				alpha = append(alpha, c.A)
+		}
+	case *image.RGBA:
+		for y := b.Min.Y; y < b.Max.Y; y++ {
+			o := src.PixOffset(b.Min.X, y)
+			for x := b.Min.X; x < b.Max.X; x++ {
+				r, g, bl, a := src.Pix[o], src.Pix[o+1], src.Pix[o+2], src.Pix[o+3]
+				o += 4
+				if a != 0 && a != 255 {
+					au := uint32(a)
+					r = uint8(min((uint32(r)*0xff)/au, 0xff))
+					g = uint8(min((uint32(g)*0xff)/au, 0xff))
+					bl = uint8(min((uint32(bl)*0xff)/au, 0xff))
+				}
+				emit(r, g, bl, a)
 			}
-			if c.A != 255 {
-				opaque = false
+		}
+	case *image.Paletted:
+		pal := make([]color.NRGBA, len(src.Palette))
+		for i, c := range src.Palette {
+			pal[i] = color.NRGBAModel.Convert(c).(color.NRGBA)
+		}
+		for y := b.Min.Y; y < b.Max.Y; y++ {
+			o := src.PixOffset(b.Min.X, y)
+			for x := b.Min.X; x < b.Max.X; x++ {
+				c := pal[src.Pix[o]]
+				o++
+				emit(c.R, c.G, c.B, c.A)
+			}
+		}
+	default:
+		for y := b.Min.Y; y < b.Max.Y; y++ {
+			for x := b.Min.X; x < b.Max.X; x++ {
+				c := color.NRGBAModel.Convert(m.At(x, y)).(color.NRGBA)
+				emit(c.R, c.G, c.B, c.A)
 			}
 		}
 	}

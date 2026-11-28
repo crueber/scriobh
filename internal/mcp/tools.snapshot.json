@@ -17525,5 +17525,5 @@
       "reason": "webhooks send data out of the instance to an address; configuring one is the project owner's act"
     }
   ],
-  "schema_hash": "sha256:b62f33b7183aed11bdf30ecc1e2479b5d11c3fc68572611d75a4f3c16c992ef1"
+  "schema_hash": "sha256:8e4a490ef6e0d7c74854e15e5ffb905d31f2f91ed4af080f6d0bf0361250d34d"
 }

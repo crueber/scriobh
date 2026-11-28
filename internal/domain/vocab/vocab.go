@@ -73,6 +73,10 @@ func Load(ctx context.Context, q Querier, projectID string) ([]Entry, error) {
 		}
 		refs[id] = len(refs) + 1
 	}
+	if err := rr.Err(); err != nil {
+		_ = rr.Close()
+		return nil, err
+	}
 	if err := rr.Close(); err != nil {
 		return nil, err
 	}
@@ -116,6 +120,10 @@ func Load(ctx context.Context, q Querier, projectID string) ([]Entry, error) {
 		x.Aliases = []string{}
 		index[x.ID] = len(out)
 		out = append(out, x)
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, err
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

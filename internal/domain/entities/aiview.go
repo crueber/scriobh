@@ -56,6 +56,10 @@ func ReadableSheets(ctx context.Context, d *db.DB, p ops.Principal, projectID st
 		}
 		excluded[id] = true
 	}
+	if err := xr.Err(); err != nil {
+		_ = xr.Close()
+		return nil, err
+	}
 	if err := xr.Close(); err != nil {
 		return nil, err
 	}

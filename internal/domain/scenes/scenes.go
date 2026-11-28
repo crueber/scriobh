@@ -177,6 +177,10 @@ func SceneRefs(ctx context.Context, q vocab.Querier, r vocab.Reader, projectID s
 		}
 		got[id] = p
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, err
+	}
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
@@ -434,6 +438,10 @@ func linkEntities(c *ops.Ctx, in LinkIn) (LinkOut, error) {
 				}
 				docsBy[v] = append(docsBy[v], id)
 			}
+		}
+		if err := rows.Err(); err != nil {
+			_ = rows.Close()
+			return err
 		}
 		if err := rows.Close(); err != nil {
 			return err

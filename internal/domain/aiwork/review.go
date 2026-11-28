@@ -133,6 +133,10 @@ func reviewView(ctx context.Context, q dbq, projectID, userID, reviewID string, 
 		n.trimmed = tr == 1
 		nrs = append(nrs, n)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return out, err
+	}
 	if err := rows.Close(); err != nil {
 		return out, err
 	}

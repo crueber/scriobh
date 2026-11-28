@@ -270,6 +270,10 @@ func place(tx *sql.Tx, projectID string, after *string, skip string) (float64, e
 		}
 		ps = append(ps, x)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return 0, err
+	}
 	if err := rows.Close(); err != nil {
 		return 0, err
 	}
@@ -359,13 +363,32 @@ func list(c *ops.Ctx, in ListIn) (ListOut, error) {
 			return out, err
 		}
 		out.Total, out.Degraded = total, degraded
-		for _, h := range hits {
-			it, err := load(d, in.ID, h.ItemID)
-			if err != nil {
-				continue
+		if len(hits) > 0 {
+			marks := make([]string, len(hits))
+			args := make([]any, 0, len(hits)+1)
+			args = append(args, in.ID)
+			for i, h := range hits {
+				marks[i] = "?"
+				args = append(args, h.ItemID)
 			}
-			it.MatchedIn, it.Snippet, it.SnippetHTML = h.MatchedIn, h.Snippet, h.SnippetHTML
-			out.Items = append(out.Items, it)
+			byID := make(map[string]Item, len(hits))
+			if rows, qerr := d.QueryContext(c, `SELECT `+cols+` FROM stash_items WHERE project_id = ? AND id IN (`+strings.Join(marks, ",")+`)`, args...); qerr == nil {
+				for rows.Next() {
+					if it, serr := scan(rows); serr == nil {
+						byID[it.ID] = it
+					}
+				}
+				_ = rows.Err()
+				_ = rows.Close()
+			}
+			for _, h := range hits {
+				it, ok := byID[h.ItemID]
+				if !ok {
+					continue
+				}
+				it.MatchedIn, it.Snippet, it.SnippetHTML = h.MatchedIn, h.Snippet, h.SnippetHTML
+				out.Items = append(out.Items, it)
+			}
 		}
 		if in.Offset+len(hits) < total {
 			out.NextOffset = in.Offset + len(hits)

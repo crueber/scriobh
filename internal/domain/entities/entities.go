@@ -569,6 +569,10 @@ func list(c *ops.Ctx, in ListIn) (ListOut, error) {
 		out.Items = append(out.Items, e)
 		keys = append(keys, key)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return ListOut{}, err
+	}
 	if err := rows.Close(); err != nil {
 		return ListOut{}, err
 	}

@@ -83,6 +83,10 @@ func loadProject(ctx context.Context, q vocab.Querier, r vocab.Reader, projectID
 		nodes = append(nodes, n)
 		d.nodes[s.ID] = n
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, err
+	}
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
@@ -138,6 +142,10 @@ func loadProject(ctx context.Context, q vocab.Querier, r vocab.Reader, projectID
 		if _, ok := d.ByID[id]; ok {
 			d.Explicit = append(d.Explicit, id)
 		}
+	}
+	if err := orows.Err(); err != nil {
+		_ = orows.Close()
+		return nil, err
 	}
 	if err := orows.Close(); err != nil {
 		return nil, err

@@ -60,9 +60,9 @@ func textToConv(data []byte) (c *docxConv, meta map[string]any, warns []string, 
 		}
 		data = bytes.ToValidUTF8(data, []byte("�"))
 	}
-	s := cleanForeign(string(data))
-	s = strings.ReplaceAll(strings.ReplaceAll(s, "\r\n", "\n"), "\r", "\n")
-	s = strings.ReplaceAll(s, "\f", "\n\n")            // a form feed is a page, which is nothing the detector trusts: a paragraph break at most
+	s := strings.ReplaceAll(strings.ReplaceAll(string(data), "\r\n", "\n"), "\r", "\n")
+	s = strings.ReplaceAll(s, "\f", "\n\n") // a form feed is a page, which is nothing the detector trusts: a paragraph break at most
+	s = cleanForeign(s)
 	lines := strings.Split(strings.TrimSpace(s), "\n") // the file's own last newline is not a blank line
 	blank := 0
 	for _, l := range lines {

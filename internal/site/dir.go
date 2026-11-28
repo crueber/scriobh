@@ -47,12 +47,12 @@ type ManagedFile struct {
 type ErrUnmanaged struct{ Paths []string }
 
 func (e *ErrUnmanaged) Error() string {
-	more := ""
-	if len(e.Paths) > 5 {
-		more = fmt.Sprintf(" and %d more", len(e.Paths)-5)
-		e.Paths = e.Paths[:5]
+	paths, more := e.Paths, ""
+	if len(paths) > 5 {
+		more = fmt.Sprintf(" and %d more", len(paths)-5)
+		paths = paths[:5]
 	}
-	return "the folder holds files Scríobh did not write (" + strings.Join(e.Paths, ", ") + more + "); move them away or publish elsewhere. Nothing was changed."
+	return "the folder holds files Scríobh did not write (" + strings.Join(paths, ", ") + more + "); move them away or publish elsewhere. Nothing was changed."
 }
 
 // ErrEdited is returned when a file Scríobh wrote has been changed by hand since:
@@ -60,12 +60,12 @@ func (e *ErrUnmanaged) Error() string {
 type ErrEdited struct{ Paths []string }
 
 func (e *ErrEdited) Error() string {
-	more := ""
-	if len(e.Paths) > 5 {
-		more = fmt.Sprintf(" and %d more", len(e.Paths)-5)
-		e.Paths = e.Paths[:5]
+	paths, more := e.Paths, ""
+	if len(paths) > 5 {
+		more = fmt.Sprintf(" and %d more", len(paths)-5)
+		paths = paths[:5]
 	}
-	return "files Scríobh published have been changed since (" + strings.Join(e.Paths, ", ") + more + "). Publishing replaces them; send overwrite_edited to do so. Nothing was changed."
+	return "files Scríobh published have been changed since (" + strings.Join(paths, ", ") + more + "). Publishing replaces them; send overwrite_edited to do so. Nothing was changed."
 }
 
 // DirOptions are the choices of one publish.
@@ -169,6 +169,13 @@ func FindDir(root, projectID string) (string, error) {
 }
 
 func readManaged(p string) (*Managed, error) {
+	fi, err := os.Lstat(p)
+	if err != nil {
+		return nil, err
+	}
+	if !fi.Mode().IsRegular() {
+		return nil, fmt.Errorf("%w: %s is not a plain file", ErrUnsafe, filepath.Base(p))
+	}
 	f, err := os.Open(p)
 	if err != nil {
 		return nil, err

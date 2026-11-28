@@ -5,7 +5,9 @@
   var doc = document;
   var $ = function (s, r) { return (r || doc).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || doc).querySelectorAll(s)); };
-  var csrf = ($('meta[name="csrf-token"]') || {}).content || "";
+  var csrfMeta = $('meta[name="csrf-token"]');
+  var csrf = (csrfMeta && csrfMeta.content) || "";
+  function setCsrf(t) { if (t) { csrf = t; if (csrfMeta) csrfMeta.content = t; } }
 
   // Every htmx request carries the CSRF token.
   doc.addEventListener("htmx:configRequest", function (e) {
@@ -66,16 +68,40 @@
   var byKeyboard = false;
   doc.addEventListener("keydown", function () { byKeyboard = true; }, true);
   doc.addEventListener("pointerdown", function () { byKeyboard = false; }, true);
-  window.scriobh = { toast: toast };
+  var scripts = {};
+  function loadScript(src) {
+    if (!src) return Promise.reject(new Error("no script"));
+    if (scripts[src]) return scripts[src];
+    return (scripts[src] = new Promise(function (res, rej) {
+      var s = doc.createElement("script");
+      s.src = src;
+      s.onload = function () { res(); };
+      s.onerror = function (e) { delete scripts[src]; s.remove(); rej(e); };
+      doc.head.appendChild(s);
+    }));
+  }
+  function el(tag, cls, text) { var e = doc.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function fmt(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+  var signOutHooks = [];
+  window.scriobh = {
+    $: $,
+    $$: $$,
+    el: el,
+    fmt: fmt,
+    toast: toast,
+    loadScript: loadScript,
+    getCsrf: function () { return csrf; },
+    setCsrf: setCsrf,
+    onBeforeSignOut: function (fn) { if (typeof fn === "function") signOutHooks.push(fn); }
+  };
   // A question before something that cannot be undone, asked in the page, where the button was (js/arm.js, fetched the first
   // time it is needed). Never the browser's own confirmation panel: a window may have none (the desktop application's has none).
   window.scriobh.confirm = function (host, o) {
     if (window.scriobh.arm) { window.scriobh.arm.ask(host, o); return; }
-    var m = $('meta[name="scriobh-arm"]'), s = doc.createElement("script");
-    s.src = m ? m.content : "";
-    s.onload = function () { window.scriobh.arm.ask(host, o); };
-    s.onerror = function () { toast("That could not be asked, so nothing was done. Reload the page and try again."); };
-    doc.head.appendChild(s);
+    var m = $('meta[name="scriobh-arm"]');
+    loadScript(m ? m.content : "").then(function () { window.scriobh.arm.ask(host, o); }, function () {
+      toast("That could not be asked, so nothing was done. Reload the page and try again.");
+    });
   };
 
   // A form that names a script (data-lazy) is handed to it: the first submit fetches the script, which takes the form
@@ -137,16 +163,13 @@
   });
 
   // A typed confirmation: the button stays off until the box holds the exact name.
-  function confirmGate(root) {
-    $$("[data-confirm]", root).forEach(function (i) {
-      var f = i.form, b = f && $("[data-confirm-submit]", f);
-      if (!b) return;
-      var check = function () { b.disabled = i.value !== i.dataset.confirm; };
-      i.addEventListener("input", check);
-      check();
-    });
+  function syncConfirm(i) {
+    var f = i.form, b = f && $("[data-confirm-submit]", f);
+    if (b) b.disabled = i.value !== i.dataset.confirm;
   }
-  doc.addEventListener("htmx:afterSettle", function () { confirmGate(doc); });
+  function confirmGate(root) { $$("[data-confirm]", root).forEach(syncConfirm); }
+  doc.addEventListener("input", function (e) { if (e.target && e.target.hasAttribute && e.target.hasAttribute("data-confirm")) syncConfirm(e.target); });
+  doc.addEventListener("htmx:afterSettle", function (e) { confirmGate((e.detail && e.detail.elt) || doc); });
   confirmGate(doc);
   // Signing out (or signing this device out) leaves no draft of a manuscript in the browser, but only once the server
   // has said the session is over, and never without asking when a draft holds text the server does not have.
@@ -230,15 +253,18 @@
     var f = e.target;
     if (!f.hasAttribute || !f.hasAttribute("data-signs-out")) return;
     e.preventDefault();
-    var before = window.scriobh.beforeSignOut ? window.scriobh.beforeSignOut() : Promise.resolve(true);
+    var all = signOutHooks.slice();
+    if (window.scriobh.beforeSignOut) all.push(window.scriobh.beforeSignOut);
+    var before = all.length ? Promise.all(all.map(function (fn) { return Promise.resolve(fn()); })).then(function (rs) { return rs.every(Boolean); }) : Promise.resolve(true);
     before.then(function (ok) { if (ok) signOut(f); else toast("Not saved yet. Staying signed in so nothing is lost."); });
   });
   // After a shelf redraw focus goes back to the same control (found by its form or link), or to the heading.
   var shelfSig = null;
+  function escAttr(v) { return (window.CSS && CSS.escape) ? CSS.escape(v) : String(v).replace(/["\\]/g, "\\$&"); }
   doc.addEventListener("htmx:beforeSwap", function (e) {
     if (!e.detail.target || e.detail.target.id !== "shelf-wrap") return;
     var a = doc.activeElement, f = a && a.closest && a.closest("form"), h = a && a.getAttribute && a.getAttribute("href");
-    shelfSig = f ? 'form[action="' + f.getAttribute("action") + '"] button' : h ? 'a[href="' + h + '"]' : null;
+    shelfSig = f ? 'form[action="' + escAttr(f.getAttribute("action") || "") + '"] button' : h ? 'a[href="' + escAttr(h) + '"]' : null;
   });
   doc.addEventListener("htmx:afterSettle", function () {
     if (shelfSig === null) return;

@@ -80,7 +80,6 @@ type Hub struct {
 	cursor  int64
 	subs    map[Scope]map[*Subscription]struct{}
 	running bool
-	stopped bool
 	done    chan struct{} // closed when the loop exits
 	stop    chan struct{}
 }
@@ -132,7 +131,6 @@ func (h *Hub) Subscribe(sc Scope) *Subscription {
 		// loop never replays history to anyone.
 		h.cursor = h.maxSeq()
 		h.running = true
-		h.stopped = false
 		h.stop = make(chan struct{})
 		h.done = make(chan struct{})
 		go h.loop(h.stop, h.done)

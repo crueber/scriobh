@@ -507,6 +507,9 @@ func upload(c *ops.Ctx, l Limits, kind string, in UploadIn) (Item, error) {
 		return Item{}, ops.Internal(err)
 	}
 
+	if err := os.MkdirAll(filepath.Dir(final), 0o700); err != nil {
+		return Item{}, ops.Internal(err)
+	}
 	fileMu.Lock()
 	defer fileMu.Unlock()
 	var out Item
@@ -526,9 +529,6 @@ func upload(c *ops.Ctx, l Limits, kind string, in UploadIn) (Item, error) {
 			return err
 		}
 		if err := checkQuota(c, tx, l, kind, in.ID, n); err != nil {
-			return err
-		}
-		if err := os.MkdirAll(filepath.Dir(final), 0o700); err != nil {
 			return err
 		}
 		if err := os.Rename(tmpName, final); err != nil {
@@ -714,11 +714,11 @@ func remove(c *ops.Ctx, kind string, in DeleteIn) (DeleteOut, error) {
 		if err != nil {
 			return err
 		}
-		used, err := allRefs(c, tx, kind, in.ID, in.AttID)
+		refs, err := allRefs(c, tx, kind, in.ID, r.a.ID)
 		if err != nil {
 			return err
 		}
-		r.a.Refs = len(used)
+		r.a.Refs = len(refs)
 		if r.a.Refs > 0 && !in.Force {
 			return ops.ConflictWith("Documents, notes, entries or the cover still use this attachment. Remove the links first, or delete it anyway with force.", map[string]any{"refs": r.a.Refs})
 		}
@@ -795,6 +795,10 @@ func allRefs(ctx context.Context, q queryer, kind, owner, id string) ([]Ref, err
 			return nil, err
 		}
 		add(x)
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, err
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

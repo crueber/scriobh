@@ -180,7 +180,13 @@ func NormalizeServer(s string) (*url.URL, error) {
 	}
 	u, err := url.Parse(s)
 	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
-		return nil, &UsageError{Msg: fmt.Sprintf("%q is not a server URL", s), Hint: "Use something like https://write.example.com or http://127.0.0.1:8080"}
+		return nil, &UsageError{Msg: fmt.Sprintf("%q is not a server URL", redactURL(s, u)), Hint: "Use something like https://write.example.com or http://127.0.0.1:8080"}
+	}
+	if u.User != nil {
+		return nil, &UsageError{
+			Msg:  fmt.Sprintf("server URL %q must not include username or password", u.Redacted()),
+			Hint: "Scríobh authenticates with an API key (--key or SCRIOBH_API_KEY), not URL credentials.",
+		}
 	}
 	u.Path = strings.TrimRight(u.Path, "/")
 	u.RawQuery, u.Fragment = "", ""
@@ -286,7 +292,7 @@ func (c *Client) once(ctx context.Context, method, rawURL string, body []byte, h
 	}
 	req, err := http.NewRequestWithContext(ctx, method, rawURL, rd)
 	if err != nil {
-		return nil, &Fail{Code: "bad_request", Message: err.Error(), Exit: ExitUsage}
+		return nil, &Fail{Code: "bad_request", Message: scrub(err, c.Key), Exit: ExitUsage}
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "scriobh-cli/"+Version)
@@ -310,24 +316,108 @@ func (c *Client) once(ctx context.Context, method, rawURL string, body []byte, h
 		return nil, &Fail{Code: "unreachable", Message: "The connection to " + c.Base.Host + " broke: " + scrub(err, c.Key), Exit: ExitUnreachable, Cause: err}
 	}
 	if res.StatusCode >= 300 && res.StatusCode < 400 {
-		return nil, &Fail{Code: "redirect", Message: fmt.Sprintf("The server redirected the request (%d) to %s. Redirects are not followed, so the key stays where you sent it.", res.StatusCode, res.Header.Get("Location")),
+		return nil, &Fail{Code: "redirect", Message: fmt.Sprintf("The server redirected the request (%d) to %s. Redirects are not followed, so the key stays where you sent it.", res.StatusCode, redactURL(res.Header.Get("Location"), nil)),
 			Hint: "Set --server to the final address (for example the https:// one).", Exit: ExitUnreachable}
 	}
 	return &Response{Status: res.StatusCode, Header: res.Header, Body: b}, nil
 }
 
-// scrub removes the key from an error text, in case a transport error echoes
-// a header.
+// scrub removes the key and URL credentials from an error text, in case a
+// transport or URL error echoes a header or userinfo.
 func scrub(err error, key string) string {
 	s := err.Error()
+	var ue *url.Error
+	if errors.As(err, &ue) && ue.Err != nil {
+		s = ue.Err.Error()
+	}
 	if key != "" {
 		s = strings.ReplaceAll(s, key, "[key]")
 	}
-	var ue *url.Error
-	if errors.As(err, &ue) {
-		s = ue.Err.Error()
+	return redactURLsInText(s)
+}
+
+func redactURL(raw string, u *url.URL) string {
+	if u != nil {
+		if u.User == nil {
+			return raw
+		}
+		return u.Redacted()
 	}
-	return s
+	if !strings.Contains(raw, "://") || !strings.Contains(raw, "@") {
+		return raw
+	}
+	if parsed, err := url.Parse(raw); err == nil && parsed != nil {
+		if parsed.User == nil {
+			return raw
+		}
+		return parsed.Redacted()
+	}
+	return redactAuthority(raw)
+}
+
+func redactAuthority(raw string) string {
+	idx := strings.Index(raw, "://")
+	if idx < 0 {
+		return raw
+	}
+	authStart := idx + 3
+	authEnd := len(raw)
+	for i := authStart; i < len(raw); i++ {
+		if raw[i] == '/' || raw[i] == '?' || raw[i] == '#' {
+			authEnd = i
+			break
+		}
+	}
+	auth := raw[authStart:authEnd]
+	at := strings.LastIndexByte(auth, '@')
+	if at < 0 {
+		return raw
+	}
+	colon := strings.IndexByte(auth[:at], ':')
+	if colon < 0 {
+		return raw
+	}
+	return raw[:authStart+colon+1] + "xxxxx" + raw[authStart+at:]
+}
+
+func redactURLsInText(s string) string {
+	if !strings.Contains(s, "://") || !strings.Contains(s, "@") {
+		return s
+	}
+	var b strings.Builder
+	pos := 0
+	for pos < len(s) {
+		rel := strings.Index(s[pos:], "://")
+		if rel < 0 {
+			b.WriteString(s[pos:])
+			break
+		}
+		schemeIdx := pos + rel
+		start := schemeIdx
+		for start > pos && isSchemeChar(s[start-1]) {
+			start--
+		}
+		end := schemeIdx + 3
+		for end < len(s) && !isURLDelim(s[end]) {
+			end++
+		}
+		b.WriteString(s[pos:start])
+		b.WriteString(redactURL(s[start:end], nil))
+		pos = end
+	}
+	return b.String()
+}
+
+func isSchemeChar(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '+' || c == '-' || c == '.'
+}
+
+func isURLDelim(c byte) bool {
+	switch c {
+	case ' ', '\t', '\r', '\n', '"', '\'', '<', '>', ')', ']':
+		return true
+	}
+	return false
 }
 
 // newIdempotencyKey is a fresh random key for one invocation.

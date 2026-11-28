@@ -188,6 +188,21 @@ func (s *Server) reviewView(r *http.Request, proj projects.Project, f reviewFilt
 	}
 	sl := so.(review.SuggestionListOut)
 	d.SugTotal = sl.Total
+	// Fetch document list once up front for both missing titles (avoiding N doc.get calls) and book-order sorting.
+	rank := map[string]int{}
+	if len(sl.Items) > 0 {
+		if dl, err := s.Reg.Call(ctx, p, "doc.list", docs.ListIn{ProjectID: proj.ID}); err == nil {
+			lo := dl.(docs.ListOut)
+			for i, id := range lo.Order {
+				rank[id] = i
+			}
+			for _, m := range lo.Items {
+				if d.DocTitles[m.ID] == "" {
+					d.DocTitles[m.ID] = m.Title
+				}
+			}
+		}
+	}
 	sidx := map[string]int{}
 	for _, sg := range sl.Items {
 		i, ok := sidx[sg.DocumentID]
@@ -213,12 +228,6 @@ func (s *Server) reviewView(r *http.Request, proj projects.Project, f reviewFilt
 	}
 	// suggestions come newest first; the page lists them as the book runs, and within a chapter as the chapter does
 	if len(d.SugGroups) > 1 || len(sl.Items) > 1 {
-		rank := map[string]int{}
-		if dl, err := s.Reg.Call(ctx, p, "doc.list", docs.ListIn{ProjectID: proj.ID}); err == nil {
-			for i, id := range dl.(docs.ListOut).Order {
-				rank[id] = i
-			}
-		}
 		sort.SliceStable(d.SugGroups, func(a, b int) bool { return rank[d.SugGroups[a].DocID] < rank[d.SugGroups[b].DocID] })
 		start := map[string]int{}
 		for _, sg := range sl.Items {

@@ -222,6 +222,10 @@ func (s *Service) others(ctx context.Context, viewer ops.Principal, projectID, r
 		members[id] = m
 		gated = gated || g
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, err
+	}
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}

@@ -52,7 +52,7 @@ func (s *Server) keyAuth(w http.ResponseWriter, r *http.Request) (out *http.Requ
 	if ri, found := r.Context().Value(keyInfo).(*reqInfo); found {
 		ri.principal = p.UserID + " key:" + info.ID
 	}
-	ctx := context.WithValue(r.Context(), keyAuth, reqAuth{P: p, KeyID: info.ID, KeyPrefix: info.Prefix, KeyName: info.Name, KeyExpires: info.ExpiresAt})
+	ctx := context.WithValue(r.Context(), keyAuth, reqAuth{P: p, KeyID: info.ID, KeyPrefix: info.Prefix, KeyName: info.Name, KeyExpires: info.ExpiresAt, cache: &reqCache{}})
 	return r.WithContext(ctx), true, false
 }
 

@@ -73,6 +73,10 @@ func Load(q querier, docID string) ([]alts.Item, error) {
 		byID[it.ID] = len(items)
 		items = append(items, it)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, err
+	}
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}

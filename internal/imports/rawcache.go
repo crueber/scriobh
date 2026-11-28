@@ -76,6 +76,7 @@ func rawSweep(now time.Time) {
 		}
 	}
 	lookMu.Unlock()
+	cacheSweep(now)
 }
 
 // dropCaches lets go of everything held for a staged file, by its hash: what the PDF child or Pandoc read of it, and the blocks of a Word
@@ -85,6 +86,7 @@ func dropCaches(sum string) {
 		return
 	}
 	forgetWordCounts()
+	cacheDropSum(sum)
 	rawMu.Lock()
 	for k := range raw {
 		if strings.Contains(k, "|"+sum) {

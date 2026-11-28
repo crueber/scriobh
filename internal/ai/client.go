@@ -121,14 +121,23 @@ func CheckHeader(h Header) error {
 	return nil
 }
 
-// NewClient builds a client for an endpoint. It does not connect.
-func NewClient(ep Endpoint, o ClientOptions) (*Client, error) {
+// ValidateEndpoint checks that ep has a known provider kind and a valid http(s)
+// base URL without credentials.
+func ValidateEndpoint(ep Endpoint) error {
 	if !ValidKind(ep.Kind) {
-		return nil, errors.New("ai: unknown provider kind")
+		return errors.New("ai: unknown provider kind")
 	}
 	u, err := url.Parse(ep.BaseURL)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil {
-		return nil, errors.New("ai: the base address must be an http or https URL without credentials")
+		return errors.New("ai: the base address must be an http or https URL without credentials")
+	}
+	return nil
+}
+
+// NewClient builds a client for an endpoint. It does not connect.
+func NewClient(ep Endpoint, o ClientOptions) (*Client, error) {
+	if err := ValidateEndpoint(ep); err != nil {
+		return nil, err
 	}
 	ep.BaseURL = strings.TrimRight(ep.BaseURL, "/")
 	lim := o.Limits.fill()

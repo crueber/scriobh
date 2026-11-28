@@ -70,11 +70,11 @@ func asciiHex(b []byte) []byte {
 	return out
 }
 
-func ascii85(b []byte) []byte {
+func ascii85(b []byte, max int64) ([]byte, error) {
 	var out []byte
 	var grp [5]byte
 	n := 0
-	flush := func(k int) {
+	flush := func(k int) error {
 		for i := n; i < 5; i++ {
 			grp[i] = 'u' - '!'
 		}
@@ -82,9 +82,13 @@ func ascii85(b []byte) []byte {
 		for i := 0; i < 5; i++ {
 			v = v*85 + uint32(grp[i])
 		}
+		if int64(len(out)+k-1) > max {
+			return errBomb
+		}
 		for i := 0; i < k-1; i++ {
 			out = append(out, byte(v>>(24-8*uint(i))))
 		}
+		return nil
 	}
 	for i := 0; i < len(b); i++ {
 		c := b[i]
@@ -92,24 +96,33 @@ func ascii85(b []byte) []byte {
 		case isWS(c):
 		case c == '~':
 			if n > 1 {
-				flush(n)
+				if err := flush(n); err != nil {
+					return nil, err
+				}
 			}
-			return out
+			return out, nil
 		case c == 'z' && n == 0:
+			if int64(len(out)+4) > max {
+				return nil, errBomb
+			}
 			out = append(out, 0, 0, 0, 0)
 		case c >= '!' && c <= 'u':
 			grp[n] = c - '!'
 			n++
 			if n == 5 {
-				flush(5)
+				if err := flush(5); err != nil {
+					return nil, err
+				}
 				n = 0
 			}
 		}
 	}
 	if n > 1 {
-		flush(n)
+		if err := flush(n); err != nil {
+			return nil, err
+		}
 	}
-	return out
+	return out, nil
 }
 
 func runLength(b []byte, max int64) ([]byte, error) {

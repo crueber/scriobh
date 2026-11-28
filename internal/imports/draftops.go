@@ -590,11 +590,13 @@ func updateDraft(c *ops.Ctx, lim StageLimits, in DraftUpdateIn) (DraftUpdateOut,
 			if in.Options == nil {
 				in.Options = map[string]string{}
 			}
-			joined := next.Options.DocxBreaks
+			var jb strings.Builder
+			jb.WriteString(next.Options.DocxBreaks)
 			for _, o := range ask.ords {
-				joined += "," + strconv.Itoa(o)
+				jb.WriteByte(',')
+				jb.WriteString(strconv.Itoa(o))
 			}
-			in.Options["docx_breaks"] = canonBreaks(joined)
+			in.Options["docx_breaks"] = canonBreaks(jb.String())
 			if len(breakList(in.Options["docx_breaks"])) > MaxExplicitBrks {
 				return DraftUpdateOut{}, invalidWhy("within", "There are as many chapters of your own as there can be.", "break_cap")
 			}

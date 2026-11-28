@@ -331,6 +331,10 @@ func PlanMove(c *ops.Ctx, q Querier, in MoveIn) (*MovePlan, *moveState, error) {
 			}
 			ids = append(ids, id)
 		}
+		if err := rows.Err(); err != nil {
+			_ = rows.Close()
+			return nil, nil, err
+		}
 		if err := rows.Close(); err != nil {
 			return nil, nil, err
 		}
@@ -626,6 +630,10 @@ func planEvents(c *ops.Ctx, q Querier, in MoveIn, p *MovePlan, st *moveState) er
 		}
 		evs = append(evs, e)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return err
+	}
 	if err := rows.Close(); err != nil {
 		return err
 	}
@@ -647,12 +655,24 @@ func planEvents(c *ops.Ctx, q Querier, in MoveIn, p *MovePlan, st *moveState) er
 			e.people = append(e.people, ent)
 		}
 	}
+	if err := prows.Err(); err != nil {
+		_ = prows.Close()
+		return err
+	}
 	if err := prows.Close(); err != nil {
 		return err
 	}
+	nameCache := map[string]string{}
 	name := func(id string) string {
+		if me, ok := st.byID[id]; ok {
+			return me.e.Name
+		}
+		if n, ok := nameCache[id]; ok {
+			return n
+		}
 		var n string
 		_ = q.QueryRowContext(c, `SELECT name FROM entities WHERE id = ?`, id).Scan(&n)
+		nameCache[id] = n
 		return n
 	}
 	for _, e := range evs {
@@ -815,6 +835,10 @@ func planProjects(c *ops.Ctx, q Querier, in MoveIn, p *MovePlan, st *moveState) 
 				linked[pid] = map[string]bool{}
 			}
 			linked[pid][eid] = true
+		}
+		if err := rows.Err(); err != nil {
+			_ = rows.Close()
+			return err
 		}
 		if err := rows.Close(); err != nil {
 			return err
@@ -1136,7 +1160,7 @@ func applyPlanned(c *ops.Ctx, tx *sql.Tx, in MoveIn, p *MovePlan, st *moveState)
 	}
 	// Keys pinned to the source.
 	if p.KeyPins == "repoint" {
-		rows, err := tx.Query(`SELECT k.id, k.user_id FROM api_keys k WHERE k.compendium_id = ? AND k.revoked_at IS NULL ORDER BY k.id`, in.SourceID)
+		rows, err := tx.Query(`SELECT k.id, k.user_id FROM api_keys k WHERE k.compendium_id = ? AND k.revoked_at IS NULL AND (k.expires_at IS NULL OR k.expires_at > ?) ORDER BY k.id`, in.SourceID, db.Now())
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1149,6 +1173,10 @@ func applyPlanned(c *ops.Ctx, tx *sql.Tx, in MoveIn, p *MovePlan, st *moveState)
 				return nil, nil, err
 			}
 			ks = append(ks, k)
+		}
+		if err := rows.Err(); err != nil {
+			_ = rows.Close()
+			return nil, nil, err
 		}
 		if err := rows.Close(); err != nil {
 			return nil, nil, err

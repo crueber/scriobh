@@ -142,6 +142,10 @@ func neverSend(ctx context.Context, tx *sql.Tx, projectID string) (ents, docs ma
 			}
 			q.to[id] = true
 		}
+		if err := rows.Err(); err != nil {
+			_ = rows.Close()
+			return nil, nil, err
+		}
 		if err := rows.Close(); err != nil {
 			return nil, nil, err
 		}

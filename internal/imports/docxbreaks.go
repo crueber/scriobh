@@ -751,16 +751,14 @@ func (d *detector) find() *candidates {
 	for k, x := range labs {
 		strong[k] = x.f
 	}
-	for changed := true; changed; {
-		changed = false
-		for k, x := range labs {
-			if strong[k] {
-				continue
-			}
-			if (k > 0 && strong[k-1] && labs[k-1].l.word == x.l.word && labs[k-1].l.value+1 == x.l.value) ||
-				(k+1 < len(labs) && strong[k+1] && labs[k+1].l.word == x.l.word && labs[k+1].l.value == x.l.value+1) {
-				strong[k], promoted[k], changed = true, true, true
-			}
+	for k := 1; k < len(labs); k++ {
+		if !strong[k] && strong[k-1] && labs[k-1].l.word == labs[k].l.word && labs[k-1].l.value+1 == labs[k].l.value {
+			strong[k], promoted[k] = true, true
+		}
+	}
+	for k := len(labs) - 2; k >= 0; k-- {
+		if !strong[k] && strong[k+1] && labs[k+1].l.word == labs[k].l.word && labs[k+1].l.value == labs[k].l.value+1 {
+			strong[k], promoted[k] = true, true
 		}
 	}
 	for k, x := range labs {
@@ -2113,6 +2111,11 @@ func titleCase(s string) string {
 	return strings.Join(words, " ")
 }
 
+var (
+	firstLineMarks = strings.NewReplacer("**", "", "*", "", "\\", "", "~~", "", "`", "")
+	tableCellMarks = strings.NewReplacer("**", "", "*", "", "\\", "")
+)
+
 // firstLine is the start of a document, one line of at most 80 characters, with the Markdown that marks it taken out.
 func firstLine(body string) string {
 	for _, l := range strings.SplitN(body, "\n", 40) {
@@ -2121,7 +2124,7 @@ func firstLine(body string) string {
 			continue
 		}
 		t = strings.TrimLeft(t, "#>-+* \t0123456789.")
-		t = strings.NewReplacer("**", "", "*", "", "\\", "", "~~", "", "`", "").Replace(t)
+		t = firstLineMarks.Replace(t)
 		t = strings.Join(strings.Fields(t), " ")
 		if t == "" {
 			continue
@@ -2169,7 +2172,7 @@ func tableStats(body string) (tables, cells int, first string) {
 			}
 		}
 		if first == "" && tables == 1 && len(texts) > 0 {
-			first = strings.NewReplacer("**", "", "*", "", "\\", "").Replace(strings.Join(texts, " · "))
+			first = tableCellMarks.Replace(strings.Join(texts, " · "))
 		}
 	}
 	return tables, cells, first

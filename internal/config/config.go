@@ -538,13 +538,17 @@ func (c *Config) EnsureSecretKey() ([]byte, error) {
 		return c.SecretKey, nil
 	}
 	path := filepath.Join(c.DataDir, "secret.key")
-	if b, err := os.ReadFile(path); err == nil {
+	b, err := os.ReadFile(path)
+	if err == nil {
 		k := strings.TrimSpace(string(b))
 		if len(k) < 32 {
 			return nil, fmt.Errorf("%s is corrupt (too short); restore it from a backup or remove it to start fresh, which invalidates every session and stored credential", path)
 		}
 		c.SecretKey = []byte(k)
 		return c.SecretKey, nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
 	if err := os.MkdirAll(c.DataDir, 0o700); err != nil {
 		return nil, err
@@ -555,8 +559,31 @@ func (c *Config) EnsureSecretKey() ([]byte, error) {
 		return nil, err
 	}
 	k := hex.EncodeToString(raw)
-	if err := os.WriteFile(path, []byte(k+"\n"), 0o600); err != nil {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			b, rerr := os.ReadFile(path)
+			if rerr != nil {
+				return nil, fmt.Errorf("read %s: %w", path, rerr)
+			}
+			ek := strings.TrimSpace(string(b))
+			if len(ek) < 32 {
+				return nil, fmt.Errorf("%s is corrupt (too short); restore it from a backup or remove it to start fresh, which invalidates every session and stored credential", path)
+			}
+			c.SecretKey = []byte(ek)
+			return c.SecretKey, nil
+		}
 		return nil, err
+	}
+	_, werr := f.WriteString(k + "\n")
+	cerr := f.Close()
+	if werr != nil {
+		_ = os.Remove(path)
+		return nil, werr
+	}
+	if cerr != nil {
+		_ = os.Remove(path)
+		return nil, cerr
 	}
 	c.SecretKey = []byte(k)
 	return c.SecretKey, nil

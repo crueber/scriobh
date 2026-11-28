@@ -5,6 +5,7 @@
 package ops
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -245,6 +246,29 @@ func (c *Ctx) DryRun() bool { return c.dry }
 // DB returns the database.
 func (c *Ctx) DB() *db.DB { return c.Env.DB }
 
+// WithTx runs fn in a writer transaction and flushes any events and audit rows
+// queued inside fn into the same transaction before commit. If fn or commit
+// fails, queued events and audit rows are restored to their pre-WithTx state so
+// a failed or retried transaction never leaks or drops side effects.
+func (c *Ctx) WithTx(fn func(tx *sql.Tx) error) error {
+	evSnap := append([]Event(nil), c.events...)
+	auSnap := append([]AuditEntry(nil), c.audit...)
+	flSnap := c.flushed
+	err := c.Env.DB.WithTx(c, func(tx *sql.Tx) error {
+		c.events = append([]Event(nil), evSnap...)
+		c.audit = append([]AuditEntry(nil), auSnap...)
+		c.flushed = flSnap
+		if err := fn(tx); err != nil {
+			return err
+		}
+		return c.FlushTo(tx)
+	})
+	if err != nil {
+		c.events, c.audit, c.flushed = evSnap, auSnap, flSnap
+	}
+	return err
+}
+
 // FlushTo writes every queued event and audit entry into tx, atomically with
 // the caller's writes, and clears the queue so Call does not write them again.
 // Ops that change content should call it as the last statement of their
@@ -286,7 +310,6 @@ type Registry struct {
 	mu    sync.RWMutex
 	env   *Env
 	byKey map[string]*Entry
-	order []string
 }
 
 // NewRegistry returns an empty registry. env may be nil when only the schema
@@ -391,7 +414,6 @@ func Register[In, Out any](r *Registry, op Op, fn func(*Ctx, In) (Out, error)) {
 		}
 	}
 	r.byKey[op.Name] = e
-	r.order = append(r.order, op.Name)
 }
 
 func validName(n string) bool {
@@ -508,7 +530,7 @@ func (r *Registry) CallJSON(ctx context.Context, p Principal, name string, raw [
 	}
 	in := e.NewIn()
 	if len(raw) > 0 {
-		dec := json.NewDecoder(strings.NewReader(string(raw)))
+		dec := json.NewDecoder(bytes.NewReader(raw))
 		dec.DisallowUnknownFields()
 		if err := dec.Decode(in); err != nil {
 			return nil, Invalid("", "malformed JSON: "+err.Error())

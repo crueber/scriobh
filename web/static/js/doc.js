@@ -13,15 +13,14 @@
 (function () {
   "use strict";
   var doc = document, win = window;
-  var $ = function (s, r) { return (r || doc).querySelector(s); };
-  var $$ = function (s, r) { return Array.prototype.slice.call((r || doc).querySelectorAll(s)); };
-  var root = $("#write");
   var S = (win.scriobh = win.scriobh || {});
+  var $ = S.$, $$ = S.$$, el = S.el, fmt = S.fmt;
+  var root = $("#write");
   if (!root || !root.dataset.doc || !win.scriobhEditor) return;
 
   var D = root.dataset;
   var cfg = { id: D.doc, project: D.project, slug: D.slug, canEdit: D.canEdit === "true", readonly: D.readonly || "", guard: D.guard || "", updated: D.updated || "" };
-  var csrf = ($('meta[name="csrf-token"]') || {}).content || "";
+  var csrf = S.getCsrf();
   var isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
   var markdown = win.scriobhEditor.markdown;
 
@@ -39,28 +38,27 @@
     win.crypto.getRandomValues(a);
     return Array.prototype.map.call(a, function (b) { return (b < 16 ? "0" : "") + b.toString(16); }).join("");
   }
-  function fmt(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
   function words(n) { return fmt(n) + (n === 1 ? " word" : " words"); }
-  function el(tag, cls, text) { var e = doc.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 
   // One id per tab, kept across a reload so the lease is still ours. A duplicated tab
   // copies sessionStorage, so another live tab with the same id makes this one pick a new one.
   var tab = keep("session", "scriobh:tab") || rand();
   keep("session", "scriobh:tab", tab);
-  var inst = rand(), clashed = Promise.resolve();
+  var inst = rand(), tabReady = !win.BroadcastChannel, clashed = Promise.resolve();
   if (win.BroadcastChannel) {
-    try {
-      var bc = new win.BroadcastChannel("scriobh-tab");
-      clashed = new Promise(function (res) {
+    clashed = new Promise(function (res) {
+      var done = function () { tabReady = true; res(); };
+      try {
+        var bc = new win.BroadcastChannel("scriobh-tab");
         bc.onmessage = function (e) {
           var m = e.data || {};
           if (m.q === tab && m.inst !== inst) bc.postMessage({ a: tab, inst: inst });
-          else if (m.a === tab && m.inst !== inst) { tab = rand(); keep("session", "scriobh:tab", tab); res(); }
+          else if (m.a === tab && m.inst !== inst) { tab = rand(); keep("session", "scriobh:tab", tab); done(); }
         };
         bc.postMessage({ q: tab, inst: inst });
-        setTimeout(res, 120);
-      });
-    } catch (e) { /* no channel: the revision check still protects the text */ }
+        setTimeout(done, 120);
+      } catch (e) { done(); /* no channel: the revision check still protects the text */ }
+    });
   }
 
   // ---- the server ------------------------------------------------------------
@@ -93,7 +91,7 @@
     return go().then(function (r) {
       if (r.status !== 403) return r;
       return fetch("/ui/csrf", { credentials: "same-origin", headers: { "X-Scriobh-Fetch": "1" } }).then(function (x) { return x.ok ? x.json() : null; }).then(function (j) {
-        if (j && j.token) { csrf = j.token; return go(); }
+        if (j && j.token) { csrf = j.token; S.setCsrf(csrf); return go(); }
         return r;
       });
     });
@@ -241,7 +239,9 @@
 
   // ---- the save loop ----------------------------------------------------------------------
   function pump() {
-    if (inflight || halted || locked || gated || !needs()) return;
+    if (inflight || halted || locked || gated) return;
+    if (!needs()) { settle(true); return; }
+    if (!tabReady) { clashed.then(pump); return; }
     var sendMd = textPending();
     var snap = { md: sendMd ? want.md : null, ver: sendMd && want ? want.version : null, title: titlePending() ? titleNow() : null };
     var body = { base_revision: st.rev, tab_id: tab };
@@ -478,30 +478,37 @@
   function takeLease(take, background) {
     return api("POST", docPath + "/lease", { tab_id: tab, take: !!take }, 0, background).then(function (r) { return r.ok && r.json ? !!r.json.held : null; }, function () { return null; });
   }
+  var resolving = false;
+  function resolveWith(fn) {
+    if (resolving) return;
+    resolving = true;
+    var end = function () { resolving = false; };
+    Promise.resolve().then(function () {
+      ed.flush();
+      var md = want ? want.md : localMd();
+      return ensureCopy(md).then(function (ok) {
+        if (!ok) return toast("Could not store a copy of your text. Nothing was changed.");
+        return Promise.resolve().then(function () { return fn(md); }).catch(function () { toast("Could not reach the server. Nothing was changed."); });
+      });
+    }).then(end, end);
+  }
   function keepMine() {
-    ed.flush();
-    var md = want ? want.md : localMd();
-    ensureCopy(md).then(function (ok) {
-      if (!ok) return toast("Could not store a copy of your text. Nothing was changed.");
-      return takeLease(true).then(function () { return fetchDoc(); }).then(function (cur) {
+    resolveWith(function (md) {
+      return takeLease(true).then(fetchDoc).then(function (cur) {
         var mine = titleNow() !== st.serverTitle;
         st.rev = cur.revision; st.serverMd = cur.content; ed.alts.setComment(altLine(cur.content));
         if (!mine) { st.serverTitle = cur.title; setTitle(cur.title); }
         if (!want) want = { md: md, version: null };
-        resolved();
-        pump();
-      }, function () { toast("Could not reach the server. Nothing was changed."); });
+        resolved(); pump();
+      });
     });
   }
   function keepTheirs() {
-    ed.flush();
-    var md = want ? want.md : localMd();
-    ensureCopy(md).then(function (ok) {
-      if (!ok) return toast("Could not store a copy of your text. Nothing was changed.");
+    resolveWith(function () {
       return fetchDoc().then(function (cur) {
         adopt(cur); resolved();
         return takeLease(false).then(function (held) { if (held === false) lockUI(); });
-      }, function () { toast("Could not reach the server. Nothing was changed."); });
+      });
     });
   }
   function restoreDoc(cur) {
@@ -698,11 +705,7 @@
   // Small, rarely used parts are their own files, fetched the first time they are needed.
   function lazy(src, ready, fn) {
     if (S[ready]) return fn();
-    var t = el("script");
-    t.src = src;
-    t.onload = fn;
-    t.onerror = function () { toast("Could not load that. Your text is unchanged."); };
-    doc.head.appendChild(t);
+    S.loadScript(src).then(fn, function () { toast("Could not load that. Your text is unchanged."); });
   }
   function onLink(info) { lazy(D.linkSrc, "linkDialog", function () { S.linkDialog(info, ed); }); }
   function limit(info) { if (info.level) showGuard(info.words); }
@@ -734,7 +737,7 @@
     if (cfg.readonly === "role") { bar("role", "info", "You can read this project but not change it.", []); setState("locked", "Read only"); locked = true; }
     else if (cfg.readonly === "length") { bar("guard", "warn", "This chapter is over the 25,000-word limit for one document, so it opens read-only. Split it at a scene break into shorter chapters.", []); showGuard(parseInt(D.words, 10) || 25000); }
     S.write = { cfg: cfg, flushAll: flushAll, unsaved: unsaved, ui: ui, editor: ed, go: go, setTitle: setTitle, get rev() { return st.rev; }, set rev(v) { st.rev = v; }, get tab() { return tab; }, adopt: adopt, api: api, markdown: markdown,
-      get locked() { return locked; }, get serverMd() { return st.serverMd; }, get showCounts() { return showCounts; }, words: words, counts: counts, afterAlt: afterAlt, lazy: lazy, person: D.user };
+      get locked() { return locked; }, get serverMd() { return st.serverMd; }, get serverTitle() { return st.serverTitle; }, get showCounts() { return showCounts; }, words: words, counts: counts, afterAlt: afterAlt, lazy: lazy, person: D.user };
     if (/[?&]new=1\b/.test(win.location.search)) {
       titleEl.focus();
       win.history.replaceState(null, "", win.location.pathname);

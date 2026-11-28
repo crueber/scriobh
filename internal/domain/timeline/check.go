@@ -371,6 +371,10 @@ func check(ctx context.Context, q vocab.Querier, d *pdata) (CheckOut, error) {
 					mentioned[doc][ent] = true
 				}
 			}
+			if err := rows.Err(); err != nil {
+				_ = rows.Close()
+				return out, err
+			}
 			if err := rows.Close(); err != nil {
 				return out, err
 			}

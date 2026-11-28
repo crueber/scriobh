@@ -314,6 +314,10 @@ func (s *Service) rollingStart(c *ops.Ctx, in RollingStartIn) (JobItem, error) {
 		nodes = append(nodes, n)
 		byID[n.ID] = chap{title: n.Title, toks: size/3 + 1, hasLn: strings.TrimSpace(syn) != "", ex: ex == 1, kind: n.Kind, empty: empty == 1} // the text is not loaded: its size is enough for an estimate
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return JobItem{}, ops.Internal(err)
+	}
 	if err := rows.Close(); err != nil {
 		return JobItem{}, ops.Internal(err)
 	}

@@ -36,6 +36,7 @@ var exempt = map[string]string{
 	"domain/comanchor/comanchor.go:afterWrite": "maintenance: moves the anchors of every thread of a document, private ones included, and returns counts only",
 	"domain/review/notify.go:Sweep":            "lifecycle: deletes old tombstones and the private rows of authors who are gone; nothing is returned",
 	"domain/review/comments.go:commentFrom":    "the FROM of fetch, the only place that uses it (asserted below); fetch adds visible()",
+	"domain/search/rebuild.go:rebuildFTSTable": "maintenance: drops/recreates triggers and clears an FTS shadow table (entity_text, research_text, stash_text), never comments",
 	"testutil/dump.go:Dump":                    "a test helper: digests every table, so that a test can prove an operation changed nothing",
 	"testutil/dump.go:TablesHolding":           "a test helper: looks in every table for a canary, so that a test can prove a secret is nowhere but where it belongs",
 }

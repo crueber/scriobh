@@ -330,6 +330,10 @@ func planMergeAcross(ctx context.Context, q Querier, srcCID, cid string, in Merg
 		}
 		rels = append(rels, r)
 	}
+	if err := rrows.Err(); err != nil {
+		_ = rrows.Close()
+		return nil, nil, nil, err
+	}
 	if err := rrows.Close(); err != nil {
 		return nil, nil, nil, err
 	}

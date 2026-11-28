@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/crueber/scriobh/internal/backup"
 	"github.com/crueber/scriobh/internal/db"
@@ -107,6 +108,10 @@ func CheckCredentials(ctx context.Context, d *db.DB, box *secrets.Box, clear boo
 		it.enabled, it.paused = en != 0, pz != 0
 		items = append(items, it)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return "", err
+	}
 	if err := rows.Close(); err != nil {
 		return "", err
 	}
@@ -121,6 +126,12 @@ func CheckCredentials(ctx context.Context, d *db.DB, box *secrets.Box, clear boo
 		allowLegacy = marker != "1"
 	}
 	var bad, back int
+	type dbUpdate struct {
+		query string
+		args  []any
+	}
+	var updates []dbUpdate
+	now := db.Now()
 	for _, it := range items {
 		readable := false
 		if it.cipher != "" {
@@ -136,9 +147,10 @@ func CheckCredentials(ctx context.Context, d *db.DB, box *secrets.Box, clear boo
 						plain[i] = 0
 					}
 					if serr == nil {
-						if _, err := d.Writer().ExecContext(ctx, `UPDATE git_remotes SET secret_cipher = ? WHERE id = ?`, sealed, it.id); err != nil {
-							return "", err
-						}
+						updates = append(updates, dbUpdate{
+							query: `UPDATE git_remotes SET secret_cipher = ? WHERE id = ?`,
+							args:  []any{sealed, it.id},
+						})
 						readable = true
 					}
 				}
@@ -156,19 +168,34 @@ func CheckCredentials(ctx context.Context, d *db.DB, box *secrets.Box, clear boo
 			if clear {
 				q = `UPDATE git_remotes SET secret_cipher = '', public_key = '', enabled = 0, state = 'blocked', last_error = ?, last_error_code = ?, next_attempt_at = NULL, updated_at = ? WHERE id = ?`
 			}
-			if _, err := d.Writer().ExecContext(ctx, q, credentialsUnreadable, CodeCredentialsBad, db.Now(), it.id); err != nil {
-				return "", err
-			}
+			updates = append(updates, dbUpdate{
+				query: q,
+				args:  []any{credentialsUnreadable, CodeCredentialsBad, now, it.id},
+			})
 		case readable && it.code == CodeCredentialsBad:
 			back++
-			if _, err := d.Writer().ExecContext(ctx, `UPDATE git_remotes SET enabled = 1, state = CASE WHEN last_commit_sha <> '' THEN 'synced' ELSE 'new' END,
-				last_error = '', last_error_code = '', fail_count = 0, updated_at = ? WHERE id = ?`, db.Now(), it.id); err != nil {
-				return "", err
-			}
+			updates = append(updates, dbUpdate{
+				query: `UPDATE git_remotes SET enabled = 1, state = CASE WHEN last_commit_sha <> '' THEN 'synced' ELSE 'new' END,
+				last_error = '', last_error_code = '', fail_count = 0, updated_at = ? WHERE id = ?`,
+				args: []any{now, it.id},
+			})
 		}
 	}
 	if box.Enabled() && allowLegacy {
-		if _, err := d.Writer().ExecContext(ctx, `INSERT INTO settings(key, value, updated_at) VALUES (?, '1', ?) ON CONFLICT(key) DO UPDATE SET value = '1', updated_at = excluded.updated_at`, sealMarker, db.Now()); err != nil {
+		updates = append(updates, dbUpdate{
+			query: `INSERT INTO settings(key, value, updated_at) VALUES (?, '1', ?) ON CONFLICT(key) DO UPDATE SET value = '1', updated_at = excluded.updated_at`,
+			args:  []any{sealMarker, now},
+		})
+	}
+	if len(updates) > 0 {
+		if err := d.WithTx(ctx, func(tx *sql.Tx) error {
+			for _, u := range updates {
+				if _, err := tx.ExecContext(ctx, u.query, u.args...); err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
 			return "", err
 		}
 	}
@@ -183,18 +210,7 @@ func CheckCredentials(ctx context.Context, d *db.DB, box *secrets.Box, clear boo
 	if back > 0 {
 		parts = append(parts, fmt.Sprintf("Git remotes: %d remote(s) switched off for unreadable credentials can be read again and were switched on.", back))
 	}
-	return joinNotes(parts), nil
-}
-
-func joinNotes(p []string) string {
-	out := ""
-	for i, s := range p {
-		if i > 0 {
-			out += " "
-		}
-		out += s
-	}
-	return out
+	return strings.Join(parts, " "), nil
 }
 
 func init() {

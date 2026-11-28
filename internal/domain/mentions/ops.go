@@ -344,6 +344,10 @@ func byEntity(c *ops.Ctx, in ByEntityIn) (ByEntityOut, error) {
 		h.a.Ambiguous = amb == 1 && visibleOther
 		hits = append(hits, h)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return ByEntityOut{}, err
+	}
 	if err := rows.Close(); err != nil {
 		return ByEntityOut{}, err
 	}
@@ -447,6 +451,10 @@ func firstAppearance(c *ops.Ctx, in FirstIn) (FirstOut, error) {
 			a.first = doc
 		}
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return FirstOut{}, err
+	}
 	if err := rows.Close(); err != nil {
 		return FirstOut{}, err
 	}
@@ -523,6 +531,10 @@ func appearsIn(c *ops.Ctx, in AppearsIn) (AppearsOut, error) {
 		}
 		a.docs = append(a.docs, doc)
 		a.n += n
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return AppearsOut{}, err
 	}
 	if err := rows.Close(); err != nil {
 		return AppearsOut{}, err

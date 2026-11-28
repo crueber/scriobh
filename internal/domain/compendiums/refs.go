@@ -121,6 +121,10 @@ func loadWiring(ctx context.Context, q querier, p ops.Principal, projectID strin
 		}
 		all = append(all, r)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return w, err
+	}
 	if err := rows.Close(); err != nil {
 		return w, err
 	}
@@ -225,6 +229,10 @@ func setPrimaryRun(c *ops.Ctx, tx *sql.Tx, in SetIn, write bool) (SetOut, error)
 			}
 			inScope[id] = true
 		}
+		if err := rows.Err(); err != nil {
+			_ = rows.Close()
+			return err
+		}
 		if err := rows.Close(); err != nil {
 			return err
 		}
@@ -258,6 +266,10 @@ func setPrimaryRun(c *ops.Ctx, tx *sql.Tx, in SetIn, write bool) (SetOut, error)
 			} else {
 				out.OverridesDormant++
 			}
+		}
+		if err := orows.Err(); err != nil {
+			_ = orows.Close()
+			return err
 		}
 		if err := orows.Close(); err != nil {
 			return err

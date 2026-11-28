@@ -131,6 +131,7 @@ const (
 
 type cacheEntry struct {
 	key string
+	sum string
 	in  *intake
 	at  time.Time
 }
@@ -159,7 +160,7 @@ func cacheGet(key string) *intake {
 	return hit
 }
 
-func cachePut(key string, in *intake) {
+func cachePut(key, sum string, in *intake) {
 	size := in.total
 	if in.extras != nil {
 		for _, n := range in.extras.research {
@@ -179,10 +180,34 @@ func cachePut(key string, in *intake) {
 	}
 	cacheMu.Lock()
 	defer cacheMu.Unlock()
-	cached = append(cached, cacheEntry{key: key, in: in, at: time.Now()})
+	cached = append(cached, cacheEntry{key: key, sum: sum, in: in, at: time.Now()})
 	if len(cached) > cacheEntries {
 		cached = cached[len(cached)-cacheEntries:]
 	}
+}
+
+func cacheDropSum(sum string) {
+	cacheMu.Lock()
+	defer cacheMu.Unlock()
+	live := cached[:0]
+	for _, e := range cached {
+		if e.sum != sum {
+			live = append(live, e)
+		}
+	}
+	cached = live
+}
+
+func cacheSweep(now time.Time) {
+	cacheMu.Lock()
+	defer cacheMu.Unlock()
+	live := cached[:0]
+	for _, e := range cached {
+		if now.Sub(e.at) <= cacheTTL {
+			live = append(live, e)
+		}
+	}
+	cached = live
 }
 
 // cacheKey hashes everything a conversion is a function of.
@@ -230,8 +255,8 @@ func (s source) cacheKey(layout string) string {
 	}
 	if len(s.pandoc) > 0 {
 		// What Pandoc makes of a file is a function of its version too.
-		w("pandoc", s.pandocFmt, s.headings, s.pandocVersion(), strconv.Itoa(len(s.pandoc)))
-		h.Write(s.pandoc)
+		w("pandoc", s.pandocFmt, s.headings, s.pandocVersion())
+		bytesOf("pandoc-bytes", s.pandoc)
 	}
 	for _, f := range s.files {
 		b := f.bytesOf()

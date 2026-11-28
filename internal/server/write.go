@@ -8,7 +8,6 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/crueber/scriobh/internal/domain/account"
 	"github.com/crueber/scriobh/internal/domain/docs"
 	"github.com/crueber/scriobh/internal/domain/projects"
 	"github.com/crueber/scriobh/internal/domain/review"
@@ -282,7 +281,7 @@ func (s *Server) writePage(w http.ResponseWriter, r *http.Request, docID string)
 	if c, err := r.Cookie("scriobh_insp"); err == nil && (c.Value == "details" || c.Value == "versions" || c.Value == "scene" || c.Value == "compendium" || c.Value == "alts" || c.Value == "stash" || c.Value == "lab" || c.Value == "ai" || c.Value == "comments") {
 		insp = c.Value
 	}
-	pv := account.Prefs(r.Context(), s.DB, p.UserID)
+	pv := s.userPrefs(r)
 	d := writeData{Inspector: insp, Project: proj, Slug: proj.Slug, ProjectID: pid, Prefs: s.withTypography(r.Context(), p.UserID, pid, pv, editorPrefsFrom(pv)), Count: len(list.Order),
 		CanEdit: proj.Role == ops.ProjectOwner || proj.Role == ops.ProjectEditor}
 	d.AI = s.aiStateOf(r.Context(), p, pid)
@@ -341,7 +340,7 @@ func (s *Server) writePage(w http.ResponseWriter, r *http.Request, docID string)
 		cur = d.Doc.ID
 	}
 	d.Tree = buildTree(list.Items, list.Order, proj, cur, d.CanEdit, authFrom(r.Context()).CSRF)
-	d.Tree.Lang = s.page(r, "", nil).Lang
+	d.Tree.Lang = s.lang(r)
 	byID := make(map[string]docs.Meta, len(list.Items))
 	for _, m := range list.Items {
 		byID[m.ID] = m
@@ -392,7 +391,7 @@ func (s *Server) treeFragment(w http.ResponseWriter, r *http.Request, status int
 	list := lo.(docs.ListOut)
 	canEdit := proj.Role == ops.ProjectOwner || proj.Role == ops.ProjectEditor
 	tv := buildTree(list.Items, list.Order, proj, current, canEdit, authFrom(r.Context()).CSRF)
-	tv.Lang = s.page(r, "", nil).Lang
+	tv.Lang = s.lang(r)
 	for k, v := range header {
 		w.Header().Set(k, v)
 	}

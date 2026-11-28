@@ -276,6 +276,10 @@ func Threads(ctx context.Context, d *db.DB, l Link, docID, content string) ([]Gu
 		at[t.ID] = p
 		out = append(out, t)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, err
+	}
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}

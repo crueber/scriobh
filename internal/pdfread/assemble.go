@@ -162,10 +162,13 @@ func (a *assembler) isHeadingLine(l *pline, next *pline) bool {
 		return true
 	}
 	// A bold line of its own, with no full stop: a run of text under a sub-heading rule.
-	if l.bold && l.size >= 0.97*a.body && utf8.RuneCountInString(l.text) <= 80 && !strings.ContainsAny(string([]rune(l.text)[utf8.RuneCountInString(l.text)-1:]), ".,;:") {
-		above := a.prev == nil || a.prev.page != l.page || a.prev.region != l.region || a.prev.y-l.y > 1.3*a.lead
-		below := next == nil || next.page != l.page || next.region != l.region || l.y-next.y > 1.3*a.lead
-		return above && below
+	if l.bold && l.size >= 0.97*a.body && utf8.RuneCountInString(l.text) <= 80 {
+		last, _ := utf8.DecodeLastRuneInString(l.text)
+		if last != '.' && last != ',' && last != ';' && last != ':' {
+			above := a.prev == nil || a.prev.page != l.page || a.prev.region != l.region || a.prev.y-l.y > 1.3*a.lead
+			below := next == nil || next.page != l.page || next.region != l.region || l.y-next.y > 1.3*a.lead
+			return above && below
+		}
 	}
 	return false
 }

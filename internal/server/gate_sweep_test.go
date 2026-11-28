@@ -611,6 +611,8 @@ func TestGateCoversOpsThatCheckTheRoleByHand(t *testing.T) {
 		"notification.read_all": true, "timeline.event.list": true, "compendium.purge": true,
 		"studio.goal.create": true, "studio.compare": true,
 		"studio.card.create": true, // a flag (show_projects), not a project's id
+		"compendium.merge":   true, "compendium.merge.preview": true,
+		"compendium.split": true, "compendium.split.preview": true, // a flag (follow_projects), not a project's id
 		// the staged import: the project a draft adds to is checked by imports.access with the gate-aware role, in the op, at every call
 		"import.stage": true, "import.draft.update": true}
 	for _, e := range s.Reg.Entries() {

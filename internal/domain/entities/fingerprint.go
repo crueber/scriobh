@@ -78,6 +78,10 @@ func loadCompendiumHashes(ctx context.Context, q Querier, only []string) (map[st
 		rows[id] = r
 		order = append(order, id)
 	}
+	if err := crows.Err(); err != nil {
+		_ = crows.Close()
+		return nil, err
+	}
 	if err := crows.Close(); err != nil {
 		return nil, err
 	}
@@ -97,6 +101,10 @@ func loadCompendiumHashes(ctx context.Context, q Querier, only []string) (map[st
 			fmt.Fprintf(r.full, "e\x00%s\x00%s\n", id, at)
 		}
 	}
+	if err := erows.Err(); err != nil {
+		_ = erows.Close()
+		return nil, err
+	}
 	if err := erows.Close(); err != nil {
 		return nil, err
 	}
@@ -113,6 +121,10 @@ func loadCompendiumHashes(ctx context.Context, q Querier, only []string) (map[st
 		if r := rows[cid]; r != nil {
 			fmt.Fprintf(r.full, "f\x00%s\x00%s\x00%q\x00%s\x00%s\n", kind, key, label, typ, ch)
 		}
+	}
+	if err := drows.Err(); err != nil {
+		_ = drows.Close()
+		return nil, err
 	}
 	if err := drows.Close(); err != nil {
 		return nil, err
@@ -131,6 +143,10 @@ func loadCompendiumHashes(ctx context.Context, q Querier, only []string) (map[st
 		if r := rows[owner]; r != nil {
 			fmt.Fprintf(r.full, "r\x00%s\x00%q\n", target, name)
 		}
+	}
+	if err := rrows.Err(); err != nil {
+		_ = rrows.Close()
+		return nil, err
 	}
 	if err := rrows.Close(); err != nil {
 		return nil, err
@@ -178,6 +194,10 @@ func ProjectFingerprints(ctx context.Context, q Querier, only string) (map[strin
 			}
 			relevant = append(relevant, id)
 		}
+		if err := rrows.Err(); err != nil {
+			_ = rrows.Close()
+			return nil, err
+		}
 		if err := rrows.Close(); err != nil {
 			return nil, err
 		}
@@ -211,6 +231,10 @@ func ProjectFingerprints(ctx context.Context, q Querier, only string) (map[strin
 		ps[id] = p
 		order = append(order, id)
 	}
+	if err := prow.Err(); err != nil {
+		_ = prow.Close()
+		return nil, err
+	}
 	if err := prow.Close(); err != nil {
 		return nil, err
 	}
@@ -237,6 +261,10 @@ func ProjectFingerprints(ctx context.Context, q Querier, only string) (map[strin
 		if p := ps[owner]; p != nil {
 			p.refs = append(p.refs, target)
 		}
+	}
+	if err := refRows.Err(); err != nil {
+		_ = refRows.Close()
+		return nil, err
 	}
 	if err := refRows.Close(); err != nil {
 		return nil, err
@@ -271,6 +299,10 @@ func ProjectFingerprints(ctx context.Context, q Querier, only string) (map[strin
 			fmt.Fprintf(p.h, "link\x00%s\x00%s\x00%v\x00%v\x00%q\n", eid, at, et, ct, cname)
 		}
 	}
+	if err := lrows.Err(); err != nil {
+		_ = lrows.Close()
+		return nil, err
+	}
 	if err := lrows.Close(); err != nil {
 		return nil, err
 	}
@@ -287,6 +319,10 @@ func ProjectFingerprints(ctx context.Context, q Querier, only string) (map[strin
 		if p := ps[pid]; p != nil && used[pid] {
 			fmt.Fprintf(p.h, "override\x00%s\x00%s\n", eid, at)
 		}
+	}
+	if err := orows.Err(); err != nil {
+		_ = orows.Close()
+		return nil, err
 	}
 	if err := orows.Close(); err != nil {
 		return nil, err
@@ -332,6 +368,10 @@ func CompendiumFingerprints(ctx context.Context, q Querier, only string) (map[st
 			return nil, err
 		}
 		taken[id] = true
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, err
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

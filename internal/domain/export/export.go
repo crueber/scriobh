@@ -16,7 +16,6 @@
 package export
 
 import (
-	"archive/zip"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -36,6 +35,7 @@ import (
 	"github.com/crueber/scriobh/internal/domain/projects"
 	"github.com/crueber/scriobh/internal/domain/vocab"
 	"github.com/crueber/scriobh/internal/ops"
+	"github.com/crueber/scriobh/internal/publish"
 	"github.com/crueber/scriobh/internal/text"
 )
 
@@ -764,42 +764,20 @@ func bundle(format string, p projectRow, includesNotes bool, entries []entry, at
 	if err != nil {
 		return nil, err
 	}
-	files := make([]entry, 0, len(entries)+len(attEntries)+len(extra)+1)
-	files = append(files, entries...)
-	files = append(files, extra...) // files that are not documents (the HTML bundle's index)
-	files = append(files, attEntries...)
-	files = append(files, entry{path: "scriobh.json", data: append(mj, '\n')})
-	sort.Slice(files, func(i, j int) bool { return files[i].path < files[j].path })
-
-	date, tm := dosTime(p.UpdatedAt)
-	var buf bytes.Buffer
-	zw := zip.NewWriter(&buf)
-	for _, f := range files {
-		h := &zip.FileHeader{Name: f.path, Method: zip.Store, ModifiedDate: date, ModifiedTime: tm}
-		h.SetMode(0o644)
-		w, err := zw.CreateHeader(h)
-		if err != nil {
-			return nil, err
-		}
-		if _, err := w.Write(f.data); err != nil {
-			return nil, err
-		}
+	pubFiles := make([]publish.File, 0, len(entries)+len(attEntries)+len(extra)+1)
+	for _, e := range entries {
+		pubFiles = append(pubFiles, publish.File{Name: e.path, Data: e.data})
 	}
-	if err := zw.Close(); err != nil {
-		return nil, err
+	for _, e := range extra { // files that are not documents (the HTML bundle's index)
+		pubFiles = append(pubFiles, publish.File{Name: e.path, Data: e.data})
 	}
-	return buf.Bytes(), nil
-}
-
-// dosTime is the MS-DOS date and time of a stored timestamp. They are set
-// directly rather than through FileHeader.Modified, which would add an extra
-// field. Anything unreadable or before 1980 becomes 1980-01-01.
-func dosTime(stored string) (date, tm uint16) {
-	t, err := db.Parse(stored)
-	if err != nil || t.Year() < 1980 {
-		t = time.Date(1980, 1, 1, 0, 0, 0, 0, time.UTC)
+	for _, e := range attEntries {
+		pubFiles = append(pubFiles, publish.File{Name: e.path, Data: e.data})
 	}
-	t = t.UTC()
-	return uint16(t.Year()-1980)<<9 | uint16(t.Month())<<5 | uint16(t.Day()),
-		uint16(t.Hour())<<11 | uint16(t.Minute())<<5 | uint16(t.Second()/2)
+	pubFiles = append(pubFiles, publish.File{Name: "scriobh.json", Data: append(mj, '\n')})
+	modTime, err := db.Parse(p.UpdatedAt)
+	if err != nil {
+		modTime = time.Time{}
+	}
+	return publish.ZipStored(pubFiles, modTime)
 }

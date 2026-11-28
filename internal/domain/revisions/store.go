@@ -180,6 +180,7 @@ func decode(encoding string, blob []byte, hash string) (string, error) {
 		if err != nil {
 			return "", err
 		}
+		defer zr.Close()
 		raw, err = io.ReadAll(io.LimitReader(zr, MaxContent+1))
 		if err != nil {
 			return "", err

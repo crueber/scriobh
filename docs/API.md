@@ -427,7 +427,7 @@ How to read it. **Request** is the method and path. **Access** is who may call t
 
 <!-- BEGIN GENERATED: op table (make skill) -->
 
-461 operations, schema `sha256:b62f33b7183a`. Generated from the op registry by `make skill`; do not edit between the markers.
+461 operations, schema `sha256:8e4a490ef6e0`. Generated from the op registry by `make skill`; do not edit between the markers.
 
 #### `account` (3)
 

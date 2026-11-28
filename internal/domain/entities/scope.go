@@ -123,6 +123,10 @@ func loadEffectiveOnly(ctx context.Context, q Querier, projectID, only string) (
 		index[x.ID] = len(out)
 		out = append(out, x)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, err
+	}
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
@@ -144,6 +148,10 @@ func loadEffectiveOnly(ctx context.Context, q Querier, projectID, only string) (
 		if i, ok := index[id]; ok {
 			out[i].Aliases = append(out[i].Aliases, alias)
 		}
+	}
+	if err := arows.Err(); err != nil {
+		_ = arows.Close()
+		return nil, err
 	}
 	if err := arows.Close(); err != nil {
 		return nil, err
@@ -171,6 +179,10 @@ func loadEffectiveOnly(ctx context.Context, q Querier, projectID, only string) (
 			}
 			out[i].Relations = append(out[i].Relations, l+": "+fname)
 		}
+	}
+	if err := lrows.Err(); err != nil {
+		_ = lrows.Close()
+		return nil, err
 	}
 	if err := lrows.Close(); err != nil {
 		return nil, err
@@ -256,6 +268,10 @@ func scopeRefs(ctx context.Context, q Querier, projectID string) (sql.NullString
 		}
 		refs[id] = len(refs) + 1
 	}
+	if err := rr.Err(); err != nil {
+		_ = rr.Close()
+		return primary, nil, err
+	}
 	if err := rr.Close(); err != nil {
 		return primary, nil, err
 	}
@@ -284,6 +300,10 @@ func readableCompendiums(ctx context.Context, q Querier, p ops.Principal, projec
 			return nil, err
 		}
 		cands = append(cands, id)
+	}
+	if err := lrows.Err(); err != nil {
+		_ = lrows.Close()
+		return nil, err
 	}
 	if err := lrows.Close(); err != nil {
 		return nil, err
@@ -744,6 +764,10 @@ func projectList(c *ops.Ctx, in ProjectListIn) (ProjectListOut, error) {
 		index[x.ID] = len(page)
 		page = append(page, x)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return out, err
+	}
 	if err := rows.Close(); err != nil {
 		return out, err
 	}
@@ -770,6 +794,10 @@ func projectList(c *ops.Ctx, in ProjectListIn) (ProjectListOut, error) {
 			if i, ok := index[id]; ok {
 				page[i].Aliases = append(page[i].Aliases, alias)
 			}
+		}
+		if err := arows.Err(); err != nil {
+			_ = arows.Close()
+			return out, err
 		}
 		if err := arows.Close(); err != nil {
 			return out, err
@@ -996,18 +1024,18 @@ func overrideSet(c *ops.Ctx, in OverrideSetIn) (OverrideOut, error) {
 			in.ID, in.EntityID, name, summary, marshalFields(fields), notes, nullIfEmpty(c.P.UserID), now); err != nil {
 			return err
 		}
-		c.Emit(ops.Event{Type: "entity.override.set", ProjectID: in.ID, Payload: map[string]any{"entity_id": in.EntityID}})
-		if err := c.FlushTo(tx); err != nil {
+		out.Item, err = oneEffective(c, tx, c.P, in.ID, in.EntityID)
+		if err != nil {
 			return err
 		}
-		out.Item, err = oneEffective(c, tx, c.P, in.ID, in.EntityID)
-		return err
+		c.Emit(ops.Event{Type: "entity.override.set", ProjectID: in.ID, Payload: map[string]any{"entity_id": in.EntityID}})
+		return c.FlushTo(tx)
 	})
 	return out, err
 }
 
 func oneEffective(ctx context.Context, q Querier, p ops.Principal, projectID, entityID string) (ProjectEntity, error) {
-	rows, err := loadEffective(ctx, q, projectID)
+	rows, err := loadEffectiveOnly(ctx, q, projectID, entityID)
 	if err != nil {
 		return ProjectEntity{}, err
 	}
@@ -1159,6 +1187,10 @@ func linkList(c *ops.Ctx, in LinkListIn) (LinkListOut, error) {
 			return LinkListOut{}, err
 		}
 		all = append(all, l)
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return LinkListOut{}, err
 	}
 	if err := rows.Close(); err != nil {
 		return LinkListOut{}, err

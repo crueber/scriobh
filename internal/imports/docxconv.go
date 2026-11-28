@@ -1644,11 +1644,12 @@ func (c *docxConv) compose(title string, blocks []mdBlock) string {
 				lines = append(lines, blocks[j].text)
 				j++
 			}
+			code := strings.Join(lines, "\n")
 			fence := "```"
-			for strings.Contains(strings.Join(lines, "\n"), fence) {
+			for strings.Contains(code, fence) {
 				fence += "`"
 			}
-			b.WriteString(fence + "\n" + strings.Join(lines, "\n") + "\n" + fence + "\n")
+			b.WriteString(fence + "\n" + code + "\n" + fence + "\n")
 			i = j - 1
 			continue
 		case bList:

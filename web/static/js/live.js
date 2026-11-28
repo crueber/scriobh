@@ -54,7 +54,7 @@
           buf = lines.pop();
           lines.forEach(function (l) {
             l = l.replace(/\r$/, "");
-            if (l === "") { if (ev || data) frame(ev, data, id); ev = data = ""; return; }
+            if (l === "") { if (ev || data) frame(ev, data, id); ev = data = id = ""; return; }
             if (l.charAt(0) === ":") return;
             var i = l.indexOf(":"), k = i < 0 ? l : l.slice(0, i), v = i < 0 ? "" : l.slice(i + 1).replace(/^ /, "");
             if (k === "event") ev = v; else if (k === "data") data += (data ? "\n" : "") + v; else if (k === "id") id = v;

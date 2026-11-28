@@ -43,6 +43,21 @@ type reqInfo struct {
 	principal string
 }
 
+// reqCache caches per-request read-only user lookups (prefs, language, timezone,
+// compendium addresses) so handlers and s.tr() never hit SQLite repeatedly for
+// the same user during a single request.
+type reqCache struct {
+	mu          sync.Mutex
+	prefsDone   bool
+	prefs       map[string]string
+	langDone    bool
+	lang, uiDir string
+	zoneDone    bool
+	zone        *time.Location
+	compAddrs   map[string]string
+	compDone    bool
+}
+
 // reqAuth is what the session middleware learned about the caller.
 type reqAuth struct {
 	P         ops.Principal
@@ -50,6 +65,7 @@ type reqAuth struct {
 	CSRF      string
 	// Set when the caller signed in with an API key.
 	KeyID, KeyPrefix, KeyName, KeyExpires string
+	cache                                 *reqCache
 }
 
 func authFrom(ctx context.Context) reqAuth {
@@ -231,6 +247,12 @@ func (s *Server) limits(next http.Handler) http.Handler {
 // sessions attaches the signed-in principal, if any.
 func (s *Server) sessions(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Embedded static assets and health probes never use session auth; skipping
+		// avoids per-asset SQLite session lookups and writer-lock touch stampedes.
+		if strings.HasPrefix(r.URL.Path, "/static/") || r.URL.Path == "/healthz" || r.URL.Path == "/readyz" {
+			next.ServeHTTP(w, r)
+			return
+		}
 		if isSharePath(r.URL.Path) {
 			// A share link is not a person: a session cookie or an API key sent to /s/ is
 			// not looked at, so nothing can be learned from it and nothing is set.
@@ -256,7 +278,7 @@ func (s *Server) sessions(next http.Handler) http.Handler {
 			p, info, err := lookup(r.Context(), c.Value)
 			switch err {
 			case nil:
-				ra := reqAuth{P: p, SessionID: info.ID, CSRF: s.Sess.CSRFToken(info.ID)}
+				ra := reqAuth{P: p, SessionID: info.ID, CSRF: s.Sess.CSRFToken(info.ID), cache: &reqCache{}}
 				if ri, ok := r.Context().Value(keyInfo).(*reqInfo); ok {
 					ri.principal = p.UserID
 				}

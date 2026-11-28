@@ -190,6 +190,10 @@ func projectStamps(ctx context.Context, q entities.Querier, only string) (map[st
 		}
 		lines[id] = []string{}
 	}
+	if err := qual.Err(); err != nil {
+		_ = qual.Close()
+		return nil, err
+	}
 	if err := qual.Close(); err != nil {
 		return nil, err
 	}
@@ -216,6 +220,10 @@ func projectStamps(ctx context.Context, q entities.Querier, only string) (map[st
 			lines[pid] = append(lines[pid], fmt.Sprintf("d %s %s %s %q %v %q %q %s", id, parent, kind, title, pos, sd, se, pov))
 		}
 	}
+	if err := drows.Err(); err != nil {
+		_ = drows.Close()
+		return nil, err
+	}
 	if err := drows.Close(); err != nil {
 		return nil, err
 	}
@@ -232,6 +240,10 @@ func projectStamps(ctx context.Context, q entities.Querier, only string) (map[st
 		if _, ok := lines[pid]; ok {
 			lines[pid] = append(lines[pid], "l "+eid+" "+did)
 		}
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, err
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -250,6 +262,10 @@ func projectStamps(ctx context.Context, q entities.Querier, only string) (map[st
 		if _, ok := lines[pid]; ok {
 			lines[pid] = append(lines[pid], fmt.Sprintf("n %s %v", eid, pos))
 		}
+	}
+	if err := nrows.Err(); err != nil {
+		_ = nrows.Close()
+		return nil, err
 	}
 	if err := nrows.Close(); err != nil {
 		return nil, err

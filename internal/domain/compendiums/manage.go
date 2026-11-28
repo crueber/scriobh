@@ -442,6 +442,10 @@ func planPrimary(c *ops.Ctx, tx *sql.Tx, in PrimaryIn) (PrimaryPlan, error) {
 		}
 		ks = append(ks, k)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return pl, err
+	}
 	if err := rows.Close(); err != nil {
 		return pl, err
 	}

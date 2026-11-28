@@ -197,7 +197,7 @@ func around(s string, a, b int) (before, after string) {
 	if i := strings.IndexByte(s[b:], '\n'); i >= 0 && b+i < hi {
 		hi = b + i
 	}
-	for hi > b && !utf8.RuneStart(s[hi-1]) && hi < len(s) && !utf8.RuneStart(s[hi]) {
+	for hi > b && hi < len(s) && !utf8.RuneStart(s[hi]) {
 		hi--
 	}
 	return s[lo:a], s[b:hi]
@@ -518,13 +518,17 @@ func (c *docxConv) resolveRevs(blocks []mdBlock, compose func([]mdBlock) string)
 			groups = groups[:len(groups)-1]
 		}
 		var chs [][]review.ChangeIn
+		var bodyIdx *alts.Index
+		if len(groups) > 0 {
+			bodyIdx = alts.NewIndex(body)
+		}
 		for _, g := range groups {
 			cg := make([]review.ChangeIn, 0, len(g))
 			for _, rv := range g {
 				ch, _ := changeFor(blocks[rv.bi].text, blocks[rv.bi].revs[rv.ri])
 				cg = append(cg, ch)
 			}
-			if why, ok := placeableGroup(body, cg); !ok {
+			if why, ok := placeableGroup(body, bodyIdx, cg); !ok {
 				for _, rv := range g {
 					accept(rv, why, &c.tn.Refused)
 				}
@@ -739,11 +743,13 @@ func groupRevs(blocks []mdBlock) [][]revAt {
 }
 
 // placeableGroup is placeable for the changes of one suggestion together.
-func placeableGroup(body string, chs []review.ChangeIn) (string, bool) {
+func placeableGroup(body string, ix *alts.Index, chs []review.ChangeIn) (string, bool) {
 	if len(chs) > review.MaxChangesPerSuggestion {
 		return "the review checks would refuse it (too many changes)", false
 	}
-	ix := alts.NewIndex(body)
+	if ix == nil {
+		ix = alts.NewIndex(body)
+	}
 	var edits []docs.AIEdit
 	total := 0
 	for _, ch := range chs {

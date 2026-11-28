@@ -30,6 +30,7 @@ import (
 	"context"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -124,9 +125,10 @@ type Service struct {
 	cfg Config
 	log *slog.Logger
 
-	cache *vecCache
-	wake  chan struct{}
-	wg    sync.WaitGroup
+	cache   *vecCache
+	wake    chan struct{}
+	wg      sync.WaitGroup
+	started atomic.Bool
 
 	mu       sync.Mutex
 	busy     map[string]bool      // projects being visited now
@@ -168,6 +170,9 @@ func (s *Service) allow(key string, perMinute int) bool {
 // Start runs the worker until ctx ends. It returns at once.
 func (s *Service) Start(ctx context.Context) {
 	if s.env == nil || s.env.DB == nil {
+		return
+	}
+	if !s.started.CompareAndSwap(false, true) {
 		return
 	}
 	s.honourMarker(ctx) // before anything can be sent

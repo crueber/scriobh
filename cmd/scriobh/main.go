@@ -15,6 +15,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -235,6 +236,10 @@ func serve(stdout, stderr io.Writer) int {
 	}
 	sigCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	// Track background goroutines so they finish before d.Close() and db.Lock release.
+	// Defers run LIFO: cancel() -> bgWG.Wait() -> d.Close() -> release().
+	var bgWG sync.WaitGroup
+	defer bgWG.Wait()
 	// The stdin watcher gets its own cancel: NotifyContext's stop also unregisters the signal handlers, and a SIGTERM
 	// that arrives during the graceful shutdown (the shell's quit path sends both) would then kill the process.
 	ctx, cancel := context.WithCancel(sigCtx)
@@ -242,8 +247,9 @@ func serve(stdout, stderr io.Writer) int {
 	if cfg.Desktop {
 		stopWhenStdinCloses(os.Stdin, cancel, log)
 	}
-	go rebuildLinksOnce(ctx, d, log)
-	go mentions.Run(ctx, d, log)
+	bgWG.Add(2)
+	go func() { defer bgWG.Done(); rebuildLinksOnce(ctx, d, log) }()
+	go func() { defer bgWG.Done(); mentions.Run(ctx, d, log) }()
 	if err := srv.Serve(ctx, ln); err != nil {
 		fmt.Fprintln(stderr, "scriobh:", err)
 		return 1

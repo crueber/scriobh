@@ -76,23 +76,28 @@ func configureNet(allow bool, maxRepoBytes int64, log *slog.Logger) {
 	}
 }
 
-// blockedIP reports whether an address is one Git sync must not connect to. The
-// address classes are the shared ones in internal/netguard (AI providers use
-// them too); everything that is not public is refused unless the operator opts in.
 func blockedIP(ip net.IP) bool { return netguard.BlockedIP(ip) }
+
+// ipAllowed reports whether Git sync may connect to ip: public addresses are
+// always allowed; loopback/private addresses require SCRIOBH_GIT_ALLOW_PRIVATE;
+// cloud metadata and reserved addresses (netguard.Blocked) are always refused.
+func ipAllowed(ip net.IP) bool {
+	mode := netguard.PublicOnly
+	if allowPrivate.Load() {
+		mode = netguard.AllowLocal
+	}
+	return mode.Allowed(netguard.Classify(ip))
+}
 
 // guardControl is the dialer's Control hook: it sees the address about to be
 // connected to, after resolution, for every candidate address.
 func guardControl(network, address string, _ syscall.RawConn) error {
-	if allowPrivate.Load() {
-		return nil
-	}
 	host, _, err := net.SplitHostPort(address)
 	if err != nil {
 		return errBlockedAddr
 	}
 	ip := net.ParseIP(host)
-	if ip == nil || blockedIP(ip) {
+	if ip == nil || !ipAllowed(ip) {
 		return errBlockedAddr
 	}
 	return nil
@@ -213,7 +218,7 @@ func init() {
 // resolveAllowed resolves host and returns the first address that is allowed.
 func resolveAllowed(ctx context.Context, host string) (net.IP, error) {
 	if ip := net.ParseIP(host); ip != nil {
-		if !allowPrivate.Load() && blockedIP(ip) {
+		if !ipAllowed(ip) {
 			return nil, errBlockedAddr
 		}
 		return ip, nil
@@ -227,7 +232,7 @@ func resolveAllowed(ctx context.Context, host string) (net.IP, error) {
 	}
 	blocked := false
 	for _, a := range addrs {
-		if allowPrivate.Load() || !blockedIP(a.IP) {
+		if ipAllowed(a.IP) {
 			return a.IP, nil
 		}
 		blocked = true

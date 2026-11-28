@@ -79,15 +79,68 @@ type UserView struct {
 	IsWriter bool
 }
 
+// userPrefs returns the signed-in user's preferences, cached for the duration
+// of r so repeated calls from s.tr, s.page, and handlers only query SQLite once.
+func (s *Server) userPrefs(r *http.Request) map[string]string {
+	a := authFrom(r.Context())
+	if !a.P.Authenticated() {
+		return nil
+	}
+	if a.cache != nil {
+		a.cache.mu.Lock()
+		defer a.cache.mu.Unlock()
+		if !a.cache.prefsDone {
+			a.cache.prefs = account.Prefs(r.Context(), s.DB, a.P.UserID)
+			a.cache.prefsDone = true
+		}
+		return a.cache.prefs
+	}
+	return account.Prefs(r.Context(), s.DB, a.P.UserID)
+}
+
+// langDir returns the interface language tag and direction for r without
+// building a full Page or invoking s.compNav.
+func (s *Server) langDir(r *http.Request) (string, string) {
+	a := authFrom(r.Context())
+	if !a.P.Authenticated() {
+		return "en", "ltr"
+	}
+	if a.cache != nil {
+		a.cache.mu.Lock()
+		if a.cache.langDone {
+			lang, dir := a.cache.lang, a.cache.uiDir
+			a.cache.mu.Unlock()
+			return lang, dir
+		}
+		a.cache.mu.Unlock()
+	}
+	prefs := s.userPrefs(r)
+	lang, dir := "en", "ltr"
+	if l, ok := i18n.Default.Resolve(prefs["language"]); ok && (!l.Test || s.testLocales()) {
+		lang, dir = l.Tag, l.Dir
+	}
+	if a.cache != nil {
+		a.cache.mu.Lock()
+		a.cache.lang, a.cache.uiDir, a.cache.langDone = lang, dir, true
+		a.cache.mu.Unlock()
+	}
+	return lang, dir
+}
+
+func (s *Server) lang(r *http.Request) string {
+	l, _ := s.langDir(r)
+	return l
+}
+
 // tr is a message in the language of the person asking, for the words a handler writes itself (a note after a change, a
 // title that is missing). The page's own words come from the template with $.T.
 func (s *Server) tr(r *http.Request, key string, args ...any) string {
-	return i18n.Default.T(s.page(r, "", nil).Lang, key, args...)
+	return i18n.Default.T(s.lang(r), key, args...)
 }
 
 // trN is tr for a count: key.one or key.other, with {n} filled in.
 func (s *Server) trN(r *http.Request, key string, n int, args ...any) string {
-	return i18n.Default.N(s.page(r, "", nil).Lang, key, n, args...)
+	return i18n.Default.N(s.lang(r), key, n, args...)
 }
 
 func (s *Server) page(r *http.Request, title string, data any) Page {
@@ -102,10 +155,8 @@ func (s *Server) page(r *http.Request, title string, data any) Page {
 		p.Banner, p.Back = s.compNav(r)
 	}
 	if a.P.Authenticated() {
-		p.Prefs = account.Prefs(r.Context(), s.DB, a.P.UserID)
-		if l, ok := i18n.Default.Resolve(p.Prefs["language"]); ok && (!l.Test || s.testLocales()) {
-			p.Lang, p.UIDir = l.Tag, l.Dir
-		}
+		p.Prefs = s.userPrefs(r)
+		p.Lang, p.UIDir = s.langDir(r)
 		p.Theme, p.Density, p.Motion = htmlAttrs(p.Prefs)
 		p.ThemeLight, p.ThemeDark = themeChoice(p.Prefs)
 		p.ThemeColors = themeMetas(p.Prefs)
@@ -215,12 +266,10 @@ func (s *Server) parseTemplates(tfs fs.FS) (map[string]*template.Template, error
 		out[strings.TrimSuffix(pg, ".html")] = t
 	}
 	// Fragments: each partial is also renderable on its own (htmx responses).
+	// Parsed templates are immutable and concurrency-safe for ExecuteTemplate, so
+	// every partial key shares fragBase directly without redundant deep clones.
 	for _, p := range partials {
-		t, err := fragBase.Clone()
-		if err != nil {
-			return nil, fmt.Errorf("template %s: %w", p, err)
-		}
-		out["partials/"+strings.TrimSuffix(path.Base(p), ".html")] = t
+		out["partials/"+strings.TrimSuffix(path.Base(p), ".html")] = fragBase
 	}
 	return out, nil
 }

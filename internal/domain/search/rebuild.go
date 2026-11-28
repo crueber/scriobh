@@ -128,12 +128,10 @@ func Rebuild(ctx context.Context, d *db.DB, progress func(done, total int)) erro
 	})
 }
 
-// rebuildEntities re-derives entity_text (name, aliases, plain summary and
-// body) from the entities and rebuilds entity_fts, the same way Rebuild does
-// for documents: the triggers are set aside while the rows are rewritten and
-// put back before the commit.
-func rebuildEntities(ctx context.Context, tx *sql.Tx) error {
-	rows, err := tx.QueryContext(ctx, `SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'entity_text'`)
+// rebuildFTSTable sets aside triggers on textTable, deletes from textTable,
+// runs populate(tx), rebuilds ftsTable, and restores the triggers.
+func rebuildFTSTable(ctx context.Context, tx *sql.Tx, textTable, ftsTable string, populate func(tx *sql.Tx) error) error {
+	rows, err := tx.QueryContext(ctx, `SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name = ?`, textTable)
 	if err != nil {
 		return err
 	}
@@ -146,51 +144,77 @@ func rebuildEntities(ctx context.Context, tx *sql.Tx) error {
 		}
 		names, ddl = append(names, n), append(ddl, s)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return err
+	}
 	if err := rows.Close(); err != nil {
 		return err
 	}
 	for _, n := range names {
-		if _, err := tx.Exec(`DROP TRIGGER ` + quoteIdent(n)); err != nil {
+		if _, err := tx.ExecContext(ctx, `DROP TRIGGER `+quoteIdent(n)); err != nil {
 			return err
 		}
 	}
-	if _, err := tx.Exec(`DELETE FROM entity_text`); err != nil {
+	if _, err := tx.ExecContext(ctx, `DELETE FROM `+quoteIdent(textTable)); err != nil {
 		return err
 	}
-	erows, err := tx.QueryContext(ctx, `SELECT e.id, e.compendium_id, e.name, e.summary, e.body,
-			COALESCE((SELECT group_concat(a.alias, char(10)) FROM entity_aliases a WHERE a.entity_id = e.id), '')
-		FROM entities e WHERE e.compendium_id IS NOT NULL ORDER BY e.id`)
-	if err != nil {
+	if err := populate(tx); err != nil {
 		return err
 	}
-	type row struct{ id, cid, name, summary, body, aliases string }
-	var got []row
-	for erows.Next() {
-		var r row
-		if err := erows.Scan(&r.id, &r.cid, &r.name, &r.summary, &r.body, &r.aliases); err != nil {
-			erows.Close()
-			return err
-		}
-		got = append(got, r)
-	}
-	if err := erows.Close(); err != nil {
-		return err
-	}
-	for _, r := range got {
-		if _, err := tx.Exec(`INSERT INTO entity_text(entity_id, compendium_id, name, aliases, summary, body) VALUES (?,?,?,?,?,?)`,
-			r.id, r.cid, r.name, r.aliases, text.Plain(r.summary), text.Plain(r.body)); err != nil {
-			return err
-		}
-	}
-	if _, err := tx.Exec(`INSERT INTO entity_fts(entity_fts) VALUES('rebuild')`); err != nil {
+	qtFTS := quoteIdent(ftsTable)
+	if _, err := tx.ExecContext(ctx, `INSERT INTO `+qtFTS+`(`+qtFTS+`) VALUES('rebuild')`); err != nil {
 		return err
 	}
 	for _, s := range ddl {
-		if _, err := tx.Exec(s); err != nil {
+		if _, err := tx.ExecContext(ctx, s); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// rebuildEntities re-derives entity_text (name, aliases, plain summary and
+// body) from the entities and rebuilds entity_fts, the same way Rebuild does
+// for documents: the triggers are set aside while the rows are rewritten and
+// put back before the commit.
+func rebuildEntities(ctx context.Context, tx *sql.Tx) error {
+	return rebuildFTSTable(ctx, tx, "entity_text", "entity_fts", func(tx *sql.Tx) error {
+		erows, err := tx.QueryContext(ctx, `SELECT e.id, e.compendium_id, e.name, e.summary, e.body,
+				COALESCE((SELECT group_concat(a.alias, char(10)) FROM entity_aliases a WHERE a.entity_id = e.id), '')
+			FROM entities e WHERE e.compendium_id IS NOT NULL ORDER BY e.id`)
+		if err != nil {
+			return err
+		}
+		type row struct{ id, cid, name, summary, body, aliases string }
+		var got []row
+		for erows.Next() {
+			var r row
+			if err := erows.Scan(&r.id, &r.cid, &r.name, &r.summary, &r.body, &r.aliases); err != nil {
+				erows.Close()
+				return err
+			}
+			got = append(got, r)
+		}
+		if err := erows.Err(); err != nil {
+			_ = erows.Close()
+			return err
+		}
+		if err := erows.Close(); err != nil {
+			return err
+		}
+		stmt, err := tx.PrepareContext(ctx, `INSERT INTO entity_text(entity_id, compendium_id, name, aliases, summary, body) VALUES (?,?,?,?,?,?)`)
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
+		for _, r := range got {
+			if _, err := stmt.ExecContext(ctx, r.id, r.cid, r.name, r.aliases, text.Plain(r.summary), text.Plain(r.body)); err != nil {
+				return err
+			}
+		}
+		return stmt.Close()
+	})
 }
 
 func quoteIdent(s string) string { return `"` + strings.ReplaceAll(s, `"`, `""`) + `"` }

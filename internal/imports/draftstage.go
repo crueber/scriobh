@@ -253,7 +253,11 @@ func stage(c *ops.Ctx, lim StageLimits, in StageIn) (StageOut, error) {
 		if rerr != nil {
 			return StageOut{}, ops.Internal(rerr)
 		}
-		if zerr := checkZipDirectory(b); zerr != nil {
+		limit := maxZipEntries
+		if kind == StageZip {
+			limit = maxScrivEntries
+		}
+		if zerr := checkZipDirectoryN(b, limit); zerr != nil {
 			return StageOut{}, invalidWhy("", zerr.Error(), "bad_zip")
 		}
 	}

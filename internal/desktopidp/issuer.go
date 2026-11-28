@@ -327,7 +327,10 @@ func (s *Server) token(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if v, _ := one(f, "client_secret"); v != "" {
+	if v, ok := one(f, "client_secret"); !ok {
+		s.tokenErr(w, r, "invalid_request", http.StatusBadRequest)
+		return
+	} else if v != "" {
 		secret = v
 	}
 	if clientID != ClientID || secret != "" {

@@ -205,8 +205,8 @@ scriobh-cli compendium member add "The Salt Road" --email text --role editor
 scriobh-cli compendium member list "The Salt Road"
 scriobh-cli compendium member remove "The Salt Road" --yes
 scriobh-cli compendium member update "The Salt Road" --role editor --user-id text
-scriobh-cli compendium merge "The Salt Road" --MoveOpts '{}' --into-id "The Salt Road"
-scriobh-cli compendium merge preview "The Salt Road" --MoveOpts '{}' --into-id "The Salt Road"
+scriobh-cli compendium merge "The Salt Road" --into-id "The Salt Road" --yes
+scriobh-cli compendium merge preview "The Salt Road" --into-id "The Salt Road"
 scriobh-cli compendium primary preview "The Salt Road" --compendium-id "The Salt Road"
 scriobh-cli compendium primary set "The Salt Road" --compendium-id "The Salt Road"
 scriobh-cli compendium purge "The Salt Road" --confirm-name text --yes
@@ -223,12 +223,12 @@ scriobh-cli compendium research update "The Salt Road" rsn_01HZZZZZZZZZZZZZZZZZZ
 scriobh-cli compendium restore "The Salt Road"
 scriobh-cli compendium scratch get "The Salt Road"
 scriobh-cli compendium scratch set "The Salt Road" --base-revision 1 --content @chapter-1.md
-scriobh-cli compendium split "The Salt Road" --MoveOpts '{}' --name "The Salt Road"
-scriobh-cli compendium split preview "The Salt Road" --MoveOpts '{}' --name "The Salt Road"
+scriobh-cli compendium split "The Salt Road" --name "The Salt Road" --yes
+scriobh-cli compendium split preview "The Salt Road" --name "The Salt Road"
 scriobh-cli compendium tag create "The Salt Road" --name "The Salt Road"
 scriobh-cli compendium tag delete "The Salt Road" tag_01HZZZZZZZZZZZZZZZZZZZZZZZ --yes
 scriobh-cli compendium tag list "The Salt Road"
-scriobh-cli compendium tag merge "The Salt Road" tag_01HZZZZZZZZZZZZZZZZZZZZZZZ --into-id tag_01HZZZZZZZZZZZZZZZZZZZZZZZ
+scriobh-cli compendium tag merge "The Salt Road" tag_01HZZZZZZZZZZZZZZZZZZZZZZZ --into-id tag_01HZZZZZZZZZZZZZZZZZZZZZZZ --yes
 scriobh-cli compendium tag update "The Salt Road" tag_01HZZZZZZZZZZZZZZZZZZZZZZZ
 scriobh-cli compendium trash "The Salt Road" --yes
 scriobh-cli compendium unarchive "The Salt Road"
@@ -243,7 +243,7 @@ scriobh-cli entity field set "The Salt Road" --key text --kind character --type 
 scriobh-cli entity first-appearance "The Salt Road"
 scriobh-cli entity get "Máire Nolan"
 scriobh-cli entity list "The Salt Road"
-scriobh-cli entity merge "Máire Nolan" --into-id "Máire Nolan"
+scriobh-cli entity merge "Máire Nolan" --into-id "Máire Nolan" --yes
 scriobh-cli entity referenced list "The Salt Road"
 scriobh-cli entity relation add "Máire Nolan" --to-entity-id "Máire Nolan"
 scriobh-cli entity relation list "Máire Nolan"
@@ -2064,16 +2064,20 @@ scriobh-cli compendium member update "The Salt Road" --role editor --user-id tex
 
 Move this Compendium's entities (all of them, or entity_ids) into another, in one transaction, keeping their ids: aliases, mentions, links, overrides and scenes follow. Name clashes are settled per entity in resolutions (a merge there is entity.merge, permanent); relationships and timeline events that would join the two are refused unless crossing is drop; API keys pinned to the source are refused unless key_pins says repoint or leave. fingerprint must be the one compendium.merge.preview returned. The before-state is recorded (compendium.change.get) and returned. The source Compendium is not deleted. Owner of both; refused for a Compendium in the trash.
 
-`POST /api/v1/compendiums/{id}/merge`, key scope `write`, needs compendium role. Can be previewed with `--dry-run`.
+`POST /api/v1/compendiums/{id}/merge`, key scope `write`, needs compendium role. Can be previewed with `--dry-run`. Needs `--yes`.
 
 ```sh
-scriobh-cli compendium merge "The Salt Road" --MoveOpts '{}' --into-id "The Salt Road"
+scriobh-cli compendium merge "The Salt Road" --into-id "The Salt Road" --yes
 ```
 
 - `<compendium>, --id, --compendium  (required, name or id)  The source Compendium.`
-- `--MoveOpts JSON  (required)`
+- `--crossing refuse|drop  What to do with relationships and timeline people that would join the two Compendiums: refuse (default) or drop them (kept in the before-state).`
+- `--entity-ids JSON  The entities to move; empty means every live entity of the source (a split needs them).`
 - `--fingerprint TEXT  From the preview; required by compendium.merge.`
+- `--follow-projects  Add a read-only reference to the target to the projects that used the source, where the caller owns the project.`
 - `--into-id, --compendium compendium name or id  (required, name or id)  The target Compendium.`
+- `--key-pins refuse|repoint|leave  API keys pinned to the source: refuse the move (default), repoint them to the target (widening them; only keys whose owner is on the target), or leave them pinned to the source.`
+- `--resolutions JSON  By entity id: what to do with an entity whose name or alias the target already uses.`
 
 #### `compendium merge preview`
 
@@ -2082,13 +2086,17 @@ Preview merging this Compendium (the source) into another (into_id), or moving s
 `POST /api/v1/compendiums/{id}/merge/preview`, key scope `read`, needs compendium role. Can be previewed with `--dry-run`.
 
 ```sh
-scriobh-cli compendium merge preview "The Salt Road" --MoveOpts '{}' --into-id "The Salt Road"
+scriobh-cli compendium merge preview "The Salt Road" --into-id "The Salt Road"
 ```
 
 - `<compendium>, --id, --compendium  (required, name or id)  The source Compendium.`
-- `--MoveOpts JSON  (required)`
+- `--crossing refuse|drop  What to do with relationships and timeline people that would join the two Compendiums: refuse (default) or drop them (kept in the before-state).`
+- `--entity-ids JSON  The entities to move; empty means every live entity of the source (a split needs them).`
 - `--fingerprint TEXT  From the preview; required by compendium.merge.`
+- `--follow-projects  Add a read-only reference to the target to the projects that used the source, where the caller owns the project.`
 - `--into-id, --compendium compendium name or id  (required, name or id)  The target Compendium.`
+- `--key-pins refuse|repoint|leave  API keys pinned to the source: refuse the move (default), repoint them to the target (widening them; only keys whose owner is on the target), or leave them pinned to the source.`
+- `--resolutions JSON  By entity id: what to do with an entity whose name or alias the target already uses.`
 
 #### `compendium primary preview`
 
@@ -2327,17 +2335,21 @@ scriobh-cli compendium scratch set "The Salt Road" --base-revision 1 --content @
 
 Move the chosen entities (entity_ids) of this Compendium into a new Compendium named name, owned by the caller, in one transaction, keeping their ids. The rules are those of compendium.merge. fingerprint must be the one compendium.split.preview returned. The before-state is recorded (compendium.change.get) and returned. Owner; refused for a Compendium in the trash.
 
-`POST /api/v1/compendiums/{id}/split`, key scope `write`, needs compendium role. Can be previewed with `--dry-run`.
+`POST /api/v1/compendiums/{id}/split`, key scope `write`, needs compendium role. Can be previewed with `--dry-run`. Needs `--yes`.
 
 ```sh
-scriobh-cli compendium split "The Salt Road" --MoveOpts '{}' --name "The Salt Road"
+scriobh-cli compendium split "The Salt Road" --name "The Salt Road" --yes
 ```
 
 - `<compendium>, --id, --compendium  (required, name or id)  The source Compendium.`
-- `--MoveOpts JSON  (required)`
+- `--crossing refuse|drop  What to do with relationships and timeline people that would join the two Compendiums: refuse (default) or drop them (kept in the before-state).`
 - `--description TEXT  Up to 5,000 characters of Markdown.`
+- `--entity-ids JSON  The entities to move; empty means every live entity of the source (a split needs them).`
 - `--fingerprint TEXT  From the preview; required by compendium.split.`
+- `--follow-projects  Add a read-only reference to the target to the projects that used the source, where the caller owns the project.`
+- `--key-pins refuse|repoint|leave  API keys pinned to the source: refuse the move (default), repoint them to the target (widening them; only keys whose owner is on the target), or leave them pinned to the source.`
 - `--name TEXT  (required)  The new Compendium's name, up to 200 characters.`
+- `--resolutions JSON  By entity id: what to do with an entity whose name or alias the target already uses.`
 
 #### `compendium split preview`
 
@@ -2346,14 +2358,18 @@ Preview moving the chosen entities (entity_ids) of this Compendium into a new on
 `POST /api/v1/compendiums/{id}/split/preview`, key scope `read`, needs compendium role. Can be previewed with `--dry-run`.
 
 ```sh
-scriobh-cli compendium split preview "The Salt Road" --MoveOpts '{}' --name "The Salt Road"
+scriobh-cli compendium split preview "The Salt Road" --name "The Salt Road"
 ```
 
 - `<compendium>, --id, --compendium  (required, name or id)  The source Compendium.`
-- `--MoveOpts JSON  (required)`
+- `--crossing refuse|drop  What to do with relationships and timeline people that would join the two Compendiums: refuse (default) or drop them (kept in the before-state).`
 - `--description TEXT  Up to 5,000 characters of Markdown.`
+- `--entity-ids JSON  The entities to move; empty means every live entity of the source (a split needs them).`
 - `--fingerprint TEXT  From the preview; required by compendium.split.`
+- `--follow-projects  Add a read-only reference to the target to the projects that used the source, where the caller owns the project.`
+- `--key-pins refuse|repoint|leave  API keys pinned to the source: refuse the move (default), repoint them to the target (widening them; only keys whose owner is on the target), or leave them pinned to the source.`
 - `--name TEXT  (required)  The new Compendium's name, up to 200 characters.`
+- `--resolutions JSON  By entity id: what to do with an entity whose name or alias the target already uses.`
 
 #### `compendium tag create`
 
@@ -2398,10 +2414,10 @@ scriobh-cli compendium tag list "The Salt Road"
 
 Merge a tag into another: its notes carry the other tag, and it is deleted.
 
-`POST /api/v1/compendiums/{id}/tags/{tag_id}/merge`, key scope `write`, needs compendium role. Can be previewed with `--dry-run`.
+`POST /api/v1/compendiums/{id}/tags/{tag_id}/merge`, key scope `write`, needs compendium role. Can be previewed with `--dry-run`. Needs `--yes`.
 
 ```sh
-scriobh-cli compendium tag merge "The Salt Road" tag_01HZZZZZZZZZZZZZZZZZZZZZZZ --into-id tag_01HZZZZZZZZZZZZZZZZZZZZZZZ
+scriobh-cli compendium tag merge "The Salt Road" tag_01HZZZZZZZZZZZZZZZZZZZZZZZ --into-id tag_01HZZZZZZZZZZZZZZZZZZZZZZZ --yes
 ```
 
 - `<compendium>, --id, --compendium  (required, name or id)  Project id (project.* ops) or Compendium id (compendium.* ops).`
@@ -3124,10 +3140,10 @@ scriobh-cli entity list "The Salt Road"
 
 Merge this entity (the source) into another of the same kind in the same Compendium (into_id). With dry_run it writes nothing and returns the plan: aliases moved, dropped and blocked, fields copied and in conflict, relationships rewired or dropped, overrides and links moved, scenes repointed. The real merge applies that same plan in one transaction, deletes the source, and leaves a redirect from its old id to the target for a year. Where both entities hold a different value for a custom field, field_choices must say source or target for each (and override:<project id> where a project overrode both); an unresolved conflict refuses the merge. Editor.
 
-`POST /api/v1/entities/{id}/merge`, key scope `write`, needs compendium role. Can be previewed with `--dry-run`.
+`POST /api/v1/entities/{id}/merge`, key scope `write`, needs compendium role. Can be previewed with `--dry-run`. Needs `--yes`.
 
 ```sh
-scriobh-cli entity merge "Máire Nolan" --into-id "Máire Nolan"
+scriobh-cli entity merge "Máire Nolan" --into-id "Máire Nolan" --yes
 ```
 
 - `<entity>, --id, --entity  (required, name or id)  The source entity: it is deleted by the merge.`
@@ -5439,10 +5455,10 @@ scriobh-cli project tag list "The Salt Road"
 
 Merge a tag into another: its notes carry the other tag, and it is deleted.
 
-`POST /api/v1/projects/{id}/tags/{tag_id}/merge`, key scope `write`, needs project editor role. Can be previewed with `--dry-run`.
+`POST /api/v1/projects/{id}/tags/{tag_id}/merge`, key scope `write`, needs project editor role. Can be previewed with `--dry-run`. Needs `--yes`.
 
 ```sh
-scriobh-cli project tag merge "The Salt Road" tag_01HZZZZZZZZZZZZZZZZZZZZZZZ --into-id tag_01HZZZZZZZZZZZZZZZZZZZZZZZ
+scriobh-cli project tag merge "The Salt Road" tag_01HZZZZZZZZZZZZZZZZZZZZZZZ --into-id tag_01HZZZZZZZZZZZZZZZZZZZZZZZ --yes
 ```
 
 - `<project>, --id, --project  (required, name or id)  Project id (project.* ops) or Compendium id (compendium.* ops).`
@@ -7202,4 +7218,4 @@ scriobh-cli webhook update "The Salt Road" text
 - `--url TEXT  A new address, replacing the whole of the old one (the old path and query are never shown, so they cannot be edited). The failure count starts again.`
 
 
-Schema hash: `sha256:b62f33b7183aed11bdf30ecc1e2479b5d11c3fc68572611d75a4f3c16c992ef1`. `scriobh-cli skill check` compares an installed copy, and this CLI, with the server.
+Schema hash: `sha256:8e4a490ef6e0d7c74854e15e5ffb905d31f2f91ed4af080f6d0bf0361250d34d`. `scriobh-cli skill check` compares an installed copy, and this CLI, with the server.

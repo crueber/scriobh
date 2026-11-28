@@ -127,6 +127,7 @@ where
                 std::thread::sleep(WATCH_EVERY);
                 if cancel() {
                     shared.stop_with(CANCELLED);
+                    break;
                 }
             }
         })

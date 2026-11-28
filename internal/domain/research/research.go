@@ -312,6 +312,10 @@ func tagsOf(ctx context.Context, q queryer, ids []string) (map[string][]string, 
 			}
 			out[id] = append(out[id], name)
 		}
+		if err := rows.Err(); err != nil {
+			_ = rows.Close()
+			return nil, err
+		}
 		if err := rows.Close(); err != nil {
 			return nil, err
 		}
@@ -339,6 +343,10 @@ func setTags(tx *sql.Tx, o owner, noteID string, names []string, now string) (bo
 			return false, err
 		}
 		have[k] = id
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return false, err
 	}
 	if err := rows.Close(); err != nil {
 		return false, err

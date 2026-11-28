@@ -621,6 +621,10 @@ func rebaseMarks(ctx context.Context, t dbq, old, nw docState, edits []planned) 
 		}
 		ms = append(ms, m)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return err
+	}
 	if err := rows.Close(); err != nil {
 		return err
 	}

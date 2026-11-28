@@ -75,10 +75,7 @@ type PreviewIn struct {
 
 // Validate checks the options.
 func (in *PreviewIn) Validate() error {
-	if err := checkChanges(in.DocxChanges); err != nil {
-		return err
-	}
-	return checkSource(in.SplitScenes, in.Layout, in.DocxHeadings, in.conv())
+	return validateCommon(in.DocxChanges, in.SplitScenes, in.Layout, in.DocxHeadings, in.conv())
 }
 
 // AppendPreviewIn is PreviewIn for adding to an existing project.
@@ -125,10 +122,7 @@ func (in AppendPreviewIn) ProjectRef() string { return in.ProjectID }
 
 // Validate checks the options.
 func (in *AppendPreviewIn) Validate() error {
-	if err := checkChanges(in.DocxChanges); err != nil {
-		return err
-	}
-	return checkSource(in.SplitScenes, in.Layout, in.DocxHeadings, in.conv())
+	return validateCommon(in.DocxChanges, in.SplitScenes, in.Layout, in.DocxHeadings, in.conv())
 }
 
 // ApplyIn creates a project from a previewed folder.
@@ -179,10 +173,7 @@ type ApplyIn struct {
 
 // Validate checks the options.
 func (in *ApplyIn) Validate() error {
-	if err := checkChanges(in.DocxChanges); err != nil {
-		return err
-	}
-	return checkSource(in.SplitScenes, in.Layout, in.DocxHeadings, in.conv())
+	return validateCommon(in.DocxChanges, in.SplitScenes, in.Layout, in.DocxHeadings, in.conv())
 }
 
 // AppendIn adds a previewed folder to an existing project.
@@ -232,10 +223,14 @@ func (in AppendIn) ProjectRef() string { return in.ProjectID }
 
 // Validate checks the options.
 func (in *AppendIn) Validate() error {
-	if err := checkChanges(in.DocxChanges); err != nil {
+	return validateCommon(in.DocxChanges, in.SplitScenes, in.Layout, in.DocxHeadings, in.conv())
+}
+
+func validateCommon(changes, split, layout, headings string, o convOpts) error {
+	if err := checkChanges(changes); err != nil {
 		return err
 	}
-	return checkSource(in.SplitScenes, in.Layout, in.DocxHeadings, in.conv())
+	return checkSource(split, layout, headings, o)
 }
 
 func checkChanges(v string) error {
@@ -532,27 +527,33 @@ func (s source) intake() (*intake, error) {
 	conversions.Add(1)
 	in, err := s.read(layout)
 	if err == nil && converted {
-		cachePut(key, in)
+		cachePut(key, s.sum, in)
 	}
 	return in, err
 }
 
 // read converts the source into the intake the plan is built from.
 func (s source) read(layout string) (*intake, error) {
+	kinds := 0
+	for _, has := range []bool{len(s.epub) > 0, len(s.pandoc) > 0, len(s.pdf) > 0, len(s.text) > 0, len(s.docx) > 0, len(s.zip) > 0, len(s.files) > 0} {
+		if has {
+			kinds++
+		}
+	}
 	if len(s.epub) > 0 {
-		if len(s.files) > 0 || len(s.zip) > 0 || len(s.docx) > 0 || len(s.text) > 0 {
+		if kinds > 1 {
 			return nil, ops.Invalid("epub", "Send an .epub, or a .docx, or files, or a zip: one of them.")
 		}
 		return s.convertEpub()
 	}
 	if len(s.pandoc) > 0 {
-		if len(s.files) > 0 || len(s.zip) > 0 || len(s.docx) > 0 || len(s.text) > 0 {
+		if kinds > 1 {
 			return nil, ops.Invalid("pandoc", "Send one document for Pandoc, or files, or a zip, or a .docx: one of them.")
 		}
 		return s.pandocIntake()
 	}
 	if len(s.pdf) > 0 {
-		if len(s.files) > 0 || len(s.zip) > 0 || len(s.docx) > 0 || len(s.text) > 0 {
+		if kinds > 1 {
 			return nil, ops.Invalid("pdf", "Send a PDF, or a .docx, or files, or a zip: one of them.")
 		}
 		fs, pre, err := pdfToFiles(s.ctx, s.pdf, s.name, s.conv.cutOpts(), s.sum)

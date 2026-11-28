@@ -30,6 +30,10 @@ func DescribeSchema(ctx context.Context, d *DB) (map[string]string, error) {
 		}
 		objs = append(objs, o)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, err
+	}
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}

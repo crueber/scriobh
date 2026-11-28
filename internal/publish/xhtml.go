@@ -241,7 +241,6 @@ func (x *xhtmlWriter) notes(notes []text.Footnote, used map[int]bool) {
 		inner.blocks(f.Nodes, 1)
 		body := strings.TrimRight(inner.out.String(), "\n")
 		back := fmt.Sprintf(` <a href="#fnref-%d">↩</a>`, f.Num)
-		back = strings.ReplaceAll(back, `↩`, "↩")
 		if i := strings.LastIndex(body, "</p>"); i >= 0 && strings.HasSuffix(body, "</p>") {
 			body = body[:i] + back + "</p>"
 		} else {

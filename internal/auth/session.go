@@ -12,8 +12,10 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/crueber/scriobh/internal/config"
@@ -32,6 +34,9 @@ type Sessions struct {
 	DB  *db.DB
 	Cfg *config.Config
 	Key []byte
+
+	touchMu sync.Mutex
+	touched map[string]time.Time
 }
 
 // SessionInfo describes a live session.
@@ -127,17 +132,43 @@ func (s *Sessions) lookup(ctx context.Context, token string, touch bool) (ops.Pr
 
 func (s *Sessions) touch(ctx context.Context, sid, uid string) {
 	now := db.NowTime()
+	// Coalesce concurrent requests arriving right after the touchEvery window so
+	// they do not stampede the single SQLite writer for the same session.
+	s.touchMu.Lock()
+	if s.touched == nil {
+		s.touched = map[string]time.Time{}
+	}
+	if prev, ok := s.touched[sid]; ok && now.Sub(prev) < touchEvery {
+		s.touchMu.Unlock()
+		return
+	}
+	if len(s.touched) > 4096 {
+		for k, v := range s.touched {
+			if now.Sub(v) >= touchEvery {
+				delete(s.touched, k)
+			}
+		}
+	}
+	s.touched[sid] = now
+	s.touchMu.Unlock()
 	var idle any
 	if m := s.Cfg.SessionIdleMinutes; m > 0 {
 		idle = db.Format(now.Add(time.Duration(m) * time.Minute))
 	}
-	_ = s.DB.WithTx(context.WithoutCancel(ctx), func(tx *sql.Tx) error {
+	err := s.DB.WithTx(context.WithoutCancel(ctx), func(tx *sql.Tx) error {
 		if _, err := tx.Exec(`UPDATE sessions SET last_seen_at = ?, idle_expires_at = ? WHERE id = ?`, db.Format(now), idle, sid); err != nil {
 			return err
 		}
 		_, err := tx.Exec(`UPDATE users SET last_seen_at = ? WHERE id = ?`, db.Format(now), uid)
 		return err
 	})
+	if err != nil {
+		s.touchMu.Lock()
+		if s.touched[sid].Equal(now) {
+			delete(s.touched, sid)
+		}
+		s.touchMu.Unlock()
+	}
 }
 
 // Revoke ends the session named by a cookie secret.
@@ -206,9 +237,8 @@ func ClientIP(r *http.Request, trustProxy bool) string {
 			return strings.TrimSpace(xff)
 		}
 	}
-	host := r.RemoteAddr
-	if i := strings.LastIndex(host, ":"); i > 0 {
-		host = host[:i]
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host
 	}
-	return strings.Trim(host, "[]")
+	return strings.Trim(r.RemoteAddr, "[]")
 }

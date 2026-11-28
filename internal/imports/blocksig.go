@@ -14,11 +14,12 @@ import (
 // a label with no other mark is an unformatted label, which is a suggestion and never cuts by itself (the plan's D6).
 
 var (
-	reMdNote    = regexp.MustCompile(`\[\^[^\]\s]{1,40}\]`)
-	reMdLink    = regexp.MustCompile(`\[([^\]]*)\]\([^)]*\)`)
-	reMdEscape  = regexp.MustCompile(`\\([\\` + "`" + `*_{}\[\]()#+\-.!|~<>=:"'])`)
-	reAllBold   = regexp.MustCompile(`^\*\*[^*].*[^*]\*\*$|^\*\*[^*]\*\*$`)
-	reBoldInner = regexp.MustCompile(`\*\*.+\*\*.+\*\*`)
+	reMdNote     = regexp.MustCompile(`\[\^[^\]\s]{1,40}\]`)
+	reMdLink     = regexp.MustCompile(`\[([^\]]*)\]\([^)]*\)`)
+	reMdEscape   = regexp.MustCompile(`\\([\\` + "`" + `*_{}\[\]()#+\-.!|~<>=:"'])`)
+	reAllBold    = regexp.MustCompile(`^\*\*[^*].*[^*]\*\*$|^\*\*[^*]\*\*$`)
+	reBoldInner  = regexp.MustCompile(`\*\*.+\*\*.+\*\*`)
+	mdPlainMarks = strings.NewReplacer("**", "", "~~", "", "`", "", "*", "")
 )
 
 // plainOf is the text of a block as a reader sees it: the Markdown taken out.
@@ -26,7 +27,7 @@ func mdPlain(md string) string {
 	t := reMdNote.ReplaceAllString(md, "")
 	t = reMdLink.ReplaceAllString(t, "$1")
 	t = reMdEscape.ReplaceAllString(t, "$1")
-	t = strings.NewReplacer("**", "", "~~", "", "`", "", "*", "").Replace(t)
+	t = mdPlainMarks.Replace(t)
 	return strings.Join(strings.Fields(noMarks(t)), " ")
 }
 

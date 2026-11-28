@@ -471,6 +471,10 @@ func loadDetail(ctx context.Context, q querier, p ops.Principal, id string) (Det
 			d.HiddenProjects++
 		}
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return Detail{}, err
+	}
 	if err := rows.Close(); err != nil {
 		return Detail{}, err
 	}
@@ -487,6 +491,10 @@ func loadDetail(ctx context.Context, q querier, p ops.Principal, id string) (Det
 			return Detail{}, err
 		}
 		targets = append(targets, r)
+	}
+	if err := rrows.Err(); err != nil {
+		_ = rrows.Close()
+		return Detail{}, err
 	}
 	if err := rrows.Close(); err != nil {
 		return Detail{}, err

@@ -176,22 +176,22 @@ func (a *app) run(args []string) error {
 	if err != nil {
 		return err
 	}
+	pre := a.g
 	a.g = inv.Global
 	if a.g.Server == "" {
-		a.g.Server = prescan(args).Server
+		a.g.Server = pre.Server
 	}
 	if a.g.Key == "" {
-		a.g.Key = prescan(args).Key
+		a.g.Key = pre.Key
 	}
 	if a.g.Config == "" {
-		a.g.Config = prescan(args).Config
+		a.g.Config = pre.Config
 	}
 	if a.g.Timeout == "" {
-		a.g.Timeout = prescan(args).Timeout
+		a.g.Timeout = pre.Timeout
 	}
 	if !a.g.retriesSet {
-		p := prescan(args)
-		a.g.Retries, a.g.retriesSet = p.Retries, p.retriesSet
+		a.g.Retries, a.g.retriesSet = pre.Retries, pre.retriesSet
 	}
 	if a.g.Help {
 		a.opHelp(inv.Op, ix)
@@ -453,7 +453,10 @@ func (a *app) builtin(name string, args []string, ix *Index, src SchemaSource) e
 			return fromServer(resp.Status, resp.Header, resp.Body)
 		}
 		var data any
-		_ = json.Unmarshal(resp.Body, &data)
+		if err := json.Unmarshal(resp.Body, &data); err != nil {
+			return &Fail{Code: "bad_response", Exit: ExitGeneric, Status: resp.Status, Message: "The server answered 200 with something that is not JSON.",
+				Hint: "Is --server the address of a Scríobh server?"}
+		}
 		a.printResult(Op{Name: "whoami"}, resp.Status, data, nil, nil)
 		return nil
 	case "skill":

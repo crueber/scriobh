@@ -107,7 +107,7 @@ fn auto() -> Option<&'static PathBuf> {
 /// webview's callback. Going through another thread makes the task an ordinary event of the loop.
 pub fn later(app: &AppHandle, f: impl FnOnce() + Send + 'static) {
     let app = app.clone();
-    std::thread::spawn(move || {
+    tauri::async_runtime::spawn(async move {
         let _ = app.run_on_main_thread(f);
     });
 }

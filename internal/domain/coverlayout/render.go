@@ -166,6 +166,49 @@ func boxReduce(img image.Image, sr image.Rectangle, f int) *image.RGBA {
 				out.Pix[o], out.Pix[o+1], out.Pix[o+2], out.Pix[o+3] = r, g, b, 255
 			}
 		}
+	case *image.NRGBA:
+		for oy := 0; oy < oh; oy++ {
+			y0, y1 := sr.Min.Y+oy*f, min(sr.Min.Y+(oy+1)*f, sr.Max.Y)
+			for ox := 0; ox < ow; ox++ {
+				x0, x1 := sr.Min.X+ox*f, min(sr.Min.X+(ox+1)*f, sr.Max.X)
+				var sr_, sg, sb, sa, n uint64
+				for y := y0; y < y1; y++ {
+					row := m.PixOffset(x0, y)
+					for x := x0; x < x1; x++ {
+						r, g, b, a := uint64(m.Pix[row]), uint64(m.Pix[row+1]), uint64(m.Pix[row+2]), uint64(m.Pix[row+3])
+						row += 4
+						sr_ += (r * 0x101 * a) / 0xff
+						sg += (g * 0x101 * a) / 0xff
+						sb += (b * 0x101 * a) / 0xff
+						sa += a * 0x101
+						n++
+					}
+				}
+				o := out.PixOffset(ox, oy)
+				out.Pix[o], out.Pix[o+1], out.Pix[o+2], out.Pix[o+3] = uint8((sr_/n)>>8), uint8((sg/n)>>8), uint8((sb/n)>>8), uint8((sa/n)>>8)
+			}
+		}
+	case *image.RGBA:
+		for oy := 0; oy < oh; oy++ {
+			y0, y1 := sr.Min.Y+oy*f, min(sr.Min.Y+(oy+1)*f, sr.Max.Y)
+			for ox := 0; ox < ow; ox++ {
+				x0, x1 := sr.Min.X+ox*f, min(sr.Min.X+(ox+1)*f, sr.Max.X)
+				var sr_, sg, sb, sa, n uint64
+				for y := y0; y < y1; y++ {
+					row := m.PixOffset(x0, y)
+					for x := x0; x < x1; x++ {
+						sr_ += uint64(m.Pix[row]) * 0x101
+						sg += uint64(m.Pix[row+1]) * 0x101
+						sb += uint64(m.Pix[row+2]) * 0x101
+						sa += uint64(m.Pix[row+3]) * 0x101
+						row += 4
+						n++
+					}
+				}
+				o := out.PixOffset(ox, oy)
+				out.Pix[o], out.Pix[o+1], out.Pix[o+2], out.Pix[o+3] = uint8((sr_/n)>>8), uint8((sg/n)>>8), uint8((sb/n)>>8), uint8((sa/n)>>8)
+			}
+		}
 	default:
 		for oy := 0; oy < oh; oy++ {
 			y0, y1 := sr.Min.Y+oy*f, min(sr.Min.Y+(oy+1)*f, sr.Max.Y)

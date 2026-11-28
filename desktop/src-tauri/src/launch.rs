@@ -570,10 +570,6 @@ pub struct SaveStatus {
     pub gone: u32,
 }
 
-fn json_u(body: &str, key: &str) -> Option<i64> {
-    serde_json::from_str::<serde_json::Value>(body).ok()?.get(key)?.as_i64()
-}
-
 /// Asks the server to have its open writing pages save now. `Err` is "could not be asked" (the server is not there, or
 /// is a server that does not know this request): the caller treats that as nobody having been asked.
 pub fn save_now(port: u16, key: &str) -> std::io::Result<SaveRound> {
@@ -582,10 +578,10 @@ pub fn save_now(port: u16, key: &str) -> std::io::Result<SaveRound> {
     if status != 200 {
         return Err(bad());
     }
-    Ok(SaveRound {
-        n: json_u(&body, "n").ok_or_else(bad)?,
-        pages: u32::try_from(json_u(&body, "pages").ok_or_else(bad)?).map_err(|_| bad())?,
-    })
+    let v: serde_json::Value = serde_json::from_str(&body).map_err(|_| bad())?;
+    let n = v.get("n").and_then(|x| x.as_i64()).ok_or_else(bad)?;
+    let pages = v.get("pages").and_then(|x| x.as_u64()).and_then(|x| u32::try_from(x).ok()).ok_or_else(bad)?;
+    Ok(SaveRound { n, pages })
 }
 
 /// How round `n` stands.
@@ -595,10 +591,16 @@ pub fn save_status(port: u16, key: &str, n: i64) -> std::io::Result<SaveStatus> 
     if status != 200 {
         return Err(bad());
     }
-    let count = |k: &str| u32::try_from(json_u(&body, k).ok_or_else(bad)?).map_err(|_| bad());
-    // A server that does not say "gone" (an older one) has none.
-    let gone = if body.contains("\"gone\"") { count("gone")? } else { 0 };
-    Ok(SaveStatus { pending: count("pending")?, unsaved: count("unsaved")?, gone })
+    let v: serde_json::Value = serde_json::from_str(&body).map_err(|_| bad())?;
+    let u32_field = |name: &str| v.get(name).and_then(|x| x.as_u64()).and_then(|x| u32::try_from(x).ok());
+    let pending = u32_field("pending").ok_or_else(bad)?;
+    let unsaved = u32_field("unsaved").ok_or_else(bad)?;
+    // A server that does not say "gone" (an older one) has none; a present but non-u32 "gone" is invalid.
+    let gone = match v.get("gone") {
+        None | Some(serde_json::Value::Null) => 0,
+        Some(x) => x.as_u64().and_then(|n| u32::try_from(n).ok()).ok_or_else(bad)?,
+    };
+    Ok(SaveStatus { pending, unsaved, gone })
 }
 
 impl Running {

@@ -282,8 +282,7 @@ pub fn label(phase: &Phase) -> (String, bool) {
 pub fn shown(text: &str, max: usize, lines: bool) -> String {
     let clean: String = text
         .chars()
-        .filter(|c| (lines && *c == '\n') || !c.is_control())
-        .filter(|c| !matches!(c, '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}'))
+        .filter(|c| (lines && *c == '\n') || (!c.is_control() && !crate::filename::is_deceptive(*c)))
         .collect();
     if clean.chars().count() > max {
         clean.chars().take(max).chain(std::iter::once('…')).collect()

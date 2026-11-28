@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"time"
 )
@@ -628,8 +629,14 @@ func (f *File) rebuild() {
 		}
 	}
 	if f.trailer == nil || f.trailer["Root"] == nil {
-		// no trailer at all: find a catalog
+		// no trailer at all: find a catalog deterministically (highest object number first, matching incremental updates)
+		nums := make([]int, 0, len(f.xref))
 		for num := range f.xref {
+			nums = append(nums, num)
+		}
+		slices.Sort(nums)
+		for i := len(nums) - 1; i >= 0; i-- {
+			num := nums[i]
 			if d, ok := f.Resolve(Ref{Num: num}).(Dict); ok {
 				if t, _ := d["Type"].(Name); t == "Catalog" {
 					if f.trailer == nil {
@@ -817,7 +824,7 @@ func (f *File) Decode(s *Stream) ([]byte, error) {
 		case "ASCIIHexDecode", "AHx":
 			data = asciiHex(data)
 		case "ASCII85Decode", "A85":
-			data = ascii85(data)
+			data, err = ascii85(data, min(f.lim.StreamBytes, f.budget))
 		case "RunLengthDecode", "RL":
 			data, err = runLength(data, min(f.lim.StreamBytes, f.budget))
 		case "Crypt":

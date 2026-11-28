@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"os"
+	"io"
 	"path/filepath"
 	"strings"
 
@@ -79,8 +79,13 @@ func bundleAttachments(ctx context.Context, env *ops.Env, projectID string, incl
 		if err != nil {
 			continue
 		}
-		b, err := os.ReadFile(p)
+		f, _, err := attachments.OpenRegular(env.DataDir, p)
 		if err != nil {
+			continue
+		}
+		b, err := io.ReadAll(io.LimitReader(f, r.m.Bytes+1))
+		f.Close()
+		if err != nil || int64(len(b)) > r.m.Bytes {
 			continue
 		}
 		if sum := sha256.Sum256(b); hex.EncodeToString(sum[:]) != r.m.SHA256 {

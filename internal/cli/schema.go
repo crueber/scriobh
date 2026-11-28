@@ -38,9 +38,10 @@ type Op struct {
 	NoDryRun bool   `json:"no_dry_run,omitempty"`
 	// RawBody is true when the request body is the bytes of a file: the command
 	// takes --file, and the CLI sends the file as the body.
-	RawBody bool           `json:"raw_body,omitempty"`
-	Input   map[string]any `json:"input"`
-	Output  map[string]any `json:"output"`
+	RawBody   bool           `json:"raw_body,omitempty"`
+	Permanent bool           `json:"permanent,omitempty"`
+	Input     map[string]any `json:"input"`
+	Output    map[string]any `json:"output"`
 }
 
 // Auth is what an op requires of the caller.

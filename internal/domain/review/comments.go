@@ -306,6 +306,10 @@ func mentionsOf(ctx context.Context, q querier, ids []string) (map[string][]Pers
 			}
 			out[cid] = append(out[cid], p)
 		}
+		if err := rows.Err(); err != nil {
+			_ = rows.Close()
+			return nil, err
+		}
 		if err := rows.Close(); err != nil {
 			return nil, err
 		}

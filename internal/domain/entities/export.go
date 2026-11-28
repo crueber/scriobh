@@ -117,6 +117,10 @@ func loadCompendiumFrom(ctx context.Context, q Querier, cid, manifestName, forma
 		index[e.ID] = len(items)
 		items = append(items, e)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, err
+	}
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
@@ -134,6 +138,10 @@ func loadCompendiumFrom(ctx context.Context, q Querier, cid, manifestName, forma
 		if i, ok := index[id]; ok {
 			items[i].Aliases = append(items[i].Aliases, alias)
 		}
+	}
+	if err := arows.Err(); err != nil {
+		_ = arows.Close()
+		return nil, err
 	}
 	if err := arows.Close(); err != nil {
 		return nil, err
@@ -162,6 +170,10 @@ func loadCompendiumFrom(ctx context.Context, q Querier, cid, manifestName, forma
 			items[i].Relation = append(items[i].Relation, l+": "+fname)
 		}
 	}
+	if err := rrows.Err(); err != nil {
+		_ = rrows.Close()
+		return nil, err
+	}
 	if err := rrows.Close(); err != nil {
 		return nil, err
 	}
@@ -187,6 +199,10 @@ func loadCompendiumFrom(ctx context.Context, q Querier, cid, manifestName, forma
 		_ = json.Unmarshal([]byte(ch), &f.Choices)
 		defsOut = append(defsOut, f)
 	}
+	if err := defRows.Err(); err != nil {
+		_ = defRows.Close()
+		return nil, err
+	}
 	if err := defRows.Close(); err != nil {
 		return nil, err
 	}
@@ -207,6 +223,10 @@ func loadCompendiumFrom(ctx context.Context, q Querier, cid, manifestName, forma
 			return nil, err
 		}
 		refsOut = append(refsOut, r)
+	}
+	if err := refRows.Err(); err != nil {
+		_ = refRows.Close()
+		return nil, err
 	}
 	if err := refRows.Close(); err != nil {
 		return nil, err

@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"reflect"
@@ -27,13 +28,13 @@ func (s *Server) bindOps() {
 		}
 	}
 	s.schema = s.Reg.Schema() // every op is registered by now
+	s.schemaJSON = encodeJSON(s.schema)
 	s.mux.HandleFunc("GET /api/v1/_ops", func(w http.ResponseWriter, r *http.Request) {
 		if !authFrom(r.Context()).P.Authenticated() {
 			writeJSONError(w, ops.Unauthenticated())
 			return
 		}
-		schema := s.schema
-		etag := `"` + schema.Hash + `"`
+		etag := `"` + s.schema.Hash + `"`
 		w.Header().Set("ETag", etag)
 		w.Header().Set("Cache-Control", "no-cache")
 		if r.Header.Get("If-None-Match") == etag {
@@ -41,7 +42,7 @@ func (s *Server) bindOps() {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(schema)
+		_, _ = w.Write(s.schemaJSON)
 	})
 	s.mux.HandleFunc("GET /api/v1/_whoami", s.whoami)
 	s.mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
@@ -133,7 +134,7 @@ func (s *Server) restHandler(e *ops.Entry) http.HandlerFunc {
 			var err error
 			if raw, err = readBody(r.Body, r.ContentLength, e.Op.MaxBody); err != nil {
 				var mbe *http.MaxBytesError
-				if asMaxBytes(err, &mbe) {
+				if errors.As(err, &mbe) {
 					writeJSONError(w, ops.TooLarge())
 					return
 				}
@@ -387,20 +388,7 @@ func writeInline(w http.ResponseWriter, r *http.Request, dl ops.Download, etag s
 	}
 }
 
-func asMaxBytes(err error, target **http.MaxBytesError) bool {
-	for err != nil {
-		if m, ok := err.(*http.MaxBytesError); ok {
-			*target = m
-			return true
-		}
-		u, ok := err.(interface{ Unwrap() error })
-		if !ok {
-			return false
-		}
-		err = u.Unwrap()
-	}
-	return false
-}
+func asMaxBytes(err error, target **http.MaxBytesError) bool { return errors.As(err, target) }
 
 // bindParams fills path and query fields of the input.
 func bindParams(in any, fields []ops.FieldLoc, r *http.Request) error {
@@ -418,7 +406,7 @@ func bindParams(in any, fields []ops.FieldLoc, r *http.Request) error {
 		default:
 			continue
 		}
-		fv := v.Field(f.Index)
+		fv := v.FieldByIndex(f.Index)
 		switch fv.Kind() {
 		case reflect.String:
 			fv.SetString(raw)

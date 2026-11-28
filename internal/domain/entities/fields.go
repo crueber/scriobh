@@ -479,6 +479,10 @@ func fieldRemove(c *ops.Ctx, in FieldRemoveIn) (FieldRemoveOut, error) {
 				}
 				ids = append(ids, id)
 			}
+			if err := rows.Err(); err != nil {
+				_ = rows.Close()
+				return err
+			}
 			if err := rows.Close(); err != nil {
 				return err
 			}

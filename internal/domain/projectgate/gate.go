@@ -429,6 +429,10 @@ func (g *Service) States(ctx context.Context, p ops.Principal, ids []string) (ma
 			}
 			out[id] = Protected{Set: true, Locked: locked, AllowKeys: r.allowKeys, Idle: r.idle}
 		}
+		if err := rows.Err(); err != nil {
+			_ = rows.Close()
+			return nil, err
+		}
 		if err := rows.Close(); err != nil {
 			return nil, err
 		}

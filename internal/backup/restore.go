@@ -148,11 +148,8 @@ func Restore(ctx context.Context, zipPath, dataDir string, o RestoreOptions) (*R
 	}
 
 	stamp := now().UTC().Format(stampLayout)
-	staging := filepath.Join(dataDir, ".restore-"+stamp)
-	if err := os.RemoveAll(staging); err != nil {
-		return nil, err
-	}
-	if err := os.MkdirAll(staging, 0o700); err != nil {
+	staging, err := os.MkdirTemp(dataDir, ".restore-"+stamp+"-*")
+	if err != nil {
 		return nil, err
 	}
 	cleanStaging := true
@@ -190,7 +187,7 @@ func Restore(ctx context.Context, zipPath, dataDir string, o RestoreOptions) (*R
 	detail, _ := json.Marshal(map[string]any{"backup_created_at": m.CreatedAt, "projects": counts.Projects, "documents": counts.Documents, "forced": hasData})
 	stagedErrs := pauseStaged(context.WithoutCancel(ctx), filepath.Join(staging, DatabaseName), key, string(detail), res)
 
-	aside := filepath.Join(dataDir, ".restore-old-"+stamp)
+	var aside string
 	replaced := carried(m)
 	if hasData {
 		if exists(filepath.Join(dataDir, DatabaseName)) {
@@ -204,7 +201,8 @@ func Restore(ctx context.Context, zipPath, dataDir string, o RestoreOptions) (*R
 				res.PreRestore = r.Path
 			}
 		}
-		if err := os.MkdirAll(aside, 0o700); err != nil {
+		var err error
+		if aside, err = os.MkdirTemp(dataDir, ".restore-old-"+stamp+"-*"); err != nil {
 			return nil, err
 		}
 		for _, n := range replaced {
@@ -218,11 +216,13 @@ func Restore(ctx context.Context, zipPath, dataDir string, o RestoreOptions) (*R
 	}
 	// The generic marker goes in first when the staged pauses were not all made: whatever happens after that, the next
 	// start (or `scriobh restore --finish`) pauses everything or refuses to run.
+	wroteMarker := false
 	if len(stagedErrs) > 0 {
 		if err := WriteMarker(dataDir, "the pauses in the staged database were not all made"); err != nil {
 			undo(dataDir, aside, replaced, nil)
 			return nil, fmt.Errorf("the restore could not write its safety marker, and its pauses were not all made, so nothing was installed: %w", errors.Join(append(stagedErrs, err)...))
 		}
+		wroteMarker = true
 	}
 	var installed []string
 	for _, n := range replaced {
@@ -231,7 +231,9 @@ func Restore(ctx context.Context, zipPath, dataDir string, o RestoreOptions) (*R
 		}
 		if err := os.Rename(filepath.Join(staging, n), filepath.Join(dataDir, n)); err != nil {
 			undo(dataDir, aside, replaced, installed)
-			_ = os.Remove(filepath.Join(dataDir, MarkerName))
+			if wroteMarker {
+				_ = os.Remove(filepath.Join(dataDir, MarkerName))
+			}
 			return nil, fmt.Errorf("installing %s: %w", n, err)
 		}
 		installed = append(installed, n)
@@ -466,6 +468,9 @@ func undo(dataDir, aside string, replaced, installed []string) {
 	for _, n := range installed {
 		_ = os.RemoveAll(filepath.Join(dataDir, n))
 	}
+	if aside == "" {
+		return
+	}
 	for _, n := range replaced {
 		if exists(filepath.Join(aside, n)) {
 			_ = os.Rename(filepath.Join(aside, n), filepath.Join(dataDir, n))
@@ -524,6 +529,9 @@ func readManifest(zr *zip.ReadCloser) (Manifest, map[string]*zip.File, error) {
 	b, err := io.ReadAll(io.LimitReader(rc, maxManifestBytes+1))
 	if err != nil {
 		return m, nil, err
+	}
+	if len(b) > maxManifestBytes {
+		return m, nil, errors.New("the manifest is implausibly large")
 	}
 	if err := json.Unmarshal(b, &m); err != nil {
 		return m, nil, fmt.Errorf("the manifest is not valid: %w", err)

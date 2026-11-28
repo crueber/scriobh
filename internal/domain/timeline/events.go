@@ -157,6 +157,10 @@ func wire(c *ops.Ctx, q vocab.Querier, es []*ev) ([]Event, error) {
 			}
 			docs[sl.ID] = sl
 		}
+		if err := rows.Err(); err != nil {
+			_ = rows.Close()
+			return nil, err
+		}
 		if err := rows.Close(); err != nil {
 			return nil, err
 		}
@@ -411,6 +415,10 @@ func loadEventsIn(ctx context.Context, q vocab.Querier, ids []string) ([]*ev, er
 		}
 		byID[e.ID] = e
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, err
+	}
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
@@ -430,6 +438,10 @@ func loadEventsIn(ctx context.Context, q vocab.Querier, ids []string) ([]*ev, er
 			e.People = append(e.People, p)
 		}
 	}
+	if err := prows.Err(); err != nil {
+		_ = prows.Close()
+		return nil, err
+	}
 	if err := prows.Close(); err != nil {
 		return nil, err
 	}
@@ -448,6 +460,10 @@ func loadEventsIn(ctx context.Context, q vocab.Querier, ids []string) ([]*ev, er
 		if e := byID[id]; e != nil {
 			e.Docs = append(e.Docs, l)
 		}
+	}
+	if err := drows.Err(); err != nil {
+		_ = drows.Close()
+		return nil, err
 	}
 	if err := drows.Close(); err != nil {
 		return nil, err

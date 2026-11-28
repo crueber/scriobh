@@ -343,6 +343,10 @@ func extrasFingerprints(ctx context.Context, q Querier, only string) (map[string
 			pairs = append(pairs, p)
 		}
 	}
+	if err := srows0.Err(); err != nil {
+		_ = srows0.Close()
+		return nil, err
+	}
 	if err := srows0.Close(); err != nil {
 		return nil, err
 	}
@@ -383,6 +387,10 @@ func extrasFingerprints(ctx context.Context, q Querier, only string) (map[string
 		}
 		fmt.Fprintf(b, "r\x00%q\x00%q\x00%q\x00%q\x00%q\x00%v\x00%q\x00%q\x00%q\x00%q\n", id, parent, kind, title, status, pos, hash, src, ret, tags)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, err
+	}
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
@@ -421,6 +429,10 @@ func extrasFingerprints(ctx context.Context, q Querier, only string) (map[string
 		}
 		add(owner, fmt.Sprintf("a\x00%q\x00%q\x00%q\x00%q", id, sha, name, alt))
 	}
+	if err := arows.Err(); err != nil {
+		_ = arows.Close()
+		return nil, err
+	}
 	if err := arows.Close(); err != nil {
 		return nil, err
 	}
@@ -441,6 +453,10 @@ func extrasFingerprints(ctx context.Context, q Querier, only string) (map[string
 			return nil, err
 		}
 		add(pid, "cover\x00"+h)
+	}
+	if err := crows.Err(); err != nil {
+		_ = crows.Close()
+		return nil, err
 	}
 	if err := crows.Close(); err != nil {
 		return nil, err

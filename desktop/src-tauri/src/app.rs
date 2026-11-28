@@ -429,8 +429,13 @@ fn listen_for_signals() {
     let handler = on_signal as extern "C" fn(libc::c_int) as libc::sighandler_t;
     for sig in [libc::SIGTERM, libc::SIGINT, libc::SIGHUP] {
         // SAFETY: the handler is async-signal-safe and stays valid for the life of the process.
+        // SA_RESTART prevents spurious EINTR in blocking syscalls.
         unsafe {
-            libc::signal(sig, handler);
+            let mut sa: libc::sigaction = std::mem::zeroed();
+            sa.sa_sigaction = handler;
+            sa.sa_flags = libc::SA_RESTART;
+            libc::sigemptyset(&mut sa.sa_mask);
+            libc::sigaction(sig, &sa, std::ptr::null_mut());
         }
     }
 }
@@ -455,24 +460,26 @@ fn watch(app: &AppHandle) {
                 Phase::Quitting => return,
                 Phase::Running => match inner.server.as_mut().and_then(|s| s.try_exit()) {
                     Some(status) => {
-                        // Give the reader threads a moment to collect the last lines.
-                        thread::sleep(Duration::from_millis(100));
-                        let tail = inner.server.as_ref().map(|s| s.tail_text()).unwrap_or_default();
-                        inner.server = None;
+                        let srv = inner.server.take();
                         inner.port = None;
                         inner.phase = Phase::Failed;
-                        let status = status
-                            .code()
-                            .map(|c| format!("The server exited with status {c}."))
-                            .unwrap_or_else(|| "The server was stopped by a signal.".into());
-                        Some(if tail.is_empty() { status } else { format!("{tail}\n{status}") })
+                        Some((srv, status))
                     }
                     None => None,
                 },
                 _ => None,
             }
         };
-        if let Some(tail) = died {
+        if let Some((srv, status)) = died {
+            // Drop shell lock before sleeping so menu/quit callbacks are never stalled.
+            // Give the reader threads a moment to collect the last lines.
+            thread::sleep(Duration::from_millis(100));
+            let tail = srv.as_ref().map(|s| s.tail_text()).unwrap_or_default();
+            let status = status
+                .code()
+                .map(|c| format!("The server exited with status {c}."))
+                .unwrap_or_else(|| "The server was stopped by a signal.".into());
+            let tail = if tail.is_empty() { status } else { format!("{tail}\n{status}") };
             dialogs::note("the server stopped by itself");
             show_error(app, "stopped", &tail);
         }
@@ -635,7 +642,7 @@ fn show_error(app: &AppHandle, kind: &str, tail: &str) {
     let page =
         format!("error.html#kind={}&tail={}", percent_encode(kind), percent_encode(last_bytes(tail, MAX_TAIL_BYTES)));
     let nav_app = app.clone();
-    let built = WebviewWindowBuilder::new(app, label, WebviewUrl::App(page.into()))
+    let built = WebviewWindowBuilder::new(app, &label, WebviewUrl::App(page.into()))
         .title(dialogs::APP_NAME)
         .inner_size(640.0, 560.0)
         .min_inner_size(390.0, 420.0)
@@ -673,6 +680,13 @@ fn show_error(app: &AppHandle, kind: &str, tail: &str) {
     }
     for w in windows_with(app, MAIN) {
         let _ = w.destroy();
+    }
+    if built.is_ok() {
+        for w in windows_with(app, ERROR) {
+            if w.label() != label {
+                let _ = w.destroy();
+            }
+        }
     }
 }
 
@@ -934,9 +948,10 @@ fn move_file(from: &Path, to: &Path) -> std::io::Result<()> {
     if std::fs::rename(from, to).is_ok() {
         return Ok(());
     }
-    // Another volume: copy, then remove the original.
+    // Another volume: copy, then remove the original best-effort (caller discards the temp folder regardless).
     std::fs::copy(from, to)?;
-    std::fs::remove_file(from)
+    let _ = std::fs::remove_file(from);
+    Ok(())
 }
 
 // ---- the menus ----------------------------------------------------------------------------------------------

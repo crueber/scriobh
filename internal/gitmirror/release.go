@@ -330,13 +330,15 @@ func assetStem(filename string) string {
 	return out
 }
 
+var reAssetExt = regexp.MustCompile(`^\.[a-z0-9]+$`)
+
 func assetExt(filename string) string {
 	i := strings.LastIndexByte(filename, '.')
 	if i < 0 {
 		return ""
 	}
 	ext := strings.ToLower(filename[i:])
-	if len(ext) > 8 || !regexp.MustCompile(`^\.[a-z0-9]+$`).MatchString(ext) {
+	if len(ext) > 8 || !reAssetExt.MatchString(ext) {
 		return ""
 	}
 	return ext

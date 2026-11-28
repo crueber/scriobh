@@ -359,6 +359,10 @@ func list(c *ops.Ctx, in ListIn) (ListOut, error) {
 		}
 		out.Items = append(out.Items, o)
 	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return out, err
+	}
 	if err := rows.Close(); err != nil {
 		return out, err
 	}

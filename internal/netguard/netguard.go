@@ -126,8 +126,12 @@ func Classify(ip net.IP) Class {
 		}
 		return Public
 	}
-	// IPv6.
-	if ip[0] == 0xfd && ip[1] == 0x00 && ip[2] == 0x0e && ip[3] == 0xc2 && ip[15] == 0x54 { // fd00:ec2::254, a cloud metadata address
+	// IPv6 cloud metadata addresses inside fc00::/7 (AWS fd00:ec2::254, GCP fd20:ce::254).
+	if ip[4] == 0 && ip[5] == 0 && ip[6] == 0 && ip[7] == 0 &&
+		ip[8] == 0 && ip[9] == 0 && ip[10] == 0 && ip[11] == 0 &&
+		ip[12] == 0 && ip[13] == 0 && ip[14] == 0x02 && ip[15] == 0x54 &&
+		((ip[0] == 0xfd && ip[1] == 0x00 && ip[2] == 0x0e && ip[3] == 0xc2) ||
+			(ip[0] == 0xfd && ip[1] == 0x20 && ip[2] == 0x00 && ip[3] == 0xce)) {
 		return Blocked
 	}
 	if ip.IsPrivate() { // fc00::/7
@@ -154,6 +158,11 @@ func Classify(ip net.IP) Class {
 func embeddedIPv4(ip net.IP) net.IP {
 	if ip[0] == 0x20 && ip[1] == 0x02 {
 		return net.IPv4(ip[2], ip[3], ip[4], ip[5]).To4()
+	}
+	if ip[0] == 0 && ip[1] == 0 && ip[2] == 0 && ip[3] == 0 &&
+		ip[4] == 0 && ip[5] == 0 && ip[6] == 0 && ip[7] == 0 &&
+		ip[8] == 0xff && ip[9] == 0xff && ip[10] == 0 && ip[11] == 0 { // ::ffff:0:a.b.c.d, SIIT IPv4-translated (RFC 2765)
+		return net.IPv4(ip[12], ip[13], ip[14], ip[15]).To4()
 	}
 	zero := true
 	for _, b := range ip[:12] {

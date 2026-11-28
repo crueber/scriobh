@@ -420,14 +420,13 @@ func (s *Service) build(ctx context.Context, d *db.DB, p ops.Principal, in RunIn
 	}
 	for i := range b.attempts {
 		a := &b.attempts[i]
-		cl, cerr := lib.NewClient(lib.Endpoint{Kind: a.p.Kind, BaseURL: a.p.BaseURL, Routing: a.p.settings().Routing, KeepAlive: a.p.settings().KeepAlive}, lib.ClientOptions{})
-		if cerr != nil {
+		ep := lib.Endpoint{Kind: a.p.Kind, BaseURL: a.p.BaseURL, Routing: a.p.settings().Routing, KeepAlive: a.p.settings().KeepAlive}
+		if verr := lib.ValidateEndpoint(ep); verr != nil {
 			return nil, ops.Invalid("provider", "A provider's address is not usable.")
 		}
 		pl := asm.Payload
 		pl.MaxTokens = a.max
-		body, eerr := cl.Encode(a.model, pl, in.Stream)
-		cl.Close()
+		body, eerr := lib.Encode(ep, a.model, pl, in.Stream)
 		if eerr != nil {
 			return nil, ops.Invalid("model", eerr.Error())
 		}

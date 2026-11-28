@@ -2,7 +2,7 @@
 {{define "crumb"}}{{template "res-crumb" (dict "O" .Data "Here" "Scratchpad")}}{{end}}
 {{define "tab-write"}}{{template "res-tab" (dict "O" .Data "Active" "scratch")}}{{end}}
 {{define "ptabs"}}{{template "res-ptabs" (dict "O" .Data "Active" "scratch")}}{{end}}
-{{define "projmore"}}{{template "res-more" (dict "O" .Data "Active" "scratch")}}{{end}}
+{{define "projmore"}}{{template "res-more" (dict "O" .Data "Active" "scratch" "Lang" $.Lang)}}{{end}}
 {{define "content"}}
 {{with .Data}}
 <div class="research scratch-page" id="research" data-owner="{{.Kind}}">

@@ -151,9 +151,8 @@ type Service struct {
 	trigSender *webhook.Sender
 	trigReady  chan struct{}
 	deliverMu  sync.Mutex
-	relMu      sync.Mutex
-	relActive  map[string]bool // by remote id and tag
 	relWG      sync.WaitGroup
+	stopping   bool
 }
 
 // debounce is one project's pending automatic push.
@@ -236,7 +235,7 @@ func New(o Options) *Service {
 	}
 	configureNet(o.AllowPrivate, o.MaxRepoBytes, o.Log)
 	return &Service{o: o, log: o.Log, deb: map[string]*debounce{}, active: map[string]*job{},
-		ready: make(chan struct{}, 1), done: make(chan struct{}), trigReady: make(chan struct{}, 1), relActive: map[string]bool{}}
+		ready: make(chan struct{}, 1), done: make(chan struct{}), trigReady: make(chan struct{}, 1)}
 }
 
 // Enabled reports whether credentials can be stored (an instance key exists).
@@ -269,6 +268,7 @@ func (s *Service) Start(ctx context.Context) {
 	go func() {
 		<-ctx.Done()
 		s.mu.Lock()
+		s.stopping = true
 		if s.tick != nil {
 			s.tick.Stop()
 		}
@@ -285,6 +285,7 @@ func (s *Service) Start(ctx context.Context) {
 		s.mu.Unlock()
 		s.wg.Wait()
 		s.impWG.Wait()
+		s.relWG.Wait()
 		close(s.done)
 	}()
 }
@@ -358,10 +359,13 @@ func (s *Service) fire(projectID string) {
 	s.mu.Lock()
 	delete(s.deb, projectID)
 	ctx := s.ctx
-	s.mu.Unlock()
-	if ctx == nil || ctx.Err() != nil {
+	if s.stopping || ctx == nil || ctx.Err() != nil {
+		s.mu.Unlock()
 		return
 	}
+	s.wg.Add(1)
+	s.mu.Unlock()
+	defer s.wg.Done()
 	rs, err := s.remotesOf(ctx, projectID)
 	if err != nil {
 		return
@@ -405,9 +409,20 @@ func (s *Service) scheduleTick() {
 		arm = pc.AfterFuncPeriodic
 	}
 	s.tick = arm(s.o.PollEvery, func() {
-		s.check(s.ctx)
 		s.mu.Lock()
-		s.scheduleTick()
+		if s.stopping || s.ctx == nil || s.ctx.Err() != nil {
+			s.mu.Unlock()
+			return
+		}
+		ctx := s.ctx
+		s.wg.Add(1)
+		s.mu.Unlock()
+		defer s.wg.Done()
+		s.check(ctx)
+		s.mu.Lock()
+		if !s.stopping {
+			s.scheduleTick()
+		}
 		s.mu.Unlock()
 	})
 }
@@ -684,8 +699,8 @@ func (s *Service) run(parent context.Context, j *job) {
 	s.execute(ctx, bg, j)
 }
 
-// WaitIdle blocks until nothing is queued or running and no debounce is
-// pending, or ctx ends. For tests and for shutdown.
+// WaitIdle blocks until nothing is queued or running, or ctx ends. For tests
+// and for shutdown.
 func (s *Service) WaitIdle(ctx context.Context) error {
 	for {
 		s.mu.Lock()

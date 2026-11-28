@@ -79,6 +79,18 @@ func rowReader(img image.Image) func(y, x0, x1 int, buf []float32) {
 				buf[i] = float32(m.Pix[o+i])
 			}
 		}
+	case *image.NRGBA:
+		return func(y, x0, x1 int, buf []float32) {
+			o := m.PixOffset(x0, y)
+			for i := 0; i < (x1-x0)*4; i += 4 {
+				a := float32(m.Pix[o+i+3])
+				k := a * (1.0 / 255.0)
+				buf[i] = float32(m.Pix[o+i]) * k
+				buf[i+1] = float32(m.Pix[o+i+1]) * k
+				buf[i+2] = float32(m.Pix[o+i+2]) * k
+				buf[i+3] = a
+			}
+		}
 	}
 	return func(y, x0, x1 int, buf []float32) {
 		for x := x0; x < x1; x++ {

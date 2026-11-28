@@ -310,6 +310,10 @@ func afterWrite(tx *sql.Tx, docID, oldContent, newContent string, revision int, 
 			max         int
 		}{"private", a, maxProcessedPrivate})
 	}
+	if err := authors.Err(); err != nil {
+		_ = authors.Close()
+		return st, err
+	}
 	if err := authors.Close(); err != nil {
 		return st, err
 	}
@@ -329,6 +333,10 @@ func afterWrite(tx *sql.Tx, docID, oldContent, newContent string, revision int, 
 				return st, err
 			}
 			got = append(got, r)
+		}
+		if err := rows.Err(); err != nil {
+			_ = rows.Close()
+			return st, err
 		}
 		if err := rows.Close(); err != nil {
 			return st, err

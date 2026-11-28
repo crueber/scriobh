@@ -94,6 +94,18 @@ func schemaOf(t reflect.Type) map[string]any {
 		var required []string
 		for i := 0; i < t.NumField(); i++ {
 			f := t.Field(i)
+			if isEmbeddedStruct(f) {
+				sub := schemaOf(f.Type)
+				if sp, ok := sub["properties"].(map[string]any); ok {
+					for k, v := range sp {
+						props[k] = v
+					}
+				}
+				if sr, ok := sub["required"].([]string); ok {
+					required = append(required, sr...)
+				}
+				continue
+			}
 			if !f.IsExported() {
 				continue
 			}
@@ -151,15 +163,35 @@ func fieldName(f reflect.StructField) (name, loc string, optional bool) {
 	return n, "body", strings.Contains(opts, "omitempty") || f.Type.Kind() == reflect.Pointer
 }
 
+// isEmbeddedStruct reports whether f is an anonymous embedded struct whose
+// fields should be flattened into the parent object schema and input fields.
+func isEmbeddedStruct(f reflect.StructField) bool {
+	if !f.Anonymous {
+		return false
+	}
+	if f.Tag.Get("json") != "" || f.Tag.Get("path") != "" || f.Tag.Get("query") != "" {
+		return false
+	}
+	ft := f.Type
+	for ft.Kind() == reflect.Pointer {
+		ft = ft.Elem()
+	}
+	return ft.Kind() == reflect.Struct && ft != timeType
+}
+
 // FieldLoc describes where an input field lives on the wire.
 type FieldLoc struct {
-	Index    int
+	Index    []int
 	Name     string
 	Location string // body, path, query
 }
 
 // InputFields lists the input struct's wire fields, for binders.
 func InputFields(t reflect.Type) []FieldLoc {
+	return inputFields(t, nil)
+}
+
+func inputFields(t reflect.Type, prefix []int) []FieldLoc {
 	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
@@ -169,11 +201,16 @@ func InputFields(t reflect.Type) []FieldLoc {
 	var out []FieldLoc
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
+		idx := append(append([]int(nil), prefix...), i)
+		if isEmbeddedStruct(f) {
+			out = append(out, inputFields(f.Type, idx)...)
+			continue
+		}
 		if !f.IsExported() {
 			continue
 		}
 		if n, loc, _ := fieldName(f); n != "" {
-			out = append(out, FieldLoc{Index: i, Name: n, Location: loc})
+			out = append(out, FieldLoc{Index: idx, Name: n, Location: loc})
 		}
 	}
 	return out
